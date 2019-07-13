@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# standard libraries imports
+import functools
+import re
+import socket
+import warnings
+
+__all__=['switch',
+         'deprecated',
+         'checkhostname'
+         ]
+
+class switch(object):
+    """
+    This class provides the functionality of switch or case in other
+    languages than python
+    Python does not have switch
+    """
+    def __init__(self,value):
+        self.value = value
+        self.fall = False
+
+    def __iter__(self):
+        """Return the match method once, then stop"""
+        yield self.match
+        raise StopIteration
+
+    def match(self,*args):
+        """Indicate whether or not to enter a case suite """
+        if self.fall or not args:
+            return True
+        elif self.value in args :
+            self.fall = True
+            return True
+        else:
+            return False
+
+def deprecated(func):
+    """
+    This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    when the function is used.
+    """
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
+        warnings.warn("Call to deprecated function {}.".format(func.__name__),
+                      category=DeprecationWarning,
+                      stacklevel=2)
+        warnings.simplefilter('default', DeprecationWarning)  # reset filter
+        return func(*args, **kwargs)
+    return new_func
+
+def checkhostname():
+    """
+    Check if running in OAR, if not, exit.
+    """
+    hostname = socket.gethostname()#os.environ['HOST']
+    if re.search('hpc', hostname) or re.search('hib', hostname): #hostname.find('rnice')==0:
+        print('You are working on the OAR machine: {}'.format(hostname))
+    elif re.search('rnice', hostname):#os.system('oarprint host')==0:
+        print('You are working on the RNICE machine: {}'.format(hostname))
+        raise SystemExit("You must use OAR machines, not RNICE")
+    elif re.search('gpu', hostname) or re.search('gpid16a', hostname):
+        print('You are working on the GPU: {}'.format(hostname))
+    else:
+        print("You running in machine {}, which is not an ESRF machine".format(hostname))
+        a = input("Possibly running in the wrong machine. Do you have enough memory? (y/[n])").lower()
+        if str(a)=='' or str(a)=='n':
+            raise SystemExit("You must use more powerfull machines")
+        if str(a)=='y':
+            print('Ok, you assume all the risks!!!!')
+    return hostname
