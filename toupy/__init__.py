@@ -6,5 +6,5 @@ from . import io
 from . import registration
 from . import resolution
 from . import tomo
-from . import unwrapping
+from . import restoration
 from . import utils

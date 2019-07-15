@@ -3,7 +3,7 @@ from __future__ import print_function, division
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
-from ptypy.utils import rmphaseramp
+from ..restoration.ramptools import rmphaseramp
 import time, shutil, os
 
 overwrite_h5=True
@@ -37,75 +37,6 @@ def pol2cart(rho, phi):
     x = rho * np.cos(phi)
     y = rho * np.sin(phi)
     return(x, y)
-
-def get_charge(residues):
-    posres = np.where(np.round(residues)==1)
-    respos = len(posres[0])
-    negres = np.where(np.round(residues)==-1)
-    resneg = len(negres[0])
-        
-    nres = respos+resneg
-    print('Found {} residues'.format(nres))
-    
-    return posres, negres
-
-def wraptopi(phase,endpoint=True):
-    """
-    Wrap a scalar value or an entire array to:
-    [-pi, pi) if endpoint=False
-    (-pi, pi] if endpoint=True (default)
-    Example:
-    >>> import numpy as np
-    >>> wraptopi(np.linspace(-np.pi,np.pi,7),endpoint=True)
-    array([ 3.14159265, -2.0943951 , -1.04719755, -0.        ,  1.04719755,
-        2.0943951 ,  3.14159265])
-    >>> wraptopi(np.linspace(-np.pi,np.pi,7),endpoint=False)
-    array([-3.14159265, -2.0943951 , -1.04719755,  0.        ,  1.04719755,
-        2.0943951 , -3.14159265])
-    Created 07/10/2015
-    """
-    if not endpoint: # case [-pi, pi) 
-        return ( phase + np.pi) % (2 * np.pi ) - np.pi
-    else: # case (-pi, pi] 
-        return (( -phase + np.pi) % (2.0 * np.pi ) - np.pi) * -1.0
-
-def phaseresidues(phimage,disp=1):
-    """
-    Calculates the phase residues for a given wrapped phase
-    image. Note that by convention the positions of the phase residues are 
-    marked on the top left corner of the 2 by 2 regions.
-    
-      active---res4---right
-         |              |
-        res1           res3
-         |              |
-      below---res2---belowright
-    Inspired by PhaseResidues.m created by B.S. Spottiswoode on 07/10/2004
-    and by find_residues.m created by Manuel Guizar - Sept 27, 2011
-
-    Inputs:
-    phimage    Phase in radians
-    disp      = 0, No feedback
-              = 1, Text feedback (additional computation)
-    Outputs:
-    residues  Map of residues (valued +1 or -1)
-    Relevant literature:    
-    R. M. Goldstein, H. A. Zebker and C. L. Werner, Radio Science 23, 713-720
-    (1988).
-    """
-    residues =  wraptopi(phimage[2:,1:-1]   - phimage[1:-1,1:-1])
-    residues += wraptopi(phimage[2:,2:]     - phimage[2:,1:-1])
-    residues += wraptopi(phimage[1:-1,2:]   - phimage[2:,2:])
-    residues += wraptopi(phimage[1:-1,1:-1] - phimage[1:-1,2:])
-    residues /= (2*np.pi)
-    
-    respos,resneg = get_charge(residues)
-    residues_charge = dict(
-        pos = respos,
-        neg = resneg        
-        )
-    
-    return residues,residues_charge
 
 def remove_vortices(img_in, to_ignore = 100):
     # remove phase ramp

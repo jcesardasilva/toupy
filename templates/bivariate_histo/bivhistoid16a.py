@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Jun 29 12:36:52 2016
 
-@author: jdasilva
-"""
 # standard libraries
 import fnmatch
 import glob
@@ -22,6 +18,9 @@ import scipy.constants as consts
 
 # local package
 from registration_utils import radtap
+from toupy.io.filesrw import read_tiff, mask_borders, converttiffto16bits
+from toupy.utils.array_utils import converttiffto16bits, convert_to_mu, 
+                                convert_to_rhoe, convert_to_rhom
 
 #========================
 # Edit session 
@@ -38,80 +37,20 @@ factor_scale_delta = 1e6
 energy = 17.05 # in keV
 #========================
 
-def read_tiff(imgin):
-    """
-    Read tiff files using libtiff
-    input:
-        imgin : path to tiff file with extension
-    E.g.:
-    >>> tiff = TIFF.open('libtiff.tiff', mode='r')
-    >>> ar = tiff.read_image()
-    >>> tiff.close()
-    >>> ar.dtype
-    dtype('uint16')
-    >>> np.max(ar)
-    65535
-    """
-    tiff = libtiff.TIFF.open(imgin,mode='r')
-    imgout = tiff.read_image()
-    tiff.close()
-    return imgout
-
-def create_mask_border(tomo,mask_delta):
+def create_mask_border(tomogram_delta,mask_delta):
     # mask borders
-    #mask_border = []
     for ii in range(tomogram_delta.shape[0]):
         print('Mask {}'.format(ii+1))
-        gr,gc = np.gradient(tomogram_delta[ii])
-        mask_border = np.sqrt(gr**2+gc**2)>4e-7
-        mask_delta[ii] *= (~mask_border)
+        mask = mask_borders(tomogram_delta[ii], 4e-7)
+        mask_delta[ii] = mask
     print('Done')
-    #~ mask_border.append((np.sqrt(gr**2+gc**2)>8e-7))
-    #mask_border=np.asarray(mask_border)
     return mask_border
-
-def read_info_file(tiff_info_file):
-    # read info file
-    #with open(tiff_info_beta,'r') as ff:
-    with open(tiff_info_file,'r') as ff:
-        info_file = ff.readlines()
-        print(info_file)
-    # separate the infos
-    low_cutoff = np.float(info_file[0].strip().split('=')[1])
-    high_cutoff = np.float(info_file[1].strip().split('=')[1])
-    factor = np.float(info_file[2].strip().split('=')[1])
-    #~ pixelsize_beta = np.array([np.float(x) for x in (info_beta[3].strip().split('=')[1]).strip().lstrip('[').rstrip(']').split()])
-    pixelsize = (info_file[3].strip().split('=')[1]).strip().lstrip('[').rstrip(']').split()[0]
-
-    return low_cutoff, high_cutoff, factor, pixelsize
 
 def convert_tiff_value(filename,low_cutoff, high_cutoff):
     # convert the 16 bits tiff files to quantitative images
     tomogram=read_tiff(ii).astype(np.float)
-    # Convert to beta
-    tomogram/=(2**16-1)
-    tomogram*=(high_cutoff-low_cutoff)
-    tomogram+=low_cutoff
-
+    tomogram = converttiffto16bits(tomogram)
     return tomogram
-
-def convert_to_mu(input_img,wavelen):
-    return (4*np.pi/wavelen)*input_img
-
-def convert_to_rhoe(input_img,wavelen):
-    # classical electron radius
-    r0 = consts.physical_constants['classical electron radius'][0]
-    return (2*np.pi/(r0*wavelen**2))*input_img
-
-def convert_to_rhom(input_img,wavelen,A,Z):
-    # Avogadro's Constant
-    Na = consts.N_A # not used yet
-    # classical electron radius
-    r0 = consts.physical_constants['classical electron radius'][0]
-    # ratio A/Z
-    A_Z = A/Z
-    #return 1e-6*(2*np.pi*A_Z/(r0*Na*wavelen**2))*input_img
-    return 1e-6*(input_img/Na)*(A_Z)
 
 ##### main program
 

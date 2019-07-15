@@ -13,7 +13,7 @@ import numpy as np
 
 # local packages
 from ..registration.register_translation_fast import register_translation
-from .funcutils import deprecated
+from ..utils.funcutils import deprecated
 
 __all__=[
         'rmphaseramp',
@@ -130,7 +130,6 @@ def remove_linearphase_old(image,mask,upsamp):
                   computed from
         upsamp = Linear phase will be removed within 2*pi/upsamp peak to valley
                   in radians
-    @author: Julio Cesar da Silva (e-mail:jdasilva@esrf.fr)
 
     Inspired by remove_linearphase.m created by Manuel Guizar-Sicairos in Aug 19th, 2010.
     Please, cite: Manuel Guizar-Sicairos, Ana Diaz, Mirko Holler, Miriam S. Lucas,
@@ -161,12 +160,17 @@ def rmair(image,mask):
     Correcting amplitude factor using the mask from the phase ramp removal
     considering only pixels where mask is
     unity, arrays have center on center of array
-    Inputs:
-        image  = Amplitude Image
-        mask   = Binary array with ones where the linear phase should be
-                  computed from
-    @author: Julio Cesar da Silva (e-mail:jdasilva@esrf.fr)
-
+    Parameters
+    ---------
+    image : ndarray
+        Amplitude-contrast image
+    mask  : bool
+        Boolean array with indicating the locations from where the air
+        value should be obtained
+    Returns
+    -------
+    normalizedimage : ndarray
+        Image normalized by the air values
     """
     norm_val = np.sum(mask*image)/mask.sum()
     print("Normalization value: {}".format(norm_val))

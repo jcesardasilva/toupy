@@ -14,7 +14,7 @@ from skimage.restoration import unwrap_phase
 
 # local packages
 from ..io.dataio import LoadData, SaveData
-from .ramp_utils import rmphaseramp, rmlinearphase
+from .ramptools import rmphaseramp, rmlinearphase, rmair
 
 __all__=['gui_plotamp',
          'gui_plotphase',
@@ -534,7 +534,7 @@ class AmpTracker(PhaseTracker):
         else:
             imgin = self.X1[self.ind,:,:].copy()
             mask = self.mask[self.ind,:,:].copy()
-            self.X1[self.ind,:,:]=np.log(remove_air(imgin,mask)) # remove air and apply log
+            self.X1[self.ind,:,:]=np.log(rmair(imgin,mask)) # remove air and apply log
             self.X2[self.ind,:]=self.X1[self.ind,np.int(self.X1.shape[1]/2.),:].copy()
             self.done.append(self.ind)
             self.vmin=-0.5
@@ -554,7 +554,7 @@ class AmpTracker(PhaseTracker):
             else:
                 imgin = self.X1[ii,:,:].copy() #np.exp(1j*self.X1[ii,:,:]).copy()
                 mask = self.mask[ii,:,:].copy()
-                self.X1[ii,:,:]=np.log(remove_air(imgin,mask)) # remove air and apply log
+                self.X1[ii,:,:]=np.log(rmair(imgin,mask)) # remove air and apply log
                 self.X2[ii,:]=self.X1[ii,np.int(self.X1.shape[1]/2.),:].copy()
                 self.done.append(self.ind)
             self.update()

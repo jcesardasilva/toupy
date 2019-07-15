@@ -18,6 +18,7 @@ import re
 import time
 
 # third party packages
+import libtiff
 import fabio
 import h5py
 import matplotlib.pyplot as plt
@@ -25,6 +26,7 @@ from matplotlib.colors import hsv_to_rgb
 import numpy as np
 
 __all__ = [
+          'read_info_file',
           'read_ptyr',
           'read_cxi',
           'crop_array',
@@ -33,8 +35,26 @@ __all__ = [
           'read_edffilestack',
           'create_paramsh5',
           'load_paramsh5',
-          'write_paramsh5'
+          'write_paramsh5',
+          'read_tiff',
+          'converttiffto16bits',
+          'converttiffto8bits'
           ]
+
+def read_info_file(tiff_info_file):
+    # read info file
+    #with open(tiff_info_beta,'r') as ff:
+    with open(tiff_info_file,'r') as ff:
+        info_file = ff.readlines()
+        print(info_file)
+    # separate the infos
+    low_cutoff = np.float(info_file[0].strip().split('=')[1])
+    high_cutoff = np.float(info_file[1].strip().split('=')[1])
+    factor = np.float(info_file[2].strip().split('=')[1])
+    #~ pixelsize_beta = np.array([np.float(x) for x in (info_beta[3].strip().split('=')[1]).strip().lstrip('[').rstrip(']').split()])
+    pixelsize = (info_file[3].strip().split('=')[1]).strip().lstrip('[').rstrip(']').split()[0]
+
+    return low_cutoff, high_cutoff, factor, pixelsize
 
 def _reorient_ptyrimg(input_array):
     """
@@ -55,9 +75,18 @@ def _reorient_ptyrimg(input_array):
 def read_ptyr(pathfilename):
     """
     Read reconstruction files .ptyr from Ptypy
-    inputs:
-        pathfilename = path to file
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
+    Parameters
+    ----------
+    pathfilename : str 
+        Path to file
+    Returns
+    -------
+    data1 : ndarray (complex)
+        Object image
+    probe1 : ndarray (complex)
+        Probe images
+    pixelsize : float
+        List with pixelsizes in vertical and horizontal directions
     """
     with h5py.File(pathfilename,'r') as fid:
         # get the root entry
@@ -78,9 +107,18 @@ def read_ptyr(pathfilename):
 def read_cxi(pathfilename):
     """
     Read reconstruction files .cxi from PyNX
-    inputs:
-        pathfilename = path to file
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
+    Parameters
+    ----------
+    pathfilename : str 
+        Path to file
+    Returns
+    -------
+    data1 : ndarray (complex)
+        Object image
+    probe1 : ndarray (complex)
+        Probe images
+    pixelsize : list float
+        List with pixelsizes in vertical and horizontal directions
     """
     cxientry = 'entry_last' #params['cxientry'] # to know where the data is
     with h5py.File(pathfilename,'r') as fid:
@@ -105,7 +143,6 @@ def crop_array(input_array,delcropx,delcropy):
     Inputs:
         input_array: input image to be cropped
         **params: dict of parameters
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     if delcropx is not None or delcropy is not None:
         print('Cropping ROI of data')
@@ -127,7 +164,6 @@ def write_edf(fname, data_array,hd=None):
         fname = file name
         data_array = data to be saved as edf
         hd = dictionary with header information
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     with fabio.edfimage.edfimage() as fid:
         fid.data = data_array
@@ -138,7 +174,16 @@ def write_edf(fname, data_array,hd=None):
 def read_edf(fname):
     """
     read EDF files
-    fname = file name
+    Parameters
+    ----------
+    fname : str 
+        Path to file
+    Returns
+    -------
+    projs: ndarray 
+        Array of projections
+    pixelsize : list of float
+        List with pixelsizes in vertical and horizontal directions
     """
     imgobj = fabio.open(fname)
     imgdata = imgobj.data
@@ -150,10 +195,16 @@ def read_edf(fname):
 def read_edffilestack(**params):
     """
     Read projection stack
-    Inputs:
-        inputkwargs: dict with parameters
-    Output:
-        projs: ndarray with the projections
+    Parameters
+    ----------
+    inputkwargs : dict
+        dict with parameters
+    Returns
+    -------
+    projs: ndarray 
+        Array of projections
+    pixelsize : list of float
+        List with pixelsizes in vertical and horizontal directions
     """
     # create the file wildcard
     file_wcard = re.sub(r"_\d{4}.edf","*.edf",params[u'pathfilename'])
@@ -176,7 +227,6 @@ def read_edffilestack(**params):
 def load_paramsh5(**params):
     """
     Load parameters from HDF5 file of parameters
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     # read parameter file
     paramsh5file = params['samplename']+'_params.h5'
@@ -191,7 +241,6 @@ def load_paramsh5(**params):
 def create_paramsh5(**params):
     """
     Create parameter file in HDF5 format
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     # create a parameter file
     print('Creating the h5 parameter file')
@@ -224,3 +273,78 @@ def write_paramsh5(h5filename,**params):
                 ff.create_dataset('info/{}'.format(k),data = v,dtype=np.int32)
             else:
                 ff.create_dataset('info/{}'.format(k),data = v) # other
+
+def read_tiff(imgpath):
+    """
+    Read tiff files using libtiff
+    Parameters
+    ----------
+    imgpath : str
+        Path to tiff file with extension
+    Returns
+    -------
+    imgout : ndarray
+        Array containing the image
+    Examples:
+    ---------
+    >>> imgpath = 'libtiff.tiff'
+    >>> tiff = read_tiff(imgpath)
+    >>> ar = tiff.read_image()
+    >>> tiff.close()
+    >>> ar.dtype
+    dtype('uint16')
+    >>> np.max(ar)
+    65535
+    """
+    tiff = libtiff.TIFF.open(imgpath,mode='r')
+    imgout = tiff.read_image()
+    tiff.close()
+    return imgout
+
+def converttiffto16bits(tiffimage,low_cutoff, high_cutoff):
+    """
+    Convert tiff files to 16 bits
+    Parameters
+    ----------
+    imgpath : ndarray
+        Image read from tiff file
+    low_cutoff : float
+        Low cutoff of the gray level
+    high_cutoff : float
+        High cutoff of the gray level
+    Returns
+    -------
+    tiffimage : ndarray
+        Array containing the image at 16 bits
+    """
+    tiffimage = tiffimage.astype(np.float)
+    # Convert to beta
+    tiffimage/=(2**16-1)
+    tiffimage*=(high_cutoff-low_cutoff)
+    tiffimage+=low_cutoff
+
+    return tiffimage
+
+def converttiffto8bits(filename,low_cutoff, high_cutoff):
+    """
+    Convert tiff files to 8 bits
+    Parameters
+    ----------
+    imgpath : ndarray
+        Image read from tiff file
+    low_cutoff : float
+        Low cutoff of the gray level
+    high_cutoff : float
+        High cutoff of the gray level
+    Returns
+    -------
+    tiffimage : ndarray
+        Array containing the image at 16 bits
+    """
+    tiffimage = tiffimage.astype(np.float)
+    # Convert to beta
+    tiffimage/=(2**8-1)
+    tiffimage*=(high_cutoff-low_cutoff)
+    tiffimage+=low_cutoff
+
+    return tiffimage

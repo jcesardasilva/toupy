@@ -23,9 +23,10 @@ from skimage.feature.register_translation import _upsampled_dft
 from scipy.ndimage.fourier import fourier_shift
 
 # import of local packages
-from FSC import FSCPlot, checkhostname, load_data_FSC
-from io_utils import save_or_load_data, checkhostname, save_or_load_tomogram, create_paramsh5, load_paramsh5, save_or_load_FSCdata
-from iradon import mod_iradon, mod_iradon2
+from toupy.resolution.FSC import FSCPlot, checkhostname, load_data_FSC
+from toupy.io.dataio import save_or_load_data, checkhostname, save_or_load_tomogram
+from toupy.io.filesrw import create_paramsh5, load_paramsh5, save_or_load_FSCdata
+from toupy.tomo.iradon import mod_iradon, mod_iradon2
 from scipy import ndimage
 
 #initializing params

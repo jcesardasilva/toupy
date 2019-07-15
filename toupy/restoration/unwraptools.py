@@ -1,23 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Oct 07 10:21:27 2015
 
-@author: Julio Cesar da Silva (ESRF) - jdasilva@esrf.fr
-"""
 # third party packages
 import numpy as np
 
 __all__=[
-        u'wraptopi',
-        u'phaseresidues',
-        u'distance',
-        u'wrap',
-        u'get_charge',
+        'wraptopi',
+        'wrap',
+        'distance',
+        'get_charge',
+        'phaseresidues'
         #~ u'goldstein_unwrap2D'
         ]
 
-# Find and plot residues for the phase unwrapping
 def wraptopi(phase,endpoint=True):
     """
     Wrap a scalar value or an entire array to:
@@ -69,10 +64,19 @@ def distance(pixel1, pixel2):
     return np.sqrt(np.sum((pixel1-pixel2)**2))
 
 def get_charge(residues):
-    #pposr,pposc = np.where(np.round(residues)==1)
-    #respos= len(pposr)
-    #nposr,nposc = np.where(np.round(residues)==-1)
-    #resneg = len(nposr)
+    """
+    Get the residues charges
+    Parameters
+    ----------
+    residues : ndarray
+        2D arrays with residues
+    Returns
+    -------
+    posres : ndarray
+        Positions of the residues with positive charge
+    negres : ndarray
+        Positions of the residues with negative charge
+    """
     posres = np.where(np.round(residues)==1)
     respos = len(posres[0])
     negres = np.where(np.round(residues)==-1)
@@ -85,8 +89,25 @@ def get_charge(residues):
 
 def phaseresidues(phimage,disp=1):
     """
-    Calculates the phase residues for a given wrapped phase
-    image. Note that by convention the positions of the phase residues are
+    Calculates the phase residues for a given wrapped phase image. 
+
+    Parameters
+    ----------
+    phimage : ndarray
+        Array containing the phase-contrast images with gray-level 
+        in radians
+    disp : bool
+        False -> No feedback
+        True ->  Text feedback (additional computation)
+    
+    Returns
+    -------
+    residues : ndarray
+        Map of residues (valued +1 or -1)
+    
+    Notes
+    -----
+    Note that by convention the positions of the phase residues are
     marked on the top left corner of the 2 by 2 regions.
 
       active---res4---right
@@ -96,16 +117,8 @@ def phaseresidues(phimage,disp=1):
       below---res2---belowright
     Inspired by PhaseResidues.m created by B.S. Spottiswoode on 07/10/2004
     and by find_residues.m created by Manuel Guizar - Sept 27, 2011
-
-    Inputs:
-    phimage    Phase in radians
-    disp      = 0, No feedback
-              = 1, Text feedback (additional computation)
-    Outputs:
-    residues  Map of residues (valued +1 or -1)
-    Relevant literature:
-    R. M. Goldstein, H. A. Zebker and C. L. Werner, Radio Science 23, 713-720
-    (1988).
+    Relevant literature: R. M. Goldstein, H. A. Zebker and C. L. Werner,
+    Radio Science 23, 713-720(1988).
     """
     residues =  wraptopi(phimage[2:,1:-1]   - phimage[1:-1,1:-1])
     residues += wraptopi(phimage[2:,2:]     - phimage[2:,1:-1])

@@ -6,82 +6,25 @@ FOURIER SHELL CORRELATION
 # standard library
 import os
 import re
-import socket
-import sys
 import time
-import warnings
-warnings.filterwarnings("ignore")
 
 # third party package
 import h5py
 import matplotlib.pyplot as plt
-import multiprocessing
 import numpy as np
-import pyfftw
 
-# enabling cache for pyfftw
-pyfftw.interfaces.cache.enable()
-pyfftw.interfaces.cache.set_keepalive_time(30)
+# local packages
+from ..utils.FFT_utils import fastfftn
 
 __all__ = [
-            'checkhostname',
-            'read_ptyr',
             'load_data_FSC',
-            'rmphaseramp',
             'FourierShellCorr',
             'FSCPlot'
            ]
 
-#-------------------------------------------------------
-# still keep this block, but it should disappear soon
-if sys.version_info<(3,0): # backcompatibility
-    input = raw_input
-    range = xrange
-#-------------------------------------------------------
-
-def checkhostname():
-    """
-    Check if running in OAR, if not, exit.
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
-    """
-    hostname = socket.gethostname()#os.environ['HOST']
-    if re.search('hpc', hostname) or re.search('hib', hostname):
-        print('You are working on a {} machine.'.format(hostname))
-
-    elif re.search('rnice', hostname):
-        print('You are working on a {} machine.'.format(hostname))
-        raise SystemExit("You must use OAR machines, not RNICE")
-    elif re.search('gpu', hostname) or re.search('gpid16a', hostname):
-        print('You are working on a {} machine.'.format(hostname))
-    else:
-        print("You running in machine {}, which is not an ESRF machine".format(hostname))
-        a = input("Possibly running in the wrong machine. Do you have enough memory? (y/[n])").lower()
-        if str(a)=='' or str(a)=='n':
-            raise SystemExit("You must use more powerfull machines")
-        if str(a)=='y':
-            print('Ok, you assume all the risks!!!!')
-    return hostname
-
-def read_ptyr(pathfilename):
-    """
-    Read reconstruction files .ptyr from Ptypy
-    inputs:
-        pathfilename = path to file
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
-    """
-    with h5py.File(pathfilename,'r') as fid:
-        # get the root entry
-        content1 = list(fid.keys())[0]
-        # get the data from the object
-        data1 = np.fliplr(np.transpose(np.squeeze(fid[content1+"/obj/S00G00/data"])))
-        # get the data from the probe
-        probe1 = np.squeeze(fid[content1+"/probe/S00G00/data"])
-        # get the pixel size
-        pixelsize = (fid[content1+"/obj/S00G00/_psize"][()]).astype(np.float32)
-    return data1,probe1,pixelsize
-
 def load_data_FSC(h5name, **params):
     """
+    ### TODO: check the functions in io.dataio #####
     Load the projections for the FSC calculations
     @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
@@ -129,43 +72,6 @@ def load_data_FSC(h5name, **params):
     theta = thetaunsort[idxsort]
     #stack_proj = stack_proj[idxsort]
     return stack_proj[idxsort], theta, pixelsize
-
-def _fftwn(input_array):
-    """
-    Auxiliary function to use pyFFTW. It does the align, planning and
-    apply FFTW transform
-    input_array: array to be FFTWed
-    @author: jdasilva
-    """
-    # number of cores available
-    ncores = multiprocessing.cpu_count()
-    # stating the precision.
-    # np.complex64: single precision; and np.complex128: double precision
-    cprecision = np.complex64 # single precision
-    planner_type = 'FFTW_MEASURE'
-    # align array
-    fftw_array = pyfftw.byte_align(input_array,dtype=cprecision,n=16)
-    # will need to plan once
-    fftw_array = pyfftw.interfaces.numpy_fft.fftn(fftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores)
-    return fftw_array
-
-def _ifftwn(input_array):
-    """
-    Auxiliary function to use pyFFTW. It does the align, planning and
-    apply inverse FFTW transform
-    input_array: array to be FFTWed
-    @author: jdasilva
-    """
-    # checking number of cores available
-    ncores = multiprocessing.cpu_count()
-    # stating the precision.
-    # np.complex64: single precision; and np.complex128: double precision
-    cprecision = np.complex64 # single precision
-    planner_type = 'FFTW_MEASURE'
-    # align array
-    ifftw_array = pyfftw.byte_align(input_array,dtype=cprecision,n=16)
-    ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores)
-    return ifftw_array
 
 class FourierShellCorr:
     """
@@ -375,8 +281,8 @@ class FourierShellCorr:
 
         # FSC computation
         print('Calling method fouriercorr from the class FourierShellCorr')
-        F1 = _fftwn(self.img1*self.window) # FFT of the first image
-        F2 = _fftwn(self.img2*self.window) # FFT of the second image
+        F1 = fastfftn(self.img1*self.window) # FFT of the first image
+        F2 = fastfftn(self.img2*self.window) # FFT of the second image
         index = self.ringthickness() # index for the ring thickness
         f,fnyquist = self.nyquist() # Frequency and Nyquist Frequency
         # initializing variables
