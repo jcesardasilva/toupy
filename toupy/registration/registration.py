@@ -2,13 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # standard libraries imports
-import functools
-import re
-import socket
-import multiprocessing
-import sys
 import time
-import warnings
 
 # third party packages
 import matplotlib.pyplot as plt
@@ -18,101 +12,37 @@ from scipy.fftpack import fftfreq
 import scipy.ndimage as snd
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter
-from silx.opencl.projection import Projection
-from silx.opencl.backprojection import Backprojection
 from skimage.transform import radon
 
 # local packages
-from register_translation_fast import register_translation
-from iradon import mod_iradon, compute_filter, mod_iradon2, radon2
+from .register_translation_fast import register_translation
+from ..tomo.iradon import mod_iradon, mod_iradonSilx
+from ..tomo.radon import radonSilx
+from ..utils.funcutils import deprecated,switch
+from ..utils.FFT_utils import fastfftn, fastifftn, padwidthbothsides, pad_fft
 
-# enable cache for pyfftw
-pyfftw.interfaces.cache.enable()
-pyfftw.interfaces.cache.set_keepalive_time(30)
 
-#-------------------------------------------------------
-# Python 3 only
-if sys.version_info<(3,0):
-    raise SystemExit('Incompatible with Python 2')
-#-------------------------------------------------------
-
-__all__=[u'alignprojections_vertical',
-         u'alignprojections_horizontal',
-         u'compute_aligned_stack',
-         u'center_of_mass_stack',
-         u'polynomial1d',
-         u'projectpoly1d',
-         u'shift_fft',
-         u'shift_linear',
-         u'shift_pseudo_linear',
-         u'shift_spline_wrap',
-         u'_shift_method',
-         u'switch',
-         u'vertical_fluctuations',
-         u'vertical_mass_fluctuations',
-         u'vertical_shift',
-         u'cc_align',
-         u'derivatives',
-         u'_search_shift_direction',
-         u'_search_shift_direction_stack',
-         u'radtap',
-         u'fract_hanning_pad'
+__all__=['alignprojections_vertical',
+         'alignprojections_horizontal',
+         'compute_aligned_stack',
+         'center_of_mass_stack',
+         'polynomial1d',
+         'projectpoly1d',
+         'shift_fft',
+         'shift_linear',
+         'shift_pseudo_linear',
+         'shift_spline_wrap',
+         '_shift_method',
+         'vertical_fluctuations',
+         'vertical_mass_fluctuations',
+         'vertical_shift',
+         'cc_align',
+         'derivatives',
+         '_search_shift_direction',
+         '_search_shift_direction_stack',
+         'radtap',
+         'fract_hanning_pad'
          ]
-
-class switch(object):
-    """
-    This class provides the functionality of switch or case in other
-    languages than python
-    Python does not have switch
-    """
-    def __init__(self,value):
-        self.value = value
-        self.fall = False
-
-    def __iter__(self):
-        """Return the match method once, then stop"""
-        yield self.match
-        raise StopIteration
-
-    def match(self,*args):
-        """Indicate whether or not to enter a case suite """
-        if self.fall or not args:
-            return True
-        elif self.value in args :
-            self.fall = True
-            return True
-        else:
-            return False
-
-def deprecated(func):
-    """
-    This is a decorator which can be used to mark functions
-    as deprecated. It will result in a warning being emitted
-    when the function is used.
-    """
-    @functools.wraps(func)
-    def new_func(*args, **kwargs):
-        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
-        warnings.warn("Call to deprecated function {}.".format(func.__name__),
-                      category=DeprecationWarning,
-                      stacklevel=2)
-        warnings.simplefilter('default', DeprecationWarning)  # reset filter
-        return func(*args, **kwargs)
-    return new_func
-
-def NextPowerOfTwo(number):
-    """
-    Returns next power of two following 'number'
-    """
-    return int(np.ceil(np.log2(number)))
-
-def PadWidthBothSides(nbins):
-    """
-    Returns pad_width for padding both sides
-    """
-    nextPower = NextPowerOfTwo(nbins)
-    deficit = int(np.power(2, nextPower) - nbins)
-    return int(deficit/2)
 
 def polynomial1d(x,order=1,w=1):
     """
@@ -301,61 +231,6 @@ def shift_pseudo_linear(input_array,shift):
     rows, cols = shift
     return np.roll(np.roll(input_array,-int(rows),axis=0),-int(cols),axis=1) # important to have the int
 
-def _fftwn(input_array):
-    """
-    Auxiliary function to use pyFFTW. It does the align, planning and
-    apply FFTW transform
-    input_array: array to be FFTWed
-    @author: jdasilva
-    """
-    # checking number of cores available
-    ncores = multiprocessing.cpu_count()
-    # stating the precision.
-    # np.complex64: single precision; and np.complex128: double precision
-    cprecision = np.complex64 # single precision
-    planner_type = 'FFTW_MEASURE'
-    ## align array
-    fftw_array = pyfftw.byte_align(input_array,dtype=cprecision,n=16)
-    ## will need to plan once
-    fftw_array = pyfftw.interfaces.numpy_fft.fftn(fftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores)
-    return fftw_array
-
-def _ifftwn(input_array):
-    """
-    Auxiliary function to use pyFFTW. It does the align, planning and
-    apply inverse FFTW transform
-    input_array: array to be FFTWed
-    @author: jdasilva
-    """
-    # checking number of cores available
-    ncores = multiprocessing.cpu_count()
-    # stating the precision.
-    # np.complex64: single precision; and np.complex128: double precision
-    cprecision = np.complex64 # single precision
-    planner_type = 'FFTW_MEASURE'
-    ###ndata = input_array.shape
-    # align array
-    ifftw_array = pyfftw.byte_align(input_array,dtype=cprecision,n=16)
-    ###ifftw_array = pyfftw.empty_aligned(ndata,dtype=cprecision,n=16)
-    ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores)
-    return ifftw_array
-
-def _pad_fft(input_array,padw,pad_mode='reflect'):
-    """
-    Auxiliary function to pad arrays for Fourier transforms
-    input_array: array to be Fourier transformed
-    @author: jdasilva
-    """
-    #padding to reduce artifacts with FFTs
-    if input_array.ndim == 1:
-        array_pad = np.pad(input_array,(padw,padw),mode=pad_mode)
-        N_pad = fftfreq(len(array_pad))
-    elif input_array.ndim == 2:
-        array_pad = np.pad(input_array,((padw[0],padw[0]),(padw[1],padw[1])),mode=pad_mode)
-        n_pad = [fftfreq(array_pad.shape[0]),fftfreq(array_pad.shape[1])]
-        N_pad = np.meshgrid(n_pad[1],n_pad[0]) # reverted order to be compatible with meshgrid output
-    return array_pad, N_pad
-
 def shift_fft(input_array,shift,pad_mode='reflect',output_complex=False):
     """
     Performs pixel and subpixel shift (with wraping) using pyFFTW.
@@ -371,12 +246,11 @@ def shift_fft(input_array,shift,pad_mode='reflect',output_complex=False):
             nr = len(input_array)
             # padding to reduce artifacts and to be fast
             # ~ padw = pyfftw.next_fast_len(nr) # next fast for pyfftw
-            padw = PadWidthBothSides(nr) # next power of 2
-            input_array,Nr = _pad_fft(input_array,padw,pad_mode)
+            input_array,Nr,padw = pad_fft(input_array,pad_mode)
             ## Forward FFTW
-            fftw_input_array = _fftwn(input_array)
+            fftw_input_array = fastfftn(input_array)
             ## Shifting in the phase space
-            output_array = _ifftwn((fftw_input_array)*np.exp(1j*2*np.pi*((shift_rows*Nr))))
+            output_array = fastifftn((fftw_input_array)*np.exp(1j*2*np.pi*((shift_rows*Nr))))
             ## cropping the padded regions if needed
             output_array = output_array[padw:-padw]
     elif input_array.ndim==2: # 2D array case
@@ -387,13 +261,12 @@ def shift_fft(input_array,shift,pad_mode='reflect',output_complex=False):
             nr,nc = input_array.shape
             # padding to reduce artifacts and to be fast
             # ~ padw = [pyfftw.next_fast_len(nr), pyfftw.next_fast_len(nc)] # next fast for pyfftw
-            padw = [PadWidthBothSides(nr), PadWidthBothSides(nc)] # next power of 2
-            input_array,(Nc,Nr) = _pad_fft(input_array,padw,pad_mode)
+            input_array,(Nc,Nr),padw = pad_fft(input_array,pad_mode)
             ## Forward FFTW
-            fftw_input_array = _fftwn(input_array)
+            fftw_input_array = fastfftn(input_array)
             ## Shifting in the phase space
-            output_array = _ifftwn((fftw_input_array)*np.exp(1j*2*np.pi*((shift_rows*Nr)+(shift_cols*Nc))))
-            # ~ output_array = _ifftwn((fftw_input_array)*np.exp(1j*2*np.pi*(shift.dot(...))))# TODO: check if we can do this!!!
+            output_array = fastifftn((fftw_input_array)*np.exp(1j*2*np.pi*((shift_rows*Nr)+(shift_cols*Nc))))
+            # ~ output_array = fastifftn((fftw_input_array)*np.exp(1j*2*np.pi*(shift.dot(...))))# TODO: check if we can do this!!!
             ## cropping the padded regions if needed
             output_array = output_array[padw[0]:-padw[0],padw[1]:-padw[1]]
     else:
@@ -1487,7 +1360,7 @@ def FBP_projector(recons,theta,P,**params):
     if params['opencl']:
         # using Silx Projector
         print("Using OpenCL")
-        sinogramcomp = radon2(recons,theta)
+        sinogramcomp = radonSilx(recons,theta)
     else:
         # Not using Silx Projector (very slow)
         print("Not using OpenCL")
@@ -1702,7 +1575,7 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,params):
         B = None
         print("Using OpenCL, changing Backprojector implementation")
         # Monkey patching
-        mod_iradon = mod_iradon2
+        mod_iradon = mod_iradonSilx
 
     # select the shift method
     shiftmeth = _shift_method(params['interpmeth'])

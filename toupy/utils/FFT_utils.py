@@ -98,7 +98,7 @@ def fastifftn(input_array):
     ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores)
     return ifftw_array
 
-def padfft(input_array,padw,pad_mode='reflect'):
+def padfft(input_array,pad_mode='reflect'):
     """
     Auxiliary function to pad arrays for Fourier transforms. It accepts
     1D and 2D arrays.
@@ -107,9 +107,6 @@ def padfft(input_array,padw,pad_mode='reflect'):
     ---------
     input_array : ndarray
         Array to be padded
-    padw : int or tuple
-        Padding width. For 1D array, this is int and for 2D array, this
-        is a tuple with two ints, the first for row and second for columns
     mode : str (default = 'reflect')
         Padding mode to treat the array borders. See np.pad for modes.
 
@@ -117,15 +114,21 @@ def padfft(input_array,padw,pad_mode='reflect'):
     -------
     array_pad : ndarray
         Padded array
+    N_pad : ndarray
+        padded frequency coordinates
+    padw : int or list of ints
+        pad width
     """
     #padding to reduce artifacts with FFTs
     if input_array.ndim == 1:
+        nr = len(input_array)
         padw = padwidthbothsides(nr) # next power of 2
         array_pad = np.pad(input_array,(padw,padw),mode=pad_mode)
         N_pad = fftfreq(len(array_pad))
     elif input_array.ndim == 2:
+        nr, nc = input_array.shape
         padw = [padwidthbothsides(nr), padwidthbothsides(nc)]
         array_pad = np.pad(input_array,((padw[0],padw[0]),(padw[1],padw[1])),mode=pad_mode)
         n_pad = [fftfreq(array_pad.shape[0]),fftfreq(array_pad.shape[1])]
         N_pad = np.meshgrid(n_pad[1],n_pad[0]) # reverted order to be compatible with meshgrid output
-    return array_pad, N_pad
+    return array_pad, N_pad, padw
