@@ -19,7 +19,7 @@ from .register_translation_fast import register_translation
 from ..tomo.iradon import mod_iradon, mod_iradonSilx
 from ..tomo.radon import radonSilx
 from ..utils.funcutils import deprecated,switch
-from ..utils.FFT_utils import fastfftn, fastifftn, padwidthbothsides, pad_fft
+from ..utils.FFT_utils import fastfftn, fastifftn, padwidthbothsides, padfft
 
 
 __all__=['alignprojections_vertical',

@@ -72,12 +72,39 @@ def _reorient_ptyrimg(input_array):
         raise ValueError(u"Wrong dimensions for the array")
     return output_array
 
+global meta
+meta = dict()
+def _print_attrs_ptyr(name):
+    """
+    Auxiliary function to indentify from where the data must be read in
+    the ptyr files
+    """
+    if 'obj' in name:
+        if '_psize' in name:
+            meta['psize_h5path'] = name
+        if 'data' in name:
+            meta['obj_h5path'] = name
+    if 'probe' in name:
+        if 'data' in name:
+            meta['probe_h5path'] = name
+
+
+def _findh5paths(filename):
+    """
+    Auxiliary function to indentify from where the data must be read in
+    the HDF5 files
+    """
+    meta = {}
+    with h5py.File(filename,'r') as fid:
+        fid.visit(_print_attrs_ptyr)
+    print(meta)
+
 def read_ptyr(pathfilename):
     """
     Read reconstruction files .ptyr from Ptypy
     Parameters
     ----------
-    pathfilename : str 
+    pathfilename : str
         Path to file
     Returns
     -------
@@ -88,15 +115,17 @@ def read_ptyr(pathfilename):
     pixelsize : float
         List with pixelsizes in vertical and horizontal directions
     """
+    if meta == {}:
+        print('meta is empty')
+        _findh5paths(pathfilename)
+
     with h5py.File(pathfilename,'r') as fid:
-        # get the root entry
-        content0 = list(fid.keys())[0]
         # get the data from the object
-        data0 = np.squeeze(fid[content0+"/obj/S00G00/data"]).astype(np.complex64)
+        data0 = np.squeeze(fid[meta['obj_h5path']]).astype(np.complex64)
         # get the data from the probe
-        probe0 = np.squeeze(fid[content0+"/probe/S00G00/data"]).astype(np.complex64)
+        probe0 = np.squeeze(fid[meta['probe_h5path']]).astype(np.complex64)
         # get the pixel size
-        pixelsize = (fid[content0+"/obj/S00G00/_psize"][()]).astype(np.float32)
+        pixelsize = (fid[meta['psize_h5path']][()]).astype(np.float32)
 
     # reorienting the object
     data1 = _reorient_ptyrimg(data0)
@@ -104,12 +133,34 @@ def read_ptyr(pathfilename):
 
     return data1,probe1,pixelsize
 
+def _h5py_dataset_iterator(g, prefix=''):
+    for key in g.keys():
+        item = g[key]
+        path = '{}/{}'.format(prefix, key)
+        if isinstance(item, h5py.Dataset): # test for dataset
+            yield (path, item[()])
+        elif isinstance(item, h5py.Group): # test for group (go down)
+            yield from _h5py_dataset_iterator(item, path)
+
+def _h5pathcxi(filename):
+    """
+    h5py visititems does not find links
+    """
+    listpath=[]
+    with h5py.File(filename, 'r') as f:
+        for (path, dset) in _h5py_dataset_iterator(f):
+            listpath.append(path)
+    meta['obj_h5path'] = [ii for ii in sorted(listpath) if 'object/data' in ii][-3]
+    meta['probe_h5path'] = [ii for ii in sorted(listpath) if 'probe/data' in ii][-2]
+    meta['xpsize_h5path'] = [ii for ii in sorted(listpath) if 'object/x_pixel_size' in ii][-1]
+    meta['ypsize_h5path'] = [ii for ii in sorted(listpath) if 'object/x_pixel_size' in ii][-1]
+
 def read_cxi(pathfilename):
     """
     Read reconstruction files .cxi from PyNX
     Parameters
     ----------
-    pathfilename : str 
+    pathfilename : str
         Path to file
     Returns
     -------
@@ -120,15 +171,16 @@ def read_cxi(pathfilename):
     pixelsize : list float
         List with pixelsizes in vertical and horizontal directions
     """
-    cxientry = 'entry_last' #params['cxientry'] # to know where the data is
+    _h5pathcxi(pathfilename)
+
     with h5py.File(pathfilename,'r') as fid:
         # get the data from the object
-        data0 = np.squeeze(fid[cxientry+'/object/data']).astype(np.complex64)
+        data0 = np.squeeze(fid[meta['obj_h5path']]).astype(np.complex64)
         # get the data from the probe
-        probe0 = np.squeeze(fid[cxientry+'/probe/data']).astype(np.complex64)
+        probe0 = np.squeeze(fid[meta['probe_h5path']]).astype(np.complex64)
         # get the pixel size
-        pixelsizex = fid[cxientry+'/object/x_pixel_size'][()]
-        pixelsizey = fid[cxientry+'/object/y_pixel_size'][()]
+        pixelsizex = fid[meta['xpsize_h5path']][()]
+        pixelsizey = fid[meta['ypsize_h5path']][()]
     pixelsize = np.array([pixelsizex,pixelsizey]).astype(np.float32)
 
     # reorienting the object
@@ -176,11 +228,11 @@ def read_edf(fname):
     read EDF files
     Parameters
     ----------
-    fname : str 
+    fname : str
         Path to file
     Returns
     -------
-    projs: ndarray 
+    projs: ndarray
         Array of projections
     pixelsize : list of float
         List with pixelsizes in vertical and horizontal directions
@@ -201,7 +253,7 @@ def read_edffilestack(**params):
         dict with parameters
     Returns
     -------
-    projs: ndarray 
+    projs: ndarray
         Array of projections
     pixelsize : list of float
         List with pixelsizes in vertical and horizontal directions

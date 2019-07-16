@@ -163,6 +163,7 @@ class LoadProjections(PathName,Constants):
         except: pass
 
         if self.fileext=='.ptyr': # Ptypy
+            findh5paths(self.pathfilename)
             self.read_reconfile = read_ptyr
         elif self.fileext=='.cxi': # PyNX
             self.read_reconfile = read_cxi
