@@ -42,6 +42,24 @@ __all__ = [
           ]
 
 def read_info_file(tiff_info_file):
+    """
+    Read info file from tiff slices of the reconstructed tomographic 
+    volume
+    
+    Parameters
+    ----------
+    tiff_info_file : str
+        Filename
+    
+    Returns
+    -------
+    low_cutoff : float
+        Low cutoff of the gray level
+    high_cutoff : float
+        High cutoff of the gray level
+    pixelsize : float
+        Pixelsize    
+    """
     # read info file
     #with open(tiff_info_beta,'r') as ff:
     with open(tiff_info_file,'r') as ff:
@@ -58,8 +76,9 @@ def read_info_file(tiff_info_file):
 
 def _reorient_ptyrimg(input_array):
     """
-    Corrects the orientation of the image and probe from the arrays
-    in ptyr file
+    
+    Auxiliary function to corrects the orientation of the image and 
+    probe from the arrays in ptyr file
     """
     # reorienting the probe
     if input_array.ndim==3:
@@ -72,40 +91,41 @@ def _reorient_ptyrimg(input_array):
         raise ValueError(u"Wrong dimensions for the array")
     return output_array
 
-global meta
-meta = dict()
+metaptyr = dict()
 def _print_attrs_ptyr(name):
     """
     Auxiliary function to indentify from where the data must be read in
     the ptyr files
     """
+    global metaptyr
     if 'obj' in name:
         if '_psize' in name:
-            meta['psize_h5path'] = name
+            metaptyr['psize_h5path'] = name
         if 'data' in name:
-            meta['obj_h5path'] = name
+            metaptyr['obj_h5path'] = name
     if 'probe' in name:
         if 'data' in name:
-            meta['probe_h5path'] = name
-
+            metaptyr['probe_h5path'] = name
 
 def _findh5paths(filename):
     """
     Auxiliary function to indentify from where the data must be read in
     the HDF5 files
     """
-    meta = {}
+    global metaptyr
     with h5py.File(filename,'r') as fid:
         fid.visit(_print_attrs_ptyr)
-    print(meta)
+    print(metaptyr)
 
 def read_ptyr(pathfilename):
     """
     Read reconstruction files .ptyr from Ptypy
+    
     Parameters
     ----------
     pathfilename : str
         Path to file
+    
     Returns
     -------
     data1 : ndarray (complex)
@@ -115,17 +135,18 @@ def read_ptyr(pathfilename):
     pixelsize : float
         List with pixelsizes in vertical and horizontal directions
     """
-    if meta == {}:
+    global metaptyr
+    if metaptyr == {}:
         print('meta is empty')
         _findh5paths(pathfilename)
 
     with h5py.File(pathfilename,'r') as fid:
         # get the data from the object
-        data0 = np.squeeze(fid[meta['obj_h5path']]).astype(np.complex64)
+        data0 = np.squeeze(fid[metaptyr['obj_h5path']]).astype(np.complex64)
         # get the data from the probe
-        probe0 = np.squeeze(fid[meta['probe_h5path']]).astype(np.complex64)
+        probe0 = np.squeeze(fid[metaptyr['probe_h5path']]).astype(np.complex64)
         # get the pixel size
-        pixelsize = (fid[meta['psize_h5path']][()]).astype(np.float32)
+        pixelsize = (fid[metaptyr['psize_h5path']][()]).astype(np.float32)
 
     # reorienting the object
     data1 = _reorient_ptyrimg(data0)
@@ -134,6 +155,9 @@ def read_ptyr(pathfilename):
     return data1,probe1,pixelsize
 
 def _h5py_dataset_iterator(g, prefix=''):
+    """
+    Auxiliary function to iterate over the h5 file datasets
+    """
     for key in g.keys():
         item = g[key]
         path = '{}/{}'.format(prefix, key)
@@ -142,26 +166,33 @@ def _h5py_dataset_iterator(g, prefix=''):
         elif isinstance(item, h5py.Group): # test for group (go down)
             yield from _h5py_dataset_iterator(item, path)
 
+metacxi = dict()
 def _h5pathcxi(filename):
     """
     h5py visititems does not find links
     """
-    listpath=[]
-    with h5py.File(filename, 'r') as f:
-        for (path, dset) in _h5py_dataset_iterator(f):
-            listpath.append(path)
-    meta['obj_h5path'] = [ii for ii in sorted(listpath) if 'object/data' in ii][-3]
-    meta['probe_h5path'] = [ii for ii in sorted(listpath) if 'probe/data' in ii][-2]
-    meta['xpsize_h5path'] = [ii for ii in sorted(listpath) if 'object/x_pixel_size' in ii][-1]
-    meta['ypsize_h5path'] = [ii for ii in sorted(listpath) if 'object/x_pixel_size' in ii][-1]
+    global metacxi
+    with h5py.File(filename, 'r') as fid:
+        listpath = [path for path,dset in _h5py_dataset_iterator(fid) 
+                    if 'object' in path or 'probe' in path]
+    metacxi['obj_h5path'] = [ii for ii in sorted(listpath) 
+        if 'object/data' in ii and ii.endswith('data')][-1]
+    metacxi['probe_h5path'] = [ii for ii in sorted(listpath) 
+        if 'probe/data' in ii and ii.endswith('data')][-1]
+    metacxi['xpsize_h5path'] = [ii for ii in sorted(listpath) 
+        if 'object/x_pixel_size' in ii and ii.endswith('x_pixel_size')][-1]
+    metacxi['ypsize_h5path'] = [ii for ii in sorted(listpath) 
+        if 'object/y_pixel_size' in ii and ii.endswith('y_pixel_size')][-1]
 
 def read_cxi(pathfilename):
     """
     Read reconstruction files .cxi from PyNX
+    
     Parameters
     ----------
     pathfilename : str
         Path to file
+    
     Returns
     -------
     data1 : ndarray (complex)
@@ -171,16 +202,19 @@ def read_cxi(pathfilename):
     pixelsize : list float
         List with pixelsizes in vertical and horizontal directions
     """
-    _h5pathcxi(pathfilename)
+    global metacxi
+    if metacxi == {}:
+        print('meta is empty')
+        _h5pathcxi(pathfilename)
 
     with h5py.File(pathfilename,'r') as fid:
         # get the data from the object
-        data0 = np.squeeze(fid[meta['obj_h5path']]).astype(np.complex64)
+        data0 = np.squeeze(fid[metacxi['obj_h5path']]).astype(np.complex64)
         # get the data from the probe
-        probe0 = np.squeeze(fid[meta['probe_h5path']]).astype(np.complex64)
+        probe0 = np.squeeze(fid[metacxi['probe_h5path']]).astype(np.complex64)
         # get the pixel size
-        pixelsizex = fid[meta['xpsize_h5path']][()]
-        pixelsizey = fid[meta['ypsize_h5path']][()]
+        pixelsizex = fid[metacxi['xpsize_h5path']][()]
+        pixelsizey = fid[metacxi['ypsize_h5path']][()]
     pixelsize = np.array([pixelsizex,pixelsizey]).astype(np.float32)
 
     # reorienting the object
@@ -191,10 +225,19 @@ def read_cxi(pathfilename):
 
 def crop_array(input_array,delcropx,delcropy):
     """
-    Crop images
-    Inputs:
-        input_array: input image to be cropped
-        **params: dict of parameters
+    Crop borders from 2D arrays
+    
+    Parameters
+    ----------
+    input_array : ndarray
+        Input array to be cropped
+    delcropx, delcropy : int
+        Number of pixels to be crop from borders in x and y directions
+
+    Returns
+    -------
+    cropped_array : ndarray
+        Cropped array
     """
     if delcropx is not None or delcropy is not None:
         print('Cropping ROI of data')
@@ -212,10 +255,15 @@ def crop_array(input_array,delcropx,delcropy):
 def write_edf(fname, data_array,hd=None):
     """
     Write EDF files
-    Inputs:
-        fname = file name
-        data_array = data to be saved as edf
-        hd = dictionary with header information
+    
+    Parameters
+    ----------
+    fname : str
+        File name
+    data_array : ndarray
+        Data to be saved as edf
+    hd : dict
+        Dictionary with header information
     """
     with fabio.edfimage.edfimage() as fid:
         fid.data = data_array
@@ -226,10 +274,12 @@ def write_edf(fname, data_array,hd=None):
 def read_edf(fname):
     """
     read EDF files
+    
     Parameters
     ----------
     fname : str
         Path to file
+    
     Returns
     -------
     projs: ndarray
@@ -247,10 +297,12 @@ def read_edf(fname):
 def read_edffilestack(**params):
     """
     Read projection stack
+    
     Parameters
     ----------
     inputkwargs : dict
         dict with parameters
+    
     Returns
     -------
     projs: ndarray
@@ -329,10 +381,12 @@ def write_paramsh5(h5filename,**params):
 def read_tiff(imgpath):
     """
     Read tiff files using libtiff
+    
     Parameters
     ----------
     imgpath : str
         Path to tiff file with extension
+    
     Returns
     -------
     imgout : ndarray
@@ -356,6 +410,7 @@ def read_tiff(imgpath):
 def converttiffto16bits(tiffimage,low_cutoff, high_cutoff):
     """
     Convert tiff files to 16 bits
+    
     Parameters
     ----------
     imgpath : ndarray
@@ -364,6 +419,7 @@ def converttiffto16bits(tiffimage,low_cutoff, high_cutoff):
         Low cutoff of the gray level
     high_cutoff : float
         High cutoff of the gray level
+    
     Returns
     -------
     tiffimage : ndarray
@@ -380,6 +436,7 @@ def converttiffto16bits(tiffimage,low_cutoff, high_cutoff):
 def converttiffto8bits(filename,low_cutoff, high_cutoff):
     """
     Convert tiff files to 8 bits
+    
     Parameters
     ----------
     imgpath : ndarray
@@ -388,6 +445,7 @@ def converttiffto8bits(filename,low_cutoff, high_cutoff):
         Low cutoff of the gray level
     high_cutoff : float
         High cutoff of the gray level
+    
     Returns
     -------
     tiffimage : ndarray
