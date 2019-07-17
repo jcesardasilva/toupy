@@ -262,3 +262,24 @@ def mod_iradonSilx(radon_image, theta=None, output_size=None,
         B.sino_filter.set_filter(cust_filter2)
     recons = B(radon_image.T)
     return recons
+
+def backprojector(sinogram,theta,**params):
+    """
+    Wrapper to choose between Forward Radon transform using Silx and
+    OpenCL or standard reconstruction
+    """
+    if params['opencl']:
+        # using Silx backprojector
+        print("Using OpenCL")
+        iradon = mod_iradonSilx
+    else:
+        # Not using Silx Projector (very slow)
+        print("Not using OpenCL")
+        iradon = mod_iradon
+    # reconstructing
+    recons = iradon(sinogram,theta=theta,
+                    output_size=sinogram.shape[0],
+                    filter_type=params['filtertype'],
+                    derivative=params['derivatives'],
+                    freqcutoff=params['filtertomo'])
+    return recons

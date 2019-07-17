@@ -130,5 +130,5 @@ def padfft(input_array,pad_mode='reflect'):
         padw = [padwidthbothsides(nr), padwidthbothsides(nc)]
         array_pad = np.pad(input_array,((padw[0],padw[0]),(padw[1],padw[1])),mode=pad_mode)
         n_pad = [fftfreq(array_pad.shape[0]),fftfreq(array_pad.shape[1])]
-        N_pad = np.meshgrid(n_pad[1],n_pad[0]) # reverted order to be compatible with meshgrid output
+        N_pad = np.meshgrid(n_pad[0],n_pad[1])
     return array_pad, N_pad, padw

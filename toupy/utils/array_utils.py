@@ -14,11 +14,81 @@ import scipy.constants as consts
 pyfftw.interfaces.cache.enable()
 pyfftw.interfaces.cache.set_keepalive_time(30)
 
-__all__=['crop',
+__all__=['polynomial1d',
+         'projectpoly1d',
+         'crop',
+         'radtap',
+         'fract_hanning',
+         'fract_hanning_pad',
          'mask_borders',
          'convert_to_mu',
          'convert_to_rhoe',
          'convert_to_rhom']
+
+def polynomial1d(x,order=1,w=1):
+    """
+    Generates a 1D orthonormal polynomial base.
+    Inspired by legendrepoly1D_2.m created by Manuel Guizar in March 10,2009
+
+    Parameters
+    ----------
+    x : ndarray
+        Array containing the values of x for the polynomial
+    order : int
+        Order of the polynomial
+    w : int
+        Weights of the coefficients
+
+    Returns
+    -------
+    polyseries : ndarray
+        Orthonormal polymonial up to order
+    """
+
+    polyseries = []
+    for ii in range(order+1):
+        polyseries.append(np.power(x,ii)[0])
+    # Convenient convertion to numpy array
+    polyseries = np.asarray(polyseries).astype(float)
+    # Normalization
+    for ii in range(len(polyseries)):
+        polyseries[ii] /= np.sqrt(np.sum(w*np.abs(polyseries[ii])**2))
+    # Orthonormalization
+    for ii in range(1,len(polyseries)):
+        for jj in range(0,ii):
+            polyseries[ii] -= np.sum(polyseries[ii]*polyseries[jj]*w)*polyseries[jj]
+        # Re-normalization
+        polyseries[ii] /= np.sqrt(np.sum(w*np.abs(polyseries[ii])**2))
+    return polyseries
+
+def projectpoly1d(func1d,order=1,w=1):
+    """
+    Projects a 1D function onto orthonormalized base
+    Inspired by projectleg1D_2.m created by Manuel Guizar in March 10,2009
+
+    Parameters
+    ----------
+    func1d : ndarray
+        Array containing the values of the 1D function
+    order : int (default=1)
+        Order of the polynomial
+    w : int (default=1)
+        Weights of the coefficients
+
+    Returns
+    -------
+    projfunc1d : ndarray
+        Projected 1D funtion on orthonormal base
+    """
+    x = np.indices(func1d.shape)
+    x -= np.ceil(x.mean()).astype('int')
+    polyseries = polynomial1d(x,order,w)
+    # needs to be float for the subtraction below
+    projfunc1d = func1d.astype('float').copy()
+    for ii in range(len(polyseries)):
+        coeff = np.sum(func1d*polyseries[ii]*w)
+        projfunc1d -= polyseries[ii]*coeff # all array needs to be float
+    return projfunc1D
 
 def crop(input_array,delcropx,delcropy):
     """
@@ -40,6 +110,87 @@ def crop(input_array,delcropx,delcropy):
     else:
         print('No cropping of data')
         return input_array
+
+def radtap(X,Y,tappix,zerorad):
+    """
+    Creates a central cosine tapering for beam.
+    It receives the X and Y coordinates, tappix is the extent of
+    tapering, zerorad is the radius with no data (zeros).
+    @author: jdasilva
+    """
+    tau = 2*tappix # period of cosine function (only half a period is used)
+
+    R = np.sqrt(X**2+Y**2)
+    taperfunc = 0.5*(1+np.cos(2*np.pi*(R-zerorad-tau/2.)/tau))
+    taperfunc = (R>zerorad+tau/2.)*1.0 + taperfunc*(R<=zerorad+tau/2)
+    taperfunc = taperfunc*(R>=zerorad)
+    return taperfunc
+
+def fract_hanning(outputdim,unmodsize):
+    """
+    fract_hanning(outputdim,unmodsize)
+    out = Square array containing a fractional separable Hanning window with
+    DC in upper left corner.
+    outputdim = size of the output array
+    unmodsize = Size of the central array containing no modulation.
+    Creates a square hanning window if unmodsize = 0 (or ommited), otherwise the output array
+    will contain an array of ones in the center and cosine modulation on the
+    edges, the array of ones will have DC in upper left corner.
+    @author: jdasilva
+    """
+    if outputdim < unmodsize:
+        raise SystemExit('Output dimension must be smaller or equal to size of unmodulated window')
+
+    if unmodsize<0:
+        unmodsize = 0
+        print('Specified unmodsize<0, setting unmodsize = 0')
+
+    N = np.arange(0,outputdim)
+    Nc,Nr = np.meshgrid(N,N)
+    if unmodsize == 0:
+        out = (1.+np.cos(2*np.pi*Nc/outputdim))*(1.+np.cos(2*np.pi*Nr/outputdim))/4.
+    else:
+        #columns modulation
+        outc = (1.+np.cos(2*np.pi*(Nc-np.floor((unmodsize-1)/2))/(outputdim+1-unmodsize)))/2.
+        if np.floor((unmodsize-1)/2.)>0:
+            outc[:,:int(np.floor((unmodsize-1)/2.))]=1
+        outc[:,int(np.floor((unmodsize-1)/2)+outputdim+3-unmodsize):len(N)] = 1
+        #row modulation
+        outr = (1.+np.cos(2*np.pi*(Nr-np.floor((unmodsize-1)/2))/(outputdim+1-unmodsize)))/2.
+        if np.floor((unmodsize-1)/2.)>0:
+            outr[:int(np.floor((unmodsize-1)/2.)),:]=1
+        outr[int(np.floor((unmodsize-1)/2)+outputdim+3-unmodsize):len(N),:] = 1
+
+        out=outc*outr
+
+    return out
+
+def fract_hanning_pad(outputdim,filterdim,unmodsize):
+    """
+    fract_hanning_pad(outputdim,filterdim,unmodsize)
+    out = Square array containing a fractional separable Hanning window with
+    DC in upper left corner.
+    outputdim = size of the output array
+    filterdim = size of filter (it will zero pad if filterdim<outputdim
+    unmodsize = Size of the central array containing no modulation.
+    Creates a square hanning window if unmodsize = 0 (or ommited), otherwise the output array
+    will contain an array of ones in the center and cosine modulation on the
+    edges, the array of ones will have DC in upper left corner.
+    @author: jdasilva
+    """
+    if outputdim < unmodsize:
+        raise SystemExit('Output dimension must be smaller or equal to size of unmodulated window')
+    if outputdim < filterdim:
+        raise SystemExit('Filter cannot be larger than output size')
+    if unmodsize<0:
+        unmodsize = 0
+        print('Specified unmodsize<0, setting unmodsize = 0')
+
+    out = np.zeros((outputdim,outputdim))
+    auxindini = int(np.round(outputdim/2-filterdim/2))
+    auxindend = int(np.round(outputdim/2+filterdim/2))
+    out[auxindini:auxindend, auxindini:auxindend]=np.fft.fftshift(fract_hanning(filterdim,unmodsize))
+    return np.fft.fftshift(out)
 
 def mask_borders(imgarray,mask_array,threshold=4e-7):
     # mask borders

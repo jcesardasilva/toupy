@@ -37,6 +37,25 @@ __all__ = [
           ]
 
 def remove_extraprojs(stack_projs,theta):
+    """
+    Remove extra projections of tomographic scans with projections at
+    180, 90 and 0 degrees at the end
+
+    Parameters
+    ----------
+    stack_projs : ndarray
+        Stack of projections with the first index correspoding to the
+        projection number
+    theta : ndarray
+        Array of theta values
+
+    Returns
+    -------
+        stack_projs : ndarray
+            Stack of projections after the removal
+        theta : ndarray
+            Array of theta values after the removal
+    """
     print(theta[-5:])
     a = str(input('Do you want to remove extra thetas?([y]/n)')).lower()
     if a == '' or a == 'y':
@@ -95,10 +114,6 @@ class PathName:
     def search_projections(self):
         """
         Search for projection given the filenames
-        Inputs:
-            **params:
-                path_filename = path for the projections
-        @author: Julio C. da Silva (jdasilva@esrf.fr)
         """
         print(u'Path: {}'.format(self.dirname))
         print(u'First projection file: {}'.format(self.filename))
@@ -132,7 +147,10 @@ class PathName:
         h5file = os.path.join(aux_path,h5name)
         return h5file
 
-class Constants(object):
+class Variables(object):
+    """
+    Auxiliary class to initialize some variables
+    """
     showrecons = False
     phaseonly = False
     amponly = False
@@ -140,17 +158,9 @@ class Constants(object):
     checkextraprojs = True
     cxientry = None
 
-class LoadProjections(PathName,Constants):
+class LoadProjections(PathName,Variables):
     """
     Load the reconstructed projections from the ptyr files
-    Inputs:
-        **params:
-            showrecons (True or False to show recons while loading)
-            angles_edfheader (True or False to read the angles from edf files headers)
-            path_filename (path of the first projection)
-            account (user experiment account)
-            regime (nearfield or farfield)
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     def __init__(self,**params):
         super().__init__(**params)
@@ -177,15 +187,6 @@ class LoadProjections(PathName,Constants):
         """
         Find the angles of the projections and plot them to be checked
         Specific to ID16A beamline (ESRF)
-        Inputs:
-            pathfilename = path for the first reconstructed projections
-            **params = account (user experiment account)
-                       angles_edfheader (True or not)
-                       path_edffilename (if angles_edfheader is True, give the path to edf files)
-        Outputs:
-            angles = ndarray of angles
-            thetas = dictionary of angles
-        @author: Julio C. da Silva (jdasilva@esrf.fr)
         """
         thetas={}
         with h5py.File(self.icath5path,'r') as fid:
@@ -232,6 +233,24 @@ class LoadProjections(PathName,Constants):
         return angles, thetas
 
     def _remove_extraprojs(self,thetas,proj_files):
+        """
+        Remove extra projections of tomographic scans with projections at
+        180, 90 and 0 degrees at the end
+
+        Parameters
+        ----------
+        theta : ndarray
+            Array of theta values
+        proj_files : list of str
+            List of projection files
+
+        Returns
+        -------
+            stack_projs : ndarray
+                Stack of projections after the removal
+            theta : ndarray
+                Array of theta values after the removal
+        """
         print('The final 5 angles are: {}'.format(list(thetas[-5:])))
         a = str(input('Do you want to remove extra thetas?([y]/n)')).lower()
         if a == '' or a == 'y':
@@ -368,10 +387,9 @@ class LoadProjections(PathName,Constants):
         print('All projections loaded\n')
         return stack_objs, stack_angles, pixelsize
 
-class SaveData(PathName,Constants):
+class SaveData(PathName,Variables):
     """
     Save projections to HDF5 file
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     def __init__(self,**params):
         super().__init__(**params)
@@ -405,6 +423,10 @@ class SaveData(PathName,Constants):
         return lambda x: int(2*np.floor(x/2))
 
     def save_masks(self,h5name, masks):
+        """
+        Save masks for the linear phase ramp removal of the phase
+        contrast image or the air removal from the amplitude images
+        """
         print('Saving {}'.format(h5name))
         h5file = self.results_datapath(h5name)
         if os.path.isfile(h5file): os.remove(h5file)
@@ -415,13 +437,21 @@ class SaveData(PathName,Constants):
     def save_data(self,*args):
         """
         Save data to HDF5 File
+
         Parameters:
         -----------
-        *args:
-            args[0]= h5 file name (string)
-            args[1]= stack (ndarray containing the stack of projections)
-            args[2]= theta (ndarray containing the theta values)
-            args[3]= shiftstack (ndarray containing the shifts for each projection in the stack)
+        *args: positional arguments
+            args[0] : str
+                H5 file name
+            args[1] : ndarray
+                Array containing the stack of projections
+            args[2] : ndarray
+                Values of theta
+            args[3] : ndarray
+                Array containing the shifts for each projection in the
+                stack. If not provided, it will be initialized with zeros
+            args[4] : ndarray or None
+                Array containing the projection masks
         """
         h5name = args[0]
         stack_projs = args[1]
@@ -468,12 +498,23 @@ class SaveData(PathName,Constants):
         Save FSC data to HDF5 file
         Parameters:
         -----------
-        *args:
-            args[0]= h5 file name (string)
-            args[1]= stack (ndarray containing the stack of projections)
-            args[2]= theta (ndarray containing the theta values)
-            args[3]= pixelsize
-        @author: Julio C. da Silva (jdasilva@esrf.fr)
+        *args: positional arguments
+            args[0] : str
+                H5 file name
+            args[1] : ndarray
+                Normalized frequencies
+            args[2] : ndarray
+                Value of the threshold for each frequency
+            args[3] : ndarray
+                The FSC curve
+            args[4] : ndarray
+                The first tomogram
+            args[5] : ndarray
+                The second tomogram
+            args[6] : ndarray
+                The array of theta values
+            args[7] : float
+                Pixel size
         """
         h5name = args[0]
         normfreqs = args[1]
@@ -519,11 +560,9 @@ class SaveData(PathName,Constants):
         print('FSC data saved to file {}'.format(h5name))
         print('In the folder {}'.format(self.results_folder()))
 
-class LoadData(PathName,Constants):
+class LoadData(PathName,Variables):
     """
     Load projections from HDF5 file
-
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     def __init__(self,**params):
         super().__init__(**params)
@@ -538,12 +577,17 @@ class LoadData(PathName,Constants):
 
     def load_shiftstack(self,h5name):
         """
-        Pameters:
+        Load shitstack from previous h5 file
+
+        Parameters:
         ---------
-        h5name: file name from which data is loaded
+        h5name: str
+            File name from which data is loaded
+
         Returns:
         --------
-        shiftstack: shifts in vertical (1st dimension) and horizontal
+        shiftstack: ndarray
+            Shifts in vertical (1st dimension) and horizontal
                     (2nd dimension)
         """
         print('Loading shiftstack from file {}'.format(h5name))
@@ -554,13 +598,17 @@ class LoadData(PathName,Constants):
 
     def load_masks(self,h5name):
         """
-        Pameters:
+        Load masks from previous h5 file
+
+        Parameters:
         ---------
-        h5name: file name from which data is loaded
+        h5name: str
+            File name from which data is loaded
+
         Returns:
         --------
-        shiftstack: shifts in vertical (1st dimension) and horizontal
-                    (2nd dimension)
+        masks: ndarray
+            Array with the masks
         """
         print('Loading the projections from file {}'.format(h5name))
         h5file = self.results_datapath(h5name)
@@ -570,17 +618,24 @@ class LoadData(PathName,Constants):
 
     def load_data(self,h5name):
         """
-        Pameters:
+        Load data from h5 file
+
+        Parameters:
         ---------
-        h5name: file name from which data is loaded
+        h5name: str
+            File name from which data is loaded
 
         Returns:
         --------
-        stack_projs: stack of projections
-        theta: stack of thetas
-        shiftstack: shifts in vertical (1st dimension) and horizontal
+        stack_projs: ndarray
+            Stack of projections
+        theta: ndarray
+            Stack of thetas
+        shiftstack: ndarray
+            Shifts in vertical (1st dimension) and horizontal
                     (2nd dimension)
-        datakwargs: Dictionary with metadata information
+        datakwargs : dict
+            Dictionary with metadata information
         """
         print('Loading the projections from file {}'.format(h5name))
         h5file = self.results_datapath(h5name)
@@ -610,7 +665,6 @@ class LoadData(PathName,Constants):
 class SaveTomogram(SaveData):
     """
     Save tomogram to HDF5 file
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     def __init__(self,**params):
         super().__init__(**params)
@@ -634,14 +688,17 @@ class SaveTomogram(SaveData):
 
     def save_tomogram(self,*args):
         """
-        Save tomogram to HDF5 file
         Parameters:
         -----------
-        *args:
-            args[0]= h5 file name (string)
-            args[1]= tomogram (ndarray containing the stack of slices)
-            args[2]= theta (ndarray containing the theta values)
-            args[3]= shiftstack = ndarray containing the shifts for each projection in the stack
+        *args: positional arguments
+            args[0] : str
+                H5 file name
+            args[1] : ndarray
+                Array containing the stack of slices (tomogram)
+            args[2] : ndarray
+                Values of theta
+            args[3] : ndarray
+                Array containing the shifts for each projection in the stack
         """
         h5name = args[0]
         tomogram = args[1]
@@ -677,7 +734,6 @@ class SaveTomogram(SaveData):
 class LoadTomogram(LoadData):
     """
     Load projections from HDF5 file
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
     """
     def __init__(self,**params):
         super().__init__(**params)
@@ -688,17 +744,24 @@ class LoadTomogram(LoadData):
 
     def load_tomogram(self,h5name):
         """
-        Pameters:
+        Load tomographic data from h5 file
+
+        Parameters:
         ---------
-        h5name: file name from which data is loaded
+        h5name: str
+            File name from which data is loaded
 
         Returns:
         --------
-        tomogram: stack of slices
-        theta: stack of thetas
-        shiftstack: shifts in vertical (1st dimension) and horizontal
+        tomogram: ndarray
+            Stack of tomographic slices
+        theta: ndarray
+            Stack of thetas
+        shiftstack: ndarray
+            Shifts in vertical (1st dimension) and horizontal
                     (2nd dimension)
-        datakwargs: Dictionary with metadata information
+        datakwargs : dict
+            Dictionary with metadata information
         """
         print('Loading tomogram from file {}'.format(h5name))
         h5file = self.results_datapath(h5name)
