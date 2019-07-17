@@ -110,121 +110,53 @@ def derivatives_sino(input_sino,shift_method='fourier'):
     diffsino = np.rollaxis(rolldiff,1) # same as np.transpose(rolldiff,1)
     return diffsino
 
-def center_of_mass_stack(input_stack,params,**kwargs):
+def center_of_mass_stack(input_stack, lims, deltastack, shift_method='fourier'):
     """
     Calculates the center of the mass for each projection in the stack and
     returns a stack of centers of mass (row, col) i.e., returns deltastack[1]
     If the array is zero, it return the center of mass at 0.
-    @author: jdasilva
     """
-    if not isinstance(input_stack,np.ndarray):
-        input_stack = np.asarray(input_stack).copy()
-
-    for ii in kwargs:
-        if ii=='deltastack':
-            deltastack=kwargs[ii]
-        elif ii=='limrow':
-            limrow = kwargs[ii]
-        elif ii=='limcol':
-            limcol = kwargs[ii]
-        elif ii=='stack_type':
-            stack_type = kwargs[ii]
-    try:
-        stack_type
-    except NameError:
-        stack_type='images'
-
-    try:
-        deltastack
-    except NameError:
-        deltastack = np.zeros((2,input_stack.shape[0]))
-
-    # initialize shift class
-    S = ShiftFunc(shiftmeth = params['shiftmeth'])
-
+    # separate lims
+    limrow, limcol = lims
+        
     print('Calculating center-of-mass with pixel precision')
-    if stack_type =='images':
-        try:
-            limrow
-        except NameError:
-            limrow=np.array([0,input_stack.shape[1]])
-        try:
-            limcol
-        except NameError:
-            limcol=np.array([0,input_stack.shape[2]])
+    # initialize shift class
+    S = ShiftFunc(shiftmeth = shift_method)
 
-        # create array positions
-        stack_roi = input_stack[0,limrow[0]:limrow[-1],limcol[0]:limcol[-1]].copy()
-        ind_roi= np.indices(stack_roi.shape)
-        # create array Xp of horizontal of positions
-        ind_roi[1]-=np.floor(ind_roi[1].mean(axis=1)).reshape((ind_roi.shape[1],1)).astype('int')
-        Xp = ind_roi[1].copy().astype('float')
+    # create array positions
+    stack_roi = input_stack[0,limrow[0]:limrow[-1],limcol[0]:limcol[-1]].copy()
+    ind_roi= np.indices(stack_roi.shape)
+    # create array Xp of horizontal of positions
+    ind_roi[1]-=np.floor(ind_roi[1].mean(axis=1)).reshape((ind_roi.shape[1],1)).astype('int')
+    Xp = ind_roi[1].astype('float')
+    # create array Xp of horizontal of positions
+    ind_roi[0]-=np.floor(ind_roi[0].mean(axis=0)).reshape((ind_roi.shape[2],1)).T.astype('int')
+    Yp = ind_roi[0].astype('float')
 
-        # create array Xp of horizontal of positions
-        ind_roi[0]-=np.floor(ind_roi[0].mean(axis=0)).reshape((ind_roi.shape[2],1)).T.astype('int')
-        Yp = ind_roi[0].copy().astype('float')
+    # initializing the arrays
+    mass_sum = np.empty(input_stack.shape[0])
+    centerx = np.empty(input_stack.shape[0])
+    centery = np.empty(input_stack.shape[0])
 
-        # initializing the arrays
-        mass_sum = np.empty(input_stack.shape[0])
-        centerx = np.empty(input_stack.shape[0])
-        centery = np.empty(input_stack.shape[0])
+    for ii in range(input_stack.shape[0]):
+        stack_aux = S(input_stack[ii],(deltastack[0,ii],deltastack[1,ii]))
+        mass_sum[ii] = np.sum(stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
+        centerx[ii] = np.sum(Xp*stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
+        centery[ii] = np.sum(Yp*stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
+    centerx[np.nonzero(mass_sum)] = centerx[np.nonzero(mass_sum)]/mass_sum[np.nonzero(mass_sum)]
+    centerx[np.where(mass_sum==0)] = 0
+    centery = np.asarray(centery)
+    centery[np.nonzero(mass_sum)] = centery[np.nonzero(mass_sum)]/mass_sum[np.nonzero(mass_sum)]
+    centery[np.where(mass_sum==0)] = 0
+    
+    return np.asarray([centerx,centery])
 
-        for ii in range(input_stack.shape[0]):
-            stack_aux = S(input_stack[ii],(deltastack[0,ii],deltastack[1,ii]))
-            mass_sum[ii] = np.sum(stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
-            centerx[ii] = np.sum(Xp*stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
-            centery[ii] = np.sum(Yp*stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
-        centerx[np.nonzero(mass_sum)]= centerx[np.nonzero(mass_sum)]/mass_sum[np.nonzero(mass_sum)]
-        centerx[np.where(mass_sum==0)] = 0
-        centery = np.asarray(centery)
-        centery[np.nonzero(mass_sum)]= centery[np.nonzero(mass_sum)]/mass_sum[np.nonzero(mass_sum)]
-        centery[np.where(mass_sum==0)] = 0
-        com=np.asarray([centerx,centery])
-    elif stack_type =='mass':
-        try:
-            limcol
-        except NameError:
-            limcol=np.array([0,input_stack.shape[1]])
-
-        # create array Xp of horizontal positions
-        # create array positions
-        stack_roi = input_stack[0,limcol[0]:limcol[-1]].copy()
-        ind_roi= np.indices(stack_roi.shape)
-        ind_roi-=np.floor(ind_roi.mean()).astype('int')
-        Xp = ind_roi.copy().astype('float')
-
-        # initializing the arrays
-        mass_sum = np.empty(len(input_stack))
-        centerx = np.empty(len(input_stack))
-
-        for ii in range(len(input_stack)):
-            stack_aux = S(input_stack[ii],deltastack[1,ii])
-            mass_sum[ii] = np.sum(stack_aux[limcol[0]:limcol[-1]])
-            centerx[ii] = np.sum(Xp*stack_aux[limcol[0]:limcol[-1]])
-        centerx[np.nonzero(mass_sum)]= centerx[np.nonzero(mass_sum)]/mass_sum[np.nonzero(mass_sum)]
-        centerx[np.where(mass_sum==0)] = 0
-        com=np.asarray(centerx)
-    return com
-
-def vertical_fluctuations(input_stack,lims,params,**kwargs):
+def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier'):
     """
     Calculate the vertical fluctuation functions of a stack
     """
-    for ii in kwargs:
-        if ii=='deltastack':
-            print('Using current deltastack')
-            deltastack=kwargs[ii]
-    for ii in params:
-        if ii=='shift_gaussian_filter':
-            use_filter = params[ii]
-            print('Use gaussian filter to shifts')
-    try:
-        deltastack
-    except NameError:
-        deltastack = np.zeros((2,input_stack.shape[0]))
-
     # Initialize shift class
-    S = ShiftFunc(shiftmeth = params['shiftmeth'])
+    S = ShiftFunc(shiftmeth = shift_method)
     # array shape
     _, nr, nc = input_stack.shape
     # separate the lims
@@ -244,8 +176,6 @@ def vertical_fluctuations(input_stack,lims,params,**kwargs):
         # to remove possible bias
         if params['bias']:
             shift_calc = projectpoly1d(shift_calc,params['maxorder'],1)
-        if use_filter:
-            shift_calc = gaussian_filter1d(shift_calc,params[u'shift_gaussian_sigma'])
         vert_fluct[ii] = shift_calc
     return vert_fluct
 
@@ -277,7 +207,7 @@ def vertical_shift(input_array,lims,vstep,params):
 
     return shift_calc
 
-def alignprojections_vertical(input_stack,limrow,limcol,deltastack,params):
+def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
     """
     Vertical alignment of projections using mass fluctuation approach.
     It relies on having air on both sides of the sample (non local tomography).
@@ -322,13 +252,9 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,params):
     input_stack : ndarray
         Aligned stack of the projections
     """
-
-    if not isinstance(input_stack,np.ndarray):
-        input_stack = np.asarray(input_stack).copy()
-
     if not isinstance(params['maxit'],int):
         print('Using default number of iteration: 10')
-        params['maxit']=10
+        params['maxit'] = 10
     if not isinstance(limrow,np.ndarray) or not isinstance(limcol,np.ndarray):
         limrow = np.asarray(limrow)
         limcol = np.asarray(limcol)
@@ -353,7 +279,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,params):
     plt.show(block=False)
     plt.pause(0.01)
 
-    if params[u'2Dgaussian_filter']:
+    if params['2Dgaussian_filter']:
         for ii in range(input_stack.shape[0]):
             print('Applying 2D gaussian filter projection: {}'.format(ii+1),end="\r")
             input_stack[ii] = gaussian_filter(input_stack[ii],params[u'2Dgaussian_sigma'])
@@ -361,7 +287,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,params):
     # horizontal alignement with center of mass if requested
     if params['alignx'] and count == 1:
         print('Estimating the changes in x using center-of-mass:')
-        centerx=center_of_mass_stack(input_stack,params,limrow=limrow,limcol=limcol,deltastack=deltastack)[0]#[1]
+        centerx = center_of_mass_stack(input_stack,params,limrow=limrow,limcol=limcol,deltastack=deltastack)[0]#[1]
         # Correction with mass center
         deltastack[1] = -centerx.round()
         deltastack[1] -= deltastack[1].mean().round()
@@ -372,7 +298,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,params):
     print('Maximum correction of center of mass in x = {:.02f} pixels'.format(np.max(changex)))
 
     # first iteration only correcting for the limrow and limcol and in case deltastack is already no zero
-    vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),params,deltastack=deltastack)
+    vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'])
     avg_init = vert_fluct_init.mean(axis=0)
     deltastack_init = deltastack.copy()
     nr,nc = vert_fluct_init.shape # for the image display
@@ -453,7 +379,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,params):
             vert_fluct = vert_fluct_init.copy()
         else:
             print('Updating the vertical fluctuations')
-            vert_fluct = vertical_fluctuations(input_stack,(limrow,limcol),params,deltastack=deltastack)
+            vert_fluct = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'])
 
         # Average the vertical fluctuation functions
         print('Calculating the average of the vertical fluctuation function')
@@ -571,7 +497,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,params):
         # Mass distribution registration in y
         if count !=1:
             print('Updating the vertical fluctuations')
-            vert_fluct = vertical_fluctuations(input_stack,(limrow,limcol),params,deltastack=deltastack)
+            vert_fluct = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'])
             # Average the vertical fluctuation functions
             print('Calculating the average of the vertical fluctuation function')
             vert_fluct_mean = vert_fluct.mean(axis=0)
