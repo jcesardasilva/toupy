@@ -214,6 +214,8 @@ class RegisterPlot:
         self.proj = proj
         self.vertfluctinit = vertfluctinit.T
         self.vertfluctcurr = vertfluctcurr.T
+        self.deltastack = deltastack
+        self.metric_error = metric_error
         self.count = count
 
         #figures display
