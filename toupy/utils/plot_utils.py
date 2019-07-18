@@ -201,8 +201,8 @@ class RegisterPlot:
     def __init__(self, **params):
         self.count = 0
         self.params = params
-        self.vmin = params['vmin']
-        self.vmax = params['vmax']
+        #self.vmin = params['vmin']
+        #self.vmax = params['vmax']
         plt.close('all')
         # ~ plt.ion()
 
