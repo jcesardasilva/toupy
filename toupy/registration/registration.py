@@ -152,7 +152,7 @@ def center_of_mass_stack(input_stack, lims, deltastack, shift_method='fourier'):
     
     return np.asarray([centerx,centery])
 
-def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier'):
+def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier',bias=True, order=2):
     """
     Calculate the vertical fluctuation functions of a stack
     """
@@ -175,8 +175,8 @@ def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier')
         stack_shift = S(proj,(deltastack[0,ii],0.))
         shift_calc = stack_shift[max_vshift:-max_vshift].sum(axis=1) # the max_vshift has to be subtracted
         # to remove possible bias
-        if params['bias']:
-            shift_calc = projectpoly1d(shift_calc,params['maxorder'],1)
+        if bias:
+            shift_calc = projectpoly1d(shift_calc,order,1)
         vert_fluct[ii] = shift_calc
     return vert_fluct
 
@@ -263,7 +263,7 @@ def _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluc
             vert_fluct = vert_fluct_init.copy()
         else:
             print('Updating the vertical fluctuations')
-            vert_fluct = vertical_fluctuations(input_stack,lims,deltastack,params['shiftmeth'])
+            vert_fluct = vertical_fluctuations(input_stack,lims,deltastack,params['shiftmeth'],params['bias'],order=params['maxorder'])
 
         # Average the vertical fluctuation functions
         print('Calculating the average of the vertical fluctuation function')
@@ -372,7 +372,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
         changex = 0
 
     # first iteration only correcting for the limrow and limcol and in case deltastack is already no zero
-    vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'])
+    vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'],params['bias'],order=params['maxorder'])
     avg_init = vert_fluct_init.mean(axis=0)
     deltastack_init = deltastack.copy()
     nr,nc = vert_fluct_init.shape # for the image display
