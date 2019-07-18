@@ -252,6 +252,7 @@ def _checkconditions(metric_error, changes, pixtol, subpixel=False):
 def _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluct_init,RP,**params):  
     # Initialize the counter
     count = 0
+    error_reg = np.zeros(vert_fluct_init.shape[0])
     while True:
         count += 1
         print('\n============================================')
@@ -291,7 +292,7 @@ def _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluc
         print('Maximum correction in y = {:.0f} pixels'.format(np.max(changey)))
 
         # update figures
-        RP.plotsvertical(input_stack[0], vert_fluct_init, vert_fluct_temp,
+        RP.plotsvertical(input_stack[0], lims, vert_fluct_init, vert_fluct_temp,
                             deltastack, metric_error, count)
 
         if params['subpixel']: params['pixtol']
@@ -389,7 +390,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
     # initializing display canvas
     plt.ion()
     RP = RegisterPlot(**params)
-    RP.plotsvertical(input_stack[0], vert_fluct_init, vert_fluct_init,
+    RP.plotsvertical(input_stack[0], lims, vert_fluct_init, vert_fluct_init,
                 deltastack_init, metric_error, count)
 
     # Single pixel precision

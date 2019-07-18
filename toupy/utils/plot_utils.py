@@ -114,13 +114,14 @@ def _createcanvashorizontal(recons, sinoorig, sinocurr, sinocomp,
 
     return([im11,im21,im22,im23,im31,im32],[ax11,ax21,ax22,ax23,ax31,ax32])
 
-def _createcanvasvertical(proj, vertfluctinit, vertfluctcurr,
+def _createcanvasvertical(proj, lims, vertfluctinit, vertfluctcurr,
                            deltastack, metric_error, count, **kwargs):
     """
     Create canvas for the plots during vertical alignement
     """
-    limrow = kwargs['limrow']
-    limcol = kwargs['limcol']
+    #~ limrow = kwargs['limrow']
+    #~ limcol = kwargs['limcol']
+    limrow,limcol = lims
 
     #figures display
     nr,nc = vertfluctinit.shape # for the image display
@@ -140,13 +141,13 @@ def _createcanvasvertical(proj, vertfluctinit, vertfluctcurr,
     # display vertical fluctuations as 2D images
     fig2 = plt.figure(num=2,figsize=figsize)
     ax21 = fig2.add_subplot(211)
-    im21 = ax21.imshow(vertfluctinit.T,cmap='jet',interpolation='none')
+    im21 = ax21.imshow(vertfluctinit,cmap='jet',interpolation='none')
     ax21.axis('tight')
     ax21.set_title('Initial Integral in x')
     ax21.set_xlabel('Projection')
     ax21.set_ylabel('y [pixels]')
     ax22 = fig2.add_subplot(212)
-    im22 = ax22.imshow(vertfluctcurr.T,cmap='jet',interpolation='none')
+    im22 = ax22.imshow(vertfluctcurr,cmap='jet',interpolation='none')
     ax22.axis('tight')
     ax22.set_title('Current Integral in x')
     ax22.set_xlabel('Projection')
@@ -157,17 +158,17 @@ def _createcanvasvertical(proj, vertfluctinit, vertfluctcurr,
     # display vertical fluctuations as plots
     fig3 = plt.figure(num=3,figsize=figsize)
     ax31 = fig3.add_subplot(211)
-    im31, = ax31.plot(vertfluctinit)
-    im31a = ax31.plot(vertfluctinit.mean(axis=0),'r',linewidth=2.5)
-    im31b = ax31.plot(vertfluctinit.mean(axis=0),'--w',linewidth=1.5)
+    im31 = ax31.plot(vertfluctinit)
+    im31a, = ax31.plot(vertfluctinit.mean(axis=1),'r',linewidth=2.5)
+    im31b, = ax31.plot(vertfluctinit.mean(axis=1),'--w',linewidth=1.5)
     ax31.axis('tight')
     ax31.set_title('Initial Integral in x')
     ax31.set_xlabel('Projection')
     ax31.set_ylabel('y [pixels]')
     ax32 = fig3.add_subplot(212)
-    im32 = ax32.plot(vert_fluct_init, )
-    im32a = ax32.plot(vertfluctcurr.mean(axis=0),'r',linewidth=2.5)
-    im32b = ax32.plot(vertfluctcurr.mean(axis=0),'--w',linewidth=1.5)
+    im32 = ax32.plot(vertfluctcurr)
+    im32a, = ax32.plot(vertfluctcurr.mean(axis=1),'r',linewidth=2.5)
+    im32b, = ax32.plot(vertfluctcurr.mean(axis=1),'--w',linewidth=1.5)
     ax32.axis('tight')
     ax32.set_title('Current Integral in x')
     ax32.set_xlabel('Projection')
@@ -177,17 +178,19 @@ def _createcanvasvertical(proj, vertfluctinit, vertfluctcurr,
 
     # shifts
     fig4 = plt.figure(num=4)
-    ax41 = fig4.add_subplot(111)
+    ax41 = fig4.add_subplot(211)
     im41 = ax41.plot(np.transpose(deltastack))
     ax41.axis('tight')
     ax41.set_title('Object position')
     # metric_error
-    ax42 = fig4.add_subplot(111)
+    ax42 = fig4.add_subplot(212)
     im42, = ax42.plot(metric_error,'bo-')
     ax42.axis('tight')
     ax42.set_title('Error metric')
     fig4.tight_layout()
     fig4.show()
+
+    plt.pause(0.001)
 
     im_array = [im11,im21,im22,im31,im31a,im31b,im32,im32a,im32b,im41,im42]
     ax_array = [ax11,ax21,ax22,ax31,ax32,ax41,ax42]
@@ -206,12 +209,13 @@ class RegisterPlot:
         plt.close('all')
         # ~ plt.ion()
 
-    def plotsvertical(self, proj, vertfluctinit, vertfluctcurr,
+    def plotsvertical(self, proj, lims, vertfluctinit, vertfluctcurr,
                       deltastack, metric_error, count):
         """
         Display plots during the vertical registration
         """
         self.proj = proj
+        self.lims = lims
         self.vertfluctinit = vertfluctinit.T
         self.vertfluctcurr = vertfluctcurr.T
         self.deltastack = deltastack
@@ -228,6 +232,7 @@ class RegisterPlot:
         if self.count == 0:
             # Preparing the canvas for the figures
             im_array, ax_array = _createcanvasvertical(self.proj,
+                                    self.lims,
                                     self.vertfluctinit,
                                     self.vertfluctcurr,
                                     self.deltastack,
@@ -237,22 +242,22 @@ class RegisterPlot:
             self.im11 = im_array[0] #im11
             self.im21 = im_array[1] #im21
             self.im22 = im_array[2] #im22
-            self.im31 = im_array[4] #im31
-            self.im31a = im_array[5] #im31a
-            self.im31b = im_array[6] #im31b
-            self.im32 = im_array[7] #im32
-            self.im32a = im_array[8] #im32a
-            self.im32a = im_array[9] #im32b
-            self.im41 = im_array[10] #im41
-            self.im42 = im_array[11] #im51
+            self.im31 = im_array[3] #im31
+            self.im31a = im_array[4] #im31a
+            self.im31b = im_array[5] #im31b
+            self.im32 = im_array[6] #im32
+            self.im32a = im_array[7] #im32a
+            self.im32b = im_array[8] #im32b
+            self.im41 = im_array[9] #im41
+            self.im42 = im_array[10] #im51
 
             self.ax11 = ax_array[0] #ax11
             self.ax21 = ax_array[1] #ax21
             self.ax22 = ax_array[2] #ax22
-            self.ax31 = ax_array[4] #ax31
-            self.ax32 = ax_array[5] #ax32
-            self.ax41 = ax_array[6] #ax41
-            self.ax42 = ax_array[7] #ax51
+            self.ax31 = ax_array[3] #ax31
+            self.ax32 = ax_array[4] #ax32
+            self.ax41 = ax_array[5] #ax41
+            self.ax42 = ax_array[6] #ax51
         else:
             self.updatevertical()
 
@@ -263,22 +268,39 @@ class RegisterPlot:
         self.im21.set_data(self.vertfluctinit)
         self.im22.set_data(self.vertfluctcurr)
 
-        self.im32.set_ydata(self.vertfluctcurr)
+        for ii in range(len(self.im32)):
+            self.im32[ii].set_ydata(self.vertfluctcurr[ii])
+        #[self.im32[ii].set_ydata(self.vertfluctcurr[ii]) for ii in range(len(self.im32))]
+        #self.im32.set_ydata(self.vertfluctcurr)
         self.im32a.set_ydata(self.vertfluctcurr.mean(axis=0))
         self.im32b.set_ydata(self.vertfluctcurr.mean(axis=0))
 
-        self.im41.set_ydata(deltastack.T)
-        self.im42.set_ydata(metric_error)
-        autoscale_y(self.im41)
-        autoscale_y(self.im42)
+        for ii in range(len(self.im41)):
+            self.im41[ii].set_ydata(deltastack.T[ii])
+        self.im42.set_ydata(self.metric_error)
+        #autoscale_y(self.ax41)
+        #autoscale_y(self.ax42)
+        # TODO: check why does not work
+        # TypeError: only integer scalar arrays can be converted to a scalar index
+        """
+            <ipython-input-43-0f2f7f6151ea> in get_bottom_top(line)
+         26         yd = line.get_ydata()
+         27         lo,hi = ax.get_xlim()
+        ---> 28         y_displayed = yd[((xd>lo) & (xd<hi))]
+         29         h = np.max(y_displayed) - np.min(y_displayed)
+         30         bot = np.min(y_displayed)-margin*h
 
-        self.ax11.axes.figure.canvas.draw()
-        self.ax21.axes.figure.canvas.draw()
-        self.ax22.axes.figure.canvas.draw()
-        self.ax31.axes.figure.canvas.draw()
-        self.ax32.axes.figure.canvas.draw()
-        self.ax41.axes.figure.canvas.draw()
-        self.ax42.axes.figure.canvas.draw()
+        """ 
+
+
+        #~ self.ax11.axes.figure.canvas.draw()
+        #~ self.ax21.axes.figure.canvas.draw()
+        #~ self.ax22.axes.figure.canvas.draw()
+        #~ self.ax31.axes.figure.canvas.draw()
+        #~ self.ax32.axes.figure.canvas.draw()
+        #~ self.ax41.axes.figure.canvas.draw()
+        #~ self.ax42.axes.figure.canvas.draw()
+        plt.draw()
 
     def plotshorizontal(self, recons, sinoorig, sinocurr, sinocomp,
                         deltaslice, metric_error, count):
@@ -332,12 +354,14 @@ class RegisterPlot:
         autoscale_y(self.im31)
         autoscale_y(self.im32)
 
-        self.ax11.axes.figure.canvas.draw()
-        self.ax21.axes.figure.canvas.draw()
-        self.ax22.axes.figure.canvas.draw()
-        self.ax23.axes.figure.canvas.draw()
-        self.ax31.axes.figure.canvas.draw()
-        self.ax32.axes.figure.canvas.draw()
+        plt.draw()
+
+        #~ self.ax11.axes.figure.canvas.draw()
+        #~ self.ax21.axes.figure.canvas.draw()
+        #~ self.ax22.axes.figure.canvas.draw()
+        #~ self.ax23.axes.figure.canvas.draw()
+        #~ self.ax31.axes.figure.canvas.draw()
+        #~ self.ax32.axes.figure.canvas.draw()
 
 
 def show_projections(objs,probe,idxproj):
