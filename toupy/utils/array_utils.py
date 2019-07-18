@@ -88,7 +88,7 @@ def projectpoly1d(func1d,order=1,w=1):
     for ii in range(len(polyseries)):
         coeff = np.sum(func1d*polyseries[ii]*w)
         projfunc1d -= polyseries[ii]*coeff # all array needs to be float
-    return projfunc1D
+    return projfunc1d
 
 def crop(input_array,delcropx,delcropy):
     """
