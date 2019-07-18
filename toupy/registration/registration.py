@@ -18,6 +18,7 @@ from ..tomo.iradon import backprojector
 from ..tomo.radon import projector
 from ..utils.funcutils import deprecated
 from ..utils.array_utils import projectpoly1d, fract_hanning_pad
+from ..utils.plot_utils import RegisterPlot
 
 __all__=['compute_aligned_stack',
          'compute_aligned_sino',
@@ -207,6 +208,104 @@ def vertical_shift(input_array,lims,vstep,params):
 
     return shift_calc
 
+def _checkconditions(metric_error, changes, pixtol, subpixel=False):
+    """
+    Check if the registration conditions are satisfied
+    """
+    if subpixel: step = pixtol
+    else: step = 1
+
+    # We then check if the error increases
+    if metric_error[-1] > metric_error[-2]: # compare the last with the before last value
+        print('Last iteration increased error.')
+        print('Before -> {:.04e}, current -> {:.04e}'.format(metric_error[-2],metric_error[-1]))
+        print('Keeping previous shifts.')
+        reason = 1
+
+    # We check if the changes is larger than 1 or pixtol
+    elif np.max(changey) < step:
+        if step >= 1:
+            print('Changes are smaller than one pixel.')
+        else:
+            print('Changes are smaller than {} pixel.'.format(step))
+        reason = 2
+
+    # we check if the number of iteration is reached
+    elif count >= params['maxit']:
+        print('Maximum number of iterations reached.')
+        reason = 3
+    else:
+        reason = 0
+
+    return reason
+     
+    # ~ if metric_error[-1] > metric_error[-2]:
+        # ~ print('\nLast iteration increases error. Keeping previous positions')
+        # ~ print('Before -> {}, current -> {}'.format(metric_error[-2],metric_error[-1]))
+        # ~ print('Keeping previous shifts.')
+        # ~ deltaslice = deltaprev.copy() # return deltaslice one step before
+        # ~ sinogram = sinoprev.copy() # return to previous sinogram
+        # ~ metric_error.pop() # remove the last value from the metric_error
+        # ~ count -=1
+        # ~ break
+
+def _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluct_init,RP,**params):  
+    # Initialize the counter
+    count = 0
+    while True:
+        count += 1
+        print('\n============================================')
+        print('Iteration {}'.format(count))
+        deltaprev = deltastack.copy()
+
+        # Mass distribution registration in y
+        if count ==1:
+            vert_fluct = vert_fluct_init.copy()
+        else:
+            print('Updating the vertical fluctuations')
+            vert_fluct = vertical_fluctuations(input_stack,lims,deltastack,params['shiftmeth'])
+
+        # Average the vertical fluctuation functions
+        print('Calculating the average of the vertical fluctuation function')
+        vert_fluct_mean = vert_fluct.mean(axis=0)
+
+        # Search for shifts with respect to mean
+        print('Search for the shifts with respect to the mean vertical fluctuations...')
+        deltastack_aux, vert_fluct_temp = _search_shift_direction_stack(input_stack,
+                                        lims,deltastack,vert_fluct_mean,
+                                        params,subpixel=params['subpixel'])
+        deltastack[0] = deltastack_aux[0].copy()
+        deltastack[0] -= deltastack_aux[0].mean().round() # recentering
+
+        # Error calculation
+        vert_fluct_mean_temp = vert_fluct_temp.mean(axis=0)#keep temporarily the vertical fluctuations
+        print('\nCalculating the error metric')
+        for ii in range(vert_fluct_temp.shape[0]):
+            error_reg[ii] = np.sum(np.abs(vert_fluct_temp[ii]-vert_fluct_mean_temp)**2)
+        print('Final error metric for y, E = {:.04e}'.format(np.sum(error_reg)))
+        metric_error.append(np.sum(error_reg))
+
+        # Maximum changes in y
+        print('Estimating the changes in y:')
+        changey = np.abs(deltaprev[0] - deltastack[0])
+        print('Maximum correction in y = {:.0f} pixels'.format(np.max(changey)))
+
+        # update figures
+        RP.plotsvertical(input_stack[0], vert_fluct_init, vert_fluct_temp,
+                            deltastack, metric_error, count)
+
+        if params['subpixel']: params['pixtol']
+        else: pixtol = 1
+        reason = _checkconditions(metric_error, changey, pixtol, params['subpixel'])
+        
+        if reason == 1:
+            deltastack = deltaprev.copy()
+            metric_error.pop()
+            break
+        elif reason >= 2:
+            break
+    return deltastack, metric_error
+
 def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
     """
     Vertical alignment of projections using mass fluctuation approach.
@@ -232,10 +331,6 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
     params['maxorder'] : int
         If params['rembias']=True, specify the polynomial order of bias 
         removal (e.g. = 1 mean, = 2 linear).
-    params['disp'] : int
-        = 0 Display no images
-        = 1 Final diagnostic images
-        = 2 Diagnostic images per iteration
     params['alignx'] : bool
         True or False to activate align x using center of mass 
         (default= False, which means align y only)
@@ -262,40 +357,19 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
 
     print('\n============================================')
     print('Vertical Mass fluctuation pixel alignment')
-
-    print('Initializing the shifts arrays')
-    # display one projection with limits
-    plt.close('all')
-    fig1 = plt.figure(num=1)#,figsize=(15,6))
-    plt.clf()
-    ax11 = fig1.add_subplot(111)
-    im11 = ax11.imshow(input_stack[0],cmap='bone')
-    ax11.set_title('Projection')
-    ax11.axis('image')
-    ax11.plot([limcol[0],limcol[-1]],[limrow[0],limrow[0]],'r-')
-    ax11.plot([limcol[0],limcol[-1]],[limrow[-1],limrow[-1]],'r-')
-    ax11.plot([limcol[0],limcol[0]],[limrow[0],limrow[-1]],'r-')
-    ax11.plot([limcol[-1],limcol[-1]],[limrow[0],limrow[-1]],'r-')
-    plt.show(block=False)
-    plt.pause(0.01)
-
-    if params['2Dgaussian_filter']:
-        for ii in range(input_stack.shape[0]):
-            print('Applying 2D gaussian filter projection: {}'.format(ii+1),end="\r")
-            input_stack[ii] = gaussian_filter(input_stack[ii],params[u'2Dgaussian_sigma'])
+    count = 0
 
     # horizontal alignement with center of mass if requested
-    if params['alignx'] and count == 1:
+    if params['alignx'] and count == 0:
         print('Estimating the changes in x using center-of-mass:')
         centerx = center_of_mass_stack(input_stack,params,limrow=limrow,limcol=limcol,deltastack=deltastack)[0]#[1]
         # Correction with mass center
         deltastack[1] = -centerx.round()
-        deltastack[1] -= deltastack[1].mean().round()
-        changex = np.abs(deltaprev[1] - deltastack[1])
+        # ~ deltastack[1] -= deltastack[1].mean().round()
+        changex = np.max(np.abs(deltaprev[1] - deltastack[1]))
+        print('Maximum correction of center of mass in x = {:.02f} pixels'.format(changex))
     else:
         changex = 0
-
-    print('Maximum correction of center of mass in x = {:.02f} pixels'.format(np.max(changex)))
 
     # first iteration only correcting for the limrow and limcol and in case deltastack is already no zero
     vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'])
@@ -311,289 +385,27 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
         error_init[ii] = np.sum(np.abs(vert_fluct_init[ii]-avg_init)**2)
     print('Initial error metric for y, E = {:.02e}'.format(np.sum(error_init)))
     metric_error.append(np.sum(error_init))
-    #metric_error = np.sum(error_init)
 
-    #figures display
-    if nc>nr:
-        figsize = (np.round(6*nc/nr),6)
-    else:
-        figsize = (6,np.round(6*nr/nc))
-
-    fig2 = plt.figure(num=2,figsize=figsize)
-    plt.clf()
-    ax21 = fig2.add_subplot(211)
-    im21 = ax21.imshow(vert_fluct_init.T,cmap='jet',interpolation='none')
-    ax21.axis('tight')
-    ax21.set_title('Initial Integral in x')
-    ax21.set_xlabel('Projection')
-    ax21.set_ylabel('y [pixels]')
-    ax22 = fig2.add_subplot(212)
-    im22 = ax22.imshow(vert_fluct_init.T,cmap='jet',interpolation='none')
-    ax22.axis('tight')
-    ax22.set_title('Current Integral in x')
-    ax22.set_xlabel('Projection')
-    ax22.set_ylabel('y [pixels]')
-    plt.tight_layout()
-    fig2.canvas.draw()
-    plt.pause(0.1)
-
-    fig3 = plt.figure(num=3,figsize=figsize)
-    plt.clf()
-    ax31 = fig3.add_subplot(211)
-    im31 = ax31.plot(vert_fluct_init.T)
-    im31_a1 = ax31.plot(vert_fluct_init.mean(axis=0),'r',linewidth=2.5)
-    im31_a2 = ax31.plot(vert_fluct_init.mean(axis=0),'--w',linewidth=1.5)
-    ax31.axis('tight')
-    ax31.set_title('Initial Integral in x')
-    ax31.set_xlabel('Projection')
-    ax31.set_ylabel('y [pixels]')
-    ax32 = fig3.add_subplot(212)
-    im32 = ax32.plot(vert_fluct_init.T)
-    im32_a1 = ax32.plot(vert_fluct_init.mean(axis=0),'r',linewidth=2.5)
-    im32_a2 = ax32.plot(vert_fluct_init.mean(axis=0),'--w',linewidth=1.5)
-    ax32.axis('tight')
-    ax32.set_title('Current Integral in x')
-    ax32.set_xlabel('Projection')
-    ax32.set_ylabel('y [pixels]')
-    plt.tight_layout()
-    fig3.canvas.draw()
-    plt.pause(0.1)
+    # initializing display canvas
+    plt.ion()
+    RP = RegisterPlot(**params)
+    RP.plotsvertical(input_stack[0], vert_fluct_init, vert_fluct_init,
+                deltastack_init, metric_error, count)
 
     # Single pixel precision
     print('\n================================================')
     print('Registration of projections with pixel precision')
     print('================================================')
+    params['subpixel'] = False
 
-    plt.ion()
-
-    # Initialize the counter
-    count = 0
-    while True:
-        count += 1
-        print('\n============================================')
-        print('Iteration {}'.format(count))
-        deltaprev = deltastack.copy()
-
-        # Mass distribution registration in y
-        if count ==1:
-            vert_fluct = vert_fluct_init.copy()
-        else:
-            print('Updating the vertical fluctuations')
-            vert_fluct = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'])
-
-        # Average the vertical fluctuation functions
-        print('Calculating the average of the vertical fluctuation function')
-        vert_fluct_mean = vert_fluct.mean(axis=0)
-
-        # Search for shifts with respect to mean
-        print('Search for the shifts with respect to the mean vertical fluctuations...')
-        deltastack_aux, vert_fluct_temp = _search_shift_direction_stack(input_stack,lims,deltastack,vert_fluct_mean,params,subpixel=False)
-        deltastack[0] = deltastack_aux[0].copy()
-        deltastack[0] -= deltastack_aux[0].mean().round() # recentering
-
-        # Error calculation
-        vert_fluct_mean_temp = vert_fluct_temp.mean(axis=0)#keep temporarily the vertical fluctuations
-        print('\nCalculating the error metric')
-        for ii in range(vert_fluct_temp.shape[0]):
-            error_reg[ii] = np.sum(np.abs(vert_fluct_temp[ii]-vert_fluct_mean_temp)**2)
-        print('Final error metric for y, E = {:.04e}'.format(np.sum(error_reg)))
-        metric_error.append(np.sum(error_reg))
-
-        # Maximum changes in y
-        print('Estimating the changes in y:')
-        changey = np.abs(deltaprev[0] - deltastack[0])
-        print('Maximum correction in y = {:.0f} pixels'.format(np.max(changey)))
-
-        if params['disp']>1:
-            # Figure 2
-            im21.set_data(vert_fluct_init.T)#,interpolation='none')
-            ax21.set_title('Initial Integral in x')
-            im22.set_data(vert_fluct_temp.T)#,interpolation='none')
-            ax22.set_title('Current Integral in x')
-            plt.tight_layout()
-            fig2.canvas.draw()
-            plt.pause(0.1)
-
-            # Figure 3
-            fig3 = plt.figure(num=3,figsize=figsize)
-            plt.clf()
-            ax31 = fig3.add_subplot(211)
-            im31 = plt.plot(vert_fluct_init.T)
-            ax31.plot(avg_init,'r',linewidth=2.5)
-            ax31.plot(avg_init,'--w',linewidth=1.5)
-            ax31.axis('tight')
-            ax31.set_title('Initial Integral in x')
-            ax31.set_xlabel('Projection')
-            ax31.set_ylabel('y [pixels]')
-            ax32 = fig3.add_subplot(212)
-            ax32.plot(vert_fluct_temp.T)
-            ax32.plot(vert_fluct_mean_temp,'r',linewidth=2.5)
-            ax32.plot(vert_fluct_mean_temp,'--w',linewidth=1.5)
-            ax32.axis('tight')
-            ax32.set_title('Current Integral in x')
-            ax32.set_xlabel('Projection')
-            ax32.set_ylabel('y [pixels]')
-            plt.tight_layout()
-            fig3.canvas.draw()
-            plt.pause(0.1)
-
-            # Figure 4
-            fig4 = plt.figure(num=4)
-            plt.clf()
-            ax41 = fig4.add_subplot(111)
-            im41 = ax41.plot(np.transpose(deltastack))
-            ax41.axis('tight')
-            ax41.set_title('Object position')
-            plt.tight_layout()
-            fig4.canvas.draw()
-            plt.pause(0.1)
-
-            # Figure 5
-            fig5 = plt.figure(num=5)#,figsize=figsize)
-            plt.clf()
-            ax51 = fig5.add_subplot(111)
-            ax51.plot(metric_error,'bo-')
-            ax51.axis('tight')
-            ax51.set_title('Error metric')
-            plt.tight_layout()
-            fig5.canvas.draw()
-            plt.pause(0.1)
-
-        # We then check if the error increases
-        if metric_error[-1] > metric_error[-2]: # compare the last with the before last value
-            print('Last iteration increased error.')
-            print('Before -> {:.04e}, current -> {:.04e}'.format(metric_error[-2],metric_error[-1]))
-            print('Keeping previous shifts.')
-            deltastack = deltaprev.copy()
-            metric_error.pop()
-            break
-
-        # We check if the changes is larger than 1
-        if np.max(changey) < 1:# and isinstance(params['pixtol'],int):#max(params['pixtol'],1)):
-            print('Changes are smaller than one pixel.')
-            break
-
-        # we check if the number of iteration is reached
-        if count >= params['maxit']:
-            print('Maximum number of iterations reached.')
-            break
-
-
-    print('\n================================================')
-    print('Switching to subpixel precision alignement')
-    print('================================================')
-
+    deltastack,metric_error = _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluct_init,RP,**params)
+            
     print('\n================================================')
     print('Registration of projections with subpixel precision')
     print('================================================')
-    # Initialize the counter
-    count = 0
-    while True:
-        count += 1
-        print('\n============================================')
-        print('Iteration {}'.format(count))
-        deltaprev = deltastack.copy()
 
-        # Mass distribution registration in y
-        if count !=1:
-            print('Updating the vertical fluctuations')
-            vert_fluct = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'])
-            # Average the vertical fluctuation functions
-            print('Calculating the average of the vertical fluctuation function')
-            vert_fluct_mean = vert_fluct.mean(axis=0)
-
-        # Search for shifts with respect to mean
-        print('Search for the shifts with respect to the mean vertical fluctuations...')
-        deltastack_aux, vert_fluct_temp = _search_shift_direction_stack(input_stack,lims,deltastack,vert_fluct_mean,params,subpixel=True)
-        deltastack[0] = deltastack_aux[0].copy()
-        deltastack[0] -= deltastack_aux[0].mean().round() # recentering
-
-        # Error calculation
-        vert_fluct_mean_temp = vert_fluct_temp.mean(axis=0)#keep temporarily the vertical fluctuations
-        print('\nCalculating the error metric')
-        for ii in range(vert_fluct_temp.shape[0]):
-            error_reg[ii] = np.sum(np.abs(vert_fluct_temp[ii]-vert_fluct_mean_temp)**2)
-        print('Final error metric for y, E = {:.04e}'.format(np.sum(error_reg)))
-        metric_error.append(np.sum(error_reg))
-
-        # Maximum changes in y
-        print('Estimating the changes in y:')
-        changey = np.abs(deltaprev[0] - deltastack[0])
-        print('Maximum correction in y = {:.04f} pixels'.format(np.max(changey)))
-
-        if params['disp']>1:
-            # Figure 2
-            im21.set_data(vert_fluct_init.T)#,interpolation='none')
-            ax21.set_title('Initial Integral in x')
-            im22.set_data(vert_fluct_temp.T)#,interpolation='none')
-            ax22.set_title('Current Integral in x')
-            plt.tight_layout()
-            fig2.canvas.draw()
-            plt.pause(0.1)
-
-            # Figure 3
-            fig3 = plt.figure(num=3,figsize=figsize)
-            plt.clf()
-            ax31 = fig3.add_subplot(211)
-            im31 = plt.plot(vert_fluct_init.T)
-            ax31.plot(avg_init,'r',linewidth=2.5)
-            ax31.plot(avg_init,'--w',linewidth=1.5)
-            ax31.axis('tight')
-            ax31.set_title('Initial Integral in x')
-            ax31.set_xlabel('Projection')
-            ax31.set_ylabel('y [pixels]')
-            ax32 = fig3.add_subplot(212)
-            ax32.plot(vert_fluct_temp.T)
-            ax32.plot(vert_fluct_mean_temp,'r',linewidth=2.5)
-            ax32.plot(vert_fluct_mean_temp,'--w',linewidth=1.5)
-            ax32.axis('tight')
-            ax32.set_title('Current Integral in x')
-            ax32.set_xlabel('Projection')
-            ax32.set_ylabel('y [pixels]')
-            plt.tight_layout()
-            fig3.canvas.draw()
-            plt.pause(0.1)
-
-            # Figure 4
-            fig4 = plt.figure(num=4)
-            plt.clf()
-            ax41 = fig4.add_subplot(111)
-            im41 = ax41.plot(np.transpose(deltastack))
-            ax41.axis('tight')
-            ax41.set_title('Object position')
-            plt.tight_layout()
-            fig4.canvas.draw()
-            plt.pause(0.1)
-
-            # Figure 5
-            fig5 = plt.figure(num=5)#,figsize=figsize)
-            plt.clf()
-            ax51 = fig5.add_subplot(111)
-            ax51.plot(metric_error,'bo-')
-            ax51.axis('tight')
-            ax51.set_title('Error metric')
-            plt.tight_layout()
-            fig5.canvas.draw()
-            plt.pause(0.1)
-
-        # We then check if the error increases
-        if metric_error[-1] > metric_error[-2]: # index starts at 0 and count at 1
-            print('Last iteration increased error.')
-            print('Before -> {:.04e}, current -> {:.04e}'.format(metric_error[-2],metric_error[-1]))
-            print('Keeping previous shifts.')
-            deltastack = deltaprev.copy()
-            metric_error.pop()
-            break
-
-        # We check if the changes is larger than 1
-        if np.max(changey) < params['pixtol']:# and isinstance(params['pixtol'],int):#max(params['pixtol'],1)):
-            print('Changes are smaller than {} pixel.'.format(params['pixtol']))
-            break
-
-        # we check if the number of iteration is reached
-        if count >= params['maxit']:
-            print('Maximum number of iterations reached.')
-            break
+    params['subpixel'] = True
+    deltastack,metric_error = _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluct_init,RP,**params)
 
     # Compute the shifted images
     print('Computing aligned images')
@@ -730,7 +542,7 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,params):
     recons = backprojector(sinogram,theta=theta,
                            output_size=sinogram.shape[0],
                            filter_type=params['filtertype'],
-                           derivative=params[u'derivatives'],
+                           derivative=params['derivatives'],
                            freqcutoff=params['filtertomo'])
     print('Done. Time elapsed: {} s'.format(time.time()-t0))
     print('Slice standard deviation = {:0.04e}'.format(recons.std()))
@@ -738,8 +550,7 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,params):
     # clipping gray level if needed
     recons = _clipping_tomo(recons,**params)
     if params['circle']:
-        circle = _create_circle(recons)#center,N) # only need to calculate once
-    #if params['circle']:
+        circle = _create_circle(recons) # only need to calculate once
         recons = recons*circle
 
     # initial synthetic sinogram
@@ -833,12 +644,6 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,params):
         if params['circle']:
             recons = recons*circle
 
-        # Show slice images
-        im11.set_data(recons)#,cmap='jet')
-        ax11.set_title('Slice - iteration {}'.format(count))
-        fig1.canvas.draw()
-        plt.pause(0.001)
-
         # Compute synthetic sinogram
         print('Computing synthetic sinogram. This takes time. Please, be patient.')
         sinogramcomp = FBP_projector(recons,theta,**params)
@@ -864,6 +669,12 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,params):
         print('Elapsed time = {} s'.format(time.time()-it0))
 
         if params['disp']>1:
+            # Show slice images
+            im11.set_data(recons)#,cmap='jet')
+            ax11.set_title('Slice - iteration {}'.format(count))
+            fig1.canvas.draw()
+            plt.pause(0.001)
+
             im21.set_data(sino_orig)
             ax21.set_title('Initial sinogram')
             im22.set_data(sinogram)
@@ -950,12 +761,6 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,params):
             if params['circle']:
                 recons = recons*circle
 
-            # Show slice images
-            im11.set_data(recons)
-            ax11.set_title('Slice - iteration {}'.format(count))
-            fig1.canvas.draw()
-            plt.pause(0.001)
-
             # Compute synthetic sinogram
             print('Computing synthetic sinogram. This takes time. Please, be patient.')
             sinogramcomp = FBP_projector(recons,theta,P,**params)
@@ -981,6 +786,12 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,params):
             print('Elapsed time = {} s'.format(time.time()-it0))
 
             if params['disp']>1:
+                # Show slice images
+                im11.set_data(recons)
+                ax11.set_title('Slice - iteration {}'.format(count))
+                fig1.canvas.draw()
+                plt.pause(0.001)
+                
                 im21.set_data(sino_orig)
                 ax21.set_title('Initial sinogram')
                 im22.set_data(sinogram)

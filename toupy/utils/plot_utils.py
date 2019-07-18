@@ -7,8 +7,336 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import hsv_to_rgb
 import matplotlib as mpl
 
-__all__=['show_projections',
+__all__=['autoscale_y',
+         'RegisterPlot',
+         'show_projections',
          'show_linearphase']
+
+def autoscale_y(ax,margin=0.1):
+    """
+    This function rescales the y-axis based on the data that is visible given the current xlim of the axis.
+    ax : a matplotlib axes object
+    margin : the fraction of the total height of the y-data to pad the upper and lower ylims
+    """
+
+    import numpy as np
+
+    def get_bottom_top(line):
+        xd = line.get_xdata()
+        yd = line.get_ydata()
+        lo,hi = ax.get_xlim()
+        y_displayed = yd[((xd>lo) & (xd<hi))]
+        h = np.max(y_displayed) - np.min(y_displayed)
+        bot = np.min(y_displayed)-margin*h
+        top = np.max(y_displayed)+margin*h
+        return bot,top
+
+    lines = ax.get_lines()
+    bot,top = np.inf, -np.inf
+
+    for line in lines:
+        new_bot, new_top = get_bottom_top(line)
+        if new_bot < bot: bot = new_bot
+        if new_top > top: top = new_top
+
+    ax.set_ylim(bot,top)
+
+def _plotdelimiters(ax, limrow, limcol):
+    """
+    Create ROI limits in image
+
+    Parameters
+    ----------
+    ax : Matplotlib object
+        axes
+    limrow : list of ints
+        Limits of rows in the format [begining, end]
+    limcol : list of ints
+        Limits of cols in the format [begining, end]
+    """
+    ax.plot([limcol[0],limcol[-1]],[limrow[0],limrow[0]],'r-')
+    ax.plot([limcol[0],limcol[-1]],[limrow[-1],limrow[-1]],'r-')
+    ax.plot([limcol[0],limcol[0]],[limrow[0],limrow[-1]],'r-')
+    ax.plot([limcol[-1],limcol[-1]],[limrow[0],limrow[-1]],'r-')
+    return ax
+
+def _createcanvashorizontal(recons, sinoorig, sinocurr, sinocomp,
+                            deltaslice, metric_error,**kwargs):
+    """
+    Create canvas for the plots during horizontal alignement
+    """
+    slicenum = kwargs['slicenum']
+
+    # Preparing the canvas for the figures
+    fig1 = plt.figure(num=1)
+    ax11 = fig1.add_subplot(111)
+    im11 = ax11.imshow(recons,cmap='jet')
+    ax11.axis('image')
+    ax11.set_title('Initial slice number: {}'.format(slicenum))
+    ax11.set_xlabel('x [pixels]')
+    ax11.set_ylabel('y [pixels]')
+    fig1.tight_layout()
+    fig1.show()
+
+    fig2 = plt.figure(num=2)
+    ax21 = fig2.add_subplot(311)
+    im21 = ax21.imshow(sinoorig,cmap='bone',vmin=cmin,vmax=cmax)
+    ax21.axis('tight')
+    ax21.set_title('Initial sinogram')
+    ax21.set_xlabel('Projection')
+    ax21.set_ylabel('x [pixels]')
+    ax22 = fig2.add_subplot(312)
+    im22 = ax22.imshow(sinocurr,cmap='bone',vmin=cmin,vmax=cmax)
+    ax22.axis('tight')
+    ax22.set_title('Current sinogram')
+    ax22.set_xlabel('Projection')
+    ax22.set_ylabel('x [pixels]')
+    ax23 = fig2.add_subplot(313)
+    im23 = ax23.imshow(sinocomp,cmap='bone',vmin=cmin,vmax=cmax)
+    ax23.axis('tight')
+    ax23.set_title('Synthetic sinogram')
+    ax23.set_xlabel('Projection')
+    ax23.set_ylabel('x [pixels]')
+    fig2.tight_layout()
+    fig2.show()
+
+    fig3 = plt.figure(num=3)
+    ax31 = fig3.add_subplot(211)
+    im31, = ax31.plot(deltaslice.T)
+    ax31.axis('tight')
+    ax31.set_title('Object position')
+    ax32 = fig3.add_subplot(212)
+    im32, = ax32.plot(metric_error,'bo-')
+    ax32.axis('tight')
+    ax32.set_title('Error metric')
+    fig3.tight_layout()
+    fig3.show()
+
+    return([im11,im21,im22,im23,im31,im32],[ax11,ax21,ax22,ax23,ax31,ax32])
+
+def _createcanvasvertical(proj, vertfluctinit, vertfluctcurr,
+                           deltastack, metric_error, count, **kwargs):
+    """
+    Create canvas for the plots during vertical alignement
+    """
+    limrow = kwargs['limrow']
+    limcol = kwargs['limcol']
+
+    #figures display
+    nr,nc = vertfluctinit.shape # for the image display
+    if nc > nr: figsize = (np.round(6*nc/nr),6)
+    else: figsize = (6,np.round(6*nr/nc))
+
+    # display one projection with limits
+    fig1 = plt.figure(num=1)
+    ax11 = fig1.add_subplot(111)
+    im11 = ax11.imshow(proj,cmap='bone')
+    ax11.set_title('Projection')
+    ax11.axis('image')
+    ax11 = _plotdelimiters(ax11, limrow, limcol)
+    fig1.tight_layout()
+    fig1.show()
+
+    # display vertical fluctuations as 2D images
+    fig2 = plt.figure(num=2,figsize=figsize)
+    ax21 = fig2.add_subplot(211)
+    im21 = ax21.imshow(vertfluctinit.T,cmap='jet',interpolation='none')
+    ax21.axis('tight')
+    ax21.set_title('Initial Integral in x')
+    ax21.set_xlabel('Projection')
+    ax21.set_ylabel('y [pixels]')
+    ax22 = fig2.add_subplot(212)
+    im22 = ax22.imshow(vertfluctcurr.T,cmap='jet',interpolation='none')
+    ax22.axis('tight')
+    ax22.set_title('Current Integral in x')
+    ax22.set_xlabel('Projection')
+    ax22.set_ylabel('y [pixels]')
+    fig2.tight_layout()
+    fig2.show()
+
+    # display vertical fluctuations as plots
+    fig3 = plt.figure(num=3,figsize=figsize)
+    ax31 = fig3.add_subplot(211)
+    im31, = ax31.plot(vertfluctinit)
+    im31a = ax31.plot(vertfluctinit.mean(axis=0),'r',linewidth=2.5)
+    im31b = ax31.plot(vertfluctinit.mean(axis=0),'--w',linewidth=1.5)
+    ax31.axis('tight')
+    ax31.set_title('Initial Integral in x')
+    ax31.set_xlabel('Projection')
+    ax31.set_ylabel('y [pixels]')
+    ax32 = fig3.add_subplot(212)
+    im32 = ax32.plot(vert_fluct_init, )
+    im32a = ax32.plot(vertfluctcurr.mean(axis=0),'r',linewidth=2.5)
+    im32b = ax32.plot(vertfluctcurr.mean(axis=0),'--w',linewidth=1.5)
+    ax32.axis('tight')
+    ax32.set_title('Current Integral in x')
+    ax32.set_xlabel('Projection')
+    ax32.set_ylabel('y [pixels]')
+    fig3.tight_layout()
+    fig3.show()
+
+    # shifts
+    fig4 = plt.figure(num=4)
+    ax41 = fig4.add_subplot(111)
+    im41 = ax41.plot(np.transpose(deltastack))
+    ax41.axis('tight')
+    ax41.set_title('Object position')
+    # metric_error
+    ax42 = fig4.add_subplot(111)
+    im42, = ax42.plot(metric_error,'bo-')
+    ax42.axis('tight')
+    ax42.set_title('Error metric')
+    fig4.tight_layout()
+    fig4.show()
+
+    im_array = [im11,im21,im22,im31,im31a,im31b,im32,im32a,im32b,im41,im42]
+    ax_array = [ax11,ax21,ax22,ax31,ax32,ax41,ax42]
+
+    return(im_array,ax_array)
+
+class RegisterPlot:
+    """
+    Display plots during registration
+    """
+    def __init__(self, **params):
+        self.count = 0
+        self.params = params
+        self.vmin = params['vmin']
+        self.vmax = params['vmax']
+        plt.close('all')
+        # ~ plt.ion()
+
+    def plotsvertical(self, proj, vertfluctinit, vertfluctcurr,
+                      deltastack, metric_error, count):
+        """
+        Display plots during the vertical registration
+        """
+        self.proj = proj
+        self.vertfluctinit = vertfluctinit.T
+        self.vertfluctcurr = vertfluctcurr.T
+        self.count = count
+
+        #figures display
+        nr,nc = self.vertfluctinit.shape # for the image display
+        if nc>nr:
+            figsize = (np.round(6*nc/nr),6)
+        else:
+            figsize = (6,np.round(6*nr/nc))
+
+        if self.count == 0:
+            # Preparing the canvas for the figures
+            im_array, ax_array = _createcanvasvertical(self.proj,
+                                    self.vertfluctinit,
+                                    self.vertfluctcurr,
+                                    self.deltastack,
+                                    self.metric_error,
+                                    self.count, **self.params)
+
+            self.im11 = im_array[0] #im11
+            self.im21 = im_array[1] #im21
+            self.im22 = im_array[2] #im22
+            self.im31 = im_array[4] #im31
+            self.im31a = im_array[5] #im31a
+            self.im31b = im_array[6] #im31b
+            self.im32 = im_array[7] #im32
+            self.im32a = im_array[8] #im32a
+            self.im32a = im_array[9] #im32b
+            self.im41 = im_array[10] #im41
+            self.im42 = im_array[11] #im51
+
+            self.ax11 = ax_array[0] #ax11
+            self.ax21 = ax_array[1] #ax21
+            self.ax22 = ax_array[2] #ax22
+            self.ax31 = ax_array[4] #ax31
+            self.ax32 = ax_array[5] #ax32
+            self.ax41 = ax_array[6] #ax41
+            self.ax42 = ax_array[7] #ax51
+        else:
+            self.updatevertical()
+
+    def updatevertical(self):
+        """
+        Update the plot canvas during vertical registration
+        """
+        self.im21.set_data(self.vertfluctinit)
+        self.im22.set_data(self.vertfluctcurr)
+
+        self.im32.set_ydata(self.vertfluctcurr)
+        self.im32a.set_ydata(self.vertfluctcurr.mean(axis=0))
+        self.im32b.set_ydata(self.vertfluctcurr.mean(axis=0))
+
+        self.im41.set_ydata(deltastack.T)
+        self.im42.set_ydata(metric_error)
+        autoscale_y(self.im41)
+        autoscale_y(self.im42)
+
+        self.ax11.axes.figure.canvas.draw()
+        self.ax21.axes.figure.canvas.draw()
+        self.ax22.axes.figure.canvas.draw()
+        self.ax31.axes.figure.canvas.draw()
+        self.ax32.axes.figure.canvas.draw()
+        self.ax41.axes.figure.canvas.draw()
+        self.ax42.axes.figure.canvas.draw()
+
+    def plotshorizontal(self, recons, sinoorig, sinocurr, sinocomp,
+                        deltaslice, metric_error, count):
+        """
+        Display plots during the horizontal registration
+        """
+        self.recons = recons
+        self.sinoorig = sinoorig
+        self.sinocurr = sinocurr
+        self.count = count
+
+        if self.count == 0:
+            # Preparing the canvas for the figures
+            im_array, ax_array = _createcanvashorizontal(self.recons,
+                                            self.sinoorig,
+                                            self.sinocurr,
+                                            self.sinocomp,
+                                            self.deltaslice,
+                                            self.metric_error,
+                                            self.count, **self.params)
+
+            self.im11 = im_array[0] #im11
+            self.im21 = im_array[1] #im21
+            self.im22 = im_array[2] #im22
+            self.im23 = im_array[3] #im23
+            self.im31 = im_array[4] #im31
+            self.im32 = im_array[5] #im32
+
+            self.ax11 = ax_array[0] #ax11
+            self.ax21 = ax_array[1] #ax21
+            self.ax22 = ax_array[2] #ax22
+            self.ax23 = ax_array[3] #ax23
+            self.ax31 = ax_array[4] #ax31
+            self.ax32 = ax_array[5] #ax32
+        else:
+            self.update()
+
+    def updatehorizontal(self):
+        """
+        Update the plot canvas during vertical registration
+        """
+        self.im11.set_data(self.recons)
+        self.ax11.set_title('Slice. Iteration {}'.format(self.count))
+
+        self.im21.set_data(self.sinoorig)
+        self.im22.set_data(self.sinocurr)
+        self.im23.set_data(self.sinocomp)
+
+        self.im31.set_ydata(deltaslice.T)
+        self.im32.set_ydata(metric_error)
+        autoscale_y(self.im31)
+        autoscale_y(self.im32)
+
+        self.ax11.axes.figure.canvas.draw()
+        self.ax21.axes.figure.canvas.draw()
+        self.ax22.axes.figure.canvas.draw()
+        self.ax23.axes.figure.canvas.draw()
+        self.ax31.axes.figure.canvas.draw()
+        self.ax32.axes.figure.canvas.draw()
+
 
 def show_projections(objs,probe,idxproj):
     """
@@ -46,7 +374,7 @@ def show_projections(objs,probe,idxproj):
     im3 = ax3.imshow(hsv_to_rgb(probe_hsv),interpolation='none')
     fig.colorbar(im3,ax=ax3,cmap=mpl.cm.get_cmap('hsv'),norm=norm) # TO BE FIXED
     #cb = mpl.colorbar.ColorbarBase(ax3,cmap=mpl.cm.get_cmap('hsv'),norm=norm,orientation = 'horizontal')
-    ax3.set_title('Probe - projection {}'.format(idxproj))  
+    ax3.set_title('Probe - projection {}'.format(idxproj))
     #plt.tight_layout()
     plt.draw()
     #plt.clf()
@@ -59,9 +387,9 @@ def show_linearphase(image,mask,*args):
         idxproj=args[0]
     except:
         idxproj=''
-        
+
     linecut = np.round(image.shape[0]/2.)
-    
+
     fig, (ax1,ax2) = plt.subplots(num=3,nrows=2,ncols=1,figsize=(14,10))
     im1=ax1.imshow(image+mask,cmap='bone')
     ax1.set_title('Projection {}'.format(idxproj))
@@ -70,3 +398,47 @@ def show_linearphase(image,mask,*args):
     ax2.axis('tight')
     plt.draw()
     #ax2.cla()
+
+# ~ fig1 = plt.figure(num=1)
+# ~ self.ax11 = fig1.add_subplot(111)
+# ~ self.im11 = self.ax11.imshow(recons,cmap='jet')
+# ~ self.ax11.axis('image')
+# ~ self.ax11.set_title('Initial slice')
+# ~ self.ax11.set_xlabel('x [pixels]')
+# ~ self.ax11.set_ylabel('y [pixels]')
+# ~ fig1.tight_layout()
+# ~ fig1.show()
+
+# ~ fig2 = plt.figure(num=2)
+# ~ self.ax21 = fig2.add_subplot(311)
+# ~ self.im21 = self.ax21.imshow(sinoorig,cmap='bone',vmin=cmin,vmax=cmax)
+# ~ self.ax21.axis('tight')
+# ~ self.ax21.set_title('Initial sinogram')
+# ~ self.ax21.set_xlabel('Projection')
+# ~ self.ax21.set_ylabel('x [pixels]')
+# ~ self.ax22 = self.fig2.add_subplot(312)
+# ~ self.im22 = self.ax22.imshow(sinocurr,cmap='bone',vmin=cmin,vmax=cmax)
+# ~ self.ax22.axis('tight')
+# ~ self.ax22.set_title('Current sinogram')
+# ~ self.ax22.set_xlabel('Projection')
+# ~ self.ax22.set_ylabel('x [pixels]')
+# ~ self.ax23 = fig2.add_subplot(313)
+# ~ self.im23 = self.ax23.imshow(sinocomp,cmap='bone',vmin=cmin,vmax=cmax)
+# ~ self.ax23.axis('tight')
+# ~ self.ax23.set_title('Synthetic sinogram')
+# ~ self.ax23.set_xlabel('Projection')
+# ~ self.ax23.set_ylabel('x [pixels]')
+# ~ fig2.tight_layout()
+# ~ fig2.show()
+
+# ~ fig3 = plt.figure(num=3)
+# ~ self.ax31 = fig3.add_subplot(211)
+# ~ self.im31, = self.ax31.plot(deltaslice.T)
+# ~ self.ax31.axis('tight')
+# ~ self.ax31.set_title('Object position')
+# ~ self.ax32 = fig3.add_subplot(212)
+# ~ self.im32, = ax32.plot(metric_error,'bo-')
+# ~ self.ax32.axis('tight')
+# ~ self.ax32.set_title('Error metric')
+# ~ fig3.tight_layout()
+# ~ fig3.show()
