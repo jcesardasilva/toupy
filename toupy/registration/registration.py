@@ -152,7 +152,7 @@ def center_of_mass_stack(input_stack, lims, deltastack, shift_method='fourier'):
     
     return np.asarray([centerx,centery])
 
-def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier',bias=True, order=2):
+def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier',order=2):
     """
     Calculate the vertical fluctuation functions of a stack
     """
@@ -175,12 +175,11 @@ def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier',
         stack_shift = S(proj,(deltastack[0,ii],0.))
         shift_calc = stack_shift[max_vshift:-max_vshift].sum(axis=1) # the max_vshift has to be subtracted
         # to remove possible bias
-        if bias:
-            shift_calc = projectpoly1d(shift_calc,order,1)
+        shift_calc = projectpoly1d(shift_calc,order,1)
         vert_fluct[ii] = shift_calc
     return vert_fluct
 
-def vertical_shift(input_array,lims,vstep,params):
+def vertical_shift(input_array,lims,vstep,maxshift,shift_method='linear',polyorder=2):
     """
     Calculate the vertical shift of an array and remove bias if needed
     It is used by _search_shift_direction
@@ -188,12 +187,12 @@ def vertical_shift(input_array,lims,vstep,params):
     if not isinstance(input_array,np.ndarray):
         input_array = np.asarray(input_array).copy()
     # Initialize shift class
-    S = ShiftFunc(shiftmeth = params['shiftmeth'])
+    S = ShiftFunc(shiftmeth = shift_method)
     # array shape
     nr, nc = input_array.shape
 
     # Max vertical shift + 1. At least one for a margin. Had to take the int of vstep.
-    max_vshift = params['max_vshift']+int(np.abs(vstep))#+1
+    max_vshift = maxshift+int(np.abs(vstep))#+1
 
     # get the maximum shift value
     rows,cols = lims
@@ -203,12 +202,11 @@ def vertical_shift(input_array,lims,vstep,params):
     # Integration because stack_shift is 2D
     shift_calc = stack_shift[max_vshift:-max_vshift].sum(axis=1)
     # to remove possible bias
-    if params['bias']:
-        shift_calc = projectpoly1d(shift_calc,params['maxorder'],1)
+    shift_calc = projectpoly1d(shift_calc,polyorder,1)
 
     return shift_calc
 
-def _checkconditions(metric_error, changes, pixtol, subpixel=False):
+def _checkconditions(metric_error, changes, pixtol, count, maxint, subpixel=False):
     """
     Check if the registration conditions are satisfied
     """
@@ -223,7 +221,7 @@ def _checkconditions(metric_error, changes, pixtol, subpixel=False):
         reason = 1
 
     # We check if the changes is larger than 1 or pixtol
-    elif np.max(changey) < step:
+    elif np.max(changes) < step:
         if step >= 1:
             print('Changes are smaller than one pixel.')
         else:
@@ -231,7 +229,7 @@ def _checkconditions(metric_error, changes, pixtol, subpixel=False):
         reason = 2
 
     # we check if the number of iteration is reached
-    elif count >= params['maxit']:
+    elif count >= maxit:
         print('Maximum number of iterations reached.')
         reason = 3
     else:
@@ -274,7 +272,7 @@ def _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluc
         print('Search for the shifts with respect to the mean vertical fluctuations...')
         deltastack_aux, vert_fluct_temp = _search_shift_direction_stack(input_stack,
                                         lims,deltastack,vert_fluct_mean,
-                                        params,subpixel=params['subpixel'])
+                                        **params)
         deltastack[0] = deltastack_aux[0].copy()
         deltastack[0] -= deltastack_aux[0].mean().round() # recentering
 
@@ -289,15 +287,16 @@ def _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluc
         # Maximum changes in y
         print('Estimating the changes in y:')
         changey = np.abs(deltaprev[0] - deltastack[0])
-        print('Maximum correction in y = {:.0f} pixels'.format(np.max(changey)))
+        print('Maximum correction in y = {:.02f} pixels'.format(np.max(changey)))
 
         # update figures
         RP.plotsvertical(input_stack[0], lims, vert_fluct_init, vert_fluct_temp,
                             deltastack, metric_error, count)
 
-        if params['subpixel']: params['pixtol']
+        if params['subpixel']: pixtol = params['pixtol']
         else: pixtol = 1
-        reason = _checkconditions(metric_error, changey, pixtol, params['subpixel'])
+        reason = _checkconditions(metric_error, changey, pixtol, count,
+                                  params['maxit'],params['subpixel'])
         
         if reason == 1:
             deltastack = deltaprev.copy()
@@ -373,7 +372,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
         changex = 0
 
     # first iteration only correcting for the limrow and limcol and in case deltastack is already no zero
-    vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'],params['bias'],order=params['maxorder'])
+    vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'],order=params['polyorder'])
     avg_init = vert_fluct_init.mean(axis=0)
     deltastack_init = deltastack.copy()
     nr,nc = vert_fluct_init.shape # for the image display
@@ -903,28 +902,28 @@ def _create_circle(inputimg):
     t[np.where(R < (Rmax - bordercrop))]=1
     return t
 
-def _search_shift_direction_stack(input_stack,lims,input_delta,avg_vert_fluct,params,**kwargs):
+def _search_shift_direction_stack(input_stack,lims,input_delta,avg_vert_fluct,**kwargs):
     """
     Search for the shifts directions
     @author: jdasilva
     """
-    #lims = (limrow,limcol)
-    shift_params=params.copy()
-    if isinstance(params['pixtol'],int) or kwargs['subpixel']==False:
-        shift_params['pixtol'] = 1
-        shift_params['interpmeth'] = 'pseudo_linear'
-    elif not isinstance(params['pixtol'],int) or kwargs['subpixel']==True:
-        pixtol = params['pixtol']
-        shift_params['interpmeth']=params['interpmeth']
+    if isinstance(kwargs['pixtol'],int) or kwargs['subpixel']==False:
+        pixtol = 1
+        shift_method = 'linear'
+    elif not isinstance(kwargs['pixtol'],int) or kwargs['subpixel']==True:
+        pixtol = kwargs['pixtol']
+        shift_method = kwargs['shiftmeth']
+
+    # polynomial order to remove bias
+    polyorder = kwargs['polyorder']
 
     # separate the lims
     rows,cols = lims
-    # get the maximum shift value
+    # get the maximum shift value from input_delta
     _, nr, nc = input_stack.shape
     max_vshift = int(np.ceil(np.max(np.abs(input_delta[0,:]))))+1 # plus 1 for a margin
     if np.any((rows-max_vshift)<0) or np.any((rows+max_vshift)>nr):
         max_vshift = 1 # at least one for a margin
-    shift_params['max_vshift'] = max_vshift
 
     # initializing array
     vert_fluct_stack = np.empty((input_stack.shape[0],rows[-1]-rows[0]))
@@ -937,11 +936,16 @@ def _search_shift_direction_stack(input_stack,lims,input_delta,avg_vert_fluct,pa
         print('Searching the shifts for projection: {}'.format(ii+1),end="\r")
         shift_delta = input_delta[0,ii]
         output_deltastack[0,ii], vert_fluct_stack[ii]=_search_shift_direction(input_stack[ii], \
-                                                    lims,shift_delta,avg_vert_fluct,shift_params)
+                                                    lims,shift_delta,
+                                                    avg_vert_fluct,
+                                                    pixtol,
+                                                    max_vshift,
+                                                    shift_method,
+                                                    polyorder)
 
     return output_deltastack, vert_fluct_stack
 
-def _search_shift_direction(input_array,lims,shift_delta,avg_vert_fluct,shift_params):
+def _search_shift_direction(input_array,lims,shift_delta,avg_vert_fluct,pixtol,max_vshift,shift_method='linear',polyorder=2):
     """
     Search for the shifts directions
     It is used by _search_shift_direction_stack
@@ -951,15 +955,14 @@ def _search_shift_direction(input_array,lims,shift_delta,avg_vert_fluct,shift_pa
     dir_shift=dict() # dictionary shift directions
     shifts=dict() # dictionary shifts arrays
 
-    # pixel tolerance
-    pixtol = shift_params['pixtol']
-
+    #~ # pixel tolerance
+    #~ pixtol = shift_params['pixtol']
     # compute current shift error
-    shifts['current'] = vertical_shift(input_array,lims,shift_delta-0,shift_params)
+    shifts['current'] = vertical_shift(input_array,lims,shift_delta-0,max_vshift,shift_method,polyorder)
     # compute shift forward error
-    shifts['forward'] = vertical_shift(input_array,lims,shift_delta+pixtol,shift_params)
+    shifts['forward'] = vertical_shift(input_array,lims,shift_delta+pixtol,max_vshift,shift_method,polyorder)
     # compute shift backward error
-    shifts['backward'] = vertical_shift(input_array,lims,shift_delta-pixtol,shift_params)
+    shifts['backward'] = vertical_shift(input_array,lims,shift_delta-pixtol,max_vshift,shift_method,polyorder)
 
     # directional shift error calculation
     dir_shift['current']=np.sum(np.abs(shifts['current']-avg_vert_fluct)**2)
@@ -986,7 +989,7 @@ def _search_shift_direction(input_array,lims,shift_delta,avg_vert_fluct,shift_pa
         shift += dir_inc
         while True:
             # shift the stack once more in the same direction
-            shifted_stack = vertical_shift(input_array,lims,shift,shift_params)
+            shifted_stack = vertical_shift(input_array,lims,shift,max_vshift,shift_method,polyorder)
             nexterror = np.sum(np.abs(shifted_stack-avg_vert_fluct)**2)
             if nexterror < dir_shift['current']: #if error is minimized
                 dir_shift['current'] = nexterror

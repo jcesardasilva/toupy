@@ -115,7 +115,7 @@ def _createcanvashorizontal(recons, sinoorig, sinocurr, sinocomp,
     return([im11,im21,im22,im23,im31,im32],[ax11,ax21,ax22,ax23,ax31,ax32])
 
 def _createcanvasvertical(proj, lims, vertfluctinit, vertfluctcurr,
-                           deltastack, metric_error, count, **kwargs):
+                           deltastack, metric_error, **kwargs):
     """
     Create canvas for the plots during vertical alignement
     """
@@ -130,6 +130,7 @@ def _createcanvasvertical(proj, lims, vertfluctinit, vertfluctcurr,
 
     # display one projection with limits
     fig1 = plt.figure(num=1)
+    plt.clf()
     ax11 = fig1.add_subplot(111)
     im11 = ax11.imshow(proj,cmap='bone')
     ax11.set_title('Projection')
@@ -140,6 +141,7 @@ def _createcanvasvertical(proj, lims, vertfluctinit, vertfluctcurr,
 
     # display vertical fluctuations as 2D images
     fig2 = plt.figure(num=2,figsize=figsize)
+    plt.clf()
     ax21 = fig2.add_subplot(211)
     im21 = ax21.imshow(vertfluctinit,cmap='jet',interpolation='none')
     ax21.axis('tight')
@@ -157,6 +159,7 @@ def _createcanvasvertical(proj, lims, vertfluctinit, vertfluctcurr,
 
     # display vertical fluctuations as plots
     fig3 = plt.figure(num=3,figsize=figsize)
+    plt.clf()
     ax31 = fig3.add_subplot(211)
     im31 = ax31.plot(vertfluctinit)
     im31a, = ax31.plot(vertfluctinit.mean(axis=1),'r',linewidth=2.5)
@@ -178,8 +181,9 @@ def _createcanvasvertical(proj, lims, vertfluctinit, vertfluctcurr,
 
     # shifts
     fig4 = plt.figure(num=4)
+    plt.clf()
     ax41 = fig4.add_subplot(211)
-    im41 = ax41.plot(np.transpose(deltastack))
+    im41 = ax41.plot(deltastack)
     ax41.axis('tight')
     ax41.set_title('Object position')
     # metric_error
@@ -192,10 +196,11 @@ def _createcanvasvertical(proj, lims, vertfluctinit, vertfluctcurr,
 
     plt.pause(0.001)
 
+    fig_array = [fig1,fig2,fig3,fig4]
     im_array = [im11,im21,im22,im31,im31a,im31b,im32,im32a,im32b,im41,im42]
     ax_array = [ax11,ax21,ax22,ax31,ax32,ax41,ax42]
 
-    return(im_array,ax_array)
+    return(fig_array, im_array,ax_array)
 
 class RegisterPlot:
     """
@@ -217,8 +222,10 @@ class RegisterPlot:
         self.proj = proj
         self.lims = lims
         self.vertfluctinit = vertfluctinit.T
+        self.vertfluctinit_avg = self.vertfluctinit.mean(axis=1)
         self.vertfluctcurr = vertfluctcurr.T
-        self.deltastack = deltastack
+        self.vertfluctcurr_avg = self.vertfluctcurr.mean(axis=1)
+        self.deltastack = deltastack.T
         self.metric_error = metric_error
         self.count = count
 
@@ -231,13 +238,17 @@ class RegisterPlot:
 
         if self.count == 0:
             # Preparing the canvas for the figures
-            im_array, ax_array = _createcanvasvertical(self.proj,
+            fig_array, im_array, ax_array = _createcanvasvertical(self.proj,
                                     self.lims,
                                     self.vertfluctinit,
                                     self.vertfluctcurr,
                                     self.deltastack,
                                     self.metric_error,
-                                    self.count, **self.params)
+                                    **self.params)
+            self.fig1 = fig_array[0]
+            self.fig2 = fig_array[1]
+            self.fig3 = fig_array[2]
+            self.fig4 = fig_array[3]
 
             self.im11 = im_array[0] #im11
             self.im21 = im_array[1] #im21
@@ -258,6 +269,7 @@ class RegisterPlot:
             self.ax32 = ax_array[4] #ax32
             self.ax41 = ax_array[5] #ax41
             self.ax42 = ax_array[6] #ax51
+            self.updatevertical()
         else:
             self.updatevertical()
 
@@ -268,39 +280,57 @@ class RegisterPlot:
         self.im21.set_data(self.vertfluctinit)
         self.im22.set_data(self.vertfluctcurr)
 
-        for ii in range(len(self.im32)):
-            self.im32[ii].set_ydata(self.vertfluctcurr[ii])
-        #[self.im32[ii].set_ydata(self.vertfluctcurr[ii]) for ii in range(len(self.im32))]
-        #self.im32.set_ydata(self.vertfluctcurr)
-        self.im32a.set_ydata(self.vertfluctcurr.mean(axis=0))
-        self.im32b.set_ydata(self.vertfluctcurr.mean(axis=0))
+        self.ax11.axes.figure.canvas.draw()
+        self.ax21.axes.figure.canvas.draw()
+        self.ax22.axes.figure.canvas.draw()
 
-        for ii in range(len(self.im41)):
-            self.im41[ii].set_ydata(deltastack.T[ii])
-        self.im42.set_ydata(self.metric_error)
-        #autoscale_y(self.ax41)
-        #autoscale_y(self.ax42)
-        # TODO: check why does not work
-        # TypeError: only integer scalar arrays can be converted to a scalar index
-        """
-            <ipython-input-43-0f2f7f6151ea> in get_bottom_top(line)
-         26         yd = line.get_ydata()
-         27         lo,hi = ax.get_xlim()
-        ---> 28         y_displayed = yd[((xd>lo) & (xd<hi))]
-         29         h = np.max(y_displayed) - np.min(y_displayed)
-         30         bot = np.min(y_displayed)-margin*h
+        # display vertical fluctuations as plots
+        fig3 = plt.figure(num=3)
+        plt.clf()
+        ax31 = fig3.add_subplot(211)
+        im31 = ax31.plot(self.vertfluctinit)
+        im31a, = ax31.plot(self.vertfluctinit_avg,'r',linewidth=2.5)
+        im31b, = ax31.plot(self.vertfluctinit_avg,'--w',linewidth=1.5)
+        ax31.axis('tight')
+        ax31.set_title('Initial Integral in x')
+        ax31.set_xlabel('Projection')
+        ax31.set_ylabel('y [pixels]')
+        ax32 = fig3.add_subplot(212)
+        im32 = ax32.plot(self.vertfluctcurr)
+        im32a, = ax32.plot(self.vertfluctcurr_avg,'r',linewidth=2.5)
+        im32b, = ax32.plot(self.vertfluctcurr_avg,'--w',linewidth=1.5)
+        ax32.axis('tight')
+        ax32.set_title('Current Integral in x')
+        ax32.set_xlabel('Projection')
+        ax32.set_ylabel('y [pixels]')
+        fig3.tight_layout()
+        fig3.show()
 
-        """ 
+        # shifts
+        fig4 = plt.figure(num=4)
+        plt.clf()
+        ax41 = fig4.add_subplot(211)
+        im41 = ax41.plot(self.deltastack)
+        ax41.axis('tight')
+        ax41.set_title('Object position')
+        # metric_error
+        ax42 = fig4.add_subplot(212)
+        im42, = ax42.plot(self.metric_error,'bo-')
+        ax42.axis('tight')
+        ax42.set_title('Error metric')
+        fig4.tight_layout()
+        fig4.show()
 
-
-        #~ self.ax11.axes.figure.canvas.draw()
-        #~ self.ax21.axes.figure.canvas.draw()
-        #~ self.ax22.axes.figure.canvas.draw()
-        #~ self.ax31.axes.figure.canvas.draw()
-        #~ self.ax32.axes.figure.canvas.draw()
-        #~ self.ax41.axes.figure.canvas.draw()
-        #~ self.ax42.axes.figure.canvas.draw()
-        plt.draw()
+        # TOCHECK: Find out why this does not work
+        #~ for lnum,line in enumerate(self.im32):
+            #~ line.set_ydata(self.vertfluctcurr[lnum])
+        #~ autoscale_y(self.ax41)
+        #~ self.im32a.set_ydata(self.vertfluctcurr.mean(axis=0))
+        #~ self.im32b.set_ydata(self.vertfluctcurr.mean(axis=0))
+        #~ for lnum,line in enumerate(self.im41):
+            #~ line.set_ydata(self.deltastack[ii])
+        #~ autoscale_y(self.ax41)
+        plt.pause(0.001)
 
     def plotshorizontal(self, recons, sinoorig, sinocurr, sinocomp,
                         deltaslice, metric_error, count):
