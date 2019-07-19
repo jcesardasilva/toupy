@@ -206,7 +206,7 @@ def vertical_shift(input_array,lims,vstep,maxshift,shift_method='linear',polyord
 
     return shift_calc
 
-def _checkconditions(metric_error, changes, pixtol, count, maxint, subpixel=False):
+def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False):
     """
     Check if the registration conditions are satisfied
     """
@@ -262,7 +262,7 @@ def _alignprojection_vertical(input_stack,lims,deltastack,metric_error,vert_fluc
             vert_fluct = vert_fluct_init.copy()
         else:
             print('Updating the vertical fluctuations')
-            vert_fluct = vertical_fluctuations(input_stack,lims,deltastack,params['shiftmeth'],params['bias'],order=params['maxorder'])
+            vert_fluct = vertical_fluctuations(input_stack,lims,deltastack,params['shiftmeth'],order=params['polyorder'])
 
         # Average the vertical fluctuation functions
         print('Calculating the average of the vertical fluctuation function')
