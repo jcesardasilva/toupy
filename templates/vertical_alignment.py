@@ -19,12 +19,7 @@ from io_utils import create_paramsh5, load_paramsh5
 from io_utils import LoadData, SaveData
 from registration_utils import alignprojections_vertical
 
-#-------------------------------------------------------
-# still keep this block, but it should disappear soon
-if sys.version_info<(3,0):
-    input = raw_input
-    range = xrange
-#-------------------------------------------------------
+from toupy.utils.plot_utils import animated_image
 
 # initializing dictionaries
 params= dict()
@@ -36,9 +31,9 @@ params[u'phaseonly'] = True
 params[u'disp'] = 2   # = 0 no display, =1 only final display, >1 every iteration
 params[u'pixtol'] = 0.1 # Tolerance of registration in pixels
 params[u'bias']=True  # Remove bias for y registration
-params[u'maxorder'] = 2 # Max order of bias to remove
+params[u'polyorder']=2 # Max order of bias to remove
 params[u'expshift'] = False # Shift in phasor space
-params[u'interpmeth'] = 'linear'#'sinc'#'sinc' # 'sinc' or 'linear' better for noise
+params[u'shiftmeth'] = 'linear'#'sinc'#'sinc' # 'sinc' or 'linear' better for noise
 params[u'alignx'] = False # Align horizontally with center of mass
 params[u'maxit'] = 10 # max of iterations
 params[u'deltaxal'] = 20 # From edge of region to edge of image in x
@@ -142,21 +137,7 @@ if __name__=='__main__':
         pass
     else:
         # Show aligned projections
-        plt.close('all')
-        plt.ion()
-        fig = plt.figure(4)#,figsize=(14,6))
-        ax1 = fig.add_subplot(111)
-        if params[u'use_cc']:
-            limrow = [0,aligned.shape[1]]
-            limcol = [0,aligned.shape[2]]
-        im1 = ax1.imshow(aligned[0,limrow[0]:limrow[-1],limcol[0]:limcol[-1]],cmap='bone')
-        for ii in range(stack_unwrap.shape[0]):
-            print("Projection: {}".format(ii+1))
-            projection = aligned[ii,limrow[0]:limrow[-1],limcol[0]:limcol[-1]]
-            im1.set_data(projection)
-            ax1.set_title('Projection {}'.format(ii+1))
-            fig.canvas.draw()
-        plt.ioff()
+        animated_image(aligned,limrow,limcol)
 
     # save vertically aligned_projections
     S = SaveData(**inputparams)

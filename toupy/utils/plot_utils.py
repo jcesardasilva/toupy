@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 #third party packages
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import hsv_to_rgb
 import matplotlib as mpl
+import matplotlib.animation as animation
+from matplotlib.colors import hsv_to_rgb
+import matplotlib.pyplot as plt
+import numpy as np
 
 __all__=['autoscale_y',
          'RegisterPlot',
@@ -393,6 +394,116 @@ class RegisterPlot:
         #~ self.ax31.axes.figure.canvas.draw()
         #~ self.ax32.axes.figure.canvas.draw()
 
+def iterative_show(stack_array,*args):
+    """
+    Iterative plot of the images
+    """
+    nproj,nr,nc = stack_array.shape
+    if len(args) == 0:
+        limrow = [0,nr]
+        limcol = [0,nc]
+    elif len(args) == 2:
+        limrow = args[0]
+        limcol = args[1]
+    else:
+        raise ValueError('This function accepts only two args')
+
+    # display
+    plt.close('all')
+    plt.ion()
+    fig = plt.figure(4)#,figsize=(14,6))
+    ax1 = fig.add_subplot(111)
+    im1 = ax1.imshow(stack_array[0,limrow[0]:limrow[-1],limcol[0]:limcol[-1]],cmap='bone' )
+    ax1.set_title("Projection: {}".format(1))
+    fig.show()
+    plt.pause(0.001)
+    for ii in range(nproj):
+        print("Projection: {}".format(ii+1),end='\r')
+        projection = stack_array[ii,limrow[0]:limrow[-1],limcol[0]:limcol[-1]]
+        im1.set_data(projection)
+        ax1.set_title('Projection {}'.format(ii+1))
+        fig.show()
+        plt.pause(0.001)
+
+def _animated_image(stack_array,*args):
+    """
+    Iterative plot of the images using pyplot text for the title
+    """
+    nproj,nr,nc = stack_array.shape
+    if len(args) == 0:
+        limrow = [0,nr]
+        limcol = [0,nc]
+    elif len(args) == 2:
+        limrow = args[0]
+        limcol = args[1]
+    else:
+        raise ValueError('This function accepts only two args')
+
+    # display
+    plt.close('all')
+    #plt.ion()
+    fig = plt.figure(4)#,figsize=(14,6))
+    ax = fig.add_subplot(111)
+    im = ax.imshow(stack_array[0,limrow[0]:limrow[-1],limcol[0]:limcol[-1]],cmap='bone',animated=True)
+    #~ title = ax.text(0.5,1.05,"",fontsize=20,bbox={'facecolor':'w','alpha':0.5,'pad':5},
+                #~ transform=ax.transAxes,ha='center')
+    title = ax.text(0.5,1.05,"",fontsize=20,transform=ax.transAxes,ha='center')
+    plt.tight_layout()
+    def updatefig(ii):
+        global stack_array, limrow, limcol
+        imgi = stack_array[ii,limrow[0]:limrow[-1],limcol[0]:limcol[-1]]
+        im.set_array(imgi)
+        title.set_text("Projection: {}".format(ii+1))
+        return im,title,
+
+    return fig, updatefig,nproj
+
+def _animated_image2(stack_array,*args):
+    """
+    Iterative plot of the images using pyplot title
+    """
+    nproj,nr,nc = stack_array.shape
+    if len(args) == 0:
+        limrow = [0,nr]
+        limcol = [0,nc]
+    elif len(args) == 2:
+        limrow = args[0]
+        limcol = args[1]
+    else:
+        raise ValueError('This function accepts only two args')
+
+    # display
+    plt.close('all')
+    fig = plt.figure(4)
+    ax = fig.add_subplot(111)
+    im = ax.imshow(stack_array[0,limrow[0]:limrow[-1],limcol[0]:limcol[-1]],cmap='bone',animated=True)
+    plt.tight_layout()
+    arr1 = [None]
+    def updatefig(ii):
+        global stack_array, limrow, limcol
+        ax.set_title("Projection: {}".format(ii+1),fontsize=20)
+        if arr1[0]: arr1[0].remove()
+        arr1[0] = im.set_array(stack_array[ii,limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
+
+    return fig, updatefig,nproj
+
+def animated_image(stack_array,*args):
+    """
+    Iterative plot of the images using animation module of Matplotlib
+
+    Parameters
+    ----------
+    stack_array : ndarray
+        Array containing the stack of images to animate. The first index
+        corresponds to the image number in the sequence of images.
+    args[0] : list of ints
+        Row limits to display
+    args[1] : list of ints
+        Column limits to display
+    """
+    fig, updatefig, nproj = _animated_image(stack_array,*args)
+    ani = animation.FuncAnimation(fig, updatefig, frames=range(nproj), interval=50, blit=False, repeat=False)
+    plt.show()
 
 def show_projections(objs,probe,idxproj):
     """
