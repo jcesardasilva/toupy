@@ -1,4 +1,4 @@
-ToUpy - Tomographic Utilities for Python
+TOUPY - Tomographic Utilities for Python
 ==============================================
 
 <img src="resources/toupy_logo.png" alt="toupy" width="200"/>
