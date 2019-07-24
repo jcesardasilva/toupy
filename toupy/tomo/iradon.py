@@ -8,6 +8,9 @@ from scipy.interpolate import interp1d
 from silx.opencl.backprojection import Backprojection
 from silx import version
 
+#local packages
+from ..restoration import derivatives_sino
+
 __all__=['mod_iradon',
          'mod_iradonSilx',
          'compute_filter']
@@ -73,8 +76,9 @@ def gradient_axis(x, axis=-1):
         t2[-1, :] = 0
     return t1-t2
 
-def mod_iradon(radon_image, theta=None, output_size=None,
-           filter_type="ram-lak",derivative=True, interpolation="linear", circle=False,freqcutoff=1):
+def mod_iradon(radon_image,theta=None,output_size=None,
+           filter_type="ram-lak",derivative=True,
+           interpolation="linear",circle=False,freqcutoff=1):
     """
     Inverse radon transform.
 
@@ -242,6 +246,13 @@ def mod_iradonSilx(radon_image, theta=None, output_size=None,
     multiplying the frequency domain of the filter with the FFT of the
     projection data. This algorithm is called filtered back projection.
     """
+    if radon_image.ndim != 2:
+        raise ValueError('The input image must be 2-D')
+    if theta is None:
+        m, n = radon_image.shape
+        theta = np.linspace(0, 180, n, endpoint=False)
+    else:
+        theta = np.asarray(theta)
     # customized filter
     cust_filter = compute_filter(radon_image.shape[0], filter_type=filter_type, derivative=derivative, freqcutoff=freqcutoff)
     print('Using Silx v{}'.format(version))
@@ -281,5 +292,6 @@ def backprojector(sinogram,theta,**params):
                     output_size=sinogram.shape[0],
                     filter_type=params['filtertype'],
                     derivative=params['derivatives'],
+                    circle=params['circle'],
                     freqcutoff=params['filtertomo'])
     return recons

@@ -2,23 +2,27 @@
 # -*- coding: utf-8 -*-
 
 # standard libraries imports
+import functools
 import multiprocessing
 
 # third party packages
 import numpy as np
 from numpy.fft import fftfreq
 import pyfftw # has to be imported first to avoid ImportError: dlopen: cannot load any more object with static TLS
+import scipy
 
 # enable cache for pyfftw
 pyfftw.interfaces.cache.enable()
 pyfftw.interfaces.cache.set_keepalive_time(30)
 
-__all__=[u'is_power2',
-         u'fastfftn',
-         u'fastifftn',
-         u'nextpoweroftwo',
-         u'padwidthbothsides',
-         u'padfft'
+__all__=['is_power2',
+         'nextpoweroftwo',
+         'nextpow2',
+         'padwidthbothsides',
+         'padrightside',
+         'fastfftn',
+         'fastifftn',
+         'padfft'
          ]
 
 def is_power2(num):
@@ -33,15 +37,56 @@ def nextpoweroftwo(number):
     """
     return int(np.ceil(np.log2(number)))
 
+def _nextpoweroftwo_print(number):
+    """
+    Return next power of two following 'number'
+    """
+    nextPower= int(np.ceil(np.log2(number)))
+    return np.power(2, nextPower)
+
+def nextpow2(number):
+    """
+    Find the next power 2 number for FFT
+    """
+    n = 1
+    while n < number: n *= 2
+    return n
+
 def padwidthbothsides(nbins):
     """
     Returns pad_width for padding both sides
     """
-    nextPower = nextpoweroftwo(nbins)
-    deficit = int(np.power(2, nextPower) - nbins)
+    #~ nextPower = nextpoweroftwo(nbins)
+    deficit = int(nextpow2(nbins) - nbins)
+    #~ deficit = int(np.power(2, nextPower) - nbins)
     return int(deficit/2)
 
-def fastfftn(input_array):
+def padrightside(nbins):
+    """
+    Returns pad_width for padding both sides
+    """
+    #~ nextPower = nextpoweroftwo(nbins)
+    #~ nextPower = nextpow2(nbins)
+    nextPower = scipy.fftpack.next_fast_len(nbins)
+    deficit = int(nextPower - nbins)
+    #~ deficit = int(np.power(2, nextPower) - nbins)
+    return deficit
+
+def metafftw(func):
+    @functools.wraps(func)
+    def wrapper(input_array):
+        # checking number of cores available
+        kwargs=dict()
+        kwargs['ncores'] = multiprocessing.cpu_count()
+        # stating the precision.
+        # np.complex64: single precision; and np.complex128: double precision
+        kwargs['cprecision'] = np.complex64
+        kwargs['planner_type'] = 'FFTW_MEASURE'
+        return func(input_array,**kwargs)
+    return wrapper
+    
+@metafftw     
+def fastfftn(input_array,**kwargs):
     """
     Auxiliary function to use pyFFTW. It does the align, planning and
     apply FFTW transform
@@ -58,19 +103,22 @@ def fastfftn(input_array):
 
     Note: It is fast for array sizes which are power of 2
     """
-    # checking number of cores available
-    ncores = multiprocessing.cpu_count()
+    # number of cores available
+    ncores = kwargs['ncores'] #multiprocessing.cpu_count()
     # stating the precision.
-    # np.complex64: single precision; and np.complex128: double precision
-    cprecision = np.complex64 # single precision
-    planner_type = 'FFTW_MEASURE'
+    cprecision = kwargs['cprecision'] #np.complex64 # single precision
+    planner_type = kwargs['planner_type'] #'FFTW_MEASURE'
     ## align array
     fftw_array = pyfftw.byte_align(input_array,dtype=cprecision,n=16)
     ## will need to plan once
-    fftw_array = pyfftw.interfaces.numpy_fft.fftn(fftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores)
+    fftw_array = pyfftw.interfaces.numpy_fft.fftn(fftw_array,
+                  overwrite_input=True,
+                  planner_effort=planner_type,
+                  threads=ncores)
     return fftw_array
 
-def fastifftn(input_array):
+@metafftw
+def fastifftn(input_array,**kwargs):
     """
     Auxiliary function to use pyFFTW. It does the align, planning and
     apply inverse FFTW transform
@@ -87,16 +135,18 @@ def fastifftn(input_array):
 
     Note: It is fast for array sizes which are power of 2
     """
-    # checking number of cores available
-    ncores = multiprocessing.cpu_count()
+    # number of cores available
+    ncores = kwargs['ncores'] #multiprocessing.cpu_count()
     # stating the precision.
-    # np.complex64: single precision; and np.complex128: double precision
-    cprecision = np.complex64 # single precision
-    planner_type = 'FFTW_MEASURE'
+    cprecision = kwargs['cprecision'] #np.complex64 # single precision
+    planner_type = kwargs['planner_type'] #'FFTW_MEASURE'
     # align array
     ifftw_array = pyfftw.byte_align(input_array,dtype=cprecision,n=16)
-    ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores)
-    return ifftw_array
+    ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(ifftw_array,
+                   overwrite_input=True,
+                   planner_effort=planner_type,
+                   threads=ncores)
+    return ifftw_array        
 
 def padfft(input_array,pad_mode='reflect'):
     """
@@ -122,13 +172,17 @@ def padfft(input_array,pad_mode='reflect'):
     #padding to reduce artifacts with FFTs
     if input_array.ndim == 1:
         nr = len(input_array)
-        padw = padwidthbothsides(nr) # next power of 2
-        array_pad = np.pad(input_array,(padw,padw),mode=pad_mode)
+        padw = padrightside(nr) # next power of 2
+        #~ padw = padwidthbothsides(nr) # next power of 2
+        #~ array_pad = np.pad(input_array,(padw,padw),mode=pad_mode)
+        array_pad = np.pad(input_array,(0,padw),mode=pad_mode)
         N_pad = fftfreq(len(array_pad))
     elif input_array.ndim == 2:
         nr, nc = input_array.shape
-        padw = [padwidthbothsides(nr), padwidthbothsides(nc)]
-        array_pad = np.pad(input_array,((padw[0],padw[0]),(padw[1],padw[1])),mode=pad_mode)
+        padw = [padrightside(nr), padrightside(nc)]
+        #~ padw = [padwidthbothsides(nr), padwidthbothsides(nc)]
+        #~ array_pad = np.pad(input_array,((padw[0],padw[0]),(padw[1],padw[1])),mode=pad_mode)
+        array_pad = np.pad(input_array,((0,padw[0]),(0,padw[1])),mode=pad_mode)
         n_pad = [fftfreq(array_pad.shape[0]),fftfreq(array_pad.shape[1])]
-        N_pad = np.meshgrid(n_pad[0],n_pad[1])
+        N_pad = np.meshgrid(n_pad[1],n_pad[0]) # reverted order to be compatible with meshgrid output
     return array_pad, N_pad, padw
