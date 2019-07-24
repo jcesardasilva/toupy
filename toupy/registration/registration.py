@@ -31,7 +31,7 @@ __all__=['compute_aligned_stack',
          'cc_align',
          ]
 
-def compute_aligned_stack(input_stack,deltastack,shift_method='linear'):
+def compute_aligned_stack(input_stack,shiftstack,shift_method='linear'):
     """
     Compute the aligned stack given the correction for object positions
 
@@ -39,7 +39,7 @@ def compute_aligned_stack(input_stack,deltastack,shift_method='linear'):
     ----------
     input_array : ndarray
         Stack of images to be shifted
-    deltastack : ndarray
+    shiftstack : ndarray
         Array of initial estimates for object motion (2,n)
     shift_method : str (default linear)
         Name of the shift method. Options: 'linear', 'fourier', 'spline'
@@ -56,12 +56,13 @@ def compute_aligned_stack(input_stack,deltastack,shift_method='linear'):
     print('Using {} shift method (function {})'.format(shift_method,S.shiftmeth.__name__))
     output_stack = np.empty_like(input_stack)
     for ii in range(nstack):
-        deltashift = (deltastack[0,ii],deltastack[1,ii])
+        deltashift = (shiftstack[0,ii],shiftstack[1,ii])
         output_stack[ii] = S(input_stack[ii],deltashift)
         print('Image {} of {}'.format(ii+1,nstack),end="\r")
+    print("\r")
     return output_stack
 
-def compute_aligned_sino(input_sino,deltaslice,shift_method='linear'):
+def compute_aligned_sino(input_sino,shiftslice,shift_method='linear'):
     """
     Compute the aligned sinogram given the correction for object positions
 
@@ -69,7 +70,7 @@ def compute_aligned_sino(input_sino,deltaslice,shift_method='linear'):
     ----------
     input_sino : ndarray
         Input sinogram to be shifted
-    deltaslice : ndarray
+    shiftslice : ndarray
         Array of estimates for object motion (1,n)
     shift_method : str (default linear)
         Name of the shift method. Options: 'linear', 'fourier', 'spline'
@@ -86,15 +87,16 @@ def compute_aligned_sino(input_sino,deltaslice,shift_method='linear'):
     print('Using {} shift method (function {})'.format(shift_method,S.shiftmeth.__name__))
     output_sino = np.empty_like(input_sino)
     for ii in range(nprojs):
-        deltashift = deltaslice[0,ii]
+        deltashift = shiftslice[0,ii]
         output_sino[:,ii] = S(input_sino[:,ii],deltashift)
         print('Image {} of {}'.format(ii+1,nprojs),end="\r")
+    print("\r")
     return output_sino
 
-def center_of_mass_stack(input_stack, lims, deltastack, shift_method='fourier'):
+def center_of_mass_stack(input_stack, lims, shiftstack, shift_method='fourier'):
     """
     Calculates the center of the mass for each projection in the stack and
-    returns a stack of centers of mass (row, col) i.e., returns deltastack[1]
+    returns a stack of centers of mass (row, col) i.e., returns shiftstack[1]
     If the array is zero, it return the center of mass at 0.
     """
     # separate lims
@@ -120,7 +122,7 @@ def center_of_mass_stack(input_stack, lims, deltastack, shift_method='fourier'):
     centery = np.empty(input_stack.shape[0])
 
     for ii in range(input_stack.shape[0]):
-        stack_aux = S(input_stack[ii],(deltastack[0,ii],deltastack[1,ii]))
+        stack_aux = S(input_stack[ii],(shiftstack[0,ii],shiftstack[1,ii]))
         mass_sum[ii] = np.sum(stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
         centerx[ii] = np.sum(Xp*stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
         centery[ii] = np.sum(Yp*stack_aux[limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
@@ -132,7 +134,7 @@ def center_of_mass_stack(input_stack, lims, deltastack, shift_method='fourier'):
 
     return np.asarray([centerx,centery])
 
-def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier',polyorder=2):
+def vertical_fluctuations(input_stack, lims, shiftstack, shift_method='fourier',polyorder=2):
     """
     Calculate the vertical fluctuation functions of a stack
 
@@ -142,7 +144,7 @@ def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier',
         Stack of images to be shifted
     lims : list of ints
         Limits of rows and columns to be considered. lims=[limrow,limcol]
-    deltastack : ndarray
+    shiftstack : ndarray
         Array of initial estimates for object motion (2,n)
     shift_method : str (default linear)
         Name of the shift method. Options: 'linear', 'fourier', 'spline'
@@ -163,7 +165,7 @@ def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier',
     # separate the lims
     rows,cols = lims
     # get the maximum shift value
-    max_vshift = int(np.ceil(np.max(np.abs(deltastack[0,:]))))+1
+    max_vshift = int(np.ceil(np.max(np.abs(shiftstack[0,:]))))+1
     if np.any((rows-max_vshift)<0) or np.any((rows+max_vshift)>nr):
         max_vshift = 1
 
@@ -172,7 +174,7 @@ def vertical_fluctuations(input_stack, lims, deltastack, shift_method='fourier',
     for ii in range(input_stack.shape[0]):
         print('Calculating for projection: {}'.format(ii+1),end="\r")
         proj = input_stack[ii,rows[0]-max_vshift:rows[-1]+max_vshift,cols[0]:cols[-1]]
-        stack_shift = S(proj,(deltastack[0,ii],0.))
+        stack_shift = S(proj,(shiftstack[0,ii],0.))
         shift_calc = stack_shift[max_vshift:-max_vshift].sum(axis=1) # the max_vshift has to be subtracted
         # to remove possible bias
         shift_calc = projectpoly1d(shift_calc,order,1)
@@ -225,48 +227,7 @@ def vertical_shift(input_array,lims,vstep,maxshift,shift_method='linear',polyord
 
     return shift_calc
 
-def _checkconditions(metric_error, changes,pixtol,count,maxit,subpixel=False):
-    """
-    Check if the registration conditions are satisfied
-    """
-    if subpixel: step = pixtol
-    else: step = 1
-
-    # We then check if the error increases
-    if metric_error[-1] > metric_error[-2]: # compare the last with the before last value
-        print('Last iteration increased error.')
-        print('Before -> {:.04e}, current -> {:.04e}'.format(metric_error[-2],metric_error[-1]))
-        print('Keeping previous shifts.')
-        reason = 1
-
-    # We check if the changes is larger than 1 or pixtol
-    elif np.max(changes) < step:
-        if step >= 1:
-            print('Changes are smaller than one pixel.')
-        else:
-            print('Changes are smaller than {} pixel.'.format(step))
-        reason = 2
-
-    # we check if the number of iteration is reached
-    elif count >= maxit:
-        print('Maximum number of iterations reached.')
-        reason = 3
-    else:
-        reason = 0
-
-    return reason
-
-    # ~ if metric_error[-1] > metric_error[-2]:
-        # ~ print('\nLast iteration increases error. Keeping previous positions')
-        # ~ print('Before -> {}, current -> {}'.format(metric_error[-2],metric_error[-1]))
-        # ~ print('Keeping previous shifts.')
-        # ~ deltaslice = deltaprev.copy() # return deltaslice one step before
-        # ~ sinogram = sinoprev.copy() # return to previous sinogram
-        # ~ metric_error.pop() # remove the last value from the metric_error
-        # ~ count -=1
-        # ~ break
-
-def _alignprojections_vertical(input_stack,lims,deltastack,metric_error,vert_fluct_init,RP,**params):
+def _alignprojections_vertical(input_stack,lims,shiftstack,metric_error,vert_fluct_init,RP,**params):
     """
     Auxiliary function for align the projection vertically. It contains
     the wrapper for iteration during the alignement
@@ -279,14 +240,14 @@ def _alignprojections_vertical(input_stack,lims,deltastack,metric_error,vert_flu
         print('\n============================================')
         print('Iteration {}'.format(count))
         it0 = time.time()
-        deltaprev = deltastack.copy()
+        deltaprev = shiftstack.copy()
 
         # Mass distribution registration in y
         if count ==1:
             vert_fluct = vert_fluct_init.copy()
         else:
             print('Updating the vertical fluctuations')
-            vert_fluct = vertical_fluctuations(input_stack,lims,deltastack,params['shiftmeth'],polyorder=params['polyorder'])
+            vert_fluct = vertical_fluctuations(input_stack,lims,shiftstack,params['shiftmeth'],polyorder=params['polyorder'])
 
         # Average the vertical fluctuation functions
         print('Calculating the average of the vertical fluctuation function')
@@ -294,11 +255,11 @@ def _alignprojections_vertical(input_stack,lims,deltastack,metric_error,vert_flu
 
         # Search for shifts with respect to mean
         print('Search for the shifts with respect to the mean vertical fluctuations...')
-        deltastack_aux, vert_fluct_temp = _search_shift_direction_stack(input_stack,
-                                        lims,deltastack,vert_fluct_mean,
+        shiftstack_aux, vert_fluct_temp = _search_vshift_stack(input_stack,
+                                        lims,shiftstack,vert_fluct_mean,
                                         **params)
-        deltastack[0] = deltastack_aux[0].copy()
-        deltastack[0] -= deltastack_aux[0].mean().round() # recentering
+        shiftstack[0] = shiftstack_aux[0].copy()
+        shiftstack[0] -= shiftstack_aux[0].mean().round() # recentering
 
         # Error calculation
         vert_fluct_mean_temp = vert_fluct_temp.mean(axis=0) # keep temporarily the vertical fluctuations
@@ -310,14 +271,14 @@ def _alignprojections_vertical(input_stack,lims,deltastack,metric_error,vert_flu
 
         # Maximum changes in y
         print('Estimating the changes in y:')
-        changey = np.abs(deltaprev[0] - deltastack[0])
+        changey = np.abs(deltaprev[0] - shiftstack[0])
         print('Maximum correction in y = {:.02f} pixels'.format(np.max(changey)))
 
         print('Elapsed time = {} s'.format(time.time()-it0))
 
         # update figures
         RP.plotsvertical(input_stack[0],lims,vert_fluct_init,
-                        vert_fluct_temp,deltastack, metric_error, count)
+                        vert_fluct_temp,shiftstack, metric_error, count)
 
         if params['subpixel']: pixtol = params['pixtol']
         else: pixtol = 1
@@ -325,19 +286,19 @@ def _alignprojections_vertical(input_stack,lims,deltastack,metric_error,vert_flu
                                   params['maxit'],params['subpixel'])
 
         if reason == 1:
-            deltastack = deltaprev.copy()
+            shiftstack = deltaprev.copy()
             metric_error.pop()
             break
         elif reason >= 2:
             break
-    return deltastack, metric_error
+    return shiftstack, metric_error
 
-def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
+def alignprojections_vertical(input_stack,limrow,limcol,shiftstack,**params):
     """
     Vertical alignment of projections using mass fluctuation approach.
     It relies on having air on both sides of the sample (non local tomography).
     It performs a local search in y, so convergence issues can be addressed by
-    giving an approximate initial guess for a possible drift via deltastack
+    giving an approximate initial guess for a possible drift via shiftstack
 
     Parameters
     ----------
@@ -347,7 +308,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
         Limits of window of interest in y
     limcol : list of ints
         Limits of window of interest in x
-    deltastack : ndarray
+    shiftstack : ndarray
         Array of initial estimates for object motion (2,n)
     Extra parameters in the dictionary params:
     params['pixtol'] : float
@@ -366,7 +327,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
 
     Returns
     -------
-    deltastack : ndarray
+    shiftstack : ndarray
         Corrected bject positions
     input_stack : ndarray
         Aligned stack of the projections
@@ -385,19 +346,19 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
     # horizontal alignement with center of mass if requested
     if params['alignx'] and count == 0:
         print('Estimating the changes in x using center-of-mass:')
-        centerx = center_of_mass_stack(input_stack,params,limrow=limrow,limcol=limcol,deltastack=deltastack)[0]#[1]
+        centerx = center_of_mass_stack(input_stack,params,limrow=limrow,limcol=limcol,shiftstack=shiftstack)[0]#[1]
         # Correction with mass center
-        deltastack[1] = -centerx.round()
-        # ~ deltastack[1] -= deltastack[1].mean().round()
-        changex = np.max(np.abs(deltaprev[1] - deltastack[1]))
+        shiftstack[1] = -centerx.round()
+        # ~ shiftstack[1] -= shiftstack[1].mean().round()
+        changex = np.max(np.abs(deltaprev[1] - shiftstack[1]))
         print('Maximum correction of center of mass in x = {:.02f} pixels'.format(changex))
     else:
         changex = 0
 
-    # first iteration only correcting for the limrow and limcol and in case deltastack is already no zero
-    vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),deltastack,params['shiftmeth'],polyorder=params['polyorder'])
+    # first iteration only correcting for the limrow and limcol and in case shiftstack is already no zero
+    vert_fluct_init = vertical_fluctuations(input_stack,(limrow,limcol),shiftstack,params['shiftmeth'],polyorder=params['polyorder'])
     avg_init = vert_fluct_init.mean(axis=0)
-    deltastack_init = deltastack.copy()
+    shiftstack_init = shiftstack.copy()
     nr,nc = vert_fluct_init.shape # for the image display
 
     # Store initial states
@@ -413,7 +374,7 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
     plt.ion()
     RP = RegisterPlot(**params)
     RP.plotsvertical(input_stack[0], lims, vert_fluct_init, vert_fluct_init,
-                deltastack_init, metric_error, count=0)
+                shiftstack_init, metric_error, count=0)
 
     # Single pixel precision
     print('\n================================================')
@@ -421,8 +382,8 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
     print('================================================')
     params['subpixel'] = False
 
-    deltastack,metric_error = _alignprojections_vertical(input_stack,
-                                lims,deltastack,metric_error,
+    shiftstack,metric_error = _alignprojections_vertical(input_stack,
+                                lims,shiftstack,metric_error,
                                 vert_fluct_init,RP,**params)
 
     # Subpixel precision
@@ -431,84 +392,87 @@ def alignprojections_vertical(input_stack,limrow,limcol,deltastack,**params):
     print('================================================')
 
     params['subpixel'] = True
-    deltastack,metric_error = _alignprojections_vertical(input_stack,
-                               lims,deltastack,metric_error,
+    shiftstack,metric_error = _alignprojections_vertical(input_stack,
+                               lims,shiftstack,metric_error,
                                vert_fluct_init,RP,**params)
 
     # Compute the shifted images
     print('Computing aligned images')
-    output_stack = compute_aligned_stack(input_stack,deltastack.copy(),shift_method=params['shiftmeth'])
+    output_stack = compute_aligned_stack(input_stack,shiftstack.copy(),shift_method=params['shiftmeth'])
 
-    return deltastack,output_stack
+    return shiftstack,output_stack
 
 def _alignprojections_horizontal(sinogram, sino_orig, theta, circleROI,
-                                deltaslice, metric_error, RP,**params):
+                                shiftslice, metric_error, RP,**params):
     """
     Auxiliary function for align the projection horizontally. It contains
     the wrapper for iteration during the alignement
     """
-    count = 0 # Initialize the counter
+    # Compute tomogram with current sinogram
+    print('Initializing tomographic slice...')
+    t0 = time.time()
+    recons = backprojector(sinogram,theta=theta,
+                       output_size=sinogram.shape[0], **params)
+    recons_std = recons.std()
+    # clipping gray level if needed
+    recons = _clipping_tomo(recons,**params)
+    if params['circle']: recons = recons*circleROI
+    print('Done. Time elapsed: {} s'.format(time.time()-t0))
+    print('Slice standard deviation = {:0.04e}'.format(recons_std))
+
+    # Initialize the counter
+    count = 0
     while True:
         count += 1
-        print('\n=====================================')
-        print('Iteration {}'.format(count))
+        print('\nIteration {}'.format(count))
+        print('-------------------------------------')
         it0 = time.time()
-        print('Keeping previous sinogram before iteration')
         sinoprev = sinogram.copy()
-        deltaprev = deltaslice.copy() # keep deltaprev in case the iteration does not decrease the error
-
-        # Compute tomogram with current sinogram
-        print('Computing tomographic slice. This takes time. Please, be patient.')
-        t0 = time.time()
-        recons = backprojector(sinogram,theta=theta,
-                           output_size=sinogram.shape[0], **params)
-        print('Done. Time elapsed: {} s'.format(time.time()-t0))
-        print('Slice standard deviation = {:0.04e}'.format(recons.std()))
-
-        # clipping gray level if needed
-        recons = _clipping_tomo(recons,**params)
-        if params['circle']:
-            recons = recons*circleROI
+        deltaprev = shiftslice.copy() # keep deltaprev in case the iteration does not decrease the error
 
         # Compute synthetic sinogram
-        print('Computing synthetic sinogram. This takes time. Please, be patient.')
+        print('Computing synthetic sinogram...')
         sinogramcomp = projector(recons,theta,**params)
         if params['derivatives']:
             sinogramcomp = derivatives_sino(sinogramcomp,shift_method=params['shiftmeth'])
 
         # Start searching for shift relative to synthetic sinogram
-        sinotempreg,deltaslice = _search_shift_sinogram(sino_orig,
-                                sinogramcomp,deltaslice,**params)
-
-        # calculate the error:
-        errorxreg = _sino_error_metric(sinotempreg,sinogramcomp,params)
-        sumerrorxreg = errorxreg.sum()
-        print('Final error metric for x, E = {:02e}'.format(sumerrorxreg))
-        metric_error.append(sumerrorxreg)
-
-        #Evaluate if pixel tolerance is already met
-        print('Estimating the changes in x:')
-        changex = np.abs(deltaprev - deltaslice)
-        if params['subpixel']: strprint = 'Maximum correction in x = {:02f} pixels'
-        else: 'Maximum correction in x = {:0d} pixels'
-        print(strprint.format(np.max(changex)))
-
+        sinotempreg,shiftslice = _search_hshift_sinogram(sino_orig,
+                                sinogramcomp,shiftslice,**params)
         # updating sinogram
-        sinogram = compute_aligned_sino(sino_orig,deltaslice,
+        sinogram = compute_aligned_sino(sino_orig,shiftslice,
                                     shift_method=params['shiftmeth'])
+
+        # Compute tomogram with current sinogram
+        print('Computing tomographic slice...')
+        t0 = time.time()
         recons = backprojector(sinogram,theta=theta,
                            output_size=sinogram.shape[0], **params)
+        recons_std = recons.std()
         # clipping gray level if needed
         recons = _clipping_tomo(recons,**params)
-        if params['circle']:
-            recons = recons*circleROI
-        #~ sinogram = sinotempreg.copy()
+        if params['circle']: recons = recons*circleROI
+        print('Done. Time elapsed: {} s'.format(time.time()-t0))
+        print('Slice standard deviation = {:0.04e}'.format(recons_std))
 
-        print('Elapsed time = {} s'.format(time.time()-it0))
+        # Calculate the error:
+        errorxreg = _sino_error_metric(sinogram,sinogramcomp,params)
+        sumerrorxreg = errorxreg.sum()
+        print('Final error metric for x, E = {:0.04e}'.format(sumerrorxreg))
+        metric_error.append(sumerrorxreg)
+
+        # Estimate amount of changes
+        print('Estimating the changes in x:')
+        changex = np.abs(deltaprev - shiftslice)
+        if params['subpixel']: strprint = 'Maximum correction in x = {:0.02f} pixels'
+        else: strprint = 'Maximum correction in x = {:0.02g} pixels'
+        print(strprint.format(np.max(changex)))
+
+        print('Elapsed time in the iteration= {:0.02f} s'.format(time.time()-it0))
 
         # update figures
         RP.plotshorizontal(recons, sino_orig, sinogram, sinogramcomp,
-                        deltaslice, metric_error, count)
+                        shiftslice, metric_error, count)
 
         if params['subpixel']: pixtol = params['pixtol']
         else: pixtol = 1
@@ -516,16 +480,16 @@ def _alignprojections_horizontal(sinogram, sino_orig, theta, circleROI,
                                   params['maxit'],params['subpixel'])
 
         if reason == 1:
-            deltaslice = deltaprev.copy()
+            shiftslice = deltaprev.copy()
             #~ sinogram = sinoprev.copy()
             metric_error.pop()
             break
         elif reason >= 2:
             break
 
-    return deltaslice, metric_error
+    return shiftslice, metric_error
 
-def alignprojections_horizontal(sinogram,theta,deltaslice,**params):
+def alignprojections_horizontal(sinogram,theta,shiftslice,**params):
     """
     Function to align projections. It relies on having already aligned the
     vertical direction. The code aligns using the consistency before and
@@ -535,7 +499,7 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,**params):
     ----------
     sinogram : ndarray
         Sinogram derivative, the second index should be the angle
-    deltaslice : ndarray
+    shiftslice : ndarray
         Row array with initial estimates of positions
     Extra parameters in the dictionary params:
     params['pixtol'] : float
@@ -563,7 +527,7 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,**params):
 
     Returns
     -------
-    deltastack : ndarray
+    shiftstack : ndarray
         Corrected object positions
     alinedsinogram : ndarray
         Array containting the aligned sinogram
@@ -589,17 +553,15 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,**params):
     try: params['cliphigh']
     except: params['cliphigh'] = None
 
-    print('\n=====================================')
     print('\nStarting the horizontal alignment')
+    print('=====================================')
     print('Number of iteration: {}'.format(params['maxit']))
     print('Using a frequency cutoff of {}'.format(params['filtertomo']))
     print('Low limit for tomo values = {}'.format(params['cliplow']))
     print('High limit for tomo values = {}'.format(params['cliphigh']))
-    if params['opencl']:
-        print('Using openCL tomography reconstruction implemented in Silx')
 
     # appropriate keeping of variable
-    alignedsinogram = np.asarray(sinogram).copy()
+    original_sino = sinogram.copy()
 
     # pad sinogram of derivatives
     #TODO: check if we only need this for derivative (if params['derivatives']:) or not!
@@ -613,21 +575,17 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,**params):
     filteraux = np.tile(np.fft.fftshift(filteraux[0,:]),(len(theta),1))
     sino_orig = np.real(np.fft.ifft(np.fft.fft(sinogram)*filteraux.T))
 
-    # Shifting projection according to the initial deltaslice
-    if not np.all(deltaslice==0):
+    # Shifting projection according to the initial shiftslice
+    if not np.all(shiftslice==0):
         print('Shifting sinogram.')
-        sinogram = compute_aligned_sino(sino_orig,deltaslice,
+        sinogram = compute_aligned_sino(sino_orig,shiftslice,
                                     shift_method=params['shiftmeth'])
         print('Done.')
     else:
-        print('Initializing deltaslice with zeros')
-
-    # filtered and unfiltered sinogram
-    unfilt_sino_orig = sinogram.copy()
-    #~ unfilt_sino = sinogram.copy()
+        print('Initializing shiftslice with zeros')
 
     # initial reconstruction
-    print('Computing initial tomographic slice. This takes time. Please, be patient.')
+    print('Computing initial tomographic slice...')
     # Filtered back projection
     print("Backprojecting")
     t0 = time.time()
@@ -645,58 +603,61 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,**params):
     recons = recons*circleROI
 
     # initial synthetic sinogram
-    print('Computing synthetic sinogram. This takes time. Please, be patient.')
+    print('Computing synthetic sinogram...')
     t0 = time.time()
     sinogramcomp = projector(recons,theta,**params)
     if params['derivatives']:
         sinogramcomp = derivatives_sino(sinogramcomp,shift_method=params['shiftmeth'])
-    print('Done. Time elapsed: {} s'.format(time.time()-t0))
+    print('Done. Time elapsed: {:0.02f} s'.format(time.time()-t0))
 
     # store initial error metric
     metric_error = []
     print('Store initial error metric')
     errorinit = _sino_error_metric(sinogram,sinogramcomp,params)
     sumerrorinit = np.sum(errorinit)
-    print('Initial error metric, E= {}'.format(sumerrorinit))
+    print('Initial error metric, E= {:0.04e}'.format(sumerrorinit))
     metric_error.append(sumerrorinit)
 
     # initializing display canvas for the figures
     plt.ion()
     RP = RegisterPlot(**params)
     RP.plotshorizontal(recons, sino_orig, sinogram, sinogramcomp,
-                        deltaslice, metric_error, count=0)
+                        shiftslice, metric_error, count=0)
 
     # Single pixel precision
-    print('\n================================================')
+    print('\n===================================================')
     print('Registration of projections with pixel precision')
-    print('================================================')
+    print('===================================================')
     params['subpixel'] = False
-    deltaslice,metric_error = _alignprojections_horizontal(sinogram,
-                              sino_orig,theta,circleROI,deltaslice,
+    shiftslice,metric_error = _alignprojections_horizontal(sinogram,
+                              sino_orig,theta,circleROI,shiftslice,
                               metric_error, RP,**params)
 
-    print('\n================================================')
+    print('\n===================================================')
     print('Registration of projections with subpixel precision')
-    print('================================================')
+    print('===================================================')
 
     params['subpixel'] = True
-    deltaslice,metric_error = _alignprojections_horizontal(sinogram,
-                              sino_orig,theta,circleROI,deltaslice,
+    shiftslice,metric_error = _alignprojections_horizontal(sinogram,
+                              sino_orig,theta,circleROI,shiftslice,
                               metric_error, RP,**params)
 
 
     # Compute the shifted images
-    if params[u'apply_alignement']:
+    if params['apply_alignement']:
         print('\nComputing aligned images')
-        alignedsinogram = compute_aligned_sino(unfilt_sino_orig,
-                           deltaslice,shift_method=params['shiftmeth'])
+        alignedsinogram = compute_aligned_sino(original_sino,
+                           shiftslice,shift_method=params['shiftmeth'])
 
         print('Calculating aligned slice for display')
         p0 = time.time()
         recons = backprojector(alignedsinogram,theta=theta,
                            output_size=alignedsinogram.shape[0],**params)
         # clipping gray level if needed
-        recons = _clipping_tomo(recons,**params)*circleROI
+        recons = _clipping_tomo(recons,**params)
+        if params['circle']:
+            circleROI = _create_circle(recons)
+            recons = recons*circleROI
         print('Done. Time elapsed: {} s'.format(time.time()-p0))
 
         fig = plt.figure(num=10)
@@ -710,305 +671,59 @@ def alignprojections_horizontal(sinogram,theta,deltaslice,**params):
         plt.show(block=False)
         plt.pause(0.01)
 
-    return deltaslice, alignedsinogram
+    return shiftslice, alignedsinogram
 
-    #~ plt.close('all')
-    #~ fig1 = plt.figure(num=1)
-    #~ plt.clf()
-    #~ ax11 = fig1.add_subplot(111)
-    #~ im11 = ax11.imshow(recons,cmap='jet')
-    #~ ax11.axis('image')
-    #~ ax11.set_title('Initial slice')
-    #~ ax11.set_xlabel('x [pixels]')
-    #~ ax11.set_ylabel('y [pixels]')
-    #~ fig1.canvas.draw()
-    #~ plt.pause(0.001)
+def tomoconsistency_multiple(input_stack, theta, shiftslice,**params):
+    params['apply_alignement']=False
+    print('Starting Tomographic consistency on multiples slices')
+    # Tomographic consistency on multiple slices
+    #=========================
+    slices = np.arange(params['slicenum']-5,params['slicenum']+5) # Repeat tomomographic consistency for 10 slices
+    #=========================
+    plt.close('all')
+    shiftslice_prev = shiftslice.copy()
+    deltaxrefine = []
+    for ii in slices:
+        print('\nAligning slice {}'.format(ii+1))
+        sinogram = np.transpose(input_stack[:,ii,:]) # create the sinogram
+        params[u'apply_alignement'] = False
+        delta_aux,aligned_sino_aux = alignprojections_horizontal(sinogram,theta,shiftslice,**params);
+        deltaxrefine.append(delta_aux)
+        shiftslice = delta_aux.copy() # updating shiftslice
 
-    #~ fig2 = plt.figure(num=2)
-    #~ plt.clf()
-    #~ ax21 = fig2.add_subplot(211)
-    #~ im21 = ax21.imshow(sino_orig,cmap='bone',vmin=cmin,vmax=cmax)
-    #~ ax21.axis('tight')
-    #~ ax21.set_title('Initial sinogram')
-    #~ ax21.set_xlabel('Projection')
-    #~ ax21.set_ylabel('x [pixels]')
+    deltaxrefine = np.squeeze(deltaxrefine)
+    deltaxrefine_avg = deltaxrefine.mean(axis=0)
 
-    #~ ax22 = fig2.add_subplot(212)
-    #~ im22 = ax22.imshow(sinogram,cmap='bone',vmin=cmin,vmax=cmax)
-    #~ ax22.axis('tight')
-    #~ ax22.set_title('Current sinogram')
-    #~ ax22.set_xlabel('Projection')
-    #~ ax22.set_ylabel('x [pixels]')
-    #~ plt.tight_layout()
-    #~ fig2.canvas.draw()
-    #~ plt.pause(0.001)
+    plt.close('all')
+    fig = plt.figure(num=6,figsize=(14,8))
+    ax1 = fig.add_subplot(211)
+    ax1.imshow(deltaxrefine.astype(np.float),interpolation='none',cmap='jet')
+    ax1.axis('tight')
+    ax1.set_xlabel('Projection number')
+    ax1.set_ylabel('Slice number')
+    ax1.set_title('Displacements in x')
+    ax2 = fig.add_subplot(212)
+    ax2.plot(deltaxrefine_avg.astype(np.float),'b-',label='average')
+    ax2.plot(shiftslice_prev[0],'r--',label='previous')
+    ax2.legend()
+    ax2.axis('tight')
+    ax2.set_xlim([0,len(deltaxrefine_avg)])
+    ax2.set_title('Average displacements in x')
+    ax2.set_xlabel('Projection number')
+    plt.tight_layout()
+    plt.show()
+    a = input('Are you happy with the tomographic consistency alignment of the multiples slices? ([y]/n) ').lower()
+    if a =='' or a =='y':
+        shiftstack[1]=deltaxrefine_avg.copy()
+        print('Using the average of all shiftstack')
+    else:
+        shiftstack[1]=shiftslice_prev[0].copy()
+        print('Using the shiftstack before tomographic consisteny in multiple slices')
+    
+    return shiftstack
 
-    #~ fig3 = plt.figure(num=3)
-    #~ plt.clf()
-    #~ ax31 = fig3.add_subplot(111)
-    #~ im31 = ax31.imshow(sinogramcomp,cmap='bone',vmin=cmin,vmax=cmax)
-    #~ ax31.axis('tight')
-    #~ ax31.set_title('Synthetic sinogram')
-    #~ ax31.set_xlabel('Projection')
-    #~ ax31.set_ylabel('x [pixels]')
-    #~ plt.tight_layout()
-    #~ fig3.canvas.draw()
-    #~ plt.pause(0.001)
 
-    #~ #===========================#
-    #~ # single pixel registration #
-    #~ #===========================#
-
-    #~ print('\nRegistration of projections - Single pixel precision')
-    #~ # main loop
-    #~ plt.ion()
-    #~ count = 0
-    #~ while True:
-        #~ count += 1
-        #~ print('\n=====================================')
-        #~ print('Iteration {}'.format(count))
-        #~ it0 = time.time()
-        #~ print('Keeping previous sinogram before iteration')
-        #~ deltaprev = deltaslice.copy() # keep deltaprev in case the iteration does not decrease the error
-        #~ sinoprev = sinogram.copy()
-
-        #~ # Compute tomogram with current sinogram
-        #~ print('Computing tomographic slice. This takes time. Please, be patient.')
-        #~ t0 = time.time()
-        #~ recons = backprojector(sinogram,theta=theta,
-                           #~ output_size=sinogram.shape[0],**params)
-        #~ print('Done. Time elapsed: {} s'.format(time.time()-t0))
-        #~ print('Slice standard deviation = {:0.04e}'.format(recons.std()))
-
-        #~ # clipping gray level if needed
-        #~ recons = _clipping_tomo(recons,**params)
-        #~ if params['circle']:
-            #~ recons = recons*circle
-
-        #~ # Compute synthetic sinogram
-        #~ print('Computing synthetic sinogram. This takes time. Please, be patient.')
-        #~ sinogramcomp = FBP_projector(recons,theta,**params)
-        #~ #sinogramcomp = np.flipud(FBP_projector(recons,theta,**params)) # fliplr only for fluo data
-
-        #~ # Start searching for shift relative to synthetic sinogram
-        #~ sinotempreg,deltaslice = _search_sino_shifts(sinogram,sinogramcomp,deltaslice,subpixel=False,**params)
-
-        #~ # calculate the error:
-        #~ errorxreg = _sino_error_metric(sinotempreg,sinogramcomp,params)
-        #~ sumerrorxreg = errorxreg.sum()
-        #~ print('Final error metric for x, E = {}'.format(sumerrorxreg))
-        #~ metric_error.append(sumerrorxreg)
-
-        #~ #Evaluate if pixel tolerance is already met
-        #~ print('Estimating the changes in x:')
-        #~ changex = np.abs(deltaprev - deltaslice)
-        #~ print('Maximum correction in x = {} pixels'.format(np.max(changex)))
-
-        #~ # updating sinogram
-        #~ sinogram = sinotempreg.copy()
-
-        #~ print('Elapsed time = {} s'.format(time.time()-it0))
-
-        #~ if params['disp']>1:
-            #~ # Show slice images
-            #~ im11.set_data(recons)#,cmap='jet')
-            #~ ax11.set_title('Slice - iteration {}'.format(count))
-            #~ fig1.canvas.draw()
-            #~ plt.pause(0.001)
-
-            #~ im21.set_data(sino_orig)
-            #~ ax21.set_title('Initial sinogram')
-            #~ im22.set_data(sinogram)
-            #~ ax22.set_title('Current sinogram')
-            #~ plt.tight_layout()
-            #~ fig2.canvas.draw()
-            #~ plt.pause(0.001)
-
-            #~ im31.set_data(sinogramcomp)
-            #~ plt.tight_layout()
-            #~ fig3.canvas.draw()
-            #~ plt.pause(0.001)
-
-            #~ fig4 = plt.figure(num=4)
-            #~ plt.clf()
-            #~ ax41 = fig4.add_subplot(111)
-            #~ ax41.plot(deltaslice.T)
-            #~ ax41.axis('tight')
-            #~ ax41.set_title('Object position')
-            #~ plt.tight_layout()
-            #~ fig4.canvas.draw()
-            #~ plt.pause(0.001)
-
-            #~ fig5 = plt.figure(num=5)
-            #~ plt.clf()
-            #~ ax51 = fig5.add_subplot(111)
-            #~ ax51.plot(metric_error,'bo-')
-            #~ ax51.axis('tight')
-            #~ ax51.set_title('Error metric')
-            #~ plt.tight_layout()
-            #~ fig5.canvas.draw()
-            #~ plt.pause(0.001)
-
-        #~ if np.max(changex) < 1:
-            #~ print('\nChanges are smaller than one pixel')
-            #~ break
-
-        #~ if count >= params['maxit']:
-            #~ print('\nMaximum number of iterations exceeded, increase maxit')
-            #~ break
-
-        #~ if metric_error[-1] > metric_error[-2]:
-            #~ print('\nLast iteration increases error. Keeping previous positions')
-            #~ print('Before -> {}, current -> {}'.format(metric_error[-2],metric_error[-1]))
-            #~ print('Keeping previous shifts.')
-            #~ deltaslice = deltaprev.copy() # return deltaslice one step before
-            #~ sinogram = sinoprev.copy() # return to previous sinogram
-            #~ metric_error.pop() # remove the last value from the metric_error
-            #~ count -=1
-            #~ break
-
-    #~ # Sinogram alignment with subpixel precision
-    #~ if not isinstance(params['pixtol'],int):
-        #~ print('\nSwitch to supixel registration')
-        #~ print('\n=====================================')
-
-        #~ print('Registration of the projection with subpixel precision')
-
-        #~ plt.ion()
-        #~ #### Uses 'count', 'metric_error' and 'errorxreg' from the alignement with single pixel precision
-        #~ countpix = count
-        #~ while True: #dosubpix == 1,
-            #~ count += 1
-            #~ print('\n=====================================')
-            #~ print('Iteration {}'.format(count-countpix))
-            #~ it0 = time.time()
-            #~ print('Keeping previous sinogram before iteration')
-            #~ deltaprev = deltaslice.copy()
-            #~ sinoprev = sinogram.copy()
-
-            #~ # Compute tomogram with current sinogram
-            #~ print('Computing tomographic slice. This takes time. Please, be patient.')
-            #~ t0 = time.time()
-            #~ recons = backprojector(sinogram,theta=theta,
-                           #~ output_size=sinogram.shape[0],**params)
-            #~ print('Done. Time elapsed: {} s'.format(time.time()-t0))
-            #~ print('Slice standard deviation = {:0.04e}'.format(recons.std()))
-
-            #~ # clipping gray level if needed
-            #~ recons = _clipping_tomo(recons,**params)
-            #~ if params['circle']:
-                #~ recons = recons*circle
-
-            #~ # Compute synthetic sinogram
-            #~ print('Computing synthetic sinogram. This takes time. Please, be patient.')
-            #~ sinogramcomp = FBP_projector(recons,theta,P,**params)
-            #~ #sinogramcomp = np.flipud(radon(recons,theta)) # fliplr only for fluo data
-
-            #~ # Start searching for shift relative to synthetic sinogram
-            #~ sinotempreg,deltaslice = _search_sino_shifts(sinogram,sinogramcomp,deltaslice,subpixel=True,**params)
-
-            #~ # calculate the error:
-            #~ errorxreg = _sino_error_metric(sinotempreg,sinogramcomp,params)
-            #~ sumerrorxreg = errorxreg.sum()
-            #~ print('Final error metric for x, E = {}'.format(sumerrorxreg))
-            #~ metric_error.append(sumerrorxreg)
-
-            #~ #Evaluate if pixel tolerance is already met
-            #~ print('Estimating the changes in x:')
-            #~ changex = np.abs(deltaprev - deltaslice)
-            #~ print('Maximum correction in x = {:0.03f} pixels'.format(np.max(changex)))
-
-            #~ # updating the sinogram
-            #~ sinogram = sinotempreg.copy()
-
-            #~ print('Elapsed time = {} s'.format(time.time()-it0))
-
-            #~ if params['disp']>1:
-                #~ # Show slice images
-                #~ im11.set_data(recons)
-                #~ ax11.set_title('Slice - iteration {}'.format(count))
-                #~ fig1.canvas.draw()
-                #~ plt.pause(0.001)
-
-                #~ im21.set_data(sino_orig)
-                #~ ax21.set_title('Initial sinogram')
-                #~ im22.set_data(sinogram)
-                #~ ax22.set_title('Current sinogram')
-                #~ plt.tight_layout()
-                #~ fig2.canvas.draw()
-                #~ plt.pause(0.001)
-
-                #~ im31.set_data(sinogramcomp)
-                #~ plt.tight_layout()
-                #~ fig3.canvas.draw()
-                #~ plt.pause(0.001)
-
-                #~ fig4 = plt.figure(num=4)
-                #~ plt.clf()
-                #~ ax41 = fig4.add_subplot(111)
-                #~ ax41.plot(deltaslice.T)
-                #~ ax41.axis('tight')
-                #~ ax41.set_title('Object position')
-                #~ plt.tight_layout()
-                #~ fig4.canvas.draw()
-                #~ plt.pause(0.001)
-
-                #~ fig5 = plt.figure(num=5)
-                #~ plt.clf()
-                #~ ax51 = fig5.add_subplot(111)
-                #~ ax51.plot(metric_error,'bo-')
-                #~ ax51.axis('tight')
-                #~ ax51.set_title('Error metric')
-                #~ plt.tight_layout()
-                #~ fig5.canvas.draw()
-                #~ plt.pause(0.001)
-
-            #~ if (np.max(changex) < params['pixtol']):
-                #~ print('\nChanges are smaller than {} pixel'.format(params['pixtol']))
-                #~ break
-
-            #~ if count-countpix >= params['maxit']:
-                #~ print('\nMaximum number of iterations exceeded, increase maxit')
-                #~ break
-
-            #~ if metric_error[-1] > metric_error[-2]:
-                #~ print('\nLast iteration increases error. Keeping previous positions')
-                #~ print('Before -> {}, current -> {}'.format(metric_error[-2],metric_error[-1]))
-                #~ print('Keeping previous shifts.')
-                #~ deltaslice = deltaprev.copy() # return deltaslice one step before
-                #~ sinogram = sinoprev.copy()
-                #~ metric_error.pop() # remove the last value from the metric_error
-                #~ #count -=1
-                #~ break
-
-def _clipping_tomo(recons,**params):
-    """
-    Clip gray level of tomographic images
-    """
-    if params['cliplow'] is not None:
-        recons = recons*(recons>=params['cliplow'])+params['cliplow']*(recons<params['cliplow'])
-    if params['cliphigh'] is not None:
-        recons = recons*(recons<=params['cliphigh'])+params['cliphigh']*(recons>params['cliphigh'])
-        recons = recons - params['cliphigh']
-    return recons
-
-def _create_circle(inputimg):
-    """
-    Create circle with apodized edges
-    """
-    bordercrop = 10
-    nr,nc = inputimg.shape
-    Y,X = np.indices((nr,nc))
-    Y -= np.round(nr/2).astype(int)
-    X -= np.round(nc/2).astype(int)
-    R = np.sqrt(X**2+Y**2)
-    Rmax = np.round(np.max(R.shape)/2.)
-    maskout = R < Rmax
-    t = maskout*(1-np.cos(np.pi*(R-Rmax-2*bordercrop)/bordercrop))/2.
-    t[np.where(R < (Rmax - bordercrop))]=1
-    return t
-
-def _search_shift_direction_stack(input_stack,lims,input_delta,avg_vert_fluct,**kwargs):
+def _search_vshift_stack(input_stack,lims,input_delta,avg_vert_fluct,**kwargs):
     """
     Search for the shifts directions for the stack
     """
@@ -1033,7 +748,7 @@ def _search_shift_direction_stack(input_stack,lims,input_delta,avg_vert_fluct,**
 
     # initializing array
     vert_fluct_stack = np.empty((input_stack.shape[0],rows[-1]-rows[0]))
-    output_deltastack = np.empty_like(input_delta)#np.zeros_like(input_delta)
+    output_shiftstack = np.empty_like(input_delta)#np.zeros_like(input_delta)
 
     if not isinstance(input_stack,np.ndarray):
         input_stack = np.asarray(input_stack).copy()
@@ -1041,17 +756,17 @@ def _search_shift_direction_stack(input_stack,lims,input_delta,avg_vert_fluct,**
     for ii in range(nprojs):
         print('Searching the shifts for projection: {}'.format(ii+1),end="\r")
         shift_delta = input_delta[0,ii]
-        output_deltastack[0,ii], vert_fluct_stack[ii]=_search_shift_direction(input_stack[ii], \
+        output_shiftstack[0,ii], vert_fluct_stack[ii]=_search_vshift_direction(input_stack[ii], \
                                                     lims,shift_delta,
                                                     avg_vert_fluct,
                                                     pixtol,
                                                     max_vshift,
                                                     shift_method,
                                                     polyorder)
+    print("\r")
+    return output_shiftstack, vert_fluct_stack
 
-    return output_deltastack, vert_fluct_stack
-
-def _search_shift_direction(input_array,lims,shift_delta,avg_vert_fluct,pixtol,max_vshift,shift_method='linear',polyorder=2):
+def _search_vshift_direction(input_array,lims,shift_delta,avg_vert_fluct,pixtol,max_vshift,shift_method='linear',polyorder=2):
     """
     Search for the shifts directions for each image
     """
@@ -1071,10 +786,7 @@ def _search_shift_direction(input_array,lims,shift_delta,avg_vert_fluct,pixtol,m
     dir_shift['forward']=np.sum(np.abs(shifts['forward']-avg_vert_fluct)**2)
     dir_shift['backward']=np.sum(np.abs(shifts['backward']-avg_vert_fluct)**2)
 
-    #~ # sort the dict dir_shift by value
-    #~ sort_error = sorted(dir_shift.items(), key=lambda x: x[1])
-    #~ # get the smallest shift error, which is the first in sort_error dict
-    #~ min_error = sort_error[0][0]
+    # get the smallest shift error
     min_error = min(dir_shift, key=dir_shift.get)
     # calculate the increment to be shifted
     if min_error == u'current':
@@ -1104,7 +816,7 @@ def _search_shift_direction(input_array,lims,shift_delta,avg_vert_fluct,pixtol,m
         shifted_stack = shifts['current']
     return shift, shifted_stack
 
-def _search_shift_sinogram(sinogram,sinogramcomp,deltaslice,**kwargs):
+def _search_hshift_sinogram(sinogram,sinogramcomp,shiftslice,**kwargs):
     """
     Wrapper to search for the shifts in the sinogram
     """
@@ -1120,20 +832,20 @@ def _search_shift_sinogram(sinogram,sinogramcomp,deltaslice,**kwargs):
 
     # intializing arrays
     sino_out = np.zeros_like(sinogram)
-    deltaslice_out = np.zeros_like(deltaslice)
+    shiftslice_out = np.zeros_like(shiftslice)
 
     for ii in range(nc):
         print('Searching the shifts for projection: {}'.format(ii+1),end="\r")
-        shift_delta = deltaslice[0,ii]
-        deltaslice_out[0,ii], sino_out[:,ii] = __search_shift_sino(sinogram[:,ii],
+        shift_delta = shiftslice[0,ii]
+        shiftslice_out[0,ii], sino_out[:,ii] = _search_hshift_direction(sinogram[:,ii],
                                             sinogramcomp[:,ii],
                                             shift_delta,
                                             pixtol,
                                             shift_method)
+    print("\r")
+    return sino_out, shiftslice_out
 
-    return sino_out, deltaslice_out
-
-def __search_shift_sino(sinogram,sinogramcomp,shift_delta,pixtol,shift_method='linear'):
+def _search_hshift_direction(sinogram,sinogramcomp,shift_delta,pixtol,shift_method='linear'):
     """
     Search for sinogram shift for each projection
     """
@@ -1153,10 +865,7 @@ def __search_shift_sino(sinogram,sinogramcomp,shift_delta,pixtol,shift_method='l
     dir_shift['forward'] = np.sum(np.abs(shifts['forwards']-sinogramcomp)**2)
     dir_shift['backward'] = np.sum(np.abs(shifts['backwards']-sinogramcomp)**2)
 
-    #~ # sort the dict dir_shift by value
-    #~ sort_error = sorted(dir_shift.items(), key=lambda x: x[1])
-    #~ # get the smallest shift error, which is the first in sort_error dict
-    #~ min_error = sort_error[0][0]
+    # get the smallest shift error
     min_error = min(dir_shift, key=dir_shift.get)
     # calculate the increment to be shifted
     if min_error == u'current':
@@ -1187,6 +896,33 @@ def __search_shift_sino(sinogram,sinogramcomp,shift_delta,pixtol,shift_method='l
         shifted_sino = shifts['current'].copy()
     return shift, shifted_sino
 
+def _clipping_tomo(recons,**params):
+    """
+    Clip gray level of tomographic images
+    """
+    if params['cliplow'] is not None:
+        recons = recons*(recons>=params['cliplow'])+params['cliplow']*(recons<params['cliplow'])
+    if params['cliphigh'] is not None:
+        recons = recons*(recons<=params['cliphigh'])+params['cliphigh']*(recons>params['cliphigh'])
+        recons = recons - params['cliphigh']
+    return recons
+
+def _create_circle(inputimg):
+    """
+    Create circle with apodized edges
+    """
+    bordercrop = 10
+    nr,nc = inputimg.shape
+    Y,X = np.indices((nr,nc))
+    Y -= np.round(nr/2).astype(int)
+    X -= np.round(nc/2).astype(int)
+    R = np.sqrt(X**2+Y**2)
+    Rmax = np.round(np.max(R.shape)/2.)
+    maskout = R < Rmax
+    t = maskout*(1-np.cos(np.pi*(R-Rmax-2*bordercrop)/bordercrop))/2.
+    t[np.where(R < (Rmax - bordercrop))]=1
+    return t
+
 def _sino_error_metric(sinogramexp,sinogramcomp,params):
     """
     Estimate the error metric between the experimental sinogram and
@@ -1197,6 +933,37 @@ def _sino_error_metric(sinogramexp,sinogramcomp,params):
     for ii in range(sinogramexp.shape[1]):
         errorxreg[ii] = np.sum(np.abs(sinogramexp[:,ii]-sinogramcomp[:,ii])**2)
     return errorxreg
+
+def _checkconditions(metric_error, changes,pixtol,count,maxit,subpixel=False):
+    """
+    Check if the registration conditions are satisfied
+    """
+    if subpixel: step = pixtol
+    else: step = 1
+
+    # We then check if the error increases
+    if metric_error[-1] > metric_error[-2]: # compare the last with the before last value
+        print('Last iteration increased error.')
+        print('Before -> {:.04e}, current -> {:.04e}'.format(metric_error[-2],metric_error[-1]))
+        print('Keeping previous shifts.')
+        reason = 1
+
+    # We check if the changes is larger than 1 or pixtol
+    elif np.max(changes) < step:
+        if step >= 1:
+            print('Changes are smaller than one pixel.')
+        else:
+            print('Changes are smaller than {} pixel.'.format(step))
+        reason = 2
+
+    # we check if the number of iteration is reached
+    elif count >= maxit:
+        print('Maximum number of iterations reached.')
+        reason = 3
+    else:
+        reason = 0
+
+    return reason
 
 @deprecated
 def cc_align(input_stack,limrow,limcol,params):
@@ -1247,20 +1014,20 @@ def cc_align(input_stack,limrow,limcol,params):
     ax2.set_title('Horizontal shifts')
     plt.show()
 
-    #updating the deltastack
-    deltastack = np.zeros((2,input_stack.shape[0]))
-    deltastack[0]=shift_vert
-    deltastack[1]=shift_hor
+    #updating the shiftstack
+    shiftstack = np.zeros((2,input_stack.shape[0]))
+    shiftstack[0]=shift_vert
+    shiftstack[1]=shift_hor
 
     ## Compute the shifted images
     #print('Computing aligned images')
     #if not params['expshift']:
-        #output_stack = compute_aligned_stack(input_stack,deltastack.copy(),params)
+        #output_stack = compute_aligned_stack(input_stack,shiftstack.copy(),params)
     #else:
         #print('Computing aligned images in phase space')
-        #output_stack = np.angle(compute_aligned_stack(np.exp(1j*input_stack),deltastack.copy(),params))
+        #output_stack = np.angle(compute_aligned_stack(np.exp(1j*input_stack),shiftstack.copy(),params))
 
-    #return deltastack,output_stack
+    #return shiftstack,output_stack
 
     plt.close('all')
     fig1 = plt.figure(1)
@@ -1271,7 +1038,7 @@ def cc_align(input_stack,limrow,limcol,params):
 
     #offset_stack_unwrap = np.empty_like(stack_unwrap[:,80:-80,80:-80])
     #aligned = np.empty_like(stack_unwrap[:,80:-80,80:-80])
-    aligned = compute_aligned_stack(input_stack,deltastack.copy(),shift_method=params['shiftmeth'])
+    aligned = compute_aligned_stack(input_stack,shiftstack.copy(),shift_method=params['shiftmeth'])
     plt.ion()
     for ii in range(0,len(stack_unwrap)):
         #img = stack_unwrap[ii,80:-80,80:-80]
@@ -1305,4 +1072,4 @@ def cc_align(input_stack,limrow,limcol,params):
     ax3.set_title("Cross-correlation")
 
     plt.show(block=False)
-    return deltastack, aligned
+    return shiftstack, aligned
