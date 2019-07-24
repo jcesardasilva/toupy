@@ -6,9 +6,6 @@ import numpy as np
 from silx.opencl.projection import Projection
 from skimage.transform import radon
 
-#local packages
-from ..restoration import derivatives_sino
-
 __all__=['radonSilx', 'FBP_projector']
 
 P = None
@@ -32,16 +29,11 @@ def projector(recons,theta,**params):
     center = int(N/2)
     if params['opencl']:
         # using Silx Projector
-        print("Using OpenCL")
+        #print("Using OpenCL")
         sinogramcomp = radonSilx(recons,theta)
     else:
         # Not using Silx Projector (very slow)
-        print("Not using OpenCL")
+        #print("Not using OpenCL")
         sinogramcomp = radon(recons,theta,circle=True)
     sinogramcomp = np.squeeze(sinogramcomp)
-    # calculate the derivative or not of the sinogram
-    #~ Nbig = sinogramcomp.shape[0]
-    #~ centerbig = int(Nbig/2) #np.ceil(Nbig/2.)#np.floor((Nbig+1)/2.)
-    #~ delta_center = centerbig-center
-    #~ sinogramcomp = sinogramcomp[delta_center:N+delta_center,:]
     return sinogramcomp

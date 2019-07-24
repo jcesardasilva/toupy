@@ -8,9 +8,6 @@ from scipy.interpolate import interp1d
 from silx.opencl.backprojection import Backprojection
 from silx import version
 
-#local packages
-from ..restoration import derivatives_sino
-
 __all__=['mod_iradon',
          'mod_iradonSilx',
          'compute_filter']
@@ -281,11 +278,11 @@ def backprojector(sinogram,theta,**params):
     """
     if params['opencl']:
         # using Silx backprojector
-        print("Using OpenCL")
+        #print("Using OpenCL")
         iradon = mod_iradonSilx
     else:
         # Not using Silx Projector (very slow)
-        print("Not using OpenCL")
+        #print("Not using OpenCL")
         iradon = mod_iradon
     # reconstructing
     recons = iradon(sinogram,theta=theta,
