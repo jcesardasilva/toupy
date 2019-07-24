@@ -62,14 +62,17 @@ def _plotdelimiters(ax, limrow, limcol):
     return ax
 
 def _createcanvashorizontal(recons, sinoorig, sinocurr, sinocomp,
-                            deltaslice, metric_error,**kwargs):
+                            deltaslice, metric_error,**params):
     """
     Create canvas for the plots during horizontal alignement
     """
-    slicenum = kwargs['slicenum']
+    slicenum = params['slicenum']
+    cmax = params['sinohigh']
+    cmin = params['sinolow']
 
-    # Preparing the canvas for the figures
+    # Display one reconstructed slice
     fig1 = plt.figure(num=1)
+    plt.clf()
     ax11 = fig1.add_subplot(111)
     im11 = ax11.imshow(recons,cmap='jet')
     ax11.axis('image')
@@ -79,7 +82,9 @@ def _createcanvashorizontal(recons, sinoorig, sinocurr, sinocomp,
     fig1.tight_layout()
     fig1.show()
 
-    fig2 = plt.figure(num=2)
+    # Display initial, current and synthetic sinograms
+    fig2 = plt.figure(num=2,figsize=(6,10))
+    plt.clf()
     ax21 = fig2.add_subplot(311)
     im21 = ax21.imshow(sinoorig,cmap='bone',vmin=cmin,vmax=cmax)
     ax21.axis('tight')
@@ -101,27 +106,33 @@ def _createcanvashorizontal(recons, sinoorig, sinocurr, sinocomp,
     fig2.tight_layout()
     fig2.show()
 
+    # Display deltaslice and metric_error
     fig3 = plt.figure(num=3)
+    plt.clf()
     ax31 = fig3.add_subplot(211)
-    im31, = ax31.plot(deltaslice.T)
+    im31 = ax31.plot(deltaslice)
     ax31.axis('tight')
     ax31.set_title('Object position')
     ax32 = fig3.add_subplot(212)
-    im32, = ax32.plot(metric_error,'bo-')
+    im32 = ax32.plot(metric_error,'bo-')
     ax32.axis('tight')
     ax32.set_title('Error metric')
     fig3.tight_layout()
     fig3.show()
 
-    return([im11,im21,im22,im23,im31,im32],[ax11,ax21,ax22,ax23,ax31,ax32])
+    plt.pause(0.001)
+
+    fig_array = [fig1,fig2,fig3]
+    im_array = [im11,im21,im22,im23,im31,im32]
+    ax_array = [ax11,ax21,ax22,ax23,ax31,ax32]
+
+    return(fig_array, im_array,ax_array)
 
 def _createcanvasvertical(proj, lims, vertfluctinit, vertfluctcurr,
-                           deltastack, metric_error, **kwargs):
+                           deltastack, metric_error, **params):
     """
     Create canvas for the plots during vertical alignement
     """
-    #~ limrow = kwargs['limrow']
-    #~ limcol = kwargs['limcol']
     limrow,limcol = lims
 
     #figures display
@@ -213,7 +224,6 @@ class RegisterPlot:
         #self.vmin = params['vmin']
         #self.vmax = params['vmax']
         plt.close('all')
-        # ~ plt.ion()
 
     def plotsvertical(self, proj, lims, vertfluctinit, vertfluctcurr,
                       deltastack, metric_error, count):
@@ -281,7 +291,6 @@ class RegisterPlot:
         self.im21.set_data(self.vertfluctinit)
         self.im22.set_data(self.vertfluctcurr)
 
-        self.ax11.axes.figure.canvas.draw()
         self.ax21.axes.figure.canvas.draw()
         self.ax22.axes.figure.canvas.draw()
 
@@ -341,17 +350,24 @@ class RegisterPlot:
         self.recons = recons
         self.sinoorig = sinoorig
         self.sinocurr = sinocurr
+        self.sinocomp = sinocomp
+        self.deltaslice = deltaslice.T
+        self.metric_error = metric_error
         self.count = count
 
         if self.count == 0:
             # Preparing the canvas for the figures
-            im_array, ax_array = _createcanvashorizontal(self.recons,
+            fig_array, im_array, ax_array = _createcanvashorizontal(self.recons,
                                             self.sinoorig,
                                             self.sinocurr,
                                             self.sinocomp,
                                             self.deltaslice,
                                             self.metric_error,
-                                            self.count, **self.params)
+                                            **self.params)
+
+            self.fig1 = fig_array[0]
+            self.fig2 = fig_array[1]
+            self.fig3 = fig_array[2]
 
             self.im11 = im_array[0] #im11
             self.im21 = im_array[1] #im21
@@ -367,25 +383,40 @@ class RegisterPlot:
             self.ax31 = ax_array[4] #ax31
             self.ax32 = ax_array[5] #ax32
         else:
-            self.update()
+            self.updatehorizontal()
 
     def updatehorizontal(self):
         """
-        Update the plot canvas during vertical registration
+        Update the plot canvas during horizontal registration
         """
         self.im11.set_data(self.recons)
-        self.ax11.set_title('Slice. Iteration {}'.format(self.count))
-
-        self.im21.set_data(self.sinoorig)
         self.im22.set_data(self.sinocurr)
         self.im23.set_data(self.sinocomp)
 
-        self.im31.set_ydata(deltaslice.T)
-        self.im32.set_ydata(metric_error)
-        autoscale_y(self.im31)
-        autoscale_y(self.im32)
+        self.ax11.set_title('Reconstruced slice. Iteration {}'.format(self.count))
+        self.ax11.axes.figure.canvas.draw()
+        self.ax22.axes.figure.canvas.draw()
+        self.ax23.axes.figure.canvas.draw()
 
-        plt.draw()
+        # shifts and error metric
+        fig3 = plt.figure(num=3)
+        plt.clf()
+        ax31 = fig3.add_subplot(211)
+        im31 = ax31.plot(self.deltaslice)
+        ax31.axis('tight')
+        ax31.set_title('Object position')
+        ax32 = fig3.add_subplot(212)
+        im32 = ax32.plot(self.metric_error,'bo-')
+        ax32.axis('tight')
+        ax32.set_title('Error metric')
+        fig3.tight_layout()
+        fig3.show()
+
+        #~ self.im31.set_ydata(deltaslice.T)
+        #~ self.im32.set_ydata(metric_error)
+        #~ autoscale_y(self.im31)
+        #~ autoscale_y(self.im32)
+        #~ plt.draw()
 
         #~ self.ax11.axes.figure.canvas.draw()
         #~ self.ax21.axes.figure.canvas.draw()
@@ -448,11 +479,11 @@ def _animated_image(stack_array,*args):
     #~ title = ax.text(0.5,1.05,"",fontsize=20,bbox={'facecolor':'w','alpha':0.5,'pad':5},
                 #~ transform=ax.transAxes,ha='center')
     title = ax.text(0.5,1.05,"",fontsize=20,transform=ax.transAxes,ha='center')
-    plt.tight_layout()
+    #~ plt.tight_layout()
     def updatefig(ii):
         global stack_array, limrow, limcol
         imgi = stack_array[ii,limrow[0]:limrow[-1],limcol[0]:limcol[-1]]
-        im.set_array(imgi)
+        im.set_data(imgi)
         title.set_text("Projection: {}".format(ii+1))
         return im,title,
 
@@ -483,7 +514,7 @@ def _animated_image2(stack_array,*args):
         global stack_array, limrow, limcol
         ax.set_title("Projection: {}".format(ii+1),fontsize=20)
         if arr1[0]: arr1[0].remove()
-        arr1[0] = im.set_array(stack_array[ii,limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
+        arr1[0] = im.set_data(stack_array[ii,limrow[0]:limrow[-1],limcol[0]:limcol[-1]])
 
     return fig, updatefig,nproj
 
@@ -502,7 +533,7 @@ def animated_image(stack_array,*args):
         Column limits to display
     """
     fig, updatefig, nproj = _animated_image(stack_array,*args)
-    ani = animation.FuncAnimation(fig, updatefig, frames=range(nproj), interval=50, blit=False, repeat=False)
+    ani = animation.FuncAnimation(fig, updatefig, frames=nproj, interval=50, blit=False, repeat=False)
     plt.show()
 
 def show_projections(objs,probe,idxproj):
