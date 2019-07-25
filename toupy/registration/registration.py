@@ -644,43 +644,44 @@ def alignprojections_horizontal(sinogram,theta,shiftslice,**params):
 
 
     # Compute the shifted images
-    if params['apply_alignement']:
-        print('\nComputing aligned images')
-        alignedsinogram = compute_aligned_sino(original_sino,
-                           shiftslice,shift_method=params['shiftmeth'])
+    print('\nComputing aligned images')
+    alignedsinogram = compute_aligned_sino(original_sino,
+                       shiftslice,shift_method=params['shiftmeth'])
 
-        print('Calculating aligned slice for display')
-        p0 = time.time()
-        recons = backprojector(alignedsinogram,theta=theta,
-                           output_size=alignedsinogram.shape[0],**params)
-        # clipping gray level if needed
-        recons = _clipping_tomo(recons,**params)
-        if params['circle']:
-            circleROI = _create_circle(recons)
-            recons = recons*circleROI
-        print('Done. Time elapsed: {} s'.format(time.time()-p0))
+    print('Calculating aligned slice for display')
+    p0 = time.time()
+    recons = backprojector(alignedsinogram,theta=theta,
+                       output_size=alignedsinogram.shape[0],**params)
+    # clipping gray level if needed
+    recons = _clipping_tomo(recons,**params)
+    if params['circle']:
+        circleROI = _create_circle(recons)
+        recons = recons*circleROI
+    print('Done. Time elapsed: {} s'.format(time.time()-p0))
 
-        fig = plt.figure(num=10)
-        plt.clf()
-        ax1 = fig.add_subplot(111)
-        ax1.imshow(recons,cmap='bone')
-        ax1.axis('image')
-        ax1.set_title('Aligned tomographic slice')
-        ax1.set_xlabel('x [pixels]')
-        ax1.set_ylabel('y [pixels]')
-        plt.show(block=False)
-        plt.pause(0.01)
+    fig = plt.figure(num=10)
+    plt.clf()
+    ax1 = fig.add_subplot(111)
+    ax1.imshow(recons,cmap='bone')
+    ax1.axis('image')
+    ax1.set_title('Aligned tomographic slice')
+    ax1.set_xlabel('x [pixels]')
+    ax1.set_ylabel('y [pixels]')
+    plt.show(block=False)
+    plt.pause(0.01)
 
     return shiftslice, alignedsinogram
 
-def tomoconsistency_multiple(input_stack, theta, shiftslice,**params):
+def tomoconsistency_multiple(input_stack, theta, shiftstack,**params):
+    """
+    Apply tomographic consistency alignement on multiple slices
+    """
     params['apply_alignement']=False
-    print('Starting Tomographic consistency on multiples slices')
-    # Tomographic consistency on multiple slices
-    #=========================
-    slices = np.arange(params['slicenum']-5,params['slicenum']+5) # Repeat tomomographic consistency for 10 slices
-    #=========================
+    print('Starting Tomographic consistency on multiple slices')
+    # select the slices, which are typically +5 and -5 relative to slicenum
+    slices = np.arange(params['slicenum']-5,params['slicenum']+5)
     plt.close('all')
+    shiftslice = shiftstack[1].copy()
     shiftslice_prev = shiftslice.copy()
     deltaxrefine = []
     for ii in slices:
