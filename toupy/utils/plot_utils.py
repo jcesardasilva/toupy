@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# standard libraries imports
+import functools
+
 #third party packages
-import matplotlib as mpl
+import matplotlib
 import matplotlib.animation as animation
 from matplotlib.colors import hsv_to_rgb
 import matplotlib.pyplot as plt
@@ -10,8 +13,17 @@ import numpy as np
 
 __all__=['autoscale_y',
          'RegisterPlot',
-         'show_projections',
+         'ShowProjections',
+         'plot_checkangles',
          'show_linearphase']
+
+def interativesession(func):
+    @functools.wraps(func)
+    def new_func(*args,**kwargs):
+        matplotlib.interactive(True)
+        return func(*args, **kwargs)
+    return new_func
+    
 
 def autoscale_y(ax,margin=0.1):
     """
@@ -225,6 +237,7 @@ class RegisterPlot:
         #self.vmax = params['vmax']
         plt.close('all')
 
+    @interativesession
     def plotsvertical(self, proj, lims, vertfluctinit, vertfluctcurr,
                       deltastack, metric_error, count):
         """
@@ -342,6 +355,7 @@ class RegisterPlot:
         #~ autoscale_y(self.ax41)
         plt.pause(0.001)
 
+    @interativesession
     def plotshorizontal(self, recons, sinoorig, sinocurr, sinocomp,
                         deltaslice, metric_error, count):
         """
@@ -418,13 +432,7 @@ class RegisterPlot:
         #~ autoscale_y(self.im32)
         #~ plt.draw()
 
-        #~ self.ax11.axes.figure.canvas.draw()
-        #~ self.ax21.axes.figure.canvas.draw()
-        #~ self.ax22.axes.figure.canvas.draw()
-        #~ self.ax23.axes.figure.canvas.draw()
-        #~ self.ax31.axes.figure.canvas.draw()
-        #~ self.ax32.axes.figure.canvas.draw()
-
+@interativesession
 def iterative_show(stack_array,*args):
     """
     Iterative plot of the images
@@ -536,46 +544,131 @@ def animated_image(stack_array,*args):
     ani = animation.FuncAnimation(fig, updatefig, frames=nproj, interval=50, blit=False, repeat=False)
     plt.show()
 
-def show_projections(objs,probe,idxproj):
+class ShowProjections:
     """
     Show projections and probe
     """
-    if objs.shape[0]<objs.shape[1]:
-        plotgrid=(3,1)
-        plotsize=(6,20)
-    else:
+    def __init__(self):
+        """
+        Initializer of show_projections
+        
+        """
+        self.idxp = 0
+        plt.ion()
+        print('Showing reconstructions for each angle')
+
+    def __call__(self,obj,probe,idxp):
+        return self.show_projections(obj,probe,idxp)
+
+    @interativesession
+    def show_projections(self,obj,probe,idxp):
+        """
+        Show the object and the probe
+        Parameters
+        ----------
+        obj : ndarray
+            Object to show
+        probe : ndarray
+            Probe to show
+        idxp : int
+            Projection number
+        """
+        if probe.ndim == 3: probe=probe[0]
+        self.objamp = np.abs(obj)
+        self.objph = np.angle(obj)
+        self.probergb = hsv_to_rgb(self.probe2HSV(probe))
+        self.idxp = idxp
+        self.nr,self.nc = self.objph.shape
         plotgrid=(1,3)
-        plotsize=(20,6)
-    vabsmean = np.abs(objs).mean()
-    perabsmean = 0.2*vabsmean
-    #vphasemean = np.angle(objs).mean()
-    #perphasemean = 0.3*vphasemean
-    plt.clf()
-    fig, (ax1,ax2,ax3) = plt.subplots(num=1,nrows=plotgrid[0],ncols=plotgrid[1],figsize=plotsize)
-    im1 = ax1.imshow(np.abs(objs),interpolation='none',cmap='gray',vmin=vabsmean-perabsmean,vmax=vabsmean+perabsmean)
-    fig.colorbar(im1,ax=ax1)
-    ax1.set_title(u'Object magnitude - projection {}'.format(idxproj))
-    im2 = ax2.imshow(np.angle(objs),interpolation='none',cmap='bone')#,vmin=vphasemean-perabsmean,vmax=vphasemean+perabsmean)
-    fig.colorbar(im2,ax=ax2)
-    ax2.set_title(u'Object Phase - projection {}'.format(idxproj))
-    # Special tricks for the probe display
-    H = np.angle(probe)/(2*np.pi)+0.5
-    S = np.ones_like(H).astype(int)
-    V = np.abs(probe)/np.max(np.abs(probe))
-    probe_hsv = np.dstack((H,S,V))
-    # Set the colormap and norm to correspond to the data for which
-    # the colorbar will be used.
-    norm = mpl.colors.Normalize(-np.pi,np.pi)
-    cmap = mpl.cm.colors.hsv_to_rgb # TO BE FIXED
-    #fig.subplots_adjust(hspace=plotgrid[0]/3.,wspace=plotgrid[1]/3.)
-    #fig.tight_layout()
-    im3 = ax3.imshow(hsv_to_rgb(probe_hsv),interpolation='none')
-    fig.colorbar(im3,ax=ax3,cmap=mpl.cm.get_cmap('hsv'),norm=norm) # TO BE FIXED
-    #cb = mpl.colorbar.ColorbarBase(ax3,cmap=mpl.cm.get_cmap('hsv'),norm=norm,orientation = 'horizontal')
-    ax3.set_title('Probe - projection {}'.format(idxproj))
-    #plt.tight_layout()
-    plt.draw()
-    #plt.clf()
+        plotsize=(18,6)
+        vabsmean = self.objamp.mean()
+        perabsmean = 0.2*vabsmean
+        self.cmin=vabsmean-perabsmean
+        self.cmax=vabsmean+perabsmean
+        if idxp == 0:
+            # display first image
+            plt.close('all')
+            self.fig, (self.ax1,self.ax2,self.ax3) = plt.subplots(num=1,
+                                                    nrows=plotgrid[0],
+                                                    ncols=plotgrid[1],
+                                                    figsize=plotsize)
+            self.im1 = self.ax1.imshow(self.objamp,
+                                       interpolation='none',
+                                       cmap='gray',
+                                       vmin=self.cmin,
+                                       vmax=self.cmax)
+            self.ax1.set_title('Object magnitude - projection {}'.format(self.idxp+1))
+            self.im2 = self.ax2.imshow(self.objph,
+                                       interpolation='none',
+                                       cmap='bone',
+                                       vmin=-np.pi,
+                                       vmax=np.pi)
+            self.ax2.set_title('Object Phase - projection {}'.format(self.idxp+1))
+            self.im3 = self.ax3.imshow(self.probergb,
+                                       interpolation='none')
+            self.ax3.set_title('Probe - projection {}'.format(self.idxp+1))
+            self.ax3.axis('image')
+            #~ fig.colorbar(im1,ax=ax1)
+            #~ fig.colorbar(im2,ax=ax2)
+            #~ # Set the colormap and norm to correspond to the data for which
+            #~ # the colorbar will be used.
+            #~ norm = mpl.colors.Normalize(-np.pi,np.pi)
+            #~ cmap = mpl.cm.colors.hsv_to_rgb # TO BE FIXED
+            #~ fig.colorbar(im3,ax=ax3,cmap=mpl.cm.get_cmap('hsv'),norm=norm) # TO BE FIXED
+            self.fig.show()
+            plt.pause(0.001)
+        else:
+            self.update_show()
+
+    def update_show(self):
+        """
+        Update the canvas
+        """
+        self.im1.set_data(self.objamp)
+        self.im1.set_cmap('gray')
+        self.im1.set_clim((self.cmin,self.cmax))
+        self.im1.set_interpolation(u'none')
+        self.ax1.set_title('Object magnitude - projection {}'.format(self.idxp+1))
+        self.im2.set_data(self.objph)
+        self.im1.set_cmap('bone')
+        self.im2.set_interpolation(u'none')
+        self.ax2.set_title('Object Phase - projection {}'.format(self.idxp+1))
+        self.im3.set_data(self.probergb)
+        self.im3.set_interpolation(u'none')
+        self.ax3.set_title('Probe (1st mode) - projection {}'.format(self.idxp+1))
+        self.fig.show()
+        plt.pause(0.001)
+
+    @staticmethod
+    def probe2HSV(probe):
+        """
+        Special tricks for the probe display in HSV
+        """
+        # Special tricks for the probe display
+        H = np.angle(probe)/(2*np.pi)+0.5
+        S = np.ones_like(H).astype(int)
+        V = np.abs(probe)/np.max(np.abs(probe))
+        return np.dstack((H,S,V))
+
+@interativesession    
+def plot_checkangles(angles):
+    """
+    Plot the angles for each projections and the derivatives to check
+    for anomalies
+    """
+    # plot the angles for verification
+    plt.close('all')
+    fig, (ax1,ax2) = plt.subplots(num=1,nrows=2,ncols=1)
+    pltangles = ax1.plot(angles,'ro')
+    ax1.set_xlabel('projection')
+    ax1.set_ylabel('Theta angles')
+    ax1.axis('tight')
+    pltdiffangles = ax2.plot(np.diff(sorted(angles)),'ro-')
+    ax2.set_xlabel('Sorted projections')
+    ax2.set_ylabel('Angular spacing')
+    ax2.axis('tight')
+    plt.tight_layout()
+    fig.show()
 
 def show_linearphase(image,mask,*args):
     """
@@ -596,47 +689,3 @@ def show_linearphase(image,mask,*args):
     ax2.axis('tight')
     plt.draw()
     #ax2.cla()
-
-# ~ fig1 = plt.figure(num=1)
-# ~ self.ax11 = fig1.add_subplot(111)
-# ~ self.im11 = self.ax11.imshow(recons,cmap='jet')
-# ~ self.ax11.axis('image')
-# ~ self.ax11.set_title('Initial slice')
-# ~ self.ax11.set_xlabel('x [pixels]')
-# ~ self.ax11.set_ylabel('y [pixels]')
-# ~ fig1.tight_layout()
-# ~ fig1.show()
-
-# ~ fig2 = plt.figure(num=2)
-# ~ self.ax21 = fig2.add_subplot(311)
-# ~ self.im21 = self.ax21.imshow(sinoorig,cmap='bone',vmin=cmin,vmax=cmax)
-# ~ self.ax21.axis('tight')
-# ~ self.ax21.set_title('Initial sinogram')
-# ~ self.ax21.set_xlabel('Projection')
-# ~ self.ax21.set_ylabel('x [pixels]')
-# ~ self.ax22 = self.fig2.add_subplot(312)
-# ~ self.im22 = self.ax22.imshow(sinocurr,cmap='bone',vmin=cmin,vmax=cmax)
-# ~ self.ax22.axis('tight')
-# ~ self.ax22.set_title('Current sinogram')
-# ~ self.ax22.set_xlabel('Projection')
-# ~ self.ax22.set_ylabel('x [pixels]')
-# ~ self.ax23 = fig2.add_subplot(313)
-# ~ self.im23 = self.ax23.imshow(sinocomp,cmap='bone',vmin=cmin,vmax=cmax)
-# ~ self.ax23.axis('tight')
-# ~ self.ax23.set_title('Synthetic sinogram')
-# ~ self.ax23.set_xlabel('Projection')
-# ~ self.ax23.set_ylabel('x [pixels]')
-# ~ fig2.tight_layout()
-# ~ fig2.show()
-
-# ~ fig3 = plt.figure(num=3)
-# ~ self.ax31 = fig3.add_subplot(211)
-# ~ self.im31, = self.ax31.plot(deltaslice.T)
-# ~ self.ax31.axis('tight')
-# ~ self.ax31.set_title('Object position')
-# ~ self.ax32 = fig3.add_subplot(212)
-# ~ self.im32, = ax32.plot(metric_error,'bo-')
-# ~ self.ax32.axis('tight')
-# ~ self.ax32.set_title('Error metric')
-# ~ fig3.tight_layout()
-# ~ fig3.show()

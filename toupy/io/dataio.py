@@ -20,11 +20,12 @@ import time
 # third party packages
 import h5py
 import matplotlib.pyplot as plt
-from matplotlib.colors import hsv_to_rgb
 import numpy as np
 
 # local packages
 from .filesrw import *
+from ..utils import checkhostname, padarray_bothsides
+from ..utils import ShowProjections, plot_checkangles
 
 __all__ = [
           'remove_extraprojs',
@@ -136,11 +137,11 @@ class PathName:
             foldername = aux_wcard+'_pxct'
         else:
             raise ValueError('Unrecognized regime')
-        aux_path = os.path.join(os.path.dirname(self.dirname),foldername)
-        if not os.path.isdir(aux_path):
+        results_path = os.path.join(os.path.dirname(self.dirname),foldername)
+        if not os.path.isdir(results_path):
             print('Directory does not exist. Creating the directory...')
-            os.makedirs(aux_path)
-        return aux_path
+            os.makedirs(results_path)
+        return results_path
 
     def results_datapath(self,h5name):
         aux_path = self.results_folder()
@@ -157,6 +158,10 @@ class Variables(object):
     autosave = False
     checkextraprojs = True
     cxientry = None
+    missingprojs = False
+    missingnum = None
+    border_crop_x = None
+    border_crop_y = None
 
 class LoadProjections(PathName,Variables):
     """
@@ -164,22 +169,35 @@ class LoadProjections(PathName,Variables):
     """
     def __init__(self,**params):
         super().__init__(**params)
-        self.showrecons = params['showrecons']
-        self.border_crop_x = params['border_crop_x']
-        self.border_crop_y = params['border_crop_y']
-        try: self.checkextraprojs = params[u'checkextraprojs']
+        try: self.showrecons = params['showrecons']
+        except: pass
+        try: self.border_crop_x = params['border_crop_x']
+        except: pass
+        try: self.border_crop_y = params['border_crop_y']
+        except: pass
+        try: self.checkextraprojs = params['checkextraprojs']
+        except: pass
+        try: self.missingprojs = params['missingprojs']
+        except: pass
+        try: self.missingnum = params['missingnum']
         except: pass
         try: self.cxientry = params['cxientry']
         except: pass
 
+        if self.showrecons: self.SP = ShowProjections()
+
         if self.fileext=='.ptyr': # Ptypy
-            findh5paths(self.pathfilename)
             self.read_reconfile = read_ptyr
         elif self.fileext=='.cxi': # PyNX
             self.read_reconfile = read_cxi
         else:
             raise IOError("File {} is not a .ptyr or a .cxi file. Please, load a .ptyr or a .cxi file.".format(self.filename))
+            
+        #create_paramsh5(self.results_folder(),**params)
 
+        # get the list of files to load
+        self.proj_files = sorted(glob.glob(self.search_projections()))
+        
     def __call__(self):
         return self.load_projections()
 
@@ -194,12 +212,25 @@ class LoadProjections(PathName,Variables):
             for keys in sorted_keys:
                 if fnmatch.fnmatch(keys,'*'+self.metadatafilewcard()):
                     try:
-                        positioners=fid[keys+u'/sample/positioner/value'][()] # old style at ID16A beamline
+                        positioners=fid[keys+'/sample/positioner/value'][()] # old style at ID16A beamline
                     except KeyError:
-                        positioners=fid[keys+u'/sample/positioners/value'][()] #new style at ID16A beamline
+                        positioners=fid[keys+'/sample/positioners/value'][()] #new style at ID16A beamline
                     thetas[keys] = np.float(positioners.split()[0])
+        if self.checkextraprojs:
+            theta_keys = sorted(list(thetas.keys()))
+            thetas_array = np.array([ii for ii in thetas.values()])
+            thetas_array -= thetas_array.min()
+            idxend = int(np.where(thetas_array==180)[0])
+            print(theta_keys[idxend:])
+            if theta_keys[idxend:] != []:
+                print('Removing projections at the end of the scan (180,90, and 0 degrees)')
+                [thetas.pop(keyrm) for keyrm in theta_keys[idxend:]]
+                rmkeys = [ii.split()[-1] for ii in theta_keys[idxend:]]
+                for ii in rmkeys:
+                    [self.proj_files.remove(s) for s in self.proj_files if ii in s]
+            
         # checking the angles
-        print(u'Checking the angles')
+        print('Checking the angles')
         angles = []
         deltaidx = 0 # in case of repeated values
         sorted_thetakeys = sorted(thetas.keys())
@@ -209,25 +240,14 @@ class LoadProjections(PathName,Variables):
                 print('Found repeated value of theta. Discarding it')
                 deltaidx+=1
                 continue
-            print('Projection {}: {} degrees'.format(idx-deltaidx,thetas[keys]))
+            print('Projection {}: {} degrees'.format(idx+1-deltaidx,thetas[keys]))
             angles.append(th)
 
         # plot the angles for verification
-        plt.close('all')
-        fig, (ax1,ax2) = plt.subplots(num=1,nrows=2,ncols=1)
-        pltangles = ax1.plot(angles,'ro')
-        ax1.set_xlabel('projection')
-        ax1.set_ylabel('Theta angles')
-        ax1.axis('tight')
-        pltdiffangles = ax2.plot(np.diff(sorted(angles)),'ro-')
-        ax2.set_xlabel('Sorted projections')
-        ax2.set_ylabel('Angular spacing')
-        ax2.axis('tight')
-        plt.tight_layout()
-        plt.show(block=False)
-        a = input(u'Are the angles ok?[Y/n]').lower()
+        plot_checkangles(angles)
+        a = input('Are the angles ok?([Y]/n)').lower()
         if a=='' or a=='y':
-            print('Starting to load the projections')
+            print('Continuing...')
         else:
             raise SystemExit('Exiting')
         return angles, thetas
@@ -254,12 +274,31 @@ class LoadProjections(PathName,Variables):
         print('The final 5 angles are: {}'.format(list(thetas[-5:])))
         a = str(input('Do you want to remove extra thetas?([y]/n)')).lower()
         if a == '' or a == 'y':
-            a1 = eval(input('How many to remove?'))
-            proj_files = proj_files[:-a1] # the 3 last angles are 180, 90 and 0 degrees
-            thetas = thetas[:-a1] # the 3 last angles are 180, 90 and 0 degrees
+            a1 = input('How many to remove?(default=3) ')
+            if a1 == '': rmnum = 3
+            else: rmnum = eval(a1)
+            proj_files = proj_files[:-rmnum] # the 3 last angles are 180, 90 and 0 degrees
+            thetas = thetas[:-rmnum] # the 3 last angles are 180, 90 and 0 degrees
             print('The final 5 angles are now: {}'.format(list(thetas[-5:])))
+        plot_checkangles(thetas) # re-ploting for checking
         return proj_files
 
+    @staticmethod
+    def insert_missing(stack_objs,theta,missingnum):
+        """
+        Insert missing projections by interpolation of neighbours
+        """
+        # special: insert the information of the missing projections
+        print('Inserting the missing projections:{}'.format(missingnum))
+        delta_theta = theta[1]-theta[0]
+        for ii in missingnum:
+            print('Projection: {}'.format(ii),end="\r")
+            theta = np.insert(theta,ii,theta[ii-1]+delta_theta)
+            stack_objs = np.insert(stack_objs,ii,stack_objs[ii-1], axis=0)
+        print("\r")
+        return stack_objs, theta
+
+    @checkhostname
     def load_projections(self):
         """
         Load the reconstructed projections from the ptyr files
@@ -267,14 +306,9 @@ class LoadProjections(PathName,Variables):
         # get the angles
         angles, thetas = self.check_angles()
 
-        # get the list of files to load
-        proj_files = sorted(glob.glob(self.search_projections()))
-        if self.checkextraprojs:
-            proj_files = self._remove_extraprojs(angles,proj_files)
-
         # count the number of available projections
-        num_projections = len(proj_files)
-        a = input("I have found {} projections. Do you want to continue?[Y/n]".format(num_projections)).lower()
+        num_projections = len(self.proj_files)
+        a = input("I have found {} projections. Do you want to continue?([Y]/n)".format(num_projections)).lower()
         if a == '' or a == 'y':
             print('Continuing...')
             plt.close('all')
@@ -285,6 +319,7 @@ class LoadProjections(PathName,Variables):
         objs0,probe0,pixelsize = self.read_reconfile(self.pathfilename)
         objs0 = crop_array(objs0,self.border_crop_x,self.border_crop_y) # crop image if requested
         nr,nc = objs0.shape
+        print(objs0.shape)
         if pixelsize[0] != pixelsize[1]:
             raise SystemExit("Pixel size is not symmetric. Exiting the script")
         print("the pixelsize of the first projection is {:.2f} nm".format(pixelsize[0]*1e9))
@@ -293,41 +328,11 @@ class LoadProjections(PathName,Variables):
         stack_objs = np.empty((num_projections,nr,nc),dtype=np.complex64)
         stack_angles = np.empty(num_projections,dtype=np.float32)
 
-        if self.showrecons:
-            print(u'Showing reconstructions for each angle')
-            probe = probe0[0]
-            if objs0.shape[0]<objs0.shape[1]:
-                plotgrid=(3,1)
-                plotsize=(6,20)
-            else:
-                plotgrid=(1,3)
-                plotsize=(20,6)
-            vabsmean = np.abs(objs0).mean()
-            perabsmean = 0.2*vabsmean
-            # Special tricks for the probe display
-            H = np.angle(probe)/(2*np.pi)+0.5
-            S = np.ones_like(H).astype(int)
-            V = np.abs(probe)/np.max(np.abs(probe))
-            probe_hsv = np.dstack((H,S,V))
-            # display first image
-            plt.close('all')
-            plt.ion()
-            fig, (ax1,ax2,ax3) = plt.subplots(num=1,nrows=plotgrid[0],ncols=plotgrid[1],figsize=plotsize)
-            im1 = ax1.imshow(np.abs(objs0),interpolation='none',cmap='gray',vmin=vabsmean-perabsmean,vmax=vabsmean+perabsmean)
-            ax1.set_title(u'Object magnitude - projection {}'.format(1))
-            im2 = ax2.imshow(np.angle(objs0),interpolation='none',cmap='bone')#,vmin=vphasemean-perabsmean,vmax=vphasemean+perabsmean)
-            ax2.set_title(u'Object Phase - projection {}'.format(1))
-            im3 = ax3.imshow(hsv_to_rgb(probe_hsv),interpolation='none')
-            ax3.set_title(u'Probe - projection {}'.format(1))
-            im1.axes.figure.canvas.draw()
-            im2.axes.figure.canvas.draw()
-            im3.axes.figure.canvas.draw()
-
         # reads the ptyr or cxi files and get object and probe in a stack
-        for idxp, proj in enumerate(proj_files):
+        for idxp, proj in enumerate(self.proj_files):
             print(u'\nProjection: {}'.format(idxp))
             print(u'Reading: {}'.format(proj))
-            objs,probe_allmodes,pixelsize = self.read_reconfile(proj) # reading file
+            objs,probes,pixelsize = self.read_reconfile(proj) # reading file
             # crop image if requested
             if self.border_crop_x is not None:
                 if self.border_crop_y is not None:
@@ -335,9 +340,8 @@ class LoadProjections(PathName,Variables):
             # check if same size, otherwise pad
             if objs.shape != objs0.shape:
                 print('########################')
+                objs = padarray_bothsides(objs,(nr,nc),padmode='edge')
                 print('File {} has different shape and was padded'.format(proj))
-                padwr, padwc = [int((nr-objs.shape[0])/2.), int((nc-objs.shape[1])/2.)]
-                objs = np.pad(objs,((padwr,padwr),(padwc,padwc)),'edge')
                 print('########################')
 
             # update stack_objs
@@ -355,35 +359,19 @@ class LoadProjections(PathName,Variables):
                     print(u'Angle: {}'.format(thetas[keys]))
                     break
             if self.showrecons:
-                # Special tricks for the probe display
-                probe = probe_allmodes[0]
-                H = np.angle(probe)/(2*np.pi)+0.5
-                S = np.ones_like(H).astype(int)
-                V = np.abs(probe)/np.max(np.abs(probe))
-                probe_hsv = np.dstack((H,S,V))
+                print('Showing projection {}'.format(idxp+1))
+                self.SP.show_projections(objs,probes,idxp)
 
-                im1.set_data(np.abs(objs))
-                im1.set_cmap('gray')
-                im1.set_clim((vabsmean-perabsmean,vabsmean+perabsmean))
-                im1.set_interpolation(u'none')
-                ax1.set_title(u'Object magnitude - projection {}'.format(idxp))
-                im2.set_data(np.angle(objs))
-                im1.set_cmap('bone')
-                im2.set_interpolation(u'none')
-                ax2.set_title(u'Object Phase - projection {}'.format(idxp))
-                im3.set_data(hsv_to_rgb(probe_hsv))
-                im3.set_interpolation(u'none')
-                ax3.set_title(u'Probe (1st mode) - projection {}'.format(idxp))
-                im1.axes.figure.canvas.draw()
-                im2.axes.figure.canvas.draw()
-                im3.axes.figure.canvas.draw()
+        nprojs,nr,nc = stack_objs.shape
+        print("\nNumber of projections loaded: {}".format(nprojs))
 
-        if self.showrecons:
-            plt.ioff()
-
-        obj_shape=stack_objs.shape
-        print(u"Number of projections loaded: {}".format(obj_shape[0]))
-        print(u"Dimensions {} x {} pixels".format(obj_shape[1],obj_shape[2]))
+        if self.missingprojs:
+            stack_objs,stack_angles = self.insert_missing(stack_objs,
+                                                  stack_angles,
+                                                  self.missingnum)
+            nprojs,nr,nc = stack_objs.shape
+            print("New number of projections: {}".format(nprojs))
+        print("Dimensions {} x {} pixels".format(nr,nc))
         print('All projections loaded\n')
         return stack_objs, stack_angles, pixelsize
 
@@ -398,6 +386,8 @@ class SaveData(PathName,Variables):
         except: pass
         try: self.autosave = params['autosave']
         except: pass
+
+        create_paramsh5(self.results_folder(),**params)
 
     def __call__(self,*args):#h5name,stack_projs,theta,shiftstack):
         if len(args)<3:
@@ -616,6 +606,7 @@ class LoadData(PathName,Variables):
             masks= fid[u'masks/stack'][()]
         return masks
 
+    @checkhostname
     def load_data(self,h5name):
         """
         Load data from h5 file

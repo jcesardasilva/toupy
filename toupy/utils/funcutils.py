@@ -53,23 +53,26 @@ def deprecated(func):
         return func(*args, **kwargs)
     return new_func
 
-def checkhostname():
+def checkhostname(func):
     """
     Check if running in OAR, if not, exit.
     """
-    hostname = socket.gethostname()#os.environ['HOST']
-    if re.search('hpc', hostname) or re.search('hib', hostname): #hostname.find('rnice')==0:
-        print('You are working on the OAR machine: {}'.format(hostname))
-    elif re.search('rnice', hostname):#os.system('oarprint host')==0:
-        print('You are working on the RNICE machine: {}'.format(hostname))
-        raise SystemExit("You must use OAR machines, not RNICE")
-    elif re.search('gpu', hostname) or re.search('gpid16a', hostname):
-        print('You are working on the GPU: {}'.format(hostname))
-    else:
-        print("You running in machine {}, which is not an ESRF machine".format(hostname))
-        a = input("Possibly running in the wrong machine. Do you have enough memory? (y/[n])").lower()
-        if str(a)=='' or str(a)=='n':
-            raise SystemExit("You must use more powerfull machines")
-        if str(a)=='y':
-            print('Ok, you assume all the risks!!!!')
-    return hostname
+    @functools.wraps(func)
+    def new_func(*args,**kwargs):
+        hostname = socket.gethostname()#os.environ['HOST']
+        if re.search('hpc', hostname) or re.search('hib', hostname): #hostname.find('rnice')==0:
+            print('You are working on the OAR machine: {}'.format(hostname))
+        elif re.search('rnice', hostname):#os.system('oarprint host')==0:
+            print('You are working on the RNICE machine: {}'.format(hostname))
+            raise SystemExit("You must use OAR machines, not RNICE")
+        elif re.search('gpu', hostname) or re.search('gpid16a', hostname):
+            print('You are working on the GPU: {}'.format(hostname))
+        else:
+            print("You running in machine {}, which is not an ESRF machine".format(hostname))
+            a = input("Possibly running in the wrong machine. Do you have enough memory? (y/[n])").lower()
+            if str(a)=='' or str(a)=='n':
+                raise SystemExit("You must use more powerfull machines")
+            if str(a)=='y':
+                print('Ok, you assume all the risks!!!!')
+        return func(*args, **kwargs)
+    return new_func

@@ -342,13 +342,15 @@ def load_paramsh5(**params):
     out_params.update(params) # add/update with new values
     return out_params
 
-def create_paramsh5(**params):
+def create_paramsh5(pathparamsh5,**params):
     """
     Create parameter file in HDF5 format
     """
     # create a parameter file
     print('Creating the h5 parameter file')
-    paramsh5file = params['samplename']+'_params.h5'
+    filename = params['samplename']+'_params.h5'
+    #print(pathparamsh5)
+    paramsh5file = os.path.join(pathparamsh5,filename)
     write_paramsh5(paramsh5file,**params)
 
 def write_paramsh5(h5filename,**params):
