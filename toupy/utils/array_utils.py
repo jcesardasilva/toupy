@@ -1,18 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# standard libraries imports
-import multiprocessing
-
 # third party packages
 import numpy as np
-from numpy.fft import fftfreq
-import pyfftw # has to be imported first to avoid ImportError: dlopen: cannot load any more object with static TLS
 import scipy.constants as consts
-
-# enable cache for pyfftw
-pyfftw.interfaces.cache.enable()
-pyfftw.interfaces.cache.set_keepalive_time(30)
 
 __all__=['polynomial1d',
          'projectpoly1d',
@@ -21,9 +12,7 @@ __all__=['polynomial1d',
          'fract_hanning',
          'fract_hanning_pad',
          'mask_borders',
-         'convert_to_mu',
-         'convert_to_rhoe',
-         'convert_to_rhom']
+         'padarray_bothsides']
 
 def polynomial1d(x,order=1,w=1):
     """
@@ -199,20 +188,19 @@ def mask_borders(imgarray,mask_array,threshold=4e-7):
     mask_array *= (~mask_border)
     return mask_array
 
-def convert_to_mu(input_img,wavelen):
-    return (4*np.pi/wavelen)*input_img
+def padarray_bothsides(input_array,newshape,padmode='edge'):
+    """
+    Pad array in both sides
+    """
+    nro,nco = input_array.shape
+    nrn,ncn = newshape
+    
+    if np.abs(nrn-nro) % 2 == 0: padr = (int((nrn-nro)/2),)*2
+    else: padr = (int((nrn-nro)/2),int((nrn-nro)/2)+1)
 
-def convert_to_rhoe(input_img,wavelen):
-    # classical electron radius
-    r0 = consts.physical_constants['classical electron radius'][0]
-    return (2*np.pi/(r0*wavelen**2))*input_img
+    if np.abs(ncn-nco) % 2 == 0: padc = (int((ncn-nco)/2),)*2
+    else: padc = (int((ncn-nco)/2),int((ncn-nco)/2)+1)
 
-def convert_to_rhom(input_img,wavelen,A,Z):
-    # Avogadro's Constant
-    Na = consts.N_A # not used yet
-    # classical electron radius
-    r0 = consts.physical_constants['classical electron radius'][0]
-    # ratio A/Z
-    A_Z = A/Z
-    #return 1e-6*(2*np.pi*A_Z/(r0*Na*wavelen**2))*input_img
-    return 1e-6*(input_img/Na)*(A_Z)
+    return np.pad(input_array,(padr,padc),mode=padmode)
+    
+    

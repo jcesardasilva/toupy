@@ -31,7 +31,7 @@ def load_data_FSC(h5name, **params):
     oldfileformat = params['oldfileformat']
     pathfilename = params['pathfilename']
     bodypath,filename = os.path.split(pathfilename)
-    aux_wcard = re.sub(u'_subtomo\d{3}_\d{4}_\w*','', os.path.splitext(filename)[0])
+    aux_wcard = re.sub(r'_subtomo\d{3}_\d{4}_\w*','', os.path.splitext(filename)[0])
     aux_path = os.path.join(os.path.dirname(bodypath),aux_wcard+'_nfpxct')
     h5file = os.path.join(aux_path,h5name)
     print('Loading the projections from file {}'.format(h5file))
