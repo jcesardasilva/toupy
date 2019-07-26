@@ -486,7 +486,7 @@ class SaveData(PathName,Variables):
             os.remove(h5file)
         print('\rSaving metadata...',end="")
         write_paramsh5(h5file,**self.params)
-        create_paramsh5(**params)
+        create_paramsh5(**self.params)
         print('\b\b Done')
         print('Saving data. This takes time, please wait...')
         with h5py.File(h5file,'a') as fid:
@@ -544,7 +544,7 @@ class SaveData(PathName,Variables):
             os.remove(h5file)
         print('\rSaving metadata...',end="")
         write_paramsh5(h5file,**self.params)
-        create_paramsh5(**params)
+        create_paramsh5(**self.params)
         print('. Done')
         print('Saving data. This takes time, please wait...')
         p0 = time.time()
@@ -793,8 +793,8 @@ class SaveTomogram(SaveData):
             print('File {} already exists and will be overwritten'.format(h5name))
             os.remove(h5file)
         print('\rSaving metadata...',end="")
-        write_paramsh5(h5file,**kwargs)
-        create_paramsh5(**params)
+        write_paramsh5(h5file,**self.params)
+        create_paramsh5(**self.params)
         print('\b\b Done')
         print('Saving data. This takes time, please wait...')
         with h5py.File(h5file,'a') as fid:

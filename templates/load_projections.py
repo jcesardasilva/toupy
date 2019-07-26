@@ -31,14 +31,14 @@ params['missingnum'] = []
 #=============================================================================#
 
 if __name__=='__main__':
-    #stack_objs,obj_shape,theta,pixelsize=load_projection(**params)
-    P = LoadProjections(**params)
-    stack_objs,theta,pixelsize = P()
+    # loading the projections from files
+    stack_objs,theta,pixelsize = LoadProjections.load(**params)
+
+    # add the information of the pixelsize to params
     params['pixelsize'] = pixelsize
 
     # Save reconstructed phase projections
-    S = SaveData(**params)
-    S('reconstructed_projections.h5',stack_objs,theta)
+    SaveData.save('reconstructed_projections.h5',stack_objs,theta,**params)
 
     # next step
     print('You should run ''remove_phase_ramp.py'' for phase tomogram or')

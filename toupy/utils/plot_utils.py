@@ -15,7 +15,9 @@ __all__=['autoscale_y',
          'RegisterPlot',
          'ShowProjections',
          'plot_checkangles',
-         'show_linearphase']
+         'show_linearphase',
+         'iterative_show',
+         'animated_image']
 
 def interativesession(func):
     @functools.wraps(func)
@@ -53,7 +55,7 @@ def autoscale_y(ax,margin=0.1):
 
     ax.set_ylim(bot,top)
 
-def _plotdelimiters(ax, limrow, limcol):
+def _plotdelimiters(ax, limrow, limcol,airpixel=[]):
     """
     Create ROI limits in image
 
@@ -70,6 +72,7 @@ def _plotdelimiters(ax, limrow, limcol):
     ax.plot([limcol[0],limcol[-1]],[limrow[-1],limrow[-1]],'r-')
     ax.plot([limcol[0],limcol[0]],[limrow[0],limrow[-1]],'r-')
     ax.plot([limcol[-1],limcol[-1]],[limrow[0],limrow[-1]],'r-')
+    if airpixel!=[]: ax.plot(aipixel[0], airpixel[1],'ob')
     return ax
 
 def _createcanvashorizontal(recons, sinoorig, sinocurr, sinocomp,
@@ -432,32 +435,31 @@ class RegisterPlot:
         #~ plt.draw()
 
 @interativesession
-def iterative_show(stack_array,*args):
+def iterative_show(stack_array,limrow,limcol,airpixel=[],onlyroi=False):
     """
     Iterative plot of the images
     """
     nproj,nr,nc = stack_array.shape
-    if len(args) == 0:
-        limrow = [0,nr]
-        limcol = [0,nc]
-    elif len(args) == 2:
-        limrow = args[0]
-        limcol = args[1]
+    if not onlyroi:
+        slarray0 = np.s_[limrow[0]:limrow[-1],limcol[0]:limcol[-1]]
+        slarrayii = np.s_[limrow[0]:limrow[-1],limcol[0]:limcol[-1]]
     else:
-        raise ValueError('This function accepts only two args')
-
+        slarray0 = np.s_[:,:]
+        slarrayii = np.s_[:,:]
+        
     # display
     plt.close('all')
     plt.ion()
     fig = plt.figure(4)#,figsize=(14,6))
     ax1 = fig.add_subplot(111)
-    im1 = ax1.imshow(stack_array[0,limrow[0]:limrow[-1],limcol[0]:limcol[-1]],cmap='bone' )
+    im1 = ax1.imshow(stack_array[0][slarray0],cmap='bone' )
+    if not onlyroi: ax1=_plotdelimiters(ax1,limrow,limcol,airpixel)
     ax1.set_title("Projection: {}".format(1))
     fig.show()
     plt.pause(0.001)
     for ii in range(nproj):
         print("Projection: {}".format(ii+1),end='\r')
-        projection = stack_array[ii,limrow[0]:limrow[-1],limcol[0]:limcol[-1]]
+        projection = stack_array[ii][slarrayii]
         im1.set_data(projection)
         ax1.set_title('Projection {}'.format(ii+1))
         fig.show()

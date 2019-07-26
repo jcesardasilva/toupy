@@ -22,7 +22,33 @@ __all__=['gui_plotamp',
          'AmpTracker',
          'PhaseTracker']
 
+def _crop_stack(stack_images, cropreg):
+    """
+    Crop stack of images for the phase ramp removal
+
+    Parameters
+    ----------
+    stack_images : ndarray
+        Stack of images
+    cropreg : sequence of ints
+        List of number of pixel to cut from border. The order is
+        [left, bottom, right, top]
+        
+    Returns
+    -------
+    crop_stack : ndarray
+        Cropped stack
+    """
+    return stack_objs[:,cropreg[0]:-cropreg[0],cropreg[1]:-cropreg[1]]
+
 def gui_plotamp(stack_objs,**params):
+    """
+    GUI for the air removal from amplitude projections
+    """
+    if params['crop_reg'] is not None:
+        if params['crop_reg'] != []:
+            # cropping the image for the phase ramp removal
+            stack_objs = _crop_stack(stack_objs,params['crop_reg'])
     plt.close('all')
     fig = plt.figure(4)
     gs = gridspec.GridSpec(3, 3, #figure=4,
@@ -115,6 +141,14 @@ def gui_plotamp(stack_objs,**params):
     return stack_ampcorr
 
 def gui_plotphase(stack_objs,**params):
+    """
+    GUI for the phase ramp removal from phase projections
+    """
+    if params['crop_reg'] is not None:
+        if params['crop_reg'] != []:
+            # cropping the image for the phase ramp removal
+            stack_objs = _crop_stack(stack_objs,params['crop_reg'])
+        
     plt.close('all')
     fig = plt.figure(4)
     gs = gridspec.GridSpec(3, 3, #figure=4,
@@ -338,7 +372,7 @@ class PhaseTracker(object):
         fig_mask = plt.figure()
         ax_mask = fig_mask.add_subplot(111)
         ax_mask.imshow(self.img_mask,cmap='bone')
-        self.ROI_draw = RoiPoly(ax=ax_mask)
+        self.ROI_draw = roipoly(ax=ax_mask)
         #~ self.ROI_draw = RoiPoly(color='b', fig = fig_mask, close_fig=True) # has to close to validate
         #~ self.ROI_draw = MultiRoi_mod(fig=fig_mask,ax=ax_mask)#(color='b', fig = self.fig)
         #~ print(self.ROI_draw.rois.items())
@@ -475,8 +509,9 @@ class PhaseTracker(object):
         Load masks from file
         """
         print('\nLoad masks from file')
-        Lm = LoadData(**self.params)
-        self.mask = Lm.load_masks('masks.h5')
+        self.mask = LoadData.load('masks.h5',**params)
+        #~ Lm = LoadData(**self.params)
+        #~ self.mask = Lm.load_masks('masks.h5')
         self.update()
 
     def save_masks(self,event):
@@ -484,8 +519,9 @@ class PhaseTracker(object):
         Save mask to file
         """
         print('\nSave masks to file')
-        Sm = SaveData(**self.params)
-        Sm.save_masks('masks.h5',self.mask)
+        SaveData.save('masks.h5',self.mask,**self.params)
+        #~ Sm = SaveData(**self.params)
+        #~ Sm.save_masks('masks.h5',self.mask)
 
     def submit(self,text):
         """
