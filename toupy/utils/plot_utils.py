@@ -23,7 +23,6 @@ def interativesession(func):
         matplotlib.interactive(True)
         return func(*args, **kwargs)
     return new_func
-    
 
 def autoscale_y(ax,margin=0.1):
     """
@@ -551,7 +550,7 @@ class ShowProjections:
     def __init__(self):
         """
         Initializer of show_projections
-        
+
         """
         self.idxp = 0
         plt.ion()
@@ -650,7 +649,7 @@ class ShowProjections:
         V = np.abs(probe)/np.max(np.abs(probe))
         return np.dstack((H,S,V))
 
-@interativesession    
+@interativesession
 def plot_checkangles(angles):
     """
     Plot the angles for each projections and the derivatives to check

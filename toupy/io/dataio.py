@@ -10,6 +10,7 @@ Updated on Tue Mar 25 2019:
 @author: jdasilva
 """
 # Standard library imports
+import functools
 import fnmatch
 import glob
 import os
@@ -24,8 +25,9 @@ import numpy as np
 
 # local packages
 from .filesrw import *
-from ..utils import checkhostname, padarray_bothsides
-from ..utils import ShowProjections, plot_checkangles
+from .h5chunk_shape_3D import chunk_shape_3D
+from ..utils import checkhostname, padarray_bothsides,progbar, \
+                    ShowProjections, plot_checkangles
 
 __all__ = [
           'remove_extraprojs',
@@ -193,13 +195,17 @@ class LoadProjections(PathName,Variables):
         else:
             raise IOError("File {} is not a .ptyr or a .cxi file. Please, load a .ptyr or a .cxi file.".format(self.filename))
             
-        #create_paramsh5(self.results_folder(),**params)
+        #create_paramsh5(**params)
 
         # get the list of files to load
         self.proj_files = sorted(glob.glob(self.search_projections()))
         
     def __call__(self):
-        return self.load_projections()
+        return self._load_projections()
+
+    @classmethod
+    def load(cls,*args,**kwargs):
+        return cls(**kwargs)._load_projections()
 
     def check_angles(self):
         """
@@ -299,7 +305,7 @@ class LoadProjections(PathName,Variables):
         return stack_objs, theta
 
     @checkhostname
-    def load_projections(self):
+    def _load_projections(self):
         """
         Load the reconstructed projections from the ptyr files
         """
@@ -330,8 +336,8 @@ class LoadProjections(PathName,Variables):
 
         # reads the ptyr or cxi files and get object and probe in a stack
         for idxp, proj in enumerate(self.proj_files):
-            print(u'\nProjection: {}'.format(idxp))
-            print(u'Reading: {}'.format(proj))
+            print('\nProjection: {}'.format(idxp))
+            print('Reading: {}'.format(proj))
             objs,probes,pixelsize = self.read_reconfile(proj) # reading file
             # crop image if requested
             if self.border_crop_x is not None:
@@ -387,32 +393,22 @@ class SaveData(PathName,Variables):
         try: self.autosave = params['autosave']
         except: pass
 
-        create_paramsh5(self.results_folder(),**params)
-
     def __call__(self,*args):#h5name,stack_projs,theta,shiftstack):
-        if len(args)<3:
-            print('Wrong number of arguments')
-            print('Usage: SaveData(stack_projs,theta,shiftstack[optional])')
-            raise Exception('At least 3 arguments are needed and cannot be more than 4')
-        if self.autosave:
-            ansuser = 'y'
-            self.save_data(*args)
-        else:
-            while True:
-                ansuser = input("Do you want to save the data to HDF5 file? ([y]/n) ").lower()
-                if ansuser == '' or ansuser =='y':
-                    self.save_data(*args)#stack_projs,theta,shiftstack)
-                    break
-                elif ansuser == 'n':
-                    print("The projections have NOT been saved yet. Please, be careful")
-                    break
-                else:
-                    print("You have to answer y or n")
+        return self._save_data(*args)
 
-    def round_to_even(self):
-        return lambda x: int(2*np.floor(x/2))
+    @classmethod
+    def save(cls,*args,**kwargs):
+        return cls(**kwargs)._save_data(*args)
 
-    def save_masks(self,h5name, masks):
+    @classmethod
+    def saveFSC(cls,*args,**kwargs):
+        return cls(**kwargs)._save_FSC(*args)
+
+    @classmethod
+    def savemasks(cls,*args,**kwargs):
+        return cls(**kwargs)._save_masks(*args)
+        
+    def _save_masks(self,h5name, masks):
         """
         Save masks for the linear phase ramp removal of the phase
         contrast image or the air removal from the amplitude images
@@ -424,7 +420,30 @@ class SaveData(PathName,Variables):
             fid.create_dataset('masks/stack', data = masks, dtype = np.bool) # air/vacuum mask
         print('Done')
 
-    def save_data(self,*args):
+    def savecheck(func):
+        """
+        Decorator for save data
+        """
+        @functools.wraps(func)
+        def new_func(self,*args,**kwargs):
+            if self.autosave:
+                ansuser = 'y'
+                func(self,*args)
+            else:
+                while True:
+                    ansuser = input("Do you want to save the data to HDF5 file? ([y]/n) ").lower()
+                    if ansuser == '' or ansuser =='y':
+                        func(self,*args)
+                        break
+                    elif ansuser == 'n':
+                        print("The data have NOT been saved yet. Please, be careful")
+                        break
+                    else:
+                        print("You have to answer y or n")
+        return new_func
+
+    @savecheck
+    def _save_data(self,*args):
         """
         Save data to HDF5 File
 
@@ -454,19 +473,21 @@ class SaveData(PathName,Variables):
         if len(args)==5: masks = args[4]
         else: masks = None
 
-        round_to_even = self.round_to_even() #lambda x: int(2*np.floor(x/2))
-        chunk_size = (round_to_even(nprojs/4),round_to_even(nr/20),round_to_even(nc/20))
-
         if np.iscomplexobj(stack_projs[0]): array_dtype = np.complex64
         else: array_dtype = np.float32
+
+        # calculate the chunk size for writing the HDF5 files
+        chunk_size = chunk_shape_3D(stack_projs.shape)
 
         print('Saving {}'.format(h5name))
         h5file = self.results_datapath(h5name)
         if os.path.isfile(h5file):
             print('File {} already exists and will be overwritten'.format(h5name))
             os.remove(h5file)
-        print('Saving metadata')
+        print('\rSaving metadata...',end="")
         write_paramsh5(h5file,**self.params)
+        create_paramsh5(**params)
+        print('\b\b Done')
         print('Saving data. This takes time, please wait...')
         with h5py.File(h5file,'a') as fid:
             fid.create_dataset('shiftstack/shiftstack', data = shiftstack, dtype = np.float32) # shiftstack
@@ -474,8 +495,9 @@ class SaveData(PathName,Variables):
             dset = fid.create_dataset('projections/stack', shape= (nprojs,nr,nc),dtype=array_dtype, chunks=chunk_size)#,compression='lzf')#, compression='gzip', compression_opts=9)
             p0 = time.time()
             for ii in range(nprojs):
-                print('Projection: {} out of {}'.format(ii+1,nprojs), end='\r')
-                dset[ii,:,:]= stack_projs[ii]
+                print(' Projection: {} out of {}'.format(ii+1,nprojs), end='\r')
+                dset[ii:ii+1,:,:] = stack_projs[ii] # avoid fancy slicing
+                progbar(ii+1, nprojs)
             print('\r')
             if masks is not None:
                 fid.create_dataset('masks/stack', data = masks, dtype = np.bool) # air/vacuum mask
@@ -483,7 +505,7 @@ class SaveData(PathName,Variables):
         print('Data saved to file {}'.format(h5name))
         print('In the folder {}'.format(self.results_folder()))
 
-    def save_FSC(self, *args):
+    def _save_FSC(self, *args):
         """
         Save FSC data to HDF5 file
         Parameters:
@@ -515,15 +537,15 @@ class SaveData(PathName,Variables):
         theta = args[6]
         pixelsize = args[7]
 
-        round_to_even = self.round_to_even() #lambda x: int(2*np.floor(x/2))
-
         print('Saving {}'.format(h5name))
         h5file = self.results_datapath(h5name)
         if os.path.isfile(h5file):
             print('File {} already exists and will be overwritten'.format(h5name))
             os.remove(h5file)
-        print('Saving metadata')
+        print('\rSaving metadata...',end="")
         write_paramsh5(h5file,**self.params)
+        create_paramsh5(**params)
+        print('. Done')
         print('Saving data. This takes time, please wait...')
         p0 = time.time()
         with h5py.File(h5file,'a') as fid:
@@ -536,16 +558,17 @@ class SaveData(PathName,Variables):
                 fid.create_dataset('tomogram1', data= tomogram1,dtype=np.float32)
                 fid.create_dataset('tomogram2', data= tomogram2,dtype=np.float32)
             elif tomogram1.ndim == 3:
-                nslices,nr,nc = tomogram1.shape
-                chunk_size = (round_to_even(nslices/4),round_to_even(nr/20),round_to_even(nc/20))
+                # calculate the chunk size for writing the HDF5 files
+                chunk_size = chunk_shape_3D(tomogram1.shape)
                 print('Saving tomogram1 and tomogram2. This takes time, please wait...')
                 dset1 = fid.create_dataset('tomogram1', shape= tomogram1.shape,dtype=np.float32, chunks=chunk_size)#,compression='lzf')#, compression='gzip', compression_opts=9)
                 dset2 = fid.create_dataset('tomogram2', shape= tomogram2.shape,dtype=np.float32, chunks=chunk_size)#,compression='lzf')#, compression='gzip', compression_opts=9)
                 for ii in range(nslices):
-                    print('Slice: {} out of {}'.format(ii+1,nprojs), end='\r')
+                    print(' Slice: {} out of {}'.format(ii+1,nprojs), end='\r')
                     dset1[ii,:,:] = tomogram1[ii]
                     dset2[ii,:,:] = tomogram2[ii]
-                print('\r')
+                    progbar(ii+1, nslices)
+                #~ print('\r')
             print('Done. Time elapsed = {:.03f} s'.format(time.time()-p0))
         print('FSC data saved to file {}'.format(h5name))
         print('In the folder {}'.format(self.results_folder()))
@@ -555,17 +578,38 @@ class LoadData(PathName,Variables):
     Load projections from HDF5 file
     """
     def __init__(self,**params):
-        super().__init__(**params)
-        self.params = params
+        paramsh5 =load_paramsh5(**params)
+        super().__init__(**paramsh5)
+        self.params = paramsh5
+        self.params.update(params)
         try: self.amponly = params['amponly']
         except: pass
         try: self.phaseonly = params['phaseonly']
         except: pass
-
+        try: self.loadroi = params['loadroi']
+        except: self.loadroi = False
+        if self.loadroi:
+            self.roi = params["roi"]
+            if self.roi == []:
+                print("ROI not specified. Loading entire dataset")
+                self.loadroi = False
+        
     def __call__(self,h5name):
-        return self.load_data(h5name)
+        return self._load_data(h5name)
 
-    def load_shiftstack(self,h5name):
+    @classmethod
+    def load(cls,*args,**kwargs):
+        return cls(**kwargs)._load_data(*args)
+
+    @classmethod
+    def loadshiftstack(cls,*args,**kwargs):
+        return cls(**kwargs)._load_shiftstack(*args)
+
+    @classmethod
+    def loadmasks(cls,*args,**kwargs):
+        return cls(**kwargs)._load_masks(*args)
+
+    def _load_shiftstack(self,h5name):
         """
         Load shitstack from previous h5 file
 
@@ -586,7 +630,7 @@ class LoadData(PathName,Variables):
             shiftstack= fid[u'shiftstack/shiftstack'][()]
         return shiftstack
 
-    def load_masks(self,h5name):
+    def _load_masks(self,h5name):
         """
         Load masks from previous h5 file
 
@@ -603,11 +647,11 @@ class LoadData(PathName,Variables):
         print('Loading the projections from file {}'.format(h5name))
         h5file = self.results_datapath(h5name)
         with h5py.File(h5file,'r') as fid:
-            masks= fid[u'masks/stack'][()]
+            masks= fid['masks/stack'][()]
         return masks
 
     @checkhostname
-    def load_data(self,h5name):
+    def _load_data(self,h5name):
         """
         Load data from h5 file
 
@@ -630,27 +674,56 @@ class LoadData(PathName,Variables):
         """
         print('Loading the projections from file {}'.format(h5name))
         h5file = self.results_datapath(h5name)
-        shiftstack = self.load_shiftstack(h5name)
+        shiftstack = self._load_shiftstack(h5name)
+        it0 = time.time()
         with h5py.File(h5file,'r') as fid:
             theta = fid['angles/thetas'][()]
             #shiftstack= fid[u'shiftstack/shiftstack'][()]
             # read the inputkwargs dict
             datakwargs = dict()
-            print('Loading metadata')
+            print('\rLoading metadata...',end="")
             for keys in sorted(list(fid['info'].keys())):
                 datakwargs[keys]=fid['info/{}'.format(keys)][()]
             datakwargs.update(self.params) # add/update with new values
-            print('Loading projections. This takes time, please wait...')
-            p0 = time.time()
-            stack_projs = fid[u'projections/stack'][()]
-            if self.amponly and np.iscomplexobj(stack_projs):
-                print('Taking only amplitudes')
-                stack_projs = np.abs(stack_projs)
-            elif self.phaseonly and np.iscomplexobj(stack_projs):
-                print('Taking only phases')
-                stack_projs = np.angle(stack_projs)
-            print('Done. Time elapsed = {:.03f} s'.format(time.time()-p0))
+            print('\b\b Done')
+            print('Loading projections...')
+            dset = fid['projections/stack']
+            #~ stack_projs = dset[()]
+            if self.loadroi:
+                roi = self.roi
+                nprojs,nr,nc = [roi[ii+1]-roi[ii] for ii in range(0,len(roi),2)]
+                print('\rInitializing array...',end="")
+                stack_projs = np.empty((nprojs,nr,nc)).astype(dset.dtype)
+                print('\b\b Done')
+                print('Loading. This takes time, please wait...')
+                for ii in [projs]:
+                    print(' Projection: {} out of {}'.format(ii+1,nprojs), end='\r')
+                    stack_projs[ii,roi[2]:roi[3],roi[4]:roi[5]] = dset[ii,roi[2]:roi[3],roi[4]:roi[5]]
+                    progbar(ii+1, nprojs)
+            else:
+                nprojs = dset.shape[0]
+                print('\rInitializing array...',end="")
+                stack_projs = np.empty(dset.shape).astype(dset.dtype)
+                print('\b\b Done')
+                print('Loading. This takes time, please wait...')
+                p0=time.time()
+                for ii in range(nprojs):
+                    print(' Projection: {} out of {}'.format(ii+1,nprojs), end='\r')
+                    stack_projs[ii,:,:] = dset[ii,:,:]
+                    progbar(ii+1, nprojs)
+                print('\r')
+                print('Time elapsed = {:.03f} s'.format(time.time()-p0))
+        #~ print('\r')
+        if self.amponly and np.iscomplexobj(stack_projs):
+            print('\rTaking only amplitudes...',end="")
+            stack_projs = np.abs(stack_projs)
+            print('\b\b Done')
+        elif self.phaseonly and np.iscomplexobj(stack_projs):
+            print('\rTaking only phases...',end="")
+            stack_projs = np.angle(stack_projs)
+            print('\b\b Done')
         print('Projections loaded from file {}'.format(h5name))
+        print('Time elapsed = {:.03f} s'.format(time.time()-it0))
         return stack_projs, theta, shiftstack, datakwargs
 
 class SaveTomogram(SaveData):
@@ -660,24 +733,38 @@ class SaveTomogram(SaveData):
     def __init__(self,**params):
         super().__init__(**params)
         self.params = params
-
+        
+    def savecheck(func):
+        """
+        Decorator for save data
+        """
+        @functools.wraps(func)
+        def new_func(self,*args,**kwargs):
+            if self.autosave:
+                ansuser = 'y'
+                func(self,*args)
+            else:
+                while True:
+                    ansuser = input("Do you want to save the data to HDF5 file? ([y]/n) ").lower()
+                    if ansuser == '' or ansuser =='y':
+                        func(self,*args)
+                        break
+                    elif ansuser == 'n':
+                        print("The data have NOT been saved yet. Please, be careful")
+                        break
+                    else:
+                        print("You have to answer y or n")
+        return new_func
+        
     def __call__(self,*args):
-        if self.autosave:
-            ansuser = 'y'
-            self.save_tomogram(*args)
-        else:
-            while True:
-                ansuser = input("Do you want to save the data to HDF5 file? ([y]/n) ").lower()
-                if ansuser == '' or ansuser =='y':
-                    self.save_tomogram(*args)
-                    break
-                elif ansuser == 'n':
-                    print("The projections have NOT been saved yet. Please, be careful")
-                    break
-                else:
-                    print("You have to answer y or n")
+        return self._save_tomogram(*args)
 
-    def save_tomogram(self,*args):
+    @classmethod
+    def save(cls,*args,**kwargs):
+        return cls(**kwargs)._save_tomogram(*args)
+
+    @savecheck
+    def _save_tomogram(self,*args):
         """
         Parameters:
         -----------
@@ -697,16 +784,18 @@ class SaveTomogram(SaveData):
         theta = args[2]
         shiftstack = args[3]
 
-        round_to_even = self.round_to_even()
-        chunk_size = (round_to_even(nslices/4),round_to_even(nr/20),round_to_even(nc/20))
+        # calculate the chunk size for writing the HDF5 files
+        chunk_size = chunk_shape_3D(tomogram.shape)
 
         print('Saving {}'.format(h5name))
         h5file = self.results_datapath(h5name)
         if os.path.isfile(h5file):
             print('File {} already exists and will be overwritten'.format(h5name))
             os.remove(h5file)
-        print('Saving metadata')
+        print('\rSaving metadata...',end="")
         write_paramsh5(h5file,**kwargs)
+        create_paramsh5(**params)
+        print('\b\b Done')
         print('Saving data. This takes time, please wait...')
         with h5py.File(h5file,'a') as fid:
             fid.create_dataset('shiftstack/shiftstack',data = shiftstack,dtype=np.float32) # add the shiftstack
@@ -715,9 +804,10 @@ class SaveTomogram(SaveData):
             print('Saving tomographic slices. This takes time, please wait...')
             p0 = time.time()
             for ii in range(nslices):
-                print('Slice: {} out of {}'.format(ii+1,nslices),end='\r')
+                print(' Slice: {} out of {}'.format(ii+1,nslices),end='\r')
                 dset[ii,:,:] = tomogram[ii]
-            print('\r')
+                progbar(ii+1, nslices)
+            #~ print('\r')
             print('Done. Time elapsed = {:.03f} s'.format(time.time()-p0))
         print('Tomogram saved to file {}'.format(h5name))
         print('In the folder {}'.format(self.results_folder()))
@@ -731,9 +821,13 @@ class LoadTomogram(LoadData):
         self.params = params
 
     def __call__(self,h5name):
-        return self.load_tomogram(h5name)
+        return self._load_tomogram(h5name)
 
-    def load_tomogram(self,h5name):
+    @classmethod
+    def load(cls,*args,**kwargs):
+        return cls(**kwargs)._save_tomogram(*args)
+
+    def _load_tomogram(self,h5name):
         """
         Load tomographic data from h5 file
 
@@ -756,17 +850,27 @@ class LoadTomogram(LoadData):
         """
         print('Loading tomogram from file {}'.format(h5name))
         h5file = self.results_datapath(h5name)
-        shiftstack = self.load_shiftstack(h5name)
+        shiftstack = self._load_shiftstack(h5name)
+        p0=time.time()
         with h5py.File(h5file,'r') as fid:
             theta = fid['angles/thetas'][()]
             # read the inputkwargs dict
             datakwargs = dict()
+            print("\rLoading metadata...",end="")
             for keys in sorted(list(ff['info'].keys())):
                 datakwargs[keys]=ff['info/{}'.format(keys)][()]
             datakwargs.update(self.params)
+            print('\b\b Done')
             print('Loading tomogram. This takes time, please wait...')
-            p0=time.time()
-            tomogram = ff[u'tomogram/slices'][()]
-            print('Done. Time elapsed = {:.03f} s'.format(time.time()-p0))
+            dset = fid['tomogram/slices']
+            nslices = dset.shape[0]
+            tomogram = np.empty(dset.shape)
+            #~ tomogram = ff[u'tomogram/slices'][()]
+            for ii in range(nslices):
+                print(' Slice: {} out of {}'.format(ii+1,nslices), end='\r')
+                tomogram[ii:ii+1,:,:] = dset[ii,:,:]
+                progbar(ii+1, nslices)
+            #~ print('\r')
         print('Tomogram loaded from file {}'.format(h5name))
+        print('Time elapsed = {:.03f} s'.format(time.time()-p0))
         return tomogram,theta,shiftstack,datakwargs

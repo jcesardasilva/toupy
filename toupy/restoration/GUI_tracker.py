@@ -9,12 +9,13 @@ from matplotlib.widgets import Button #, RectangleSelector
 from matplotlib.widgets import TextBox
 import numpy as np
 from numpy.fft import fftfreq
-import roipoly
+#from roipoly import RoiPoly, MultiRoi
 from skimage.restoration import unwrap_phase
 
 # local packages
 from ..io.dataio import LoadData, SaveData
 from .ramptools import rmphaseramp, rmlinearphase, rmair
+from .roipoly import roipoly
 
 __all__=['gui_plotamp',
          'gui_plotphase',
@@ -24,14 +25,14 @@ __all__=['gui_plotamp',
 def gui_plotamp(stack_objs,**params):
     plt.close('all')
     fig = plt.figure(4)
-    gs = gridspec.GridSpec(3, 3, #figure=4,                                         
+    gs = gridspec.GridSpec(3, 3, #figure=4,
                         width_ratios=[8, 3, 2],
                         height_ratios=[8, 4.5, 0.5]
                         )
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[3])
     tracker = AmpTracker(
-              ax1,ax2,stack_objs,**params)
+              fig,ax1,ax2,stack_objs,**params)
     #### Button draw mask
     axdraw = plt.axes([0.58,0.82,0.19,0.06])
     bdraw = Button(axdraw,'draw mask')
@@ -90,7 +91,7 @@ def gui_plotamp(stack_objs,**params):
     cmap_title.set_axis_off()
     cmap_title.text(0,0, 'Colormap',fontsize = 14)
     #axboxvmin.set_title('Colormap')
-    
+
     #### Buttons Prev/Next
     axprev = plt.axes([0.28,0.05,0.05,0.06])
     axnext = plt.axes([0.35,0.05,0.05,0.06])
@@ -107,7 +108,7 @@ def gui_plotamp(stack_objs,**params):
     fig.canvas.mpl_connect('key_press_event', tracker.key_event)
     multi = MultiCursor(fig.canvas, (ax1, ax2), color='r', lw=1)
     plt.show(block=False)
-    a = raw_input('Press Enter to finish\n')
+    a = input('Press Enter to finish\n')
     # output of the linear phase removal
     stack_ampcorr=tracker.X1.copy() #tracker.X1 is where the data is stored
     plt.close('all')
@@ -123,7 +124,7 @@ def gui_plotphase(stack_objs,**params):
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[3])
     tracker = PhaseTracker(
-              ax1,ax2,stack_objs,**params)
+              fig,ax1,ax2,stack_objs,**params)
     #### Button draw mask
     axdraw = plt.axes([0.58,0.82,0.19,0.06])
     bdraw = Button(axdraw,'draw mask')
@@ -184,7 +185,7 @@ def gui_plotphase(stack_objs,**params):
     axboxprojn = plt.axes([0.125, 0.05, 0.1, 0.06])
     text_box = TextBox(axboxprojn, 'Goto #', initial="1")
     text_box.on_submit(tracker.submit)
-   
+
     #### Colormap boxes
     axboxvmin = plt.axes([0.67,0.05,0.1,0.06])
     textboxvmin = TextBox(axboxvmin, 'vmin', initial="None")
@@ -197,7 +198,7 @@ def gui_plotphase(stack_objs,**params):
     cmap_title.set_axis_off()
     cmap_title.text(0,0, 'Colormap',fontsize = 14)
     #axboxvmin.set_title('Colormap')
-    
+
     #### Buttons Prev/Next
     axprev = plt.axes([0.28,0.05,0.05,0.06])
     axnext = plt.axes([0.35,0.05,0.05,0.06])
@@ -221,7 +222,8 @@ def gui_plotphase(stack_objs,**params):
     return stack_phasecorr
 
 class PhaseTracker(object):
-    def __init__(self, ax1, ax2, X1, **params):
+    def __init__(self, fig, ax1, ax2, X1, **params):
+        self.fig = fig
         self.ax1 = ax1
         self.ax2 = ax2
         ax1.set_title('Use scroll wheel or \n left/right arrows to navigate images')
@@ -332,10 +334,15 @@ class PhaseTracker(object):
         """
         print('\nDrawing the poly')
         self.img_mask = self.X1[self.ind, :, :]+self.mask[self.ind,:,:]
+        # create another fig in order to close later
         fig_mask = plt.figure()
         ax_mask = fig_mask.add_subplot(111)
         ax_mask.imshow(self.img_mask,cmap='bone')
-        self.ROI_draw = roipoly(ax=ax_mask)
+        self.ROI_draw = RoiPoly(ax=ax_mask)
+        #~ self.ROI_draw = RoiPoly(color='b', fig = fig_mask, close_fig=True) # has to close to validate
+        #~ self.ROI_draw = MultiRoi_mod(fig=fig_mask,ax=ax_mask)#(color='b', fig = self.fig)
+        #~ print(self.ROI_draw.rois.items())
+        #~ print('Done')
 
     def add_mask(self,event):
         """
