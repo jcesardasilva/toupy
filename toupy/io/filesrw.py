@@ -342,16 +342,17 @@ def load_paramsh5(**params):
     out_params.update(params) # add/update with new values
     return out_params
 
-def create_paramsh5(pathparamsh5,**params):
+def create_paramsh5(*args,**params):
     """
     Create parameter file in HDF5 format
     """
     # create a parameter file
     print('Creating the h5 parameter file')
-    filename = params['samplename']+'_params.h5'
+    if len(args)==0:
+        filename = params['samplename']+'_params.h5'
     #print(pathparamsh5)
-    paramsh5file = os.path.join(pathparamsh5,filename)
-    write_paramsh5(paramsh5file,**params)
+    #paramsh5file = os.path.join(pathparamsh5,filename)
+    write_paramsh5(filename,**params)
 
 def write_paramsh5(h5filename,**params):
     """
@@ -460,3 +461,33 @@ def converttiffto8bits(filename,low_cutoff, high_cutoff):
     tiffimage+=low_cutoff
 
     return tiffimage
+
+def saveh5file(h5file, stack_projs, theta, shiftstack, **kwargs):
+    """
+    Save data to h5 file
+    """
+    nprojs,nr,nc = stack_projs.shape
+    # check if file exists
+    if os.path.isfile(h5file):
+        print('File {} already exists and will be overwritten'.format(h5name))
+        os.remove(h5file)
+    # save metadata first
+    print('Saving metadata')
+    write_paramsh5(h5file,**kwargs)
+    # save the data
+    print('Saving data. This takes time, please wait...')
+    if np.iscomplexobj(stack_projs[0]): array_dtype = np.complex64
+    else: array_dtype = np.float32
+    with h5py.File(h5file,'a') as fid:
+        fid.create_dataset('shiftstack/shiftstack', data = shiftstack, dtype = np.float32) # shiftstack
+        fid.create_dataset('angles/thetas', data = theta, dtype = np.float32) # thetas
+        dset = fid.create_dataset('projections/stack', shape= (nprojs,nr,nc),dtype=array_dtype, chunks=chunk_size)
+        p0 = time.time()
+        for ii in range(nprojs):
+            print('Projection: {} out of {}'.format(ii+1,nprojs), end='\r')
+            dset[ii,:,:]= stack_projs[ii]
+        print('\r')
+        if masks is not None:
+            fid.create_dataset('masks/stack', data = masks, dtype = np.bool) # air/vacuum mask
+        print('Done. Time elapsed = {:.03f} s'.format(time.time()-p0))
+    print('Data saved to file {}'.format(h5name))

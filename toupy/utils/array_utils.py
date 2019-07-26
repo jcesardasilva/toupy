@@ -5,7 +5,8 @@
 import numpy as np
 import scipy.constants as consts
 
-__all__=['polynomial1d',
+__all__=['round_to_even',
+         'polynomial1d',
          'projectpoly1d',
          'crop',
          'radtap',
@@ -13,6 +14,9 @@ __all__=['polynomial1d',
          'fract_hanning_pad',
          'mask_borders',
          'padarray_bothsides']
+
+def round_to_even(x):
+    return int(2*np.floor(x/2))
 
 def polynomial1d(x,order=1,w=1):
     """
