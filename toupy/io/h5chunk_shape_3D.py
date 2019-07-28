@@ -7,11 +7,12 @@ import math
 import operator
 
 __all__ = [
-          'binlist',
-          'numVals',
-          'perturbShape',
-          'chunk_shape_3D'
-          ]
+    'binlist',
+    'numVals',
+    'perturbShape',
+    'chunk_shape_3D'
+]
+
 
 def binlist(n, width=0):
     """
@@ -26,6 +27,7 @@ def binlist(n, width=0):
     """
     return list(map(int, list(bin(n)[2:].zfill(width))))
 
+
 def numVals(shape):
     """
     Return number of values in chunk of specified shape, given by a list of dimension lengths.
@@ -39,6 +41,7 @@ def numVals(shape):
         return 1
     return reduce(operator.mul, shape)
 
+
 def perturbShape(shape, onbits):
     """
     Return shape perturbed by adding 1 to elements corresponding to 1 bits in onbits
@@ -51,6 +54,7 @@ def perturbShape(shape, onbits):
         non-negative integer less than 2**len(shape)
     """
     return list(map(sum, zip(shape, binlist(onbits, len(shape)))))
+
 
 def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
     """
@@ -79,10 +83,11 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
     """
 
     rank = 3
-    chunkVals = chunkSize / float(valSize) # ideal number of values in a chunk
-    numChunks  = varShape[0]*varShape[1]*varShape[2] / chunkVals # ideal number of chunks
-    axisChunks = numChunks ** 0.25 # ideal number of chunks along each 2D axis
-    cFloor = [] # will be first estimate of good chunk shape
+    chunkVals = chunkSize / float(valSize)  # ideal number of values in a chunk
+    numChunks = varShape[0]*varShape[1]*varShape[2] / \
+        chunkVals  # ideal number of chunks
+    axisChunks = numChunks ** 0.25  # ideal number of chunks along each 2D axis
+    cFloor = []  # will be first estimate of good chunk shape
     # cFloor  = [varShape[0] // axisChunks**2, varShape[1] // axisChunks, varShape[2] // axisChunks]
     # except that each chunk shape dimension must be at least 1
     # chunkDim = max(1.0, varShape[0] // axisChunks**2)
@@ -118,5 +123,5 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
         thisChunkSize = valSize * numVals(cCand)
         if bestChunkSize < thisChunkSize <= chunkSize:
             bestChunkSize = thisChunkSize
-            cBest = list(cCand) # make a copy of best candidate so far
+            cBest = list(cCand)  # make a copy of best candidate so far
     return tuple(map(int, cBest))

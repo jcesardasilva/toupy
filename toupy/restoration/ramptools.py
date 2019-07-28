@@ -15,10 +15,11 @@ import numpy as np
 from ..registration.register_translation_fast import register_translation
 from ..utils.funcutils import deprecated
 
-__all__=[
-        'rmphaseramp',
-        'rmlinearphase',
-        'rmair']
+__all__ = [
+    'rmphaseramp',
+    'rmlinearphase',
+    'rmair']
+
 
 def rmphaseramp(a, weight=None, return_phaseramp=False):
     """
@@ -81,7 +82,8 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
     else:
         return a*p
 
-def rmlinearphase(image,mask):
+
+def rmlinearphase(image, mask):
     """
     Removes linear phase from object
 
@@ -109,18 +111,20 @@ def rmlinearphase(image,mask):
     agy = (gy*mask).sum() / nrm
 
     (xx, yy) = np.indices(image.shape)
-    p = np.exp(-1j*(agx*xx + agy*yy)) # ramp
-    ph_corr = ph*p # correcting ramp
-    ph_corr *= np.conj((ph_corr*mask).sum() / nrm) # taking the mask into account
+    p = np.exp(-1j*(agx*xx + agy*yy))  # ramp
+    ph_corr = ph*p  # correcting ramp
+    # taking the mask into account
+    ph_corr *= np.conj((ph_corr*mask).sum() / nrm)
 
     # applying to the image
     im_output = np.abs(image)*ph_corr
     ph_err = (mask*np.angle(ph_corr)**2).sum() / nrm
 
-    return im_output #, ph_err
+    return im_output  # , ph_err
+
 
 @deprecated
-def remove_linearphase_old(image,mask,upsamp):
+def remove_linearphase_old(image, mask, upsamp):
     """
     Removes linear phase from object considering only pixels where mask is
     unity, arrays have center on center of array
@@ -137,25 +141,27 @@ def remove_linearphase_old(image,mask,upsamp):
     coherent diffractive imaging projections," Opt. Express 19, 21345-21357 (2011)
     """
     p0 = time.time()
-    shift, error, diffphase = register_translation(np.fft.ifftshift(mask*np.abs(image)),np.fft.ifftshift(mask*image),upsamp)
+    shift, error, diffphase = register_translation(np.fft.ifftshift(
+        mask*np.abs(image)), np.fft.ifftshift(mask*image), upsamp)
     #shift, error, diffphase = register_translation(mask*np.abs(image),mask*image,upsamp)
-    if shift[0]!=0 or shift[1]!=0:
-        nr,nc = image.shape
-        ar = np.arange(-np.floor(nr/2),np.ceil(nr/2))
-        ac = np.arange(-np.floor(nc/2),np.ceil(nc/2))
-        #~ Nr,Nc = fftfreq(nr),fftfreq(nc)
+    if shift[0] != 0 or shift[1] != 0:
+        nr, nc = image.shape
+        ar = np.arange(-np.floor(nr/2), np.ceil(nr/2))
+        ac = np.arange(-np.floor(nc/2), np.ceil(nc/2))
+        # ~ Nr,Nc = fftfreq(nr),fftfreq(nc)
         #Nr,Nc = np.fft.ifftshift(fftfreq(nr)),np.fft.ifftshift(fftfreq(nc))
-        #~ Nc,Nr = np.meshgrid(Nc,Nr)
-        Nc,Nr = np.meshgrid(ac,ar) # FFT frequencies
-        image*=np.exp(1j*2*np.pi*(-shift[0]*Nr/nr-shift[1]*Nc/nc))
+        # ~ Nc,Nr = np.meshgrid(Nc,Nr)
+        Nc, Nr = np.meshgrid(ac, ar)  # FFT frequencies
+        image *= np.exp(1j*2*np.pi*(-shift[0]*Nr/nr-shift[1]*Nc/nc))
 
-    image*=np.exp(1j*diffphase)
-    print("shifts: [{} , {}]".format(shift[0],shift[1]))
+    image *= np.exp(1j*diffphase)
+    print("shifts: [{} , {}]".format(shift[0], shift[1]))
     print("Phase difference: {}".format(diffphase))
     print('Time elapsed: {} s'.format(time.time()-p0))
-    return image#*np.exp(1j*diffphase)
+    return image  # *np.exp(1j*diffphase)
 
-def rmair(image,mask):
+
+def rmair(image, mask):
     """
     Correcting amplitude factor using the mask from the phase ramp removal
     considering only pixels where mask is

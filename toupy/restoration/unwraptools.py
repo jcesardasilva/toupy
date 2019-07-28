@@ -8,18 +8,19 @@ from skimage.restoration import unwrap_phase
 # local packages
 from ..utils.plot_utils import _plotdelimiters
 
-__all__=[
-        'wraptopi',
-        'wrap',
-        'distance',
-        'get_charge',
-        'phaseresidues',
-        'chooseregiontounwrap',
-        'unwrapping_phase'
-        #~ u'goldstein_unwrap2D'
-        ]
+__all__ = [
+    'wraptopi',
+    'wrap',
+    'distance',
+    'get_charge',
+    'phaseresidues',
+    'chooseregiontounwrap',
+    'unwrapping_phase'
+    #~ u'goldstein_unwrap2D'
+]
 
-def wraptopi(phase,endpoint=True):
+
+def wraptopi(phase, endpoint=True):
     """
     Wrap a scalar value or an entire array to:
     [-pi, pi) if endpoint=False
@@ -34,10 +35,11 @@ def wraptopi(phase,endpoint=True):
         2.0943951 , -3.14159265])
     Created 07/10/2015
     """
-    if not endpoint: # case [-pi, pi)
-        return ( phase + np.pi) % (2 * np.pi ) - np.pi
-    else: # case (-pi, pi]
-        return (( -phase + np.pi) % (2.0 * np.pi ) - np.pi) * -1.0
+    if not endpoint:  # case [-pi, pi)
+        return (phase + np.pi) % (2 * np.pi) - np.pi
+    else:  # case (-pi, pi]
+        return ((-phase + np.pi) % (2.0 * np.pi) - np.pi) * -1.0
+
 
 def wrap(phase):
     """
@@ -56,6 +58,7 @@ def wrap(phase):
             phase += 1.
     return phase
 
+
 def distance(pixel1, pixel2):
     """
     Return the Euclidean distance of two pixels.
@@ -64,10 +67,11 @@ def distance(pixel1, pixel2):
     3.0
     Created 26/11/2015
     """
-    if (not isinstance(pixel1,np.ndarray)) and (not isinstance(pixel2,np.ndarray)):
+    if (not isinstance(pixel1, np.ndarray)) and (not isinstance(pixel2, np.ndarray)):
         pixel1 = np.asarray(pixel1)
         pixel2 = np.asarray(pixel2)
     return np.sqrt(np.sum((pixel1-pixel2)**2))
+
 
 def get_charge(residues):
     """
@@ -83,9 +87,9 @@ def get_charge(residues):
     negres : ndarray
         Positions of the residues with negative charge
     """
-    posres = np.where(np.round(residues)==1)
+    posres = np.where(np.round(residues) == 1)
     respos = len(posres[0])
-    negres = np.where(np.round(residues)==-1)
+    negres = np.where(np.round(residues) == -1)
     resneg = len(negres[0])
 
     nres = respos+resneg
@@ -93,7 +97,8 @@ def get_charge(residues):
 
     return posres, negres
 
-def phaseresidues(phimage,disp=1):
+
+def phaseresidues(phimage, disp=1):
     """
     Calculates the phase residues for a given wrapped phase image. 
 
@@ -105,12 +110,12 @@ def phaseresidues(phimage,disp=1):
     disp : bool
         False -> No feedback
         True ->  Text feedback (additional computation)
-    
+
     Returns
     -------
     residues : ndarray
         Map of residues (valued +1 or -1)
-    
+
     Notes
     -----
     Note that by convention the positions of the phase residues are
@@ -126,19 +131,20 @@ def phaseresidues(phimage,disp=1):
     Relevant literature: R. M. Goldstein, H. A. Zebker and C. L. Werner,
     Radio Science 23, 713-720(1988).
     """
-    residues =  wraptopi(phimage[2:,1:-1]   - phimage[1:-1,1:-1])
-    residues += wraptopi(phimage[2:,2:]     - phimage[2:,1:-1])
-    residues += wraptopi(phimage[1:-1,2:]   - phimage[2:,2:])
-    residues += wraptopi(phimage[1:-1,1:-1] - phimage[1:-1,2:])
+    residues = wraptopi(phimage[2:, 1:-1] - phimage[1:-1, 1:-1])
+    residues += wraptopi(phimage[2:, 2:] - phimage[2:, 1:-1])
+    residues += wraptopi(phimage[1:-1, 2:] - phimage[2:, 2:])
+    residues += wraptopi(phimage[1:-1, 1:-1] - phimage[1:-1, 2:])
     residues /= (2*np.pi)
 
-    respos,resneg = get_charge(residues)
+    respos, resneg = get_charge(residues)
     residues_charge = dict(
-        pos = respos,
-        neg = resneg
-        )
+        pos=respos,
+        neg=resneg
+    )
 
-    return residues,residues_charge
+    return residues, residues_charge
+
 
 def phaseresiduesStack(stack_array):
     """
@@ -157,26 +163,28 @@ def phaseresiduesStack(stack_array):
     """
     resmap = 0
     for ii in range(stack_array.shape[0]):
-        print('\rSearching for residues in projection {:>6.0f}'.format(ii+1),end="")
-        residues,residues_charge = phaseresidues(stack_array[ii])
+        print('\rSearching for residues in projection {:>6.0f}'.format(
+            ii+1), end="")
+        residues, residues_charge = phaseresidues(stack_array[ii])
         resmap += np.abs(residues)
     print('. Done')
-    posres = np.where(resmap>=1.0)
+    posres = np.where(resmap >= 1.0)
     return resmap, posres
+
 
 def chooseregiontounwrap(stack_array):
     """
     Choose the region to be unwrapped
     """
     resmap, posres = phaseresiduesStack(stack_array)
-    yres, xres  = posres
+    yres, xres = posres
 
     # display the residues
     plt.close('all')
     plt.figure(1)
-    plt.imshow(resmap,cmap='jet')
+    plt.imshow(resmap, cmap='jet')
     plt.axis('tight')
-    plt.plot(xres,yres,'or')
+    plt.plot(xres, yres, 'or')
     plt.show(block=False)
 
     # choosing the are for the unwrapping
@@ -185,32 +193,33 @@ def chooseregiontounwrap(stack_array):
         fig = plt.figure(2)
         plt.clf()
         ax1 = fig.add_subplot(111)
-        im1 = ax1.imshow(stack_phasecorr[0],cmap='bone')
-        ax1.plot(xres,yres,'or')
+        im1 = ax1.imshow(stack_phasecorr[0], cmap='bone')
+        ax1.plot(xres, yres, 'or')
         ax1.axis('tight')
         plt.show(block=False)
-        print('The array dimensions are {} x {}'.format(stack_phasecorr[0].shape[0],stack_phasecorr[0].shape[1]))
+        print('The array dimensions are {} x {}'.format(
+            stack_phasecorr[0].shape[0], stack_phasecorr[0].shape[1]))
         print('Please, choose an area for the unwrapping:')
         # while loops in each question to avoid mistapying problems
         while True:
             deltax = eval(input('From edge of region to edge of image in x: '))
-            if isinstance(deltax,int):
-                rx=range(1+deltax,stack_phasecorr.shape[2]-deltax)
+            if isinstance(deltax, int):
+                rx = range(1+deltax, stack_phasecorr.shape[2]-deltax)
                 break
             else:
                 print('Wrong typing. Try it again.')
         while True:
             ry = eval(input('Range in y (top, bottom): '))
-            if isinstance(ry,tuple):
+            if isinstance(ry, tuple):
                 #ry = range(ry[0],ry[-1])
                 break
             else:
                 print('Wrong typing. Try it again.')
         while True:
             airpix = eval(input('Pixel in air (x,y) or (col,row): '))
-            if isinstance(airpix,tuple):
+            if isinstance(airpix, tuple):
                 # check if air pixel is inside the image
-                if airpix[0]<rx[0] or airpix[0]>rx[-1] or airpix[1]<ry[0] or airpix[1]>ry[-1]:
+                if airpix[0] < rx[0] or airpix[0] > rx[-1] or airpix[1] < ry[0] or airpix[1] > ry[-1]:
                     print(u'Pixel of air is outside of region of unwrapping')
                     print('Wrong typing. Try it again.')
                 else:
@@ -219,7 +228,7 @@ def chooseregiontounwrap(stack_array):
                 print('Wrong typing. Try it again.')
 
         # couting residues
-        num_residues = int(np.round(resmap[ry[0]:ry[-1],rx[0]:rx[-1]].sum()))
+        num_residues = int(np.round(resmap[ry[0]:ry[-1], rx[0]:rx[-1]].sum()))
         print('Chosen region contains {} residues in total'.format(num_residues))
 
         # update images with boudaries
@@ -228,31 +237,33 @@ def chooseregiontounwrap(stack_array):
         plt.show(block=False)
 
         ans = input('Are you happy with the boundaries?([y]/n)').lower()
-        if str(ans)=='' or str(ans)=='y':
+        if str(ans) == '' or str(ans) == 'y':
             break
 
-    return rx,ry,airpix
-    
+    return rx, ry, airpix
 
-def unwrapping_phase(stack_phasecorr,rx,ry,airpix,**params):
+
+def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     stack_unwrap = np.empty_like(stack_phasecorr)
     # test on first projection
     img0_unwrap = stack_phasecorr[0]
-    img0_wrap_sel=img0_unwrap[ry[0]:ry[-1],rx[0]:rx[-1]]
-    img0_unwrap_sel = unwrap_phase(img0_wrap_sel) # skimage
-    img0_unwrap[ry[0]:ry[-1],rx[0]:rx[-1]] = img0_unwrap_sel
-    img0_unwrap[ry[0]:ry[-1],rx[0]:rx[-1]] = img0_unwrap_sel- 2*np.pi*np.round(img0_unwrap[airpix[1],airpix[0]]/(2*np.pi))
+    img0_wrap_sel = img0_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]]
+    img0_unwrap_sel = unwrap_phase(img0_wrap_sel)  # skimage
+    img0_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img0_unwrap_sel
+    img0_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img0_unwrap_sel - \
+        2*np.pi*np.round(img0_unwrap[airpix[1], airpix[0]]/(2*np.pi))
     # displaying
     plt.close('all')
     plt.ion()
     fig = plt.figure(7)
     ax1 = fig.add_subplot(111)
-    im1 = ax1.imshow(stack_phasecorr[0],cmap='bone',vmin=params[u'vmin'],vmax=params[u'vmax'])
-    ax1.plot([rx[0],rx[-1]],[ry[0],ry[0]],'r-')
-    ax1.plot([rx[0],rx[-1]],[ry[-1],ry[-1]],'r-')
-    ax1.plot([rx[0],rx[0]],[ry[0],ry[-1]],'r-')
-    ax1.plot([rx[-1],rx[-1]],[ry[0],ry[-1]],'r-')
-    ax1.plot(airpix[0], airpix[1],'ob')
+    im1 = ax1.imshow(stack_phasecorr[0], cmap='bone',
+                     vmin=params[u'vmin'], vmax=params[u'vmax'])
+    ax1.plot([rx[0], rx[-1]], [ry[0], ry[0]], 'r-')
+    ax1.plot([rx[0], rx[-1]], [ry[-1], ry[-1]], 'r-')
+    ax1.plot([rx[0], rx[0]], [ry[0], ry[-1]], 'r-')
+    ax1.plot([rx[-1], rx[-1]], [ry[0], ry[-1]], 'r-')
+    ax1.plot(airpix[0], airpix[1], 'ob')
     ax1.axis('tight')
     plt.show(block=False)
     while True:
@@ -260,34 +271,37 @@ def unwrapping_phase(stack_phasecorr,rx,ry,airpix,**params):
         if str(a) == '' or str(a) == 'y':
             while True:
                 color_vmin = eval(input('Minimum color scale value: '))
-                if isinstance(color_vmin,int) or isinstance(color_vmin,float):
+                if isinstance(color_vmin, int) or isinstance(color_vmin, float):
                     break
                 else:
                     print('Wrong typing. Try it again.')
             while True:
                 color_vmax = eval(input('Maximum color scale value: '))
-                if isinstance(color_vmax,int) or isinstance(color_vmax,float):
+                if isinstance(color_vmax, int) or isinstance(color_vmax, float):
                     break
                 else:
                     print('Wrong typing. Try it again.')
             params['vmin'] = color_vmin
             params['vmax'] = color_vmax
-            print('Using vmin={} and vmax={}'.format(params[u'vmin'],params[u'vmax']))
+            print('Using vmin={} and vmax={}'.format(
+                params[u'vmin'], params[u'vmax']))
             # displaying the update images
-            plt.close('all') # close previous ones
+            plt.close('all')  # close previous ones
             plt.ion()
             fig = plt.figure(7)
             ax1 = fig.add_subplot(111)
-            im1 = ax1.imshow(stack_phasecorr[0],cmap='bone',vmin=params[u'vmin'],vmax=params[u'vmax'])
-            ax1.plot([rx[0],rx[-1]],[ry[0],ry[0]],'r-')
-            ax1.plot([rx[0],rx[-1]],[ry[-1],ry[-1]],'r-')
-            ax1.plot([rx[0],rx[0]],[ry[0],ry[-1]],'r-')
-            ax1.plot([rx[-1],rx[-1]],[ry[0],ry[-1]],'r-')
-            ax1.plot(airpix[0], airpix[1],'ob')
+            im1 = ax1.imshow(
+                stack_phasecorr[0], cmap='bone', vmin=params[u'vmin'], vmax=params[u'vmax'])
+            ax1.plot([rx[0], rx[-1]], [ry[0], ry[0]], 'r-')
+            ax1.plot([rx[0], rx[-1]], [ry[-1], ry[-1]], 'r-')
+            ax1.plot([rx[0], rx[0]], [ry[0], ry[-1]], 'r-')
+            ax1.plot([rx[-1], rx[-1]], [ry[0], ry[-1]], 'r-')
+            ax1.plot(airpix[0], airpix[1], 'ob')
             ax1.axis('tight')
             plt.show(block=False)
         else:
-            print('Color scale was not changed. Using vmin={} and vmax={}'.format(params[u'vmin'],params[u'vmax']))
+            print('Color scale was not changed. Using vmin={} and vmax={}'.format(
+                params[u'vmin'], params[u'vmax']))
             break
     # main loop for the unwrapping
     nprojs = stack_phasecorr.shape[0]
@@ -295,14 +309,19 @@ def unwrapping_phase(stack_phasecorr,rx,ry,airpix,**params):
         t0 = time.time()
         img_unwrap = stack_phasecorr[ii]
         print("Unwrapping projection: {}".format(ii))
-        img_wrap_sel=img_unwrap[ry[0]:ry[-1],rx[0]:rx[-1]] # select the region to be unwrapped
-        img_unwrap_sel = unwrap_phase(img_wrap_sel) # unwrap the region using the algorithm from skimage
-        img_unwrap[ry[0]:ry[-1],rx[0]:rx[-1]] = img_unwrap_sel # update the image in the original array
-        img_unwrap[ry[0]:ry[-1],rx[0]:rx[-1]] = img_unwrap_sel-2*np.pi*np.round(img_unwrap[airpix[1],airpix[0]]/(2*np.pi))
-        stack_unwrap[ii]=img_unwrap # update the stack
+        # select the region to be unwrapped
+        img_wrap_sel = img_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]]
+        # unwrap the region using the algorithm from skimage
+        img_unwrap_sel = unwrap_phase(img_wrap_sel)
+        # update the image in the original array
+        img_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img_unwrap_sel
+        img_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img_unwrap_sel-2 * \
+            np.pi*np.round(img_unwrap[airpix[1], airpix[0]]/(2*np.pi))
+        stack_unwrap[ii] = img_unwrap  # update the stack
         delta_time = time.time()-t0
         rem_time = nprojs-(ii+1)
-        print('Done. Time Elapsed {:.02f}s. Estimated remaining time: {:.02f}s.'.format(delta_time,delta_time*rem_time))
+        print('Done. Time Elapsed {:.02f}s. Estimated remaining time: {:.02f}s.'.format(
+            delta_time, delta_time*rem_time))
         # displaying
         im1.set_data(img_unwrap)
         ax1.set_title('Unwrapped Projection {}'.format(ii))
@@ -310,45 +329,45 @@ def unwrapping_phase(stack_phasecorr,rx,ry,airpix,**params):
     plt.ioff()
 
     return stack_unwrap
-#~ def goldstein_unwrap2D(phimage,disp=0):
-    #~ """
-    #~ Implementation of Goldstein unwrap algorithm based on location of
-    #~ residues and introduction of branchcuts.
-    #~ Inputs:
-        #~ phimage = Wrapped phase image in radians, wrapped between (-pi,pi)
-        #~ disp (optional) = 1 to show progress (will slow down code)
-                 #~ will also display the branch cuts
-    #~ Outputs:
-        #~ unwrap_phase =    Unwrapped phase ( = fase where phase could not be unwrapped)
-        #~ shadow    = 1 where phase could not be unwrapped
-    #~
-    #~ Inpired in the goldstein_unwrap2D.m by Manuel Guizar 31 August, 2010 - Acknowledge if used
-    #~ Please, cite: R. M. Goldstein, H. A. Zebker and C. L. Werner, Radio Science 23, 713-720 (1988).
-    #~ """
-#~
-    #~ nr,nc = phimage.shape
-    #~ #position to start unwrapping. Typically faster at the center of the array
-    #~ #nrstart = np.round(nr/2.)
-    #~ #ncstart = np.round(nc/2.)
-    #~
-    #~ residues,_ = phaseresidues(phimage,disp=1)
-    #~
-    #~ ## Find residues
-    #~ pposr,pposc = np.where(np.round(residues)==1)
-    #~ respos = [pposr,pposc,np.ones_like(pposr)]
-    #~ ###respos= len(pposr)
-    #~ nposr,nposc = np.where(np.round(residues)==-1)
-    #~ resneg = [nposr,nposc,-np.ones_like(pposr)]
-    #~ ###resneg = len(nposr)
-#~
-    #~ nres = len(respos[:][0])+len(resneg[:][0])
-    #~ ###nres = respos+resneg
+# ~ def goldstein_unwrap2D(phimage,disp=0):
+    # ~ """
+    # ~ Implementation of Goldstein unwrap algorithm based on location of
+    # ~ residues and introduction of branchcuts.
+    # ~ Inputs:
+    # ~ phimage = Wrapped phase image in radians, wrapped between (-pi,pi)
+    # ~ disp (optional) = 1 to show progress (will slow down code)
+    # ~ will also display the branch cuts
+    # ~ Outputs:
+    # ~ unwrap_phase =    Unwrapped phase ( = fase where phase could not be unwrapped)
+    # ~ shadow    = 1 where phase could not be unwrapped
+    # ~
+    # ~ Inpired in the goldstein_unwrap2D.m by Manuel Guizar 31 August, 2010 - Acknowledge if used
+    # ~ Please, cite: R. M. Goldstein, H. A. Zebker and C. L. Werner, Radio Science 23, 713-720 (1988).
+    # ~ """
+# ~
+    # ~ nr,nc = phimage.shape
+    # ~ #position to start unwrapping. Typically faster at the center of the array
+    # ~ #nrstart = np.round(nr/2.)
+    # ~ #ncstart = np.round(nc/2.)
+    # ~
+    # ~ residues,_ = phaseresidues(phimage,disp=1)
+    # ~
+    # ~ ## Find residues
+    # ~ pposr,pposc = np.where(np.round(residues)==1)
+    # ~ respos = [pposr,pposc,np.ones_like(pposr)]
+    # ~ ###respos= len(pposr)
+    # ~ nposr,nposc = np.where(np.round(residues)==-1)
+    # ~ resneg = [nposr,nposc,-np.ones_like(pposr)]
+    # ~ ###resneg = len(nposr)
+# ~
+    # ~ nres = len(respos[:][0])+len(resneg[:][0])
+    # ~ ###nres = respos+resneg
     #~ print('Found {} residues'.format(nres))
-#~
-    #~ if nres == 0:
-        #~ print('No residues found. Unwrapping with standard unwrapping algorithm')
-        #~ unwrap_phase = np.unwrap(np.unwrap(phimage))
-        #~ shadow = np.zeros_like(unwrap_phase)
-    #~ else:
-        #~ print('Unwrapping with Goldstein algorithm')
-    #~ return unwrap_phase,shadow
+# ~
+    # ~ if nres == 0:
+    #~ print('No residues found. Unwrapping with standard unwrapping algorithm')
+    # ~ unwrap_phase = np.unwrap(np.unwrap(phimage))
+    # ~ shadow = np.zeros_like(unwrap_phase)
+    # ~ else:
+    #~ print('Unwrapping with Goldstein algorithm')
+    # ~ return unwrap_phase,shadow

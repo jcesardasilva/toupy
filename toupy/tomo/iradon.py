@@ -8,11 +8,12 @@ from scipy.interpolate import interp1d
 from silx.opencl.backprojection import Backprojection
 from silx import version
 
-__all__=['mod_iradon',
-         'mod_iradonSilx',
-         'compute_filter']
+__all__ = ['mod_iradon',
+           'mod_iradonSilx',
+           'compute_filter']
 
-def compute_filter(nbins, filter_type="ram-lak",derivative=True, freqcutoff=1):
+
+def compute_filter(nbins, filter_type="ram-lak", derivative=True, freqcutoff=1):
 
     # resize image to next power of two (but no less than 64) for
     # Fourier analysis; speeds up Fourier and lessens artifacts
@@ -23,16 +24,18 @@ def compute_filter(nbins, filter_type="ram-lak",derivative=True, freqcutoff=1):
     f = fftfreq(projection_size_padded).reshape(-1, 1)   # digital frequency
     omega = 2 * np.pi * f                                # angular frequency
     if derivative:
-        fourier_filter = np.ones_like(f).astype(np.complex)        # differential filter
+        fourier_filter = np.ones_like(f).astype(
+            np.complex)        # differential filter
     else:
         fourier_filter = 2 * np.abs(f)         # ramp filter
-    #fourier_filter[0]=3.9579e-4 # value from MATLAB
+    # fourier_filter[0]=3.9579e-4 # value from MATLAB
     if filter_type == "ram-lak":
         pass
     elif filter_type == "shepp-logan":
         # Start from first element to avoid divide by zero
-        fourier_filter[1:] = fourier_filter[1:] * (np.sin(omega[1:]/(2*freqcutoff)) / (omega[1:]/(2*freqcutoff)))
-        #fourier_filter[1:] = fourier_filter[1:] * (np.sin(omega[1:]/(2*np.pi*freqcutoff)) / (omega[1:]/(2*freqcutoff))) #factor pi
+        fourier_filter[1:] = fourier_filter[1:] * \
+            (np.sin(omega[1:]/(2*freqcutoff)) / (omega[1:]/(2*freqcutoff)))
+        # fourier_filter[1:] = fourier_filter[1:] * (np.sin(omega[1:]/(2*np.pi*freqcutoff)) / (omega[1:]/(2*freqcutoff))) #factor pi
     elif filter_type == "cosine":
         fourier_filter[1:] *= np.cos(omega[1:]/(2*freqcutoff))
     elif filter_type == "hamming":
@@ -46,13 +49,15 @@ def compute_filter(nbins, filter_type="ram-lak",derivative=True, freqcutoff=1):
 
     # Frequency cutoff
     # ~ fourier_filter[np.where(2*np.abs(f)>freqcutoff)]=0 #equivalent to below code
-    fourier_filter[np.where(np.abs(omega)>np.pi*freqcutoff)]=0 # Get rid of unwanted frequencies
+    # Get rid of unwanted frequencies
+    fourier_filter[np.where(np.abs(omega) > np.pi*freqcutoff)] = 0
 
     # Change the filter to adapte to projection derivative
     if derivative:
         fourier_filter = np.sign(f)*fourier_filter/(1j*np.pi)
 
     return fourier_filter
+
 
 def gradient_axis(x, axis=-1):
     '''
@@ -73,9 +78,10 @@ def gradient_axis(x, axis=-1):
         t2[-1, :] = 0
     return t1-t2
 
-def mod_iradon(radon_image,theta=None,output_size=None,
-           filter_type="ram-lak",derivative=True,
-           interpolation="linear",circle=False,freqcutoff=1):
+
+def mod_iradon(radon_image, theta=None, output_size=None,
+               filter_type="ram-lak", derivative=True,
+               interpolation="linear", circle=False, freqcutoff=1):
     """
     Inverse radon transform.
 
@@ -151,7 +157,8 @@ def mod_iradon(radon_image,theta=None,output_size=None,
     th = (np.pi / 180.0) * theta
 
     # customized filter
-    fourier_filter = compute_filter(radon_image.shape[0], filter_type=filter_type, derivative=derivative, freqcutoff=freqcutoff)
+    fourier_filter = compute_filter(
+        radon_image.shape[0], filter_type=filter_type, derivative=derivative, freqcutoff=freqcutoff)
 
     # padding image
     pad_width = ((0, fourier_filter.shape[0] - radon_image.shape[0]), (0, 0))
@@ -190,10 +197,13 @@ def mod_iradon(radon_image,theta=None,output_size=None,
 
     return reconstructed * np.pi / (2 * len(th))
 
+
 B = None
+
+
 def mod_iradonSilx(radon_image, theta=None, output_size=None,
-           filter_type="ram-lak", derivative=True,
-           interpolation="linear", circle=False, freqcutoff=1, use_numpy=False):
+                   filter_type="ram-lak", derivative=True,
+                   interpolation="linear", circle=False, freqcutoff=1, use_numpy=False):
     """
     Inverse radon transform using Silx and OpenCL.
 
@@ -251,27 +261,32 @@ def mod_iradonSilx(radon_image, theta=None, output_size=None,
     else:
         theta = np.asarray(theta)
     # customized filter
-    cust_filter = compute_filter(radon_image.shape[0], filter_type=filter_type, derivative=derivative, freqcutoff=freqcutoff)
+    cust_filter = compute_filter(
+        radon_image.shape[0], filter_type=filter_type, derivative=derivative, freqcutoff=freqcutoff)
     print('Using Silx v{}'.format(version))
     silx_version = float(version[2:])
     if silx_version < 10.0:
         B = Backprojection(radon_image.T.shape, angles=np.pi*(theta)/180.)
         print("Initialized OpenCL backprojector on {}".format(B.device))
-        B.filter = cust_filter.ravel()/2. # has to be divided by 2.
+        B.filter = cust_filter.ravel()/2.  # has to be divided by 2.
     else:
         if use_numpy:
-            B = Backprojection(radon_image.T.shape, angles=np.pi*(theta)/180., filter_name=filter_type, extra_options={"use_numpy_fft": True})
+            B = Backprojection(radon_image.T.shape, angles=np.pi*(theta)/180.,
+                               filter_name=filter_type, extra_options={"use_numpy_fft": True})
         else:
-            B = Backprojection(radon_image.T.shape, angles=np.pi*(theta)/180., filter_name=filter_type)
+            B = Backprojection(radon_image.T.shape, angles=np.pi *
+                               (theta)/180., filter_name=filter_type)
         print("Initialized OpenCL backprojector on {}".format(B.device))
         # from version 0.10.0, silx filtering uses R2C Fourier transforms
         cust_filter2 = cust_filter.ravel()[:B.sino_filter.dwidth_padded//2+1]
-        cust_filter2 = np.ascontiguousarray(cust_filter2/2., dtype=np.complex64)
+        cust_filter2 = np.ascontiguousarray(
+            cust_filter2/2., dtype=np.complex64)
         B.sino_filter.set_filter(cust_filter2)
     recons = B(radon_image.T)
     return recons
 
-def backprojector(sinogram,theta,**params):
+
+def backprojector(sinogram, theta, **params):
     """
     Wrapper to choose between Forward Radon transform using Silx and
     OpenCL or standard reconstruction
@@ -285,7 +300,7 @@ def backprojector(sinogram,theta,**params):
         #print("Not using OpenCL")
         iradon = mod_iradon
     # reconstructing
-    recons = iradon(sinogram,theta=theta,
+    recons = iradon(sinogram, theta=theta,
                     output_size=sinogram.shape[0],
                     filter_type=params['filtertype'],
                     derivative=params['derivatives'],
