@@ -2,38 +2,38 @@
 # <img src="resources/toupy_logo.png" alt="toupy" width="200"/>
 
 TOUPY - Tomographic Utilities for Python
-==============================================
+== == == == == == == == == == == == == == == == == == == == == == ==
 
 Installation
 ------------
 
-Installation should be as simple as :
+Installation should be as simple as:
 
-   `sudo python3 setup.py install`
+    `sudo python3 setup.py install`
 
-or, for local installation, using the flag --user :
+or, for local installation, using the flag - -user:
 
-   `python3 setup.py install --user`
-   
+    `python3 setup.py install - -user`
+
 Running test
 ------------
 
 You can edit the file in test folder and run, for example:
 
-  `python3 test/shiftfunc_test.py`
+    `python3 test/shiftfunc_test.py`
 
 Dependencies
 ------------
 
 Toupy depends on standard python packages:
- * numpy
- * matplotlib
- * pyfftw
- * silx
- * fabio
- * h5py
- * libtiff
- * python >=3.6
+    * numpy
+    * matplotlib
+    * pyfftw
+    * silx
+    * fabio
+    * h5py
+    * libtiff
+    * python >= 3.6
 
 
 Call for Contributions
@@ -44,6 +44,4 @@ For example, work on the documentation are valuable.
 
 # Guide for Github-flavored Markdown
 
-[Github-flavored Markdown](https://guides.github.com/features/mastering-markdown/)
-
-
+[Github-flavored Markdown](https: // guides.github.com/features/mastering-markdown/)

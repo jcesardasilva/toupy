@@ -5,7 +5,7 @@ The script for building/installing packages
 
 import setuptools
 
-with open('README.txt','r') as fid:
+with open('README.txt', 'r') as fid:
     long_description = fid.read()
 
 setuptools.setup(
@@ -13,7 +13,7 @@ setuptools.setup(
     version='0.1.0',
     author='Julio Cesar da Silva',
     author_email='jdasilva@esrf.fr',
-    package_dir={'toupy':'toupy'},
+    package_dir={'toupy': 'toupy'},
     packages=setuptools.find_packages(),
     scripts=['bin/file_comp',
              'bin/missing_recons'],
@@ -24,21 +24,21 @@ setuptools.setup(
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: BSD License',
-	    'Topic :: Scientific/Engineering',
-	    'Topic :: Software Development',
-	    'Operating System :: Unix',
-        ], 
+            'Topic :: Scientific/Engineering',
+            'Topic :: Software Development',
+            'Operating System :: Unix',
+    ],
     install_requires=[
-                     "fabio >= 0.9.0",
-                     "h5py >= 2.9.0",
-                     "matplotlib >= 3.1.1",
-                     "libtiff >=0.4.2",
-                     "numpy >= 1.16.4",
-                     "scipy >= 1.3.0",
-                     "PyFFTW >= 0.11.1",
-                     "roipoly >= 0.5.0",
-                     "scikit-image >= 0.15.0",
-                     "silx >= 0.9.0"],
+        "fabio >= 0.9.0",
+        "h5py >= 2.9.0",
+        "matplotlib >= 3.1.1",
+        "libtiff >=0.4.2",
+        "numpy >= 1.16.4",
+        "scipy >= 1.3.0",
+        "PyFFTW >= 0.11.1",
+        "roipoly >= 0.5.0",
+        "scikit-image >= 0.15.0",
+        "silx >= 0.9.0"],
 )
 
 """

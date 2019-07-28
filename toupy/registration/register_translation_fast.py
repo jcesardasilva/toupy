@@ -15,6 +15,7 @@ cores = multiprocessing.cpu_count()
 pyfftw.interfaces.cache.enable()
 pyfftw.interfaces.cache.set_keepalive_time(30)
 
+
 def _upsampled_dft(data, upsampled_region_size,
                    upsample_factor=1, axis_offsets=None):
     """
@@ -52,7 +53,7 @@ def _upsampled_dft(data, upsampled_region_size,
     output : 2D ndarray
             The upsampled DFT of the specified region.
     """
-    #monkey patch fftpack
+    # monkey patch fftpack
     np.fft = pyfftw.interfaces.numpy_fft
 
     # if people pass in an integer, expand it to a list of equal-sized sections
@@ -162,7 +163,7 @@ def register_translation(src_image, target_image, upsample_factor=1,
            "Efficient subpixel image registration algorithms,"
            Optics Letters 33, 156-158 (2008).
     """
-    #monkey patch fftpack
+    # monkey patch fftpack
     np.fft = pyfftw.interfaces.numpy_fft
 
     # images must be the same shape
@@ -182,18 +183,21 @@ def register_translation(src_image, target_image, upsample_factor=1,
     # real data needs to be fft'd.
     elif space.lower() == 'real':
         #src_image = np.array(src_image, dtype=np.complex128, copy=False)
-        src_image = pyfftw.byte_align(src_image, dtype=np.complex128, n=16)# copy=False)
+        src_image = pyfftw.byte_align(
+            src_image, dtype=np.complex128, n=16)  # copy=False)
         #target_image = np.array(target_image, dtype=np.complex128, copy=False)
-        target_image = pyfftw.byte_align(target_image, dtype=np.complex128,n=16)# copy=False)
-        src_freq = np.fft.fftn(src_image,threads=cores)
-        target_freq = np.fft.fftn(target_image,threads=cores)
+        target_image = pyfftw.byte_align(
+            target_image, dtype=np.complex128, n=16)  # copy=False)
+        src_freq = np.fft.fftn(src_image, threads=cores)
+        target_freq = np.fft.fftn(target_image, threads=cores)
     else:
         raise ValueError("Error: register_translation only knows the \"real\" "
                          "and \"fourier\" values for the ``space`` argument.")
 
     # Whole-pixel shift - Compute cross-correlation by an IFFT
     shape = src_freq.shape
-    image_product = pyfftw.byte_align(src_freq * target_freq.conj(),dtype=np.complex128,n=16)
+    image_product = pyfftw.byte_align(
+        src_freq * target_freq.conj(), dtype=np.complex128, n=16)
     cross_correlation = np.fft.ifftn(image_product)
 
     # Locate maximum
@@ -226,9 +230,9 @@ def register_translation(src_image, target_image, upsample_factor=1,
         cross_correlation /= normalization
         # Locate maximum and map back to original pixel grid
         maxima = np.array(np.unravel_index(
-                              np.argmax(np.abs(cross_correlation)),
-                              cross_correlation.shape),
-                          dtype=np.float64)
+            np.argmax(np.abs(cross_correlation)),
+            cross_correlation.shape),
+            dtype=np.float64)
         maxima -= dftshift
         shifts = shifts + maxima / upsample_factor
         CCmax = cross_correlation.max()

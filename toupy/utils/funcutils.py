@@ -9,11 +9,12 @@ import shutil
 import socket
 import warnings
 
-__all__=['switch',
-         'deprecated',
-         'checkhostname',
-         'progbar'
-         ]
+__all__ = ['switch',
+           'deprecated',
+           'checkhostname',
+           'progbar'
+           ]
+
 
 class switch(object):
     """
@@ -21,7 +22,8 @@ class switch(object):
     languages than python
     Python does not have switch
     """
-    def __init__(self,value):
+
+    def __init__(self, value):
         self.value = value
         self.fall = False
 
@@ -30,15 +32,16 @@ class switch(object):
         yield self.match
         raise StopIteration
 
-    def match(self,*args):
+    def match(self, *args):
         """Indicate whether or not to enter a case suite """
         if self.fall or not args:
             return True
-        elif self.value in args :
+        elif self.value in args:
             self.fall = True
             return True
         else:
             return False
+
 
 def deprecated(func):
     """
@@ -56,33 +59,39 @@ def deprecated(func):
         return func(*args, **kwargs)
     return new_func
 
+
 def checkhostname(func):
     """
     Check if running in OAR, if not, exit.
     """
     @functools.wraps(func)
-    def new_func(*args,**kwargs):
-        hostname = socket.gethostname()#os.environ['HOST']
-        if re.search('hpc', hostname) or re.search('hib', hostname): #hostname.find('rnice')==0:
+    def new_func(*args, **kwargs):
+        hostname = socket.gethostname()  # os.environ['HOST']
+        # hostname.find('rnice')==0:
+        if re.search('hpc', hostname) or re.search('hib', hostname):
             print('You are working on the OAR machine: {}'.format(hostname))
-        elif re.search('rnice', hostname):#os.system('oarprint host')==0:
+        elif re.search('rnice', hostname):  # os.system('oarprint host')==0:
             print('You are working on the RNICE machine: {}'.format(hostname))
             raise SystemExit("You must use OAR machines, not RNICE")
         elif re.search('gpu', hostname) or re.search('gpid16a', hostname):
             print('You are working on the GPU: {}'.format(hostname))
         else:
-            print("You running in machine {}, which is not an ESRF machine".format(hostname))
-            a = input("Possibly running in the wrong machine. Do you have enough memory? (y/[n])").lower()
-            if str(a)=='' or str(a)=='n':
+            print(
+                "You running in machine {}, which is not an ESRF machine".format(hostname))
+            a = input(
+                "Possibly running in the wrong machine. Do you have enough memory? (y/[n])").lower()
+            if str(a) == '' or str(a) == 'n':
                 raise SystemExit("You must use more powerfull machines")
-            if str(a)=='y':
+            if str(a) == 'y':
                 print('Ok, you assume all the risks!!!!')
         return func(*args, **kwargs)
     return new_func
+
 
 def progbar(curr, total):
     termwidth, termheight = shutil.get_terminal_size()
     full_progbar = int(math.ceil(termwidth/2))
     frac = curr/total
     filled_progbar = round(frac*full_progbar)
-    print('\r', '#'*filled_progbar + '-'*(full_progbar-filled_progbar), '[{:>7.2%}]'.format(frac), end='')
+    print('\r', '#'*filled_progbar + '-'*(full_progbar -
+                                          filled_progbar), '[{:>7.2%}]'.format(frac), end='')

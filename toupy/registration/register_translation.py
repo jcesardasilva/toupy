@@ -210,9 +210,9 @@ def register_translation(src_image, target_image, upsample_factor=1,
         cross_correlation /= normalization
         # Locate maximum and map back to original pixel grid
         maxima = np.array(np.unravel_index(
-                              np.argmax(np.abs(cross_correlation)),
-                              cross_correlation.shape),
-                          dtype=np.float64)
+            np.argmax(np.abs(cross_correlation)),
+            cross_correlation.shape),
+            dtype=np.float64)
         maxima -= dftshift
         shifts = shifts + maxima / upsample_factor
         CCmax = cross_correlation.max()
