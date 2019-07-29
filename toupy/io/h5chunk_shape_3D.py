@@ -6,12 +6,7 @@ from functools import reduce
 import math
 import operator
 
-__all__ = [
-    'binlist',
-    'numVals',
-    'perturbShape',
-    'chunk_shape_3D'
-]
+__all__ = ["binlist", "numVals", "perturbShape", "chunk_shape_3D"]
 
 
 def binlist(n, width=0):
@@ -37,7 +32,7 @@ def numVals(shape):
     shape : sequence of ints
         list of variable dimension sizes
     """
-    if(len(shape) == 0):
+    if len(shape) == 0:
         return 1
     return reduce(operator.mul, shape)
 
@@ -84,18 +79,19 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
 
     rank = 3
     chunkVals = chunkSize / float(valSize)  # ideal number of values in a chunk
-    numChunks = varShape[0]*varShape[1]*varShape[2] / \
-        chunkVals  # ideal number of chunks
+    numChunks = (
+        varShape[0] * varShape[1] * varShape[2] / chunkVals
+    )  # ideal number of chunks
     axisChunks = numChunks ** 0.25  # ideal number of chunks along each 2D axis
     cFloor = []  # will be first estimate of good chunk shape
     # cFloor  = [varShape[0] // axisChunks**2, varShape[1] // axisChunks, varShape[2] // axisChunks]
     # except that each chunk shape dimension must be at least 1
     # chunkDim = max(1.0, varShape[0] // axisChunks**2)
-    if varShape[0] / axisChunks**2 < 1.0:
+    if varShape[0] / axisChunks ** 2 < 1.0:
         chunkDim = 1.0
-        axisChunks = axisChunks / math.sqrt(varShape[0]/axisChunks**2)
+        axisChunks = axisChunks / math.sqrt(varShape[0] / axisChunks ** 2)
     else:
-        chunkDim = varShape[0] // axisChunks**2
+        chunkDim = varShape[0] // axisChunks ** 2
     cFloor.append(chunkDim)
     prod = 1.0  # factor to increase other dims if some must be increased to 1.0
     for ii in range(1, rank):
@@ -105,7 +101,7 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
         if varShape[ii] / axisChunks < 1.0:
             chunkDim = 1.0
         else:
-            chunkDim = (prod*varShape[ii]) // axisChunks
+            chunkDim = (prod * varShape[ii]) // axisChunks
         cFloor.append(chunkDim)
 
     # cFloor is typically too small, (numVals(cFloor) < chunkSize)
@@ -119,7 +115,7 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
     cBest = cFloor
     for ii in range(8):
         # cCand = map(sum,zip(cFloor, binlist(i, rank)))
-        cCand = (perturbShape(cFloor, ii))
+        cCand = perturbShape(cFloor, ii)
         thisChunkSize = valSize * numVals(cCand)
         if bestChunkSize < thisChunkSize <= chunkSize:
             bestChunkSize = thisChunkSize

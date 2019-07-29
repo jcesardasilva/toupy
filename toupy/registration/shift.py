@@ -9,15 +9,16 @@ from scipy.ndimage import interpolation
 from ..utils import deprecated, switch
 from ..utils import fastfftn, fastifftn, padfft
 
-__all__ = ['ShiftFunc']
+__all__ = ["ShiftFunc"]
 
 
 class Variables(object):
     """
     Auxiliary class to initialize some variables
     """
-    shift_method = 'linear'
-    padmod = 'reflect'
+
+    shift_method = "linear"
+    padmod = "reflect"
     complexoutput = False
     splineorder = 3
 
@@ -29,17 +30,17 @@ class ShiftFunc(Variables):
 
     def __init__(self, **params):
         super().__init__()
-        self.shift_method = params['shiftmeth']
-        if self.shift_method == 'linear':
+        self.shift_method = params["shiftmeth"]
+        if self.shift_method == "linear":
             self.shiftmeth = self.shift_linear
-        elif self.shift_method == 'fourier':
+        elif self.shift_method == "fourier":
             self.shiftmeth = self.shift_fft
-            self.padmode = 'reflect'
+            self.padmode = "reflect"
             self.complexoutput = False
-        elif self.shift_method == 'spline':
+        elif self.shift_method == "spline":
             self.shiftmeth = self.shift_spline_wrap
         else:
-            raise ValueError('Unknown shift method')
+            raise ValueError("Unknown shift method")
 
     def __call__(self, *args):  # input_array,shift):
         """
@@ -61,7 +62,7 @@ class ShiftFunc(Variables):
         if len(args) == 3:
             padmode = args[2]
         else:
-            self.padmode = 'reflect'
+            self.padmode = "reflect"
 
         if len(args) == 4:
             complexoutput = args[3]
@@ -73,7 +74,7 @@ class ShiftFunc(Variables):
         else:
             self.ndim = self.input_array.ndim
             if self.ndim > 2:
-                raise ValueError('Only implemented for 1D and 2D arrays')
+                raise ValueError("Only implemented for 1D and 2D arrays")
             self.n = self.input_array.shape
             return self.shiftmeth(self.input_array, self.shift)
 
@@ -103,8 +104,7 @@ class ShiftFunc(Variables):
             output_array = np.roll(input_array, -shift)
         if input_array.ndim == 2:
             rows, cols = shift
-            output_array = np.roll(
-                np.roll(input_array, -rows, axis=0), -cols, axis=1)
+            output_array = np.roll(np.roll(input_array, -rows, axis=0), -cols, axis=1)
         return output_array
 
     def shift_linear(self, input_array, shift):
@@ -131,20 +131,28 @@ class ShiftFunc(Variables):
         output_array = self._shift_pseudo_linear(input_array, shiftfloor)
 
         # Subpixel (bilinear)
-        tau = shift-shiftfloor
+        tau = shift - shiftfloor
 
         if np.count_nonzero(tau) is not 0:
             # Subpixel (bilinear)
             if input_array.ndim == 1:
                 taux = tau
-                output_array = output_array*(1-taux) +\
-                    self._shift_pseudo_linear(output_array, 1)*taux
+                output_array = (
+                    output_array * (1 - taux)
+                    + self._shift_pseudo_linear(output_array, 1) * taux
+                )
             elif input_array.ndim == 2:
                 tauy, taux = tau
-                output_array = output_array*(1-tauy)*(1-taux) + \
-                    self._shift_pseudo_linear(output_array, (1, 0))*tauy*(1-taux) + \
-                    self._shift_pseudo_linear(output_array, (0, 1))*(1-tauy)*taux + \
-                    self._shift_pseudo_linear(output_array, (1, 1))*tauy*taux
+                output_array = (
+                    output_array * (1 - tauy) * (1 - taux)
+                    + self._shift_pseudo_linear(output_array, (1, 0))
+                    * tauy
+                    * (1 - taux)
+                    + self._shift_pseudo_linear(output_array, (0, 1))
+                    * (1 - tauy)
+                    * taux
+                    + self._shift_pseudo_linear(output_array, (1, 1)) * tauy * taux
+                )
         return output_array
 
     def shift_fft(self, input_array, shift):
@@ -174,14 +182,14 @@ class ShiftFunc(Variables):
         fftw_input_array = fastfftn(pad_array)  # forward FFT
         if input_array.ndim == 1:  # 1D array case
             shiftr = shift
-            H = np.exp(1j*2*np.pi*((shiftr*N)))
-            output_array = fastifftn((fftw_input_array)*H)[:ni[0]]
+            H = np.exp(1j * 2 * np.pi * ((shiftr * N)))
+            output_array = fastifftn((fftw_input_array) * H)[: ni[0]]
             # ~ output_array = fastifftn((fftw_input_array)*H)[padw:-padw]
         elif input_array.ndim == 2:  # 2D array case
             Nc, Nr = N  # reverted order to be compatible with meshgrid output
             shift_rows, shift_cols = shift
-            H = np.exp(1j*2*np.pi*((shift_rows*Nr)+(shift_cols*Nc)))
-            output_array = fastifftn((fftw_input_array)*H)[:ni[0], :ni[1]]
+            H = np.exp(1j * 2 * np.pi * ((shift_rows * Nr) + (shift_cols * Nc)))
+            output_array = fastifftn((fftw_input_array) * H)[: ni[0], : ni[1]]
             # ~ output_array = fastifftn((fftw_input_array)*H)[padw[0]:-padw[0],padw[1]:-padw[1]]
         if not self.complexoutput:
             output_array = output_array.real  # TODO: this is weird, to be checked
@@ -194,13 +202,18 @@ class ShiftFunc(Variables):
         @author: jdasilva
         """
         if input_array.ndim == 1:
-             # 1D array case
+            # 1D array case
             shift_rows = shift
-            output_array = interpolation.shift(input_array,
-                                               -shift_rows, order=self.splineorder, mode=self.padmode)
+            output_array = interpolation.shift(
+                input_array, -shift_rows, order=self.splineorder, mode=self.padmode
+            )
         elif input_array.ndim == 2:
             # 2D array case
             shift_rows, shift_cols = shift
-            output_array = interpolation.shift(input_array,
-                                               (-shift_rows, -shift_cols), order=self.splineorder, mode=self.padmode)
+            output_array = interpolation.shift(
+                input_array,
+                (-shift_rows, -shift_cols),
+                order=self.splineorder,
+                mode=self.padmode,
+            )
         return output_array

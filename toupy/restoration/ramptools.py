@@ -15,10 +15,7 @@ import numpy as np
 from ..registration.register_translation_fast import register_translation
 from ..utils.funcutils import deprecated
 
-__all__ = [
-    'rmphaseramp',
-    'rmlinearphase',
-    'rmair']
+__all__ = ["rmphaseramp", "rmlinearphase", "rmair"]
 
 
 def rmphaseramp(a, weight=None, return_phaseramp=False):
@@ -58,29 +55,29 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
     useweight = True
     if weight is None:
         useweight = False
-    elif weight == 'abs':
+    elif weight == "abs":
         weight = np.abs(a)
 
-    ph = np.exp(1j*np.angle(a))
+    ph = np.exp(1j * np.angle(a))
     [gx, gy] = np.gradient(ph)
-    gx = -np.real(1j*gx/ph)
-    gy = -np.real(1j*gy/ph)
+    gx = -np.real(1j * gx / ph)
+    gy = -np.real(1j * gy / ph)
 
     if useweight:
         nrm = weight.sum()
-        agx = (gx*weight).sum() / nrm
-        agy = (gy*weight).sum() / nrm
+        agx = (gx * weight).sum() / nrm
+        agy = (gy * weight).sum() / nrm
     else:
         agx = gx.mean()
         agy = gy.mean()
 
     (xx, yy) = np.indices(a.shape)
-    p = np.exp(-1j*(agx*xx + agy*yy))
+    p = np.exp(-1j * (agx * xx + agy * yy))
 
     if return_phaseramp:
-        return a*p, p
+        return a * p, p
     else:
-        return a*p
+        return a * p
 
 
 def rmlinearphase(image, mask):
@@ -101,24 +98,24 @@ def rmlinearphase(image, mask):
         Linear ramp corrected image
     """
 
-    ph = np.exp(1j*np.angle(image))
+    ph = np.exp(1j * np.angle(image))
     [gx, gy] = np.gradient(ph)
-    gx = -np.real(1j*gx/ph)
-    gy = -np.real(1j*gy/ph)
+    gx = -np.real(1j * gx / ph)
+    gy = -np.real(1j * gy / ph)
 
     nrm = mask.sum()
-    agx = (gx*mask).sum() / nrm
-    agy = (gy*mask).sum() / nrm
+    agx = (gx * mask).sum() / nrm
+    agy = (gy * mask).sum() / nrm
 
     (xx, yy) = np.indices(image.shape)
-    p = np.exp(-1j*(agx*xx + agy*yy))  # ramp
-    ph_corr = ph*p  # correcting ramp
+    p = np.exp(-1j * (agx * xx + agy * yy))  # ramp
+    ph_corr = ph * p  # correcting ramp
     # taking the mask into account
-    ph_corr *= np.conj((ph_corr*mask).sum() / nrm)
+    ph_corr *= np.conj((ph_corr * mask).sum() / nrm)
 
     # applying to the image
-    im_output = np.abs(image)*ph_corr
-    ph_err = (mask*np.angle(ph_corr)**2).sum() / nrm
+    im_output = np.abs(image) * ph_corr
+    ph_err = (mask * np.angle(ph_corr) ** 2).sum() / nrm
 
     return im_output  # , ph_err
 
@@ -141,23 +138,24 @@ def remove_linearphase_old(image, mask, upsamp):
     coherent diffractive imaging projections," Opt. Express 19, 21345-21357 (2011)
     """
     p0 = time.time()
-    shift, error, diffphase = register_translation(np.fft.ifftshift(
-        mask*np.abs(image)), np.fft.ifftshift(mask*image), upsamp)
-    #shift, error, diffphase = register_translation(mask*np.abs(image),mask*image,upsamp)
+    shift, error, diffphase = register_translation(
+        np.fft.ifftshift(mask * np.abs(image)), np.fft.ifftshift(mask * image), upsamp
+    )
+    # shift, error, diffphase = register_translation(mask*np.abs(image),mask*image,upsamp)
     if shift[0] != 0 or shift[1] != 0:
         nr, nc = image.shape
-        ar = np.arange(-np.floor(nr/2), np.ceil(nr/2))
-        ac = np.arange(-np.floor(nc/2), np.ceil(nc/2))
+        ar = np.arange(-np.floor(nr / 2), np.ceil(nr / 2))
+        ac = np.arange(-np.floor(nc / 2), np.ceil(nc / 2))
         # ~ Nr,Nc = fftfreq(nr),fftfreq(nc)
-        #Nr,Nc = np.fft.ifftshift(fftfreq(nr)),np.fft.ifftshift(fftfreq(nc))
+        # Nr,Nc = np.fft.ifftshift(fftfreq(nr)),np.fft.ifftshift(fftfreq(nc))
         # ~ Nc,Nr = np.meshgrid(Nc,Nr)
         Nc, Nr = np.meshgrid(ac, ar)  # FFT frequencies
-        image *= np.exp(1j*2*np.pi*(-shift[0]*Nr/nr-shift[1]*Nc/nc))
+        image *= np.exp(1j * 2 * np.pi * (-shift[0] * Nr / nr - shift[1] * Nc / nc))
 
-    image *= np.exp(1j*diffphase)
+    image *= np.exp(1j * diffphase)
     print("shifts: [{} , {}]".format(shift[0], shift[1]))
     print("Phase difference: {}".format(diffphase))
-    print('Time elapsed: {} s'.format(time.time()-p0))
+    print("Time elapsed: {} s".format(time.time() - p0))
     return image  # *np.exp(1j*diffphase)
 
 
@@ -178,6 +176,6 @@ def rmair(image, mask):
     normalizedimage : ndarray
         Image normalized by the air values
     """
-    norm_val = np.sum(mask*image)/mask.sum()
+    norm_val = np.sum(mask * image) / mask.sum()
     print("Normalization value: {}".format(norm_val))
-    return image/norm_val
+    return image / norm_val
