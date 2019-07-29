@@ -560,9 +560,10 @@ class SaveData(PathName, Variables):
                 'projections/stack', shape=(nprojs, nr, nc), dtype=array_dtype, chunks=chunk_size)
             p0 = time.time()
             for ii in range(nprojs):
-                print(' Projection: {} out of {}'.format(ii+1, nprojs), end='\r')
+                strbar = "Projection: {} out of {}".format(ii+1, nprojs)
+                #~ print(' Projection: {} out of {}'.format(ii+1, nprojs), end='\r')
                 dset[ii:ii+1, :, :] = stack_projs[ii]  # avoid fancy slicing
-                progbar(ii+1, nprojs)
+                progbar(ii+1, nprojs,strbar)
             print('\r')
             if masks is not None:
                 fid.create_dataset('masks/stack', data=masks,
@@ -795,10 +796,11 @@ class LoadData(PathName, Variables):
                 print('Loading. This takes time, please wait...')
                 p0 = time.time()
                 for ii in range(nprojs):
-                    print(' Projection: {} out of {}'.format(
-                        ii+1, nprojs), end='\r')
+                    strbar = "Projection: {} out of {}".format(ii+1, nprojs)
+                    #~ print(' Projection: {} out of {}'.format(
+                        #~ ii+1, nprojs), end='\r')
                     stack_projs[ii, :, :] = dset[ii, :, :]
-                    progbar(ii+1, nprojs)
+                    progbar(ii+1, nprojs, strbar)
                 print('\r')
                 print('Time elapsed = {:.03f} s'.format(time.time()-p0))
         #~ print('\r')
@@ -900,9 +902,10 @@ class SaveTomogram(SaveData):
             print('Saving tomographic slices. This takes time, please wait...')
             p0 = time.time()
             for ii in range(nslices):
-                print(' Slice: {} out of {}'.format(ii+1, nslices), end='\r')
+                strbar = "Slice: {} out of {}".format(ii+1, nslices)
+                #~ print(' Slice: {} out of {}'.format(ii+1, nslices), end='\r')
                 dset[ii, :, :] = tomogram[ii]
-                progbar(ii+1, nslices)
+                progbar(ii+1, nslices,strbar)
             #~ print('\r')
             print('Done. Time elapsed = {:.03f} s'.format(time.time()-p0))
         print('Tomogram saved to file {}'.format(h5name))
@@ -965,9 +968,10 @@ class LoadTomogram(LoadData):
             tomogram = np.empty(dset.shape)
             # ~ tomogram = ff[u'tomogram/slices'][()]
             for ii in range(nslices):
-                print(' Slice: {} out of {}'.format(ii+1, nslices), end='\r')
+                strbar = "Slice: {} out of {}".format(ii+1, nslices)
+                #~ print(' Slice: {} out of {}'.format(ii+1, nslices), end='\r')
                 tomogram[ii:ii+1, :, :] = dset[ii, :, :]
-                progbar(ii+1, nslices)
+                progbar(ii+1, nslices,strbar)
             #~ print('\r')
         print('Tomogram loaded from file {}'.format(h5name))
         print('Time elapsed = {:.03f} s'.format(time.time()-p0))

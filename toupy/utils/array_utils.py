@@ -14,8 +14,24 @@ __all__ = ['round_to_even',
            'fract_hanning_pad',
            'mask_borders',
            'padarray_bothsides',
-           'mask_borders']
+           'mask_borders',
+           'replace_bad']
 
+def replace_bad(input_stack,temporary = True, list_bad = []):
+    """
+    correcting bad projections before unwrapping
+    """
+    if list_bad == []:
+        raise ValueError('List of bad projections is empty')
+    else:
+        for ii in list_bad:
+            print("Temporary replacement of bad projection: {}".format(ii))
+            if temporary:
+                input_stack[ii] = input_stack[ii - 1]
+            else:
+                input_stack[ii] = (input_stack[ii - 1] + input_stack[ii + 1])/2
+    return input_stack
+        
 
 def round_to_even(x):
     return int(2*np.floor(x/2))

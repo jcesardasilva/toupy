@@ -133,7 +133,7 @@ if __name__ == "__main__":
         raise SystemExit("Unrecognized answer")
 
     # correcting bad projections after unwrapping
-    if params[u"correct_bad"]:
+    if params["correct_bad"]:
         a = input("Do you want to correct bad projections?([y]/n)").lower()
         if str(a) == "" or str(a) == "y":
             for ii in params[u"bad_projs"]:
@@ -148,8 +148,7 @@ if __name__ == "__main__":
         animated_image(aligned, limrow, limcol)
 
     # save vertically aligned_projections
-    S = SaveData(**inputparams)
-    S("vertical_alignment.h5", aligned, theta, shiftstack)
+    SaveData.save("vertical_alignment.h5", aligned, theta, shiftstack **params)
     # next step
-    print("You should run " "projections_derivatives.py" " now")
+    print("You should run \"projections_derivatives.py\" now")
     # =============================================================================#

@@ -88,10 +88,14 @@ def checkhostname(func):
     return new_func
 
 
-def progbar(curr, total):
+def progbar(curr, total, textstr = ''):
     termwidth, termheight = shutil.get_terminal_size()
     full_progbar = int(math.ceil(termwidth/2))
     frac = curr/total
     filled_progbar = round(frac*full_progbar)
-    print('\r', '#'*filled_progbar + '-'*(full_progbar -
-                                          filled_progbar), '[{:>7.2%}]'.format(frac), end='')
+    textbar = '#'*filled_progbar + '-'*(full_progbar -
+                                          filled_progbar)
+    textperc = '[{:>7.2%}]'.format(frac)
+    print('\r',textbar, textperc,textstr,end='')
+    #~ print('\r', '#'*filled_progbar + '-'*(full_progbar -
+                                          #~ filled_progbar), '[{:>7.2%}]'.format(frac), end='')
