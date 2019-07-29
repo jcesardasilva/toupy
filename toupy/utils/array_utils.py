@@ -13,7 +13,8 @@ __all__ = ['round_to_even',
            'fract_hanning',
            'fract_hanning_pad',
            'mask_borders',
-           'padarray_bothsides']
+           'padarray_bothsides',
+           'mask_borders']
 
 
 def round_to_even(x):
