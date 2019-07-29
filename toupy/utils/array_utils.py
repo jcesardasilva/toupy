@@ -17,10 +17,34 @@ __all__ = [
     "padarray_bothsides",
     "mask_borders",
     "replace_bad",
+    "sort_array",
 ]
 
+def sort_array(input_array,ref_array):
+    """
+    Sort array based on another array
+    
+    Parameters
+    ----------
+    input_array : ndarray
+        Array to be sorted
+    ref_array : ndarray
+        Array on which the sorting will be based
 
-def replace_bad(input_stack, temporary=True, list_bad=[]):
+    Returns
+    -------
+    sorted_input_array : ndarray
+        Sorted input array
+    sorted_ref_array : ndarray
+        Sorted reference array
+    """
+    idxsort = np.argsort(ref_array)
+    sorted_ref_array = ref_array[idxsort]
+    sorted_input_array = input_array[idxsort]
+
+    return sorted_input_array, sorted_ref_array
+    
+def replace_bad(input_stack, list_bad=[], temporary=False):
     """
     correcting bad projections before unwrapping
     """

@@ -147,8 +147,8 @@ class PathName:
         """
         Search for projection given the filenames
         """
-        print(u"Path: {}".format(self.dirname))
-        print(u"First projection file: {}".format(self.filename))
+        print("Path: {}".format(self.dirname))
+        print("First projection file: {}".format(self.filename))
         scan_wcard = os.path.join(
             re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
             self.metadatafilewcard() + "_ML" + self.fileext,
@@ -821,11 +821,11 @@ class LoadData(PathName, Variables):
                 print("\b\b Done")
                 print("Loading. This takes time, please wait...")
                 for ii in [projs]:
-                    print(" Projection: {} out of {}".format(ii + 1, nprojs), end="\r")
+                    strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
                     stack_projs[ii, roi[2] : roi[3], roi[4] : roi[5]] = dset[
                         ii, roi[2] : roi[3], roi[4] : roi[5]
                     ]
-                    progbar(ii + 1, nprojs)
+                    progbar(ii + 1, nprojs, strbar)
             else:
                 nprojs = dset.shape[0]
                 print("\rInitializing array...", end="")
@@ -835,8 +835,6 @@ class LoadData(PathName, Variables):
                 p0 = time.time()
                 for ii in range(nprojs):
                     strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
-                    # ~ print(' Projection: {} out of {}'.format(
-                    # ~ ii+1, nprojs), end='\r')
                     stack_projs[ii, :, :] = dset[ii, :, :]
                     progbar(ii + 1, nprojs, strbar)
                 print("\r")

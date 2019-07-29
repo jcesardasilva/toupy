@@ -102,5 +102,3 @@ def progbar(curr, total, textstr=""):
     textbar = "#" * filled_progbar + "-" * (full_progbar - filled_progbar)
     textperc = "[{:>7.2%}]".format(frac)
     print("\r", textbar, textperc, textstr, end="")
-    # ~ print('\r', '#'*filled_progbar + '-'*(full_progbar -
-    # ~ filled_progbar), '[{:>7.2%}]'.format(frac), end='')

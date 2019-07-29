@@ -1,124 +1,81 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Jun 16 09:44:54 2016
 
-@author: jdasilva
-"""
 # standard libraries imports
-from registration_utils import alignprojections_horizontal, compute_aligned_stack
-from registration_utils import radtap, shift_fft, shift_linear
-from iradon import mod_iradon, mod_iradon2
-from io_utils import LoadData, SaveData
-from io_utils import create_paramsh5, load_paramsh5
-from io_utils import checkhostname
-import scipy.ndimage as snd
-import numpy as np
-import matplotlib.pyplot as plt
 import re
 import sys
 import socket
 
-# quick fix to avoid ImportError: dlopen: cannot load any more object with static TLS
-# not used when not using GPUs
-if re.search("gpu", socket.gethostname()) or re.search("gpid16a", socket.gethostname()):
-    import pyfftw  # has to be imported first
+### quick fix to avoid ImportError: dlopen: cannot load any more object with static TLS
+### not used when not using GPUs
+if re.search('gpu', socket.gethostname()) or re.search('gpid16a', socket.gethostname()):
+    import pyfftw # has to be imported first
     from skimage.transform import radon
 ###
 
-# third packages
-
 # local packages
-
-# -------------------------------------------------------
-# still keep this block, but it should disappear soon
-if sys.version_info < (3, 0):
-    input = raw_input
-    range = xrange
-# -------------------------------------------------------
+from toupy.io import LoadData, SaveData
+from toupy.utils import sort_array, replace_bad
+from iradon import mod_iradon, mod_iradon2
+from registration_utils import radtap, shift_fft, shift_linear
+from registration_utils import alignprojections_horizontal, compute_aligned_stack
 
 # initializing dictionaries
 params = dict()
 
-# Horizontal alignment using tomographic consistency
+# Edit section
 # =========================
-params[u"samplename"] = u"v97_h_nfptomo_15nm"
-params[u"phaseonly"] = True
-params[u"slice_num"] = 700  # Choose the slice
-params[u"filtertype"] = u"hann"  # Filter to use for FBP
-params[u"filtertomo"] = 0.2  # Frequency cutoff
-# -20 # initial guess of the offset of the axis of rotation
-params[u"rot_axis_offset"] = 0
-params[u"pixtol"] = 0.01  # Tolerance of registration in pixels
-params[u"disp"] = 2  # = 0 no display, =1 only final display, >1 every iteration
-params[u"expshift"] = True  # Shift in phasor space
-params[u"interpmeth"] = u"sinc"  # 'sinc' or 'linear' better for noise
-params[u"cliplow"] = None  # clip air threshold
-params[u"cliphigh"] = None  # clip on sample threshold
-params[u"maxit"] = 20  # max of iterations
-params[u"circle"] = True
-params[u"sinohigh"] = None
-params[u"sinolow"] = None
-params[u"derivatives"] = True
-params[u"opencl"] = True
-params[u"autosave"] = False
-params[u"apply_alignement"] = True
-params[u"load_previous_shiftstack"] = False
-params[u"correct_bad"] = False
-params[u"bad_projs"] = []  # starting at zero
-params[u"rm_extra_theta"] = False
-# =========================
+params["samplename"] = "v97_v_nfptomo2_15nm"
+params["phaseonly"] = True
+params["slicenum"] = 550  # Choose the slice
+params["filtertype"] = "hann"  # Filter to use for FBP
+params["filtertomo"] = 0.2  # Frequency cutoff
+params["circle"] = True
+# initial guess of the offset of the axis of rotation
+params["rot_axis_offset"] = 0
+params["pixtol"] = 0.01 # Tolerance of registration in pixels
+params["shiftmeth"] = "fourier" # 'sinc' or 'linear' better for noise
+params["maxit"] = 20 # max of iterations
+params["cliplow"] = None # clip air threshold
+params["cliphigh"] = None# clip on sample threshold
+params["sinohigh"] = None
+params["sinolow"] = None
+params["derivatives"] = True
+params["opencl"] = True
+params["autosave"]= False
+params["apply_alignement"] = True
+params["load_previous_shiftstack"] = False
+params["correct_bad"] = True
+params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
+#=========================
 
 # =============================================================================#
 # Don't edit below this line, please                                          #
 # =============================================================================#
-if __name__ == "__main__":
-    # load the aligned derivative projection
-    host_machine = checkhostname()
+if __name__ == '__main__':
+    # loading the data
+    aligned_diff, theta, shiftstack, params = LoadData.load(
+        "aligned_derivatives.h5", **params
+    )
 
-    # auxiliary dictionary to avoid overwriting of variables
-    inputparams = dict()
+    # to start at zero
+    theta -= theta.min()
 
-    # loading parameters from h5file
-    kwargs = load_paramsh5(**params)
-
-    # auxiliary dictionary to avoid overwriting of variables
-    inputparams = dict()
-    inputparams.update(kwargs)  # add/update with new values
-
-    # load the reconstructed phase projections
-    L = LoadData(**inputparams)
-    aligned_diff, theta, shiftstack, outkwargs = L("aligned_derivatives.h5")
-    theta -= theta[0]  # to start at zero
-    inputparams.update(outkwargs)  # updating the params
-
-    # updating parameter h5 file
-    create_paramsh5(**inputparams)
-
-    # ~ # sorting theta
-    # ~ idxsort = np.argsort(thetaunsort)
-    # ~ theta = thetaunsort[idxsort]
-    # ~ aligned_diff = aligned_diff[idxsort]
-
+    # if you want to sort theta, uncomment line below:
+    # aligned_diff, theta = sort_array(aligned_diff, theta)
+    
     # initializing shiftstack
     if params["load_previous_shiftstack"]:
-        shiftstack = L.load_shiftstack("aligned_projections.h5", **inputparams)
-        # because deltaslice need a different shape
-        deltaslice = prev_shiftstack[1][np.newaxis, :]
-        print("Using previous estimate of deltaslice")
+        shiftstack = LoadData.loadshiftstack("aligned_projections.h5", **inputparams)
+        print("Using previous estimate of shiftstack")
     else:
-        deltaslice = (
-            np.zeros((1, aligned_diff.shape[0]), dtype=np.float16)
-            - params["rot_axis_offset"]
-        )
+        shiftstack[1] = np.zeros((1, aligned_diff.shape[0]))+params['rot_axis_offset']
 
     # calculate the sinogram
-    sinogram = np.transpose(aligned_diff[:, params["slice_num"], :]).copy()
+    sinogram = np.transpose(aligned_diff[:,params["slicenum"],:]).copy()
 
     # actual alignement
-    deltaslice, aligned_sino = alignprojections_horizontal(
-        sinogram, theta + 0.01, deltaslice, params
-    )
+    shiftstack,aligned_sino = alignprojections_horizontal(sinogram,theta,shiftstack,**params)
 
     # alignement refinement
     while True:
@@ -126,46 +83,38 @@ if __name__ == "__main__":
         if str(a) == "" or str(a) == "y":
             a1 = input("Do you want to use the same parameters? ([y]/n): ").lower()
             if a1 == "n":
-                a1 = input("Slice number (e.g. {}): ".format(params["slice_num"]))
+                a1 = input("Slice number (e.g. {}): ".format(params["slicenum"]))
                 if a1 != "":
                     params["slice_num"] = eval(a1)
-                a2 = input("Pixel tolerance (e.g. {}): ".format(params[u"pixtol"]))
+                a2 = input("Pixel tolerance (e.g. {}): ".format(params["pixtol"]))
                 if a2 != "":
                     params["pixtol"] = eval(a2)
                 a3 = input(
-                    "Filter Tomo cutoff (e.g. {}): ".format(params[u"filtertomo"])
+                    "Filter Tomo cutoff (e.g. {}): ".format(params["filtertomo"])
                 )
                 if a3 != "":
                     params["filtertomo"] = eval(a3)
-                a4 = input("Number of iterations (e.g. {}): ".format(params[u"maxit"]))
+                a4 = input("Number of iterations (e.g. {}): ".format(params["maxit"]))
                 if a4 != "":
                     params["maxit"] = eval(a4)
-                a5 = input("Apply a circle (e.g. {}): ".format(params[u"circle"]))
+                a5 = input("Apply a circle (e.g. {}): ".format(params["circle"]))
                 if a5 != "":
                     params["circle"] = eval(a5)
-                a6 = input("Clipping high (e.g. {}): ".format(params[u"cliphigh"]))
+                a6 = input("Clipping high (e.g. {}): ".format(params["cliphigh"]))
                 if a6 != "":
-                    params[u"cliphigh"] = eval(a6)
+                    params["cliphigh"] = eval(a6)
             plt.close("all")
 
             # correcting bad projections
-            if params[u"correct_bad"]:
-                a = input("Do you want to correct bad projections?([y]/n)").lower()
-                if str(a) == "" or str(a) == "y":
-                    for ii in params[u"bad_projs"]:
-                        print("Correcting bad projection (starts at 0): {}".format(ii))
-                        aligned_diff[ii] = (
-                            aligned_diff[ii - 1] + aligned_diff[ii + 1]
-                        ) / 2  # this is better
+            if params["correct_bad"]:
+                aligned_diff = replace_bad(aligned_diff, list_bad=params["bad_projs"], temporary=False)
 
             # calculate again the sinogram with corrected bad projections
             sinogram = np.transpose(aligned_diff[:, params["slice_num"], :]).copy()
 
             # actual alignment
-            print("Starting the refinement of the alignment")
-            deltaslice, aligned_sino = alignprojections_horizontal(
-                sinogram, theta + 0.01, deltaslice, params
-            )
+            print('Starting the refinement of the alignment')
+            shiftstack,aligned_sino = alignprojections_horizontal(sinogram,theta,shiftstack,**params)
 
         elif str(a) == "n":
             print("No further refinement done")
@@ -173,8 +122,6 @@ if __name__ == "__main__":
         else:
             raise SystemExit("Unrecognized answer")
 
-    # updating shiftstack
-    shiftstack[1] = deltaslice[0].copy()
 
     a = input(
         "Do you want to reconstruct the slice with different parameters? ([y]/n) :"

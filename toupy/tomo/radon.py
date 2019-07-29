@@ -6,7 +6,7 @@ import numpy as np
 from silx.opencl.projection import Projection
 from skimage.transform import radon
 
-__all__ = ["radonSilx", "FBP_projector"]
+__all__ = ["radonSilx", "projector"]
 
 P = None
 

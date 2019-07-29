@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 from silx.opencl.backprojection import Backprojection
 from silx import version
 
-__all__ = ["mod_iradon", "mod_iradonSilx", "compute_filter"]
+__all__ = ["mod_iradon", "mod_iradonSilx", "compute_filter","backprojector"]
 
 
 def compute_filter(nbins, filter_type="ram-lak", derivative=True, freqcutoff=1):
@@ -54,26 +54,6 @@ def compute_filter(nbins, filter_type="ram-lak", derivative=True, freqcutoff=1):
         fourier_filter = np.sign(f) * fourier_filter / (1j * np.pi)
 
     return fourier_filter
-
-
-def gradient_axis(x, axis=-1):
-    """
-    Compute the gradient (keeping dimensions) along one dimension only.
-    By default, the axis is -1 (diff along columns).
-    """
-    t1 = np.empty_like(x)
-    t2 = np.empty_like(x)
-    if axis != 0:
-        t1[:, :-1] = x[:, 1:]
-        t1[:, -1] = 0
-        t2[:, :-1] = x[:, :-1]
-        t2[:, -1] = 0
-    else:
-        t1[:-1, :] = x[1:, :]
-        t1[-1, :] = 0
-        t2[:-1, :] = x[:-1, :]
-        t2[-1, :] = 0
-    return t1 - t2
 
 
 def mod_iradon(
