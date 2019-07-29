@@ -7,7 +7,7 @@ from skimage.restoration import unwrap_phase
 
 # local packages
 from ..utils.plot_utils import _plotdelimiters
-from .utils import progbar
+from ..utils import progbar
 
 __all__ = [
     "wraptopi",
@@ -199,7 +199,7 @@ def chooseregiontounwrap(stack_array):
         plt.show(block=False)
         print(
             "The array dimensions are {} x {}".format(
-                stack_phasecorr[0].shape[0], stack_phasecorr[0].shape[1]
+                stack_array[0].shape[0], stack_array[0].shape[1]
             )
         )
         print("Please, choose an area for the unwrapping:")
@@ -207,14 +207,14 @@ def chooseregiontounwrap(stack_array):
         while True:
             deltax = eval(input("From edge of region to edge of image in x: "))
             if isinstance(deltax, int):
-                rx = (deltax, stack_phasecorr.shape[2] - deltax - 1)
+                rx = (deltax, stack_array.shape[2] - deltax)
                 break
             else:
                 print("Wrong typing. Try it again.")
         while True:
             ry = eval(input("Range in y (top, bottom): "))
             if isinstance(ry, tuple):
-                # ry = range(ry[0],ry[-1])
+                ry = range(ry[0],ry[-1])
                 break
             else:
                 print("Wrong typing. Try it again.")
@@ -322,16 +322,10 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     # main loop for the unwrapping
     nprojs = stack_phasecorr.shape[0]
     for ii in range(nprojs):
-        # ~ print(" Unwrapping projection: {}".format(ii+1),end="\r")
         strbar = "Unwrapping projection: {}".format(ii + 1)
         img_unwrap = _unwrapping_phase(stack_phasecorr[ii], rx, ry, airpix)
         stack_unwrap[ii] = img_unwrap  # update the stack
         progbar(ii + 1, nprojs, strbar)
-        # displaying
-        # ~ im1.set_data(img_unwrap)
-        # ~ ax1.set_title('Unwrapped Projection {}'.format(ii))
-        # ~ plt.pause(0.001)
-        # ~ fig.show()
     print("\r")
 
     return stack_unwrap

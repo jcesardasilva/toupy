@@ -459,7 +459,7 @@ class RegisterPlot:
 
 
 @interativesession
-def iterative_show(stack_array, limrow, limcol, airpixel=[], onlyroi=False):
+def iterative_show(stack_array, limrow=[], limcol=[], airpixel=[], onlyroi=False, vmin=None, vmax=None):
     """
     Iterative plot of the images
     """
@@ -470,14 +470,20 @@ def iterative_show(stack_array, limrow, limcol, airpixel=[], onlyroi=False):
     else:
         slarray0 = np.s_[:, :]
         slarrayii = np.s_[:, :]
+        delimiters = True
+
+    if limrow == [] or limrow == None:
+        delimiters = False
+    if limcol == [] or limcol == None:
+        delimiters = False
 
     # display
     plt.close("all")
     plt.ion()
     fig = plt.figure(4)  # ,figsize=(14,6))
     ax1 = fig.add_subplot(111)
-    im1 = ax1.imshow(stack_array[0][slarray0], cmap="bone")
-    if not onlyroi:
+    im1 = ax1.imshow(stack_array[0][slarray0], cmap="bone",vmin=vmin,vmax=vmax)
+    if delimiters:
         ax1 = _plotdelimiters(ax1, limrow, limcol, airpixel)
     ax1.set_title("Projection: {}".format(1))
     fig.show()
@@ -525,7 +531,7 @@ def _animated_image(stack_array, *args):
         imgi = stack_array[ii, limrow[0] : limrow[-1], limcol[0] : limcol[-1]]
         im.set_data(imgi)
         title.set_text("Projection: {}".format(ii + 1))
-        return im, title
+        return im, title,
 
     return fig, updatefig, nproj
 

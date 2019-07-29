@@ -29,6 +29,7 @@ __all__ = [
     "vertical_shift",
     "alignprojections_vertical",
     "alignprojections_horizontal",
+    "estimate_rot_axis",
     "cc_align",
 ]
 
@@ -204,7 +205,7 @@ def vertical_fluctuations(
         # the max_vshift has to be subtracted
         shift_calc = stack_shift[max_vshift:-max_vshift].sum(axis=1)
         # to remove possible bias
-        shift_calc = projectpoly1d(shift_calc, order, 1)
+        shift_calc = projectpoly1d(shift_calc, polyorder, 1)
         vert_fluct[ii] = shift_calc
     return vert_fluct
 
@@ -259,6 +260,21 @@ def vertical_shift(
     shift_calc = projectpoly1d(shift_calc, polyorder, 1)
 
     return shift_calc
+
+
+def _selectROI(stack_shape, **params):
+    """
+    Define the ROI for alignment
+    """
+
+    # defining the boundaries of the area to be used for the alignment
+    deltax = params["deltax"]
+    limcol = (deltax, stack_shape[2] - deltax)  # horizontal
+    limrow = params["limsy"]
+    if limrow == None or limrow == "":
+        limrow = [0, stack_shape[1]]
+
+    return np.asarray(limrow), np.asarray(limcol)
 
 
 def _alignprojections_vertical(
@@ -349,7 +365,7 @@ def _alignprojections_vertical(
     return shiftstack, metric_error
 
 
-def alignprojections_vertical(input_stack, limrow, limcol, shiftstack, **params):
+def alignprojections_vertical(input_stack, shiftstack, **params):
     """
     Vertical alignment of projections using mass fluctuation approach.
     It relies on having air on both sides of the sample (non local tomography).
@@ -390,9 +406,8 @@ def alignprojections_vertical(input_stack, limrow, limcol, shiftstack, **params)
     """
     if not isinstance(params["maxit"], int):
         params["maxit"] = 10
-    if not isinstance(limrow, np.ndarray) or not isinstance(limcol, np.ndarray):
-        limrow = np.asarray(limrow)
-        limcol = np.asarray(limcol)
+
+    limrow, limcol = _selectROI(input_stack.shape, **params)
     lims = (limrow, limcol)
 
     print("\n============================================")
@@ -409,7 +424,7 @@ def alignprojections_vertical(input_stack, limrow, limcol, shiftstack, **params)
         ]  # [1]
         # Correction with mass center
         shiftstack[1] = -centerx.round()
-        # ~ shiftstack[1] -= shiftstack[1].mean().round()
+        shiftstack[1] -= shiftstack[1].mean().round()
         changex = np.max(np.abs(deltaprev[1] - shiftstack[1]))
         print(
             "Maximum correction of center of mass in x = {:.02f} pixels".format(changex)
@@ -584,7 +599,7 @@ def _alignprojections_horizontal(
     return shiftslice, metric_error
 
 
-def alignprojections_horizontal(sinogram, theta, shiftslice, **params):
+def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     """
     Function to align projections. It relies on having already aligned the
     vertical direction. The code aligns using the consistency before and
@@ -594,8 +609,8 @@ def alignprojections_horizontal(sinogram, theta, shiftslice, **params):
     ----------
     sinogram : ndarray
         Sinogram derivative, the second index should be the angle
-    shiftslice : ndarray
-        Row array with initial estimates of positions
+    shiftstack : ndarray
+        Array with initial estimates of positions
     Extra parameters in the dictionary params:
     params['pixtol'] : float
         Tolerance for alignment, which is also used as a search step
@@ -670,6 +685,7 @@ def alignprojections_horizontal(sinogram, theta, shiftslice, **params):
 
     # appropriate keeping of variable
     original_sino = sinogram.copy()
+    shiftslice = np.expand_dims(shiftstack[1],axis=0)
 
     # pad sinogram of derivatives
     # TODO: check if we only need this for derivative (if params['derivatives']:) or not!
@@ -756,6 +772,9 @@ def alignprojections_horizontal(sinogram, theta, shiftslice, **params):
         sinogram, sino_orig, theta, circleROI, shiftslice, metric_error, RP, **params
     )
 
+    # updating shiftstack
+    shiftstack[1] = shiftslice
+    
     # Compute the shifted images
     print("\nComputing aligned images")
     alignedsinogram = compute_aligned_sino(
@@ -785,7 +804,7 @@ def alignprojections_horizontal(sinogram, theta, shiftslice, **params):
     plt.show(block=False)
     plt.pause(0.01)
 
-    return shiftslice, alignedsinogram
+    return shiftstack, alignedsinogram
 
 
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
@@ -1132,6 +1151,67 @@ def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False
 
     return reason
 
+@deprecated
+def _offset_sinogram_old(sinogram,offset):
+    """
+    Shift the sinogram for an initial guess of the rotation axis offset
+    """
+    if np.sign(offset)==+1:#-1:
+        print('Initial guess of the rotation axis offset : {}'.format(offset))
+        sinogram = np.pad(sinogram,((0,2*abs(offset)),(0,0)),'constant',constant_values=0)
+    elif np.sign(offset)==-1:#+1:
+        print('Initial guess of the rotation axis offset : {}'.format(offset))
+        sinogram = np.pad(sinogram,((2*abs(offset),0),(0,0)),'constant',constant_values=0)
+    return sinogram
+
+def _offset_sinogram(sinogram,offset,shift_method='linear'):
+    """
+    Shift the sinogram for an initial guess of the rotation axis offset
+    """
+    S = ShiftFunc(shiftmeth='linear')
+    return S(sinogram, (offset,0))
+
+def estimate_rot_axis(input_array, theta, **params):
+    """
+    Initial estimate of the rotation axis
+    """
+    # Ensuring that theta starts at zero
+    theta -= theta.min()
+    
+    # Inspection of a sinogram and a tomogram
+    slicenum = params['slicenum']
+    rot_axis_offset = params['rot_axis_offset']
+    while True:
+        sinogram = np.transpose(input_array[:,slice_num,:])
+        sinogram = _offset_sinogram2(sinogram,rot_axis_offset)
+        
+        # reconstruction
+        print('Calculating a tomographic slice')
+        p0 = time.time()
+        tomogram = backprojector(sinogram, theta, **params)
+        print('Time elapsed: {} s'.format(time.time()-p0))
+
+        # Display slice:
+        plt.close('all')
+        print("Slice: {}".format(slice_num))
+        fig1 = plt.figure(num=5,figsize=(12,4))
+        ax1 = fig1.add_subplot(121)
+        im1=ax1.imshow(tomogram,cmap=params['colormap'],interpolation='none',vmin=params['cliplow'], vmax=params['cliphigh'] )
+        ax1.set_title('Slice'.format(slice_num))
+        fig1.colorbar(im1)
+        ax2 = fig1.add_subplot(122)
+        im2=ax2.imshow(sinogram,cmap=params['sinocmap'],interpolation='none',vmin=params['sinolow'], vmax=params['sinohigh'] )
+        ax2.axis('tight')
+        ax2.set_title('Sinogram - Slice'.format(slice_num))
+        fig1.colorbar(im2)
+        plt.show(block=False)
+        a = input('Are you happy with the rotation axis?([y]/n)').lower()
+        if a == '' or a =='y':
+            break
+        else:
+            rot_axis_offset = eval(input('Enter new rotation axis estimate: '))
+    print('The initial estimate of the offset of the rotation axis is {}'.format(rot_axis_offset))
+    return rot_axis_offset
 
 @deprecated
 def cc_align(input_stack, limrow, limcol, params):

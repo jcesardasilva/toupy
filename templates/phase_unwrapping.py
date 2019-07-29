@@ -1,13 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Standard library imports
-import time
-
-# third party packages
-import matplotlib.pyplot as plt
-import numpy as np
-
 # local packages
 from toupy.io import LoadData, SaveData
 from toupy.restoration import phaseresidues, chooseregiontounwrap, unwrapping_phase
@@ -38,7 +31,7 @@ if __name__ == "__main__":
 
     # Temporary replacement of bad projections
     if params["correct_bad"]:
-        replace_bad(stack_phasecorr, temporary=True, list_bad=params["bad_projs"])
+        stack_phasecorr = replace_bad(stack_phasecorr, list_bad=params["bad_projs"], temporary=True)
 
     # find the residues and choose region to be unwrapped
     rx, ry, airpix = chooseregiontounwrap(stack_phasecorr)
@@ -56,7 +49,6 @@ if __name__ == "__main__":
     ).lower()
 
     if str(showmovie) == "" or str(showmovie) == "y":
-        plt.close("all")
         iterative_show(stack_unwrap, ry, rx, airpix, onlyroi=False)
 
     # Save the unwrapped phase projections
