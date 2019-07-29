@@ -7,6 +7,7 @@ from skimage.restoration import unwrap_phase
 
 # local packages
 from ..utils.plot_utils import _plotdelimiters
+from .utils import progbar
 
 __all__ = [
     'wraptopi',
@@ -93,7 +94,7 @@ def get_charge(residues):
     resneg = len(negres[0])
 
     nres = respos+resneg
-    print('Found {} residues'.format(nres))
+    print('Found {} residues'.format(nres),end="")
 
     return posres, negres
 
@@ -163,7 +164,7 @@ def phaseresiduesStack(stack_array):
     """
     resmap = 0
     for ii in range(stack_array.shape[0]):
-        print('\rSearching for residues in projection {:>6.0f}'.format(
+        print('\rSearching for residues in projection {:>4.0f} ... '.format(
             ii+1), end="")
         residues, residues_charge = phaseresidues(stack_array[ii])
         resmap += np.abs(residues)
@@ -204,7 +205,7 @@ def chooseregiontounwrap(stack_array):
         while True:
             deltax = eval(input('From edge of region to edge of image in x: '))
             if isinstance(deltax, int):
-                rx = range(1+deltax, stack_phasecorr.shape[2]-deltax)
+                rx = (deltax, stack_phasecorr.shape[2]-deltax-1)
                 break
             else:
                 print('Wrong typing. Try it again.')
@@ -220,7 +221,7 @@ def chooseregiontounwrap(stack_array):
             if isinstance(airpix, tuple):
                 # check if air pixel is inside the image
                 if airpix[0] < rx[0] or airpix[0] > rx[-1] or airpix[1] < ry[0] or airpix[1] > ry[-1]:
-                    print(u'Pixel of air is outside of region of unwrapping')
+                    print('Pixel of air is outside of region of unwrapping')
                     print('Wrong typing. Try it again.')
                 else:
                     break
@@ -243,15 +244,30 @@ def chooseregiontounwrap(stack_array):
     return rx, ry, airpix
 
 
+def _unwrapping_phase(img2unwrap, rx, ry, airpix):
+    """
+    Unwrap the phases of a projection
+    """
+    # select the region to be unwrapped
+    img2wrap_sel = img2unwrap[ry[0]:ry[-1], rx[0]:rx[-1]]
+    # unwrap the region using the algorithm from skimage
+    img2unwrap_sel = unwrap_phase(img2wrap_sel)
+    # update the image in the original array
+    img2unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img2unwrap_sel
+    img2unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img2unwrap_sel - \
+       2 * np.pi*np.round(img2unwrap[airpix[1], airpix[0]]/(2 * np.pi))
+
+    return img2unwrap
+    
+
 def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
+    """
+    Unwrap the phase of the projections in a stack
+    """
     stack_unwrap = np.empty_like(stack_phasecorr)
     # test on first projection
-    img0_unwrap = stack_phasecorr[0]
-    img0_wrap_sel = img0_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]]
-    img0_unwrap_sel = unwrap_phase(img0_wrap_sel)  # skimage
-    img0_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img0_unwrap_sel
-    img0_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img0_unwrap_sel - \
-        2*np.pi*np.round(img0_unwrap[airpix[1], airpix[0]]/(2*np.pi))
+    print("Testing unwrapping on the first projection")
+    img0_unwrap = _unwrapping_phase(stack_phasecorr[0], rx, ry, airpix)
     # displaying
     plt.close('all')
     plt.ion()
@@ -259,11 +275,8 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     ax1 = fig.add_subplot(111)
     im1 = ax1.imshow(stack_phasecorr[0], cmap='bone',
                      vmin=params[u'vmin'], vmax=params[u'vmax'])
-    ax1.plot([rx[0], rx[-1]], [ry[0], ry[0]], 'r-')
-    ax1.plot([rx[0], rx[-1]], [ry[-1], ry[-1]], 'r-')
-    ax1.plot([rx[0], rx[0]], [ry[0], ry[-1]], 'r-')
-    ax1.plot([rx[-1], rx[-1]], [ry[0], ry[-1]], 'r-')
-    ax1.plot(airpix[0], airpix[1], 'ob')
+    # update images with boudaries
+    ax1 = _plotdelimiters(ax1, ry, rx, airpix)
     ax1.axis('tight')
     plt.show(block=False)
     while True:
@@ -284,51 +297,36 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
             params['vmin'] = color_vmin
             params['vmax'] = color_vmax
             print('Using vmin={} and vmax={}'.format(
-                params[u'vmin'], params[u'vmax']))
+                params['vmin'], params['vmax']))
             # displaying the update images
-            plt.close('all')  # close previous ones
-            plt.ion()
-            fig = plt.figure(7)
-            ax1 = fig.add_subplot(111)
-            im1 = ax1.imshow(
-                stack_phasecorr[0], cmap='bone', vmin=params[u'vmin'], vmax=params[u'vmax'])
-            ax1.plot([rx[0], rx[-1]], [ry[0], ry[0]], 'r-')
-            ax1.plot([rx[0], rx[-1]], [ry[-1], ry[-1]], 'r-')
-            ax1.plot([rx[0], rx[0]], [ry[0], ry[-1]], 'r-')
-            ax1.plot([rx[-1], rx[-1]], [ry[0], ry[-1]], 'r-')
-            ax1.plot(airpix[0], airpix[1], 'ob')
+            im1.set_data(stack_phasecorr[0])
+            im1.set_clim(params['vmin'], params['vmax'])
+            ax1 = _plotdelimiters(ax1, ry, rx, airpix)
             ax1.axis('tight')
             plt.show(block=False)
         else:
             print('Color scale was not changed. Using vmin={} and vmax={}'.format(
-                params[u'vmin'], params[u'vmax']))
+                params['vmin'], params['vmax']))
             break
     # main loop for the unwrapping
     nprojs = stack_phasecorr.shape[0]
     for ii in range(nprojs):
-        t0 = time.time()
-        img_unwrap = stack_phasecorr[ii]
-        print("Unwrapping projection: {}".format(ii))
-        # select the region to be unwrapped
-        img_wrap_sel = img_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]]
-        # unwrap the region using the algorithm from skimage
-        img_unwrap_sel = unwrap_phase(img_wrap_sel)
-        # update the image in the original array
-        img_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img_unwrap_sel
-        img_unwrap[ry[0]:ry[-1], rx[0]:rx[-1]] = img_unwrap_sel-2 * \
-            np.pi*np.round(img_unwrap[airpix[1], airpix[0]]/(2*np.pi))
+        #~ print(" Unwrapping projection: {}".format(ii+1),end="\r")
+        strbar = "Unwrapping projection: {}".format(ii+1)
+        img_unwrap = _unwrapping_phase(stack_phasecorr[ii], rx, ry, airpix)
         stack_unwrap[ii] = img_unwrap  # update the stack
-        delta_time = time.time()-t0
-        rem_time = nprojs-(ii+1)
-        print('Done. Time Elapsed {:.02f}s. Estimated remaining time: {:.02f}s.'.format(
-            delta_time, delta_time*rem_time))
+        progbar(ii+1, nprojs, strbar)
         # displaying
-        im1.set_data(img_unwrap)
-        ax1.set_title('Unwrapped Projection {}'.format(ii))
-        fig.canvas.draw()
-    plt.ioff()
+        #~ im1.set_data(img_unwrap)
+        #~ ax1.set_title('Unwrapped Projection {}'.format(ii))
+        #~ plt.pause(0.001)
+        #~ fig.show()
+    print('\r')
 
     return stack_unwrap
+
+
+# TODO: fix function below
 # ~ def goldstein_unwrap2D(phimage,disp=0):
     # ~ """
     # ~ Implementation of Goldstein unwrap algorithm based on location of

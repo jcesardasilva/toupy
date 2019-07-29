@@ -78,7 +78,7 @@ def _plotdelimiters(ax, limrow, limcol, airpixel=[]):
     ax.plot([limcol[0], limcol[0]], [limrow[0], limrow[-1]], 'r-')
     ax.plot([limcol[-1], limcol[-1]], [limrow[0], limrow[-1]], 'r-')
     if airpixel != []:
-        ax.plot(aipixel[0], airpixel[1], 'ob')
+        ax.plot(airpixel[0], airpixel[1], 'ob')
     return ax
 
 
@@ -455,7 +455,7 @@ def iterative_show(stack_array, limrow, limcol, airpixel=[], onlyroi=False):
     Iterative plot of the images
     """
     nproj, nr, nc = stack_array.shape
-    if not onlyroi:
+    if onlyroi:
         slarray0 = np.s_[limrow[0]:limrow[-1], limcol[0]:limcol[-1]]
         slarrayii = np.s_[limrow[0]:limrow[-1], limcol[0]:limcol[-1]]
     else:
