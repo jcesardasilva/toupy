@@ -148,7 +148,7 @@ if __name__ == "__main__":
         animated_image(aligned, limrow, limcol)
 
     # save vertically aligned_projections
-    SaveData.save("vertical_alignment.h5", aligned, theta, shiftstack **params)
+    SaveData.save("vertical_alignment.h5", aligned, theta, shiftstack ** params)
     # next step
-    print("You should run \"projections_derivatives.py\" now")
+    print('You should run "projections_derivatives.py" now')
     # =============================================================================#

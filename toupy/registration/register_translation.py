@@ -7,8 +7,7 @@ http://www.mathworks.com/matlabcentral/fileexchange/18401-efficient-subpixel-ima
 import numpy as np
 
 
-def _upsampled_dft(data, upsampled_region_size,
-                   upsample_factor=1, axis_offsets=None):
+def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=None):
     """
     Upsampled DFT by matrix multiplication.
 
@@ -46,30 +45,36 @@ def _upsampled_dft(data, upsampled_region_size,
     """
     # if people pass in an integer, expand it to a list of equal-sized sections
     if not hasattr(upsampled_region_size, "__iter__"):
-        upsampled_region_size = [upsampled_region_size, ] * data.ndim
+        upsampled_region_size = [upsampled_region_size] * data.ndim
     else:
         if len(upsampled_region_size) != data.ndim:
-            raise ValueError("shape of upsampled region sizes must be equal "
-                             "to input data's number of dimensions.")
+            raise ValueError(
+                "shape of upsampled region sizes must be equal "
+                "to input data's number of dimensions."
+            )
 
     if axis_offsets is None:
-        axis_offsets = [0, ] * data.ndim
+        axis_offsets = [0] * data.ndim
     else:
         if len(axis_offsets) != data.ndim:
-            raise ValueError("number of axis offsets must be equal to input "
-                             "data's number of dimensions.")
+            raise ValueError(
+                "number of axis offsets must be equal to input "
+                "data's number of dimensions."
+            )
 
     col_kernel = np.exp(
-        (-1j * 2 * np.pi / (data.shape[1] * upsample_factor)) *
-        (np.fft.ifftshift(np.arange(data.shape[1]))[:, None] -
-         np.floor(data.shape[1] / 2)).dot(
-             np.arange(upsampled_region_size[1])[None, :] - axis_offsets[1])
+        (-1j * 2 * np.pi / (data.shape[1] * upsample_factor))
+        * (
+            np.fft.ifftshift(np.arange(data.shape[1]))[:, None]
+            - np.floor(data.shape[1] / 2)
+        ).dot(np.arange(upsampled_region_size[1])[None, :] - axis_offsets[1])
     )
     row_kernel = np.exp(
-        (-1j * 2 * np.pi / (data.shape[0] * upsample_factor)) *
-        (np.arange(upsampled_region_size[0])[:, None] - axis_offsets[0]).dot(
-            np.fft.ifftshift(np.arange(data.shape[0]))[None, :] -
-            np.floor(data.shape[0] / 2))
+        (-1j * 2 * np.pi / (data.shape[0] * upsample_factor))
+        * (np.arange(upsampled_region_size[0])[:, None] - axis_offsets[0]).dot(
+            np.fft.ifftshift(np.arange(data.shape[0]))[None, :]
+            - np.floor(data.shape[0] / 2)
+        )
     )
 
     return row_kernel.dot(data).dot(col_kernel)
@@ -101,13 +106,13 @@ def _compute_error(cross_correlation_max, src_amp, target_amp):
     target_amp : float
         The normalized average image intensity of the target image
     """
-    error = 1.0 - cross_correlation_max * cross_correlation_max.conj() /\
-        (src_amp * target_amp)
+    error = 1.0 - cross_correlation_max * cross_correlation_max.conj() / (
+        src_amp * target_amp
+    )
     return np.sqrt(np.abs(error))
 
 
-def register_translation(src_image, target_image, upsample_factor=1,
-                         space="real"):
+def register_translation(src_image, target_image, upsample_factor=1, space="real"):
     """
     Efficient subpixel image translation registration by cross-correlation.
 
@@ -153,27 +158,30 @@ def register_translation(src_image, target_image, upsample_factor=1,
     """
     # images must be the same shape
     if src_image.shape != target_image.shape:
-        raise ValueError("Error: images must be same size for "
-                         "register_translation")
+        raise ValueError("Error: images must be same size for " "register_translation")
 
     # only 2D data makes sense right now
     if src_image.ndim != 2 and upsample_factor > 1:
-        raise NotImplementedError("Error: register_translation only supports "
-                                  "subpixel registration for 2D images")
+        raise NotImplementedError(
+            "Error: register_translation only supports "
+            "subpixel registration for 2D images"
+        )
 
     # assume complex data is already in Fourier space
-    if space.lower() == 'fourier':
+    if space.lower() == "fourier":
         src_freq = src_image
         target_freq = target_image
     # real data needs to be fft'd.
-    elif space.lower() == 'real':
+    elif space.lower() == "real":
         src_image = np.array(src_image, dtype=np.complex128, copy=False)
         target_image = np.array(target_image, dtype=np.complex128, copy=False)
         src_freq = np.fft.fftn(src_image)
         target_freq = np.fft.fftn(target_image)
     else:
-        raise ValueError("Error: register_translation only knows the \"real\" "
-                         "and \"fourier\" values for the ``space`` argument.")
+        raise ValueError(
+            'Error: register_translation only knows the "real" '
+            'and "fourier" values for the ``space`` argument.'
+        )
 
     # Whole-pixel shift - Compute cross-correlation by an IFFT
     shape = src_freq.shape
@@ -181,8 +189,9 @@ def register_translation(src_image, target_image, upsample_factor=1,
     cross_correlation = np.fft.ifftn(image_product)
 
     # Locate maximum
-    maxima = np.unravel_index(np.argmax(np.abs(cross_correlation)),
-                              cross_correlation.shape)
+    maxima = np.unravel_index(
+        np.argmax(np.abs(cross_correlation)), cross_correlation.shape
+    )
     midpoints = np.array([np.fix(axis_size / 2) for axis_size in shape])
 
     shifts = np.array(maxima, dtype=np.float64)
@@ -200,27 +209,31 @@ def register_translation(src_image, target_image, upsample_factor=1,
         # Center of output array at dftshift + 1
         dftshift = np.fix(upsampled_region_size / 2.0)
         upsample_factor = np.array(upsample_factor, dtype=np.float64)
-        normalization = (src_freq.size * upsample_factor ** 2)
+        normalization = src_freq.size * upsample_factor ** 2
         # Matrix multiply DFT around the current shift estimate
-        sample_region_offset = dftshift - shifts*upsample_factor
-        cross_correlation = _upsampled_dft(image_product.conj(),
-                                           upsampled_region_size,
-                                           upsample_factor,
-                                           sample_region_offset).conj()
+        sample_region_offset = dftshift - shifts * upsample_factor
+        cross_correlation = _upsampled_dft(
+            image_product.conj(),
+            upsampled_region_size,
+            upsample_factor,
+            sample_region_offset,
+        ).conj()
         cross_correlation /= normalization
         # Locate maximum and map back to original pixel grid
-        maxima = np.array(np.unravel_index(
-            np.argmax(np.abs(cross_correlation)),
-            cross_correlation.shape),
-            dtype=np.float64)
+        maxima = np.array(
+            np.unravel_index(
+                np.argmax(np.abs(cross_correlation)), cross_correlation.shape
+            ),
+            dtype=np.float64,
+        )
         maxima -= dftshift
         shifts = shifts + maxima / upsample_factor
         CCmax = cross_correlation.max()
-        src_amp = _upsampled_dft(src_freq * src_freq.conj(),
-                                 1, upsample_factor)[0, 0]
+        src_amp = _upsampled_dft(src_freq * src_freq.conj(), 1, upsample_factor)[0, 0]
         src_amp /= normalization
-        target_amp = _upsampled_dft(target_freq * target_freq.conj(),
-                                    1, upsample_factor)[0, 0]
+        target_amp = _upsampled_dft(
+            target_freq * target_freq.conj(), 1, upsample_factor
+        )[0, 0]
         target_amp /= normalization
 
     # If its only one row or column the shift along that dimension has no
@@ -229,5 +242,4 @@ def register_translation(src_image, target_image, upsample_factor=1,
         if shape[dim] == 1:
             shifts[dim] = 0
 
-    return shifts, _compute_error(CCmax, src_amp, target_amp),\
-        _compute_phasediff(CCmax)
+    return shifts, _compute_error(CCmax, src_amp, target_amp), _compute_phasediff(CCmax)

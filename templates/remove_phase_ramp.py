@@ -34,5 +34,5 @@ if __name__ == "__main__":
     SaveData.save("linear_phase_corrected.h5", stack_phasecorr, theta, **params)
 
     # next step
-    print('You should run \"phase_unwrapping.py\" now')
-#=============================================================================#
+    print('You should run "phase_unwrapping.py" now')
+# =============================================================================#

@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     # Temporary replacement of bad projections
     if params["correct_bad"]:
-        replace_bad(stack_phasecorr,temporary = True, list_bad = params["bad_projs"])
+        replace_bad(stack_phasecorr, temporary=True, list_bad=params["bad_projs"])
 
     # find the residues and choose region to be unwrapped
     rx, ry, airpix = chooseregiontounwrap(stack_phasecorr)
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     showmovie = input(
         "Do you want to show all the unwrapped projections?([y]/n): "
     ).lower()
-    
+
     if str(showmovie) == "" or str(showmovie) == "y":
         plt.close("all")
         iterative_show(stack_unwrap, ry, rx, airpix, onlyroi=False)
@@ -62,6 +62,6 @@ if __name__ == "__main__":
     # Save the unwrapped phase projections
     SaveData.save("unwrapped_phases.h5", stack_unwrap, theta, **params)
     # next step
-    print("You should run \"vertical_alignment.py\" now")
+    print('You should run "vertical_alignment.py" now')
 
 # =============================================================================#

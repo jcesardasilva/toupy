@@ -7,11 +7,10 @@ import numpy as np
 # local packages
 from ..registration.shift import ShiftFunc
 
-__all__ = ['derivatives',
-           'derivatives_sino']
+__all__ = ["derivatives", "derivatives_sino"]
 
 
-def derivatives(input_array, shift_method='fourier'):
+def derivatives(input_array, shift_method="fourier"):
     """
     Calculate the derivative of an image
 
@@ -37,7 +36,7 @@ def derivatives(input_array, shift_method='fourier'):
     return diffimg
 
 
-def derivatives_sino(input_sino, shift_method='fourier'):
+def derivatives_sino(input_sino, shift_method="fourier"):
     """
     Calculate the derivative of the sinogram
 

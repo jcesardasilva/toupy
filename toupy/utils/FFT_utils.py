@@ -15,15 +15,16 @@ import scipy
 pyfftw.interfaces.cache.enable()
 pyfftw.interfaces.cache.set_keepalive_time(30)
 
-__all__ = ['is_power2',
-           'nextpoweroftwo',
-           'nextpow2',
-           'padwidthbothsides',
-           'padrightside',
-           'fastfftn',
-           'fastifftn',
-           'padfft'
-           ]
+__all__ = [
+    "is_power2",
+    "nextpoweroftwo",
+    "nextpow2",
+    "padwidthbothsides",
+    "padrightside",
+    "fastfftn",
+    "fastifftn",
+    "padfft",
+]
 
 
 def is_power2(num):
@@ -65,7 +66,7 @@ def padwidthbothsides(nbins):
     # ~ nextPower = nextpoweroftwo(nbins)
     deficit = int(nextpow2(nbins) - nbins)
     # ~ deficit = int(np.power(2, nextPower) - nbins)
-    return int(deficit/2)
+    return int(deficit / 2)
 
 
 def padrightside(nbins):
@@ -85,12 +86,13 @@ def metafftw(func):
     def wrapper(input_array):
         # checking number of cores available
         kwargs = dict()
-        kwargs['ncores'] = multiprocessing.cpu_count()
+        kwargs["ncores"] = multiprocessing.cpu_count()
         # stating the precision.
         # np.complex64: single precision; and np.complex128: double precision
-        kwargs['cprecision'] = np.complex64
-        kwargs['planner_type'] = 'FFTW_MEASURE'
+        kwargs["cprecision"] = np.complex64
+        kwargs["planner_type"] = "FFTW_MEASURE"
         return func(input_array, **kwargs)
+
     return wrapper
 
 
@@ -113,17 +115,16 @@ def fastfftn(input_array, **kwargs):
     Note: It is fast for array sizes which are power of 2
     """
     # number of cores available
-    ncores = kwargs['ncores']  # multiprocessing.cpu_count()
+    ncores = kwargs["ncores"]  # multiprocessing.cpu_count()
     # stating the precision.
-    cprecision = kwargs['cprecision']  # np.complex64 # single precision
-    planner_type = kwargs['planner_type']  # 'FFTW_MEASURE'
+    cprecision = kwargs["cprecision"]  # np.complex64 # single precision
+    planner_type = kwargs["planner_type"]  # 'FFTW_MEASURE'
     # align array
     fftw_array = pyfftw.byte_align(input_array, dtype=cprecision, n=16)
     # will need to plan once
-    fftw_array = pyfftw.interfaces.numpy_fft.fftn(fftw_array,
-                                                  overwrite_input=True,
-                                                  planner_effort=planner_type,
-                                                  threads=ncores)
+    fftw_array = pyfftw.interfaces.numpy_fft.fftn(
+        fftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
+    )
     return fftw_array
 
 
@@ -146,20 +147,19 @@ def fastifftn(input_array, **kwargs):
     Note: It is fast for array sizes which are power of 2
     """
     # number of cores available
-    ncores = kwargs['ncores']  # multiprocessing.cpu_count()
+    ncores = kwargs["ncores"]  # multiprocessing.cpu_count()
     # stating the precision.
-    cprecision = kwargs['cprecision']  # np.complex64 # single precision
-    planner_type = kwargs['planner_type']  # 'FFTW_MEASURE'
+    cprecision = kwargs["cprecision"]  # np.complex64 # single precision
+    planner_type = kwargs["planner_type"]  # 'FFTW_MEASURE'
     # align array
     ifftw_array = pyfftw.byte_align(input_array, dtype=cprecision, n=16)
-    ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(ifftw_array,
-                                                    overwrite_input=True,
-                                                    planner_effort=planner_type,
-                                                    threads=ncores)
+    ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(
+        ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
+    )
     return ifftw_array
 
 
-def padfft(input_array, pad_mode='reflect'):
+def padfft(input_array, pad_mode="reflect"):
     """
     Auxiliary function to pad arrays for Fourier transforms. It accepts
     1D and 2D arrays.
@@ -193,8 +193,7 @@ def padfft(input_array, pad_mode='reflect'):
         padw = [padrightside(nr), padrightside(nc)]
         # ~ padw = [padwidthbothsides(nr), padwidthbothsides(nc)]
         # ~ array_pad = np.pad(input_array,((padw[0],padw[0]),(padw[1],padw[1])),mode=pad_mode)
-        array_pad = np.pad(
-            input_array, ((0, padw[0]), (0, padw[1])), mode=pad_mode)
+        array_pad = np.pad(input_array, ((0, padw[0]), (0, padw[1])), mode=pad_mode)
         n_pad = [fftfreq(array_pad.shape[0]), fftfreq(array_pad.shape[1])]
         # reverted order to be compatible with meshgrid output
         N_pad = np.meshgrid(n_pad[1], n_pad[0])
