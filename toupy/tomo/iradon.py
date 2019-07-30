@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 from silx.opencl.backprojection import Backprojection
 from silx import version
 
-__all__ = ["mod_iradon", "mod_iradonSilx", "compute_filter","backprojector"]
+__all__ = ["mod_iradon", "mod_iradonSilx", "compute_filter", "backprojector"]
 
 
 def compute_filter(nbins, filter_type="ram-lak", derivative=True, freqcutoff=1):

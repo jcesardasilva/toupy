@@ -94,6 +94,27 @@ def checkhostname(func):
     return new_func
 
 
+def close_allopenfiles(obj_test):
+    """
+    Browse through all objects, check if there is files open of type of
+    obj_test and close them.
+    
+    Example
+    -------
+    >> import h5py
+    >> obj_test = h5py.File
+    >> close_allopenfiles(obj_test) # will close all open HDF5 file
+    """
+    import gc
+
+    for obj in gc.get_objects():  # Browse through ALL objects
+        if isinstance(obj, obj_test):  # Just HDF5 files
+            try:
+                obj.close()
+            except:
+                pass  # Was already closed
+
+
 def progbar(curr, total, textstr=""):
     termwidth, termheight = shutil.get_terminal_size()
     full_progbar = int(math.ceil(termwidth / 2))

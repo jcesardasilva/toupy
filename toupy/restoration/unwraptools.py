@@ -214,7 +214,7 @@ def chooseregiontounwrap(stack_array):
         while True:
             ry = eval(input("Range in y (top, bottom): "))
             if isinstance(ry, tuple):
-                ry = range(ry[0],ry[-1])
+                ry = range(ry[0], ry[-1])
                 break
             else:
                 print("Wrong typing. Try it again.")

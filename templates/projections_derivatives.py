@@ -19,17 +19,17 @@ params = dict()
 # Edit section
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
-params['phaseonly'] = True
-params['deltax'] = 2    # From edge of region to edge of image in x
-params['limsy']  = (1,2329)  # Window inside regstack used for alignment delta = 200; % Window should be centered in x to ensure compliance with iradonfast limsx = [1+delta size(regstack,2)-delta];
-params['shift_method'] = 'fourier'
-params['autosave'] = True
+params["phaseonly"] = True
+params["deltax"] = 2  # From edge of region to edge of image in x
+params["limsy"] = (1,2329)  # Window inside regstack used for alignment delta = 200; % Window should be centered in x to ensure compliance with iradonfast limsx = [1+delta size(regstack,2)-delta];
+params["shift_method"] = "fourier"
+params["autosave"] = True
 # =========================
 
 # =============================================================================#
 # Don't edit below this line, please                                          #
 # =============================================================================#
-if __name__ == '__main__':
+if __name__ == "__main__":
     # loading the data
     aligned, theta, shiftstack, params = LoadData.load(
         "vertical_alignment.h5", **params
@@ -39,8 +39,9 @@ if __name__ == '__main__':
     roix, roiy = chooseregiontoderivatives(aligned, **params)
 
     # calculating the projection derivatives
-    aligned_diff = calculate_derivatives(aligned,roiy,roix,shift_method = params['shift_method'])
-    
+    aligned_diff = calculate_derivatives(
+        aligned, roiy, roix, shift_method=params["shift_method"]
+    )
 
     # display the projections after the unwrapping
     showmovie = input(
@@ -48,11 +49,11 @@ if __name__ == '__main__':
     ).lower()
 
     if str(showmovie) == "" or str(showmovie) == "y":
-        iterative_show(aligned_diff, onlyroi=False,vmin=-0.2,vmax=0.2)
+        iterative_show(aligned_diff, onlyroi=False, vmin=-0.2, vmax=0.2)
 
     # Save the projection derivatives
-    SaveData.save("aligned_derivatives.h5", aligned_diff, theta, shiftstack,**params)
-    
+    SaveData.save("aligned_derivatives.h5", aligned_diff, theta, shiftstack, **params)
+
     # next step
     print('You should run "sinogram_inspection.py" now')
-    #=============================================================================#
+    # =============================================================================#

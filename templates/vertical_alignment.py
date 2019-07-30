@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# third party package
-import numpy as np
-
 # local packages
 from toupy.io import LoadData, SaveData
 from toupy.registration import alignprojections_vertical
@@ -43,14 +40,17 @@ if __name__ == "__main__":
         shiftstack = LoadData.loadshiftstack("vertical_alignment.h5", **inputparams)
         print("Using previous estimate of shiftstack")
     else:
-        shiftstack = np.zeros((2, stack_unwrap.shape[0]))
+        # initializing shiftstack with zeros
+        shiftstack[0] = np.zeros(stack_unwrap.shape[0])
 
     # Vertical alignment
     shiftstack, aligned = alignprojections_vertical(stack_unwrap, shiftstack, **params)
 
     a = input("Do you want to refine further the alignment? (y/[n]): ").lower()
     if str(a) == "y":
-        shiftstack, aligned = alignprojections_vertical(stack_unwrap, shiftstack, **params)
+        shiftstack, aligned = alignprojections_vertical(
+            stack_unwrap, shiftstack, **params
+        )
 
     # correcting bad projections after unwrapping
     if params["correct_bad"]:
@@ -58,10 +58,10 @@ if __name__ == "__main__":
 
     a = input("Do you want to display the aligned projections? (y/[n]) :").lower()
     if str(a) == "y":
-        iterative_show(aligned) # Show aligned projections
+        iterative_show(aligned)  # Show aligned projections
 
     # save vertically aligned_projections
-    SaveData.save("vertical_alignment.h5", aligned, theta, shiftstack,**params)
+    SaveData.save("vertical_alignment.h5", aligned, theta, shiftstack, **params)
     # next step
     print('You should run "projections_derivatives.py" now')
     # =============================================================================#

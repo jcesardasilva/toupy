@@ -9,7 +9,7 @@ import multiprocessing
 import numpy as np
 from numpy.fft import fftfreq
 import pyfftw  # has to be imported first to avoid ImportError: dlopen: cannot load any more object with static TLS
-import scipy
+from scipy import fftpack
 
 # enable cache for pyfftw
 pyfftw.interfaces.cache.enable()
@@ -75,7 +75,8 @@ def padrightside(nbins):
     """
     # ~ nextPower = nextpoweroftwo(nbins)
     # ~ nextPower = nextpow2(nbins)
-    nextPower = scipy.fftpack.next_fast_len(nbins)
+    # ~ nextPower = fftpack.next_fast_len(nbins)
+    nextPower = pyfftw.next_fast_len(nbins)
     deficit = int(nextPower - nbins)
     # ~ deficit = int(np.power(2, nextPower) - nbins)
     return deficit

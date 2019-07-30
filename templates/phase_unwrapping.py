@@ -31,7 +31,9 @@ if __name__ == "__main__":
 
     # Temporary replacement of bad projections
     if params["correct_bad"]:
-        stack_phasecorr = replace_bad(stack_phasecorr, list_bad=params["bad_projs"], temporary=True)
+        stack_phasecorr = replace_bad(
+            stack_phasecorr, list_bad=params["bad_projs"], temporary=True
+        )
 
     # find the residues and choose region to be unwrapped
     rx, ry, airpix = chooseregiontounwrap(stack_phasecorr)

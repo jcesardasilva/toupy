@@ -2,7 +2,7 @@
 # <img src="resources/toupy_logo.png" alt="toupy" width="200"/>
 
 TOUPY - Tomographic Utilities for Python
-== == == == == == == == == == == == == == == == == == == == == == ==
+==============================================
 
 Installation
 ------------

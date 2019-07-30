@@ -20,7 +20,8 @@ __all__ = [
     "sort_array",
 ]
 
-def sort_array(input_array,ref_array):
+
+def sort_array(input_array, ref_array):
     """
     Sort array based on another array
     
@@ -43,7 +44,8 @@ def sort_array(input_array,ref_array):
     sorted_input_array = input_array[idxsort]
 
     return sorted_input_array, sorted_ref_array
-    
+
+
 def replace_bad(input_stack, list_bad=[], temporary=False):
     """
     correcting bad projections before unwrapping
@@ -52,7 +54,7 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
         raise ValueError("List of bad projections is empty")
     else:
         for ii in list_bad:
-            print("Temporary replacement of bad projection: {}".format(ii))
+            print("\rTemporary replacement of bad projection: {}".format(ii), end="")
             if temporary:
                 input_stack[ii] = input_stack[ii - 1]
             else:
