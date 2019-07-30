@@ -33,7 +33,7 @@ def full_tomo_recons(input_stack, theta, **params):
     """
     Full tomographic reconstruction
     """
-    try params['calc_derivatives']:
+    try: params['calc_derivatives']
         calc_derivatives = params['calc_derivatives']
         print('Calculating the derivatives of the sinogram')
     except KeyError:
