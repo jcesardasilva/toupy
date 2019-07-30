@@ -9,31 +9,33 @@ Installation
 
 Installation should be as simple as:
 
-    `sudo python3 setup.py install`
+    sudo python3 setup.py install
 
 or, for local installation, using the flag - -user:
 
-    `python3 setup.py install - -user`
+    python3 setup.py install - -user
 
 Running test
 ------------
 
 You can edit the file in test folder and run, for example:
 
-    `python3 test/shiftfunc_test.py`
+    python3 test/shiftfunc_test.py
 
 Dependencies
 ------------
 
-Toupy depends on standard python packages:
-    * numpy
-    * matplotlib
-    * pyfftw
-    * silx
-    * fabio
-    * h5py
-    * libtiff
-    * python >= 3.6
+Toupy depends on the following python packages:
+
+* numpy
+* matplotlib
+* pyfftw
+* silx
+* fabio
+* h5py
+* libtiff
+* scikit-image
+* python >= 3.6
 
 
 Call for Contributions
