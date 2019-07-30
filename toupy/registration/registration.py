@@ -15,8 +15,15 @@ from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from .register_translation_fast import register_translation
 from ..restoration import derivatives, derivatives_sino
 from .shift import ShiftFunc
-from ..tomo import projector, backprojector
-from ..utils import deprecated, fract_hanning_pad, projectpoly1d, progbar, RegisterPlot
+from ..tomo import projector, backprojector, create_circle
+from ..utils import (
+    deprecated,
+    fract_hanning_pad,
+    projectpoly1d,
+    progbar,
+    RegisterPlot,
+    replace_bad
+)
 
 __all__ = [
     "alignprojections_vertical",
@@ -746,7 +753,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     print("Backprojecting")
     t0 = time.time()
     recons = backprojector(
-        sinogram, theta=theta, output_size=sinogram.shape[0], **params
+        sinogram, theta=theta, **params
     )
     print("Done. Time elapsed: {} s".format(time.time() - t0))
     print("Slice standard deviation = {:0.04e}".format(recons.std()))
@@ -754,7 +761,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     # clipping gray level if needed
     recons = _clipping_tomo(recons, **params)
     if params["circle"]:
-        circleROI = _create_circle(recons)  # only need to calculate once
+        circleROI = create_circle(recons)  # only need to calculate once
     else:
         circleROI = 1
     recons = recons * circleROI
@@ -810,7 +817,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     )
 
     print("Calculating aligned slice for display")
-    oneslicefordisplay(alignedsinogram, theta, **params)
+    _oneslicefordisplay(alignedsinogram, theta, **params)
 
     return shiftstack
 
@@ -886,30 +893,27 @@ def oneslicefordisplay(sinogram, theta, **params):
         if filtertype != "":
             params["filtertype"] = str(filtertype)
         print("Calculating a tomographic slice")
+    # display of the slice:
+    _oneslicefordisplay(sinogram,theta,**params)
 
+def _oneslicefordisplay(sinogram,theta,**params):
+    """
+    Auxiliary for displaying the slice without the questions
+    """
     p0 = time.time()
     recons = backprojector(
-        sinogram, theta=theta, output_size=sinogram.shape[0], **params
+        sinogram, theta=theta, **params
     )
     # clipping gray level if needed
     recons = _clipping_tomo(recons, **params)
     if params["circle"]:
-        circleROI = _create_circle(recons)
+        circleROI = create_circle(recons)
     else:
         circleROI = 1
     recons = recons * circleROI
     print("Done. Time elapsed: {} s".format(time.time() - p0))
 
-    fig = plt.figure(num=10)
-    plt.clf()
-    ax1 = fig.add_subplot(111)
-    ax1.imshow(recons, cmap="bone", vmin=params["cliplow"], vmax=params["cliphigh"])
-    ax1.axis("image")
-    ax1.set_title("Aligned tomographic slice")
-    ax1.set_xlabel("x [pixels]")
-    ax1.set_ylabel("y [pixels]")
-    plt.show(block=False)
-    plt.pause(0.01)
+    display_slice(recons,colormap='bone',vmin=params["cliplow"], vmax=params["cliphigh"])
 
 
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
@@ -1184,23 +1188,6 @@ def _clipping_tomo(recons, **params):
         )
         recons = recons - params["cliphigh"]
     return recons
-
-
-def _create_circle(inputimg):
-    """
-    Create circle with apodized edges
-    """
-    bordercrop = 10
-    nr, nc = inputimg.shape
-    Y, X = np.indices((nr, nc))
-    Y -= np.round(nr / 2).astype(int)
-    X -= np.round(nc / 2).astype(int)
-    R = np.sqrt(X ** 2 + Y ** 2)
-    Rmax = np.round(np.max(R.shape) / 2.0)
-    maskout = R < Rmax
-    t = maskout * (1 - np.cos(np.pi * (R - Rmax - 2 * bordercrop) / bordercrop)) / 2.0
-    t[np.where(R < (Rmax - bordercrop))] = 1
-    return t
 
 
 def _sino_error_metric(sinogramexp, sinogramcomp, params):

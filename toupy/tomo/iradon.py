@@ -8,8 +8,31 @@ from scipy.interpolate import interp1d
 from silx.opencl.backprojection import Backprojection
 from silx import version
 
-__all__ = ["mod_iradon", "mod_iradonSilx", "compute_filter", "backprojector"]
+__all__ = [
+          "create_circle",
+          "mod_iradon",
+          "mod_iradonSilx",
+          "compute_filter",
+          "backprojector",
+          "reconsSART"
+          ]
 
+
+def create_circle(inputimg):
+    """
+    Create circle with apodized edges
+    """
+    bordercrop = 10
+    nr, nc = inputimg.shape
+    Y, X = np.indices((nr, nc))
+    Y -= np.round(nr / 2).astype(int)
+    X -= np.round(nc / 2).astype(int)
+    R = np.sqrt(X ** 2 + Y ** 2)
+    Rmax = np.round(np.max(R.shape) / 2.0)
+    maskout = R < Rmax
+    t = maskout * (1 - np.cos(np.pi * (R - Rmax - 2 * bordercrop) / bordercrop)) / 2.0
+    t[np.where(R < (Rmax - bordercrop))] = 1
+    return t
 
 def compute_filter(nbins, filter_type="ram-lak", derivative=True, freqcutoff=1):
 
@@ -268,11 +291,11 @@ def mod_iradonSilx(
         derivative=derivative,
         freqcutoff=freqcutoff,
     )
-    print("Using Silx v{}".format(version))
+    #~ print("Using Silx v{}".format(version))
     silx_version = float(version[2:])
     if silx_version < 10.0:
         B = Backprojection(radon_image.T.shape, angles=np.pi * (theta) / 180.0)
-        print("Initialized OpenCL backprojector on {}".format(B.device))
+        #~ print("Initialized OpenCL backprojector on {}".format(B.device))
         B.filter = cust_filter.ravel() / 2.0  # has to be divided by 2.
     else:
         if use_numpy:
@@ -288,12 +311,16 @@ def mod_iradonSilx(
                 angles=np.pi * (theta) / 180.0,
                 filter_name=filter_type,
             )
-        print("Initialized OpenCL backprojector on {}".format(B.device))
+        #~ print("Initialized OpenCL backprojector on {}".format(B.device))
         # from version 0.10.0, silx filtering uses R2C Fourier transforms
         cust_filter2 = cust_filter.ravel()[: B.sino_filter.dwidth_padded // 2 + 1]
         cust_filter2 = np.ascontiguousarray(cust_filter2 / 2.0, dtype=np.complex64)
         B.sino_filter.set_filter(cust_filter2)
     recons = B(radon_image.T)
+
+    if circle:
+        recons_circle = create_circle(recons)
+        recons = recons * recons_circle
     return recons
 
 
@@ -321,3 +348,49 @@ def backprojector(sinogram, theta, **params):
         freqcutoff=params["filtertomo"],
     )
     return recons
+
+
+def reconsSART(sinogram, theta, num_iter = 2, FBPinitial_guess = True,
+                relaxation_params = 0.15, **params):
+    """
+    Reconstruction with SART algorithm
+    """
+    theta = np.float64(theta)
+    sinogram = np.float64(sinogram)
+    circle = params['circle']
+
+    # actual reconstruction
+    if FBPinitial_guess:
+        print("Calculating the initial guess for SART using FBP")
+        reconsFBP = backprojector(sinogram, theta, **params)
+        reconsFBP = np.float64(reconsFBP)
+        print("Done. Starting SART")
+    
+        # with initial guess
+        reconsSART = iradon_sart(
+            sinogram,
+            theta=theta,
+            image=reconsFBP,
+            relaxation=relaxation_params,
+        )
+    else:
+        # without initial guess
+        reconsSART = iradon_sart(
+            sinogram, theta=theta, relaxation=relaxation_params
+        )
+    print('Starting iterative reconstruction:')
+    for ii in range(iteration_num):
+        print("Iteration {}".format(ii + 1))
+        reconsSART = iradon_sart(
+            sinogram,
+            theta=theta,
+            image=reconsSART,
+            relaxation=relaxation_params,
+        )
+
+    if circle:
+        recons_circle = create_circle(inputimg)
+        reconsSART = reconsSART * recons_circle
+
+    return reconsSART
+    

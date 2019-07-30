@@ -728,6 +728,10 @@ class LoadData(PathName, Variables):
     @classmethod
     def loadshiftstack(cls, *args, **kwargs):
         return cls(**kwargs)._load_shiftstack(*args)
+        
+    @classmethod
+    def loadtheta(cls, *args, **kwargs):
+        return cls(**kwargs)._load_theta(*args)
 
     @classmethod
     def loadmasks(cls, *args, **kwargs):
@@ -753,6 +757,27 @@ class LoadData(PathName, Variables):
         with h5py.File(h5file, "r") as fid:
             shiftstack = fid[u"shiftstack/shiftstack"][()]
         return shiftstack
+
+    def _load_theta(self, h5name):
+        """
+        Load shitstack from previous h5 file
+
+        Parameters:
+        ---------
+        h5name: str
+            File name from which data is loaded
+
+        Returns:
+        --------
+        shiftstack: ndarray
+            Shifts in vertical (1st dimension) and horizontal
+                    (2nd dimension)
+        """
+        print("Loading thetas from file {}".format(h5name))
+        h5file = self.results_datapath(h5name)
+        with h5py.File(h5file, "r") as fid:
+            theta = fid["angles/thetas"][()]
+        return theta
 
     def _load_masks(self, h5name):
         """
@@ -799,10 +824,9 @@ class LoadData(PathName, Variables):
         print("Loading the projections from file {}".format(h5name))
         h5file = self.results_datapath(h5name)
         shiftstack = self._load_shiftstack(h5name)
+        theta = self._load_theta(h5name)
         it0 = time.time()
         with h5py.File(h5file, "r") as fid:
-            theta = fid["angles/thetas"][()]
-            # shiftstack= fid[u'shiftstack/shiftstack'][()]
             # read the inputkwargs dict
             datakwargs = dict()
             print("\rLoading metadata...", end="")
@@ -894,6 +918,15 @@ class SaveTomogram(SaveData):
     @classmethod
     def save(cls, *args, **kwargs):
         return cls(**kwargs)._save_tomogram(*args)
+        
+    @classmethod
+    def save_vol_to_h5(cls, *args, **kwargs):
+        return cls(**kwargs)._save_vol_to_h5(*args)
+
+
+    @classmethod
+    def save(cls, *args, **kwargs):
+        return cls(**kwargs)._save_tomogram(*args)
 
     @savecheck
     def _save_tomogram(self, *args):
@@ -914,7 +947,11 @@ class SaveTomogram(SaveData):
         tomogram = args[1]
         nslices, nr, nc = tomogram.shape
         theta = args[2]
-        shiftstack = args[3]
+        
+        if len(args) == 4:
+            shiftstack = args[3]
+        else:
+            shiftstack = np.zeros((2, nprojs))
 
         # calculate the chunk size for writing the HDF5 files
         chunk_size = chunk_shape_3D(tomogram.shape)
@@ -955,6 +992,33 @@ class SaveTomogram(SaveData):
             print("Done. Time elapsed = {:.03f} s".format(time.time() - p0))
         print("Tomogram saved to file {}".format(h5name))
         print("In the folder {}".format(self.results_folder()))
+
+    @savecheck
+    def _save_vol_to_h5(self, *args):
+        """
+        Save .vol files into HDF5 file
+        """
+        h5name = args[0]
+        theta = args[1]
+        
+        print("Saving .vol into HDF5")
+        filename = "volfloat/{}.vol".format(params["samplename"])
+        # Usually, the file .vol.info contains de size of the volume
+        linesff = []
+        infofilename = filename + ".info"
+        with open(infofilename, "r") as ff:
+            for lines in ff:
+                linesff.append(lines.strip("\n"))
+        x_size = int(linesff[1].split("=")[1])
+        y_size = int(linesff[2].split("=")[1])
+        z_size = int(linesff[3].split("=")[1])
+        # Now we read indeed the .vol file
+        tomogram = np.fromfile(filename, dtype=np.float32).reshape(
+            (z_size, x_size, y_size)
+        )
+        nslices = tomogram.shape[0]
+        print("Found {} slices in the volume.".format(nslices))
+        self._save_tomogram(self,h5name,tomogram,theta,**params)
 
 
 class LoadTomogram(LoadData):

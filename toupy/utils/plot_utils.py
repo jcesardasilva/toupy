@@ -19,6 +19,7 @@ __all__ = [
     "show_linearphase",
     "iterative_show",
     "animated_image",
+    "display_slice"
 ]
 
 
@@ -460,7 +461,7 @@ class RegisterPlot:
 
 @interativesession
 def iterative_show(
-    stack_array, limrow=[], limcol=[], airpixel=[], onlyroi=False, vmin=None, vmax=None
+    stack_array, limrow=[], limcol=[], airpixel=[], onlyroi=False, colormap='bone', vmin=None, vmax=None
 ):
     """
     Iterative plot of the images
@@ -478,13 +479,17 @@ def iterative_show(
         delimiters = False
     if limcol == [] or limcol == None:
         delimiters = False
+    if vmin=='none':
+        vmin=None
+    if vmax=='none':
+        vmax=None
 
     # display
     plt.close("all")
     plt.ion()
     fig = plt.figure(4)  # ,figsize=(14,6))
     ax1 = fig.add_subplot(111)
-    im1 = ax1.imshow(stack_array[0][slarray0], cmap="bone", vmin=vmin, vmax=vmax)
+    im1 = ax1.imshow(stack_array[0][slarray0], cmap=colormap, vmin=vmin, vmax=vmax)
     if delimiters:
         ax1 = _plotdelimiters(ax1, limrow, limcol, airpixel)
     ax1.set_title("Projection: {}".format(1))
@@ -744,3 +749,24 @@ def show_linearphase(image, mask, *args):
     ax2.axis("tight")
     plt.draw()
     # ax2.cla()
+
+def display_slice(recons, colormap='bone', vmin=None, vmax=None):
+    """
+    Display tomographic slice
+    """
+    if vmin=='none':
+        vmin=None
+    if vmax=='none':
+        vmax=None
+    
+    plt.close('all')
+    fig = plt.figure(num=1)
+    plt.clf()
+    ax1 = fig.add_subplot(111)
+    ax1.imshow(recons, cmap=colormap, vmin=vmin, vmax=vmax)
+    ax1.axis("image")
+    ax1.set_title("Aligned tomographic slice")
+    ax1.set_xlabel("x [pixels]")
+    ax1.set_ylabel("y [pixels]")
+    plt.show(block=False)
+    plt.pause(0.001)

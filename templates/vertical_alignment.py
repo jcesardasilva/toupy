@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# third party packages
+import numpy as np
+
 # local packages
 from toupy.io import LoadData, SaveData
 from toupy.registration import alignprojections_vertical

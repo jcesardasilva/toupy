@@ -4,3 +4,4 @@
 # local packages
 from .iradon import *
 from .radon import *
+from .tomorecons import *
