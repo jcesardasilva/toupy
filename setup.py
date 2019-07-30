@@ -5,7 +5,7 @@ The script for building/installing packages
 
 import setuptools
 
-with open("README.txt", "r") as fid:
+with open("README.md", "r") as fid:
     long_description = fid.read()
 
 setuptools.setup(
@@ -16,7 +16,7 @@ setuptools.setup(
     package_dir={"toupy": "toupy"},
     packages=setuptools.find_packages(),
     scripts=["bin/file_comp", "bin/missing_recons"],
-    license="LICENCE.txt",
+    license="LICENCE",
     description="Tomography utils in Python for high-resolution imaging",
     long_description=long_description,
     long_description_content_type="text/markdown",
