@@ -158,9 +158,12 @@ class ShiftFunc(Variables):
     def shift_fft(self, input_array, shift):
         """
         Performs pixel and subpixel shift (with wraping) using pyFFTW.
-        The array is padded to the next power of 2 for faster FFTW if needed
-        The padding is done in mode = 'reflect' by default and it used
-        to make FFTW faster and to reduce border artifacts.
+
+        Since FFTW has efficient functions for array sizes which can be
+        decompose in prime factor, the input_array is padded to the next
+        fast size given by pyFFTW.next_fast_len.
+        The padding is done in mode = 'reflect' by default to reduce
+        border artifacts.
 
         Parameters
         ----------

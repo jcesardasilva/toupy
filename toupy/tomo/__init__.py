@@ -3,4 +3,4 @@
 
 # local packages
 from .iradon import *
-from .radon import radonSilx
+from .radon import *

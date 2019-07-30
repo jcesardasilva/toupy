@@ -13,24 +13,25 @@ from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 
 # local packages
 from .register_translation_fast import register_translation
-from .shift import ShiftFunc
-from ..tomo.iradon import backprojector
-from ..tomo.radon import projector
-from ..utils.funcutils import deprecated
-from ..utils.array_utils import projectpoly1d, fract_hanning_pad
 from ..restoration import derivatives, derivatives_sino
-from ..utils.plot_utils import RegisterPlot
+from .shift import ShiftFunc
+from ..tomo import projector, backprojector
+from ..utils import deprecated, fract_hanning_pad, projectpoly1d, progbar, RegisterPlot
 
 __all__ = [
-    "compute_aligned_stack",
-    "compute_aligned_sino",
-    "center_of_mass_stack",
-    "vertical_fluctuations",
-    "vertical_shift",
     "alignprojections_vertical",
     "alignprojections_horizontal",
-    "estimate_rot_axis",
     "cc_align",
+    "center_of_mass_stack",
+    "compute_aligned_stack",
+    "compute_aligned_sino",
+    "compute_aligned_horizontal",
+    "estimate_rot_axis",
+    "oneslicefordisplay",
+    "refine_horizontalalignment",
+    "tomoconsistency_multiple",
+    "vertical_fluctuations",
+    "vertical_shift",
 ]
 
 
@@ -63,7 +64,8 @@ def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
     for ii in range(nstack):
         deltashift = (shiftstack[0, ii], shiftstack[1, ii])
         output_stack[ii] = S(input_stack[ii], deltashift)
-        print("Image {} of {}".format(ii + 1, nstack), end="\r")
+        strbar = "Image {} of {}".format(ii + 1, nstack)
+        progbar(ii + 1, nstack, strbar)
     print("\r")
     return output_stack
 
@@ -100,6 +102,32 @@ def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
         print("Image {} of {}".format(ii + 1, nprojs), end="\r")
     print("\r")
     return output_sino
+
+
+def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear"):
+    """
+    Compute the alignment of the stack on at the horizontal direction
+    Parameters
+    ----------
+    input_array : ndarray
+        Stack of images to be shifted
+    shiftstack : ndarray
+        Array of initial estimates for object motion (2,n)
+        The estimates for vertical movement will be changed to 0
+    shift_method : str (default linear)
+        Name of the shift method. Options: 'linear', 'fourier', 'spline'
+
+    Returns
+    -------
+    output_stack : ndarray
+        2D function containing the stack of aligned images
+    """
+    deltashift = np.zeros_like(shiftstack)
+    deltashift[1] = shiftstack[1].copy()
+    output_stack = compute_aligned_stack(
+        input_stack, shiftstack, shift_method=shift_method
+    )
+    return output_stack
 
 
 def center_of_mass_stack(input_stack, lims, shiftstack, shift_method="fourier"):
@@ -685,7 +713,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     # appropriate keeping of variable
     original_sino = sinogram.copy()
-    shiftslice = np.expand_dims(shiftstack[1],axis=0)
+    shiftslice = np.expand_dims(shiftstack[1], axis=0)
 
     # pad sinogram of derivatives
     # TODO: check if we only need this for derivative (if params['derivatives']:) or not!
@@ -774,7 +802,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     # updating shiftstack
     shiftstack[1] = shiftslice
-    
+
     # Compute the shifted images
     print("\nComputing aligned images")
     alignedsinogram = compute_aligned_sino(
@@ -782,21 +810,100 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     )
 
     print("Calculating aligned slice for display")
+    oneslicefordisplay(alignedsinogram, theta, **params)
+
+    return shiftstack
+
+
+def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
+    """
+    Refine horizontal alignment
+    """
+    while True:
+        a = input("Do you want to refine further the alignment? ([y]/n): ").lower()
+        if str(a) == "" or str(a) == "y":
+            a1 = input("Do you want to use the same parameters? ([y]/n): ").lower()
+            if a1 == "n":
+                a1 = input("Slice number (e.g. {}): ".format(params["slicenum"]))
+                if a1 != "":
+                    params["slicenum"] = eval(a1)
+                a2 = input("Pixel tolerance (e.g. {}): ".format(params["pixtol"]))
+                if a2 != "":
+                    params["pixtol"] = eval(a2)
+                a3 = input(
+                    "Filter Tomo cutoff (e.g. {}): ".format(params["filtertomo"])
+                )
+                if a3 != "":
+                    params["filtertomo"] = eval(a3)
+                a4 = input("Number of iterations (e.g. {}): ".format(params["maxit"]))
+                if a4 != "":
+                    params["maxit"] = eval(a4)
+                a5 = input("Apply a circle (e.g. {}): ".format(params["circle"]))
+                if a5 != "":
+                    params["circle"] = eval(a5)
+                a6 = input("Clipping high (e.g. {}): ".format(params["cliphigh"]))
+                if a6 != "":
+                    params["cliphigh"] = eval(a6)
+
+            # calculate again the sinogram with corrected bad projections
+            sinogram = np.transpose(input_stack[:, params["slicenum"], :])
+
+            # correcting bad projections
+            if params["correct_bad"]:
+                sinogram = replace_bad(
+                    sinogram, list_bad=params["bad_projs"], temporary=False
+                )
+
+            # actual alignment
+            print("Starting the refinement of the alignment")
+            shiftstack = alignprojections_horizontal(
+                sinogram, theta, shiftstack, **params
+            )
+
+        elif str(a) == "n":
+            print("No further refinement done")
+            break
+        else:
+            print("You should answer 'y' or 'n or accept default answer.")
+
+    return shiftstack
+
+
+def oneslicefordisplay(sinogram, theta, **params):
+    """
+    Calculate one slice for display
+    """
+    a = input(
+        "Do you want to reconstruct the slice with different parameters? ([y]/n) :"
+    ).lower()
+    if str(a) == "" or str(a) == "y":
+        filtertomo = input("filtertomo (current: {}) = ".format(params["filtertomo"]))
+        if filtertomo != "":
+            params["filtertomo"] = eval(filtertomo)
+        filtertype = str(
+            input("filtertype (current: {}) = ".format(params["filtertype"])).lower()
+        )
+        if filtertype != "":
+            params["filtertype"] = str(filtertype)
+        print("Calculating a tomographic slice")
+
     p0 = time.time()
     recons = backprojector(
-        alignedsinogram, theta=theta, output_size=alignedsinogram.shape[0], **params
+        sinogram, theta=theta, output_size=sinogram.shape[0], **params
     )
     # clipping gray level if needed
     recons = _clipping_tomo(recons, **params)
     if params["circle"]:
         circleROI = _create_circle(recons)
-        recons = recons * circleROI
+    else:
+        circleROI = 1
+    recons = recons * circleROI
     print("Done. Time elapsed: {} s".format(time.time() - p0))
 
     fig = plt.figure(num=10)
     plt.clf()
     ax1 = fig.add_subplot(111)
-    ax1.imshow(recons, cmap="bone")
+    ax1.imshow(recons, cmap="bone", vmin=params["cliplow"], vmax=params["cliphigh"])
     ax1.axis("image")
     ax1.set_title("Aligned tomographic slice")
     ax1.set_xlabel("x [pixels]")
@@ -804,48 +911,43 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     plt.show(block=False)
     plt.pause(0.01)
 
-    return shiftstack, alignedsinogram
-
 
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     """
     Apply tomographic consistency alignement on multiple slices
     """
-    params["apply_alignement"] = False
     print("Starting Tomographic consistency on multiple slices")
     # select the slices, which are typically +5 and -5 relative to slicenum
     slices = np.arange(params["slicenum"] - 5, params["slicenum"] + 5)
-    plt.close("all")
-    shiftslice = shiftstack[1].copy()
+    shiftslice = np.expand_dims(shiftstack[1], axis=0)
     shiftslice_prev = shiftslice.copy()
-    deltaxrefine = []
+    shiftxrefine = []
     for ii in slices:
         print("\nAligning slice {}".format(ii + 1))
         sinogram = np.transpose(input_stack[:, ii, :])  # create the sinogram
-        params[u"apply_alignement"] = False
-        delta_aux, aligned_sino_aux = alignprojections_horizontal(
-            sinogram, theta, shiftslice, **params
+        shiftstack_aux = alignprojections_horizontal(
+            sinogram, theta, shiftstack, **params
         )
-        deltaxrefine.append(delta_aux)
-        shiftslice = delta_aux.copy()  # updating shiftslice
+        shiftxrefine.append(shiftstack_aux[1])
+        shiftslice = shiftstack_aux[1].copy()  # updating shiftslice
 
-    deltaxrefine = np.squeeze(deltaxrefine)
-    deltaxrefine_avg = deltaxrefine.mean(axis=0)
+    shiftxrefine = np.squeeze(shiftxrefine)
+    shiftxrefine_avg = shiftxrefine.mean(axis=0)
 
     plt.close("all")
     fig = plt.figure(num=6, figsize=(14, 8))
     ax1 = fig.add_subplot(211)
-    ax1.imshow(deltaxrefine.astype(np.float), interpolation="none", cmap="jet")
+    ax1.imshow(shiftxrefine, interpolation="none", cmap="jet")
     ax1.axis("tight")
     ax1.set_xlabel("Projection number")
     ax1.set_ylabel("Slice number")
     ax1.set_title("Displacements in x")
     ax2 = fig.add_subplot(212)
-    ax2.plot(deltaxrefine_avg.astype(np.float), "b-", label="average")
+    ax2.plot(shiftxrefine_avg, "b-", label="average")
     ax2.plot(shiftslice_prev[0], "r--", label="previous")
     ax2.legend()
     ax2.axis("tight")
-    ax2.set_xlim([0, len(deltaxrefine_avg)])
+    ax2.set_xlim([0, len(shiftxrefine_avg)])
     ax2.set_title("Average displacements in x")
     ax2.set_xlabel("Projection number")
     plt.tight_layout()
@@ -854,7 +956,7 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
         "Are you happy with the tomographic consistency alignment of the multiples slices? ([y]/n) "
     ).lower()
     if a == "" or a == "y":
-        shiftstack[1] = deltaxrefine_avg.copy()
+        shiftstack[1] = shiftxrefine_avg.copy()
         print("Using the average of all shiftstack")
     else:
         shiftstack[1] = shiftslice_prev[0].copy()
@@ -1151,25 +1253,32 @@ def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False
 
     return reason
 
+
 @deprecated
-def _offset_sinogram_old(sinogram,offset):
+def _offset_sinogram_old(sinogram, offset):
     """
     Shift the sinogram for an initial guess of the rotation axis offset
     """
-    if np.sign(offset)==+1:#-1:
-        print('Initial guess of the rotation axis offset : {}'.format(offset))
-        sinogram = np.pad(sinogram,((0,2*abs(offset)),(0,0)),'constant',constant_values=0)
-    elif np.sign(offset)==-1:#+1:
-        print('Initial guess of the rotation axis offset : {}'.format(offset))
-        sinogram = np.pad(sinogram,((2*abs(offset),0),(0,0)),'constant',constant_values=0)
+    if np.sign(offset) == +1:  # -1:
+        print("Initial guess of the rotation axis offset : {}".format(offset))
+        sinogram = np.pad(
+            sinogram, ((0, 2 * abs(offset)), (0, 0)), "constant", constant_values=0
+        )
+    elif np.sign(offset) == -1:  # +1:
+        print("Initial guess of the rotation axis offset : {}".format(offset))
+        sinogram = np.pad(
+            sinogram, ((2 * abs(offset), 0), (0, 0)), "constant", constant_values=0
+        )
     return sinogram
 
-def _offset_sinogram(sinogram,offset,shift_method='linear'):
+
+def _offset_sinogram(sinogram, offset, shift_method="linear"):
     """
     Shift the sinogram for an initial guess of the rotation axis offset
     """
-    S = ShiftFunc(shiftmeth='linear')
-    return S(sinogram, (offset,0))
+    S = ShiftFunc(shiftmeth="linear")
+    return S(sinogram, (offset, 0))
+
 
 def estimate_rot_axis(input_array, theta, **params):
     """
@@ -1177,41 +1286,58 @@ def estimate_rot_axis(input_array, theta, **params):
     """
     # Ensuring that theta starts at zero
     theta -= theta.min()
-    
+
     # Inspection of a sinogram and a tomogram
-    slicenum = params['slicenum']
-    rot_axis_offset = params['rot_axis_offset']
+    slicenum = params["slicenum"]
+    rot_axis_offset = params["rot_axis_offset"]
     while True:
-        sinogram = np.transpose(input_array[:,slice_num,:])
-        sinogram = _offset_sinogram2(sinogram,rot_axis_offset)
-        
+        sinogram = np.transpose(input_array[:, slice_num, :])
+        sinogram = _offset_sinogram2(sinogram, rot_axis_offset)
+
         # reconstruction
-        print('Calculating a tomographic slice')
+        print("Calculating a tomographic slice")
         p0 = time.time()
         tomogram = backprojector(sinogram, theta, **params)
-        print('Time elapsed: {} s'.format(time.time()-p0))
+        print("Time elapsed: {} s".format(time.time() - p0))
 
         # Display slice:
-        plt.close('all')
+        plt.close("all")
         print("Slice: {}".format(slice_num))
-        fig1 = plt.figure(num=5,figsize=(12,4))
+        fig1 = plt.figure(num=5, figsize=(12, 4))
         ax1 = fig1.add_subplot(121)
-        im1=ax1.imshow(tomogram,cmap=params['colormap'],interpolation='none',vmin=params['cliplow'], vmax=params['cliphigh'] )
-        ax1.set_title('Slice'.format(slice_num))
+        im1 = ax1.imshow(
+            tomogram,
+            cmap=params["colormap"],
+            interpolation="none",
+            vmin=params["cliplow"],
+            vmax=params["cliphigh"],
+        )
+        ax1.set_title("Slice".format(slice_num))
         fig1.colorbar(im1)
         ax2 = fig1.add_subplot(122)
-        im2=ax2.imshow(sinogram,cmap=params['sinocmap'],interpolation='none',vmin=params['sinolow'], vmax=params['sinohigh'] )
-        ax2.axis('tight')
-        ax2.set_title('Sinogram - Slice'.format(slice_num))
+        im2 = ax2.imshow(
+            sinogram,
+            cmap=params["sinocmap"],
+            interpolation="none",
+            vmin=params["sinolow"],
+            vmax=params["sinohigh"],
+        )
+        ax2.axis("tight")
+        ax2.set_title("Sinogram - Slice".format(slice_num))
         fig1.colorbar(im2)
         plt.show(block=False)
-        a = input('Are you happy with the rotation axis?([y]/n)').lower()
-        if a == '' or a =='y':
+        a = input("Are you happy with the rotation axis?([y]/n)").lower()
+        if a == "" or a == "y":
             break
         else:
-            rot_axis_offset = eval(input('Enter new rotation axis estimate: '))
-    print('The initial estimate of the offset of the rotation axis is {}'.format(rot_axis_offset))
+            rot_axis_offset = eval(input("Enter new rotation axis estimate: "))
+    print(
+        "The initial estimate of the offset of the rotation axis is {}".format(
+            rot_axis_offset
+        )
+    )
     return rot_axis_offset
+
 
 @deprecated
 def cc_align(input_stack, limrow, limcol, params):

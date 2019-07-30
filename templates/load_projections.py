@@ -14,9 +14,7 @@ params = dict()
 # =========================
 params["account"] = "ma4351"
 params["samplename"] = "v97_v_nfptomo2_15nm"
-params[
-    "pathfilename"
-] = "/data/id16a/inhouse4/visitor/ma4351/id16a/analysis/recons/v97_v_nfptomo2_15nm_subtomo001_0000/v97_v_nfptomo2_15nm_subtomo001_0000_ML.ptyr"
+params["pathfilename"] = "/data/id16a/inhouse4/visitor/ma4351/id16a/analysis/recons/v97_v_nfptomo2_15nm_subtomo001_0000/v97_v_nfptomo2_15nm_subtomo001_0000_ML.ptyr"
 params["regime"] = "nearfield"  # 'nearfield' or 'farfield'
 params["showrecons"] = False
 params["autosave"] = True
