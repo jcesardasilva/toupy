@@ -1,2 +1,5 @@
 __pycache__
+build
+toupy.egg-info
 dist
+files.txt
