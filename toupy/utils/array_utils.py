@@ -4,21 +4,63 @@
 # third party packages
 import numpy as np
 import scipy.constants as consts
+from scipy.ndimage import filters
 
 __all__ = [
-    "round_to_even",
-    "polynomial1d",
-    "projectpoly1d",
     "crop",
-    "radtap",
     "fract_hanning",
     "fract_hanning_pad",
     "mask_borders",
-    "padarray_bothsides",
     "mask_borders",
+    "padarray_bothsides",
+    "polynomial1d",
+    "projectpoly1d",
+    "radtap",
     "replace_bad",
+    "round_to_even",
+    "sharpening_image",
+    "smooth_image",
     "sort_array",
 ]
+
+def smooth_image(input_image, filter_size=3):
+    """
+    Smooth image with a median filter
+
+    Parameters
+    ----------
+    input_image : nadarray
+        Image to be smoothed
+    filter_size : int
+        Size of the filter
+    Returns
+    -------
+    ndarray
+        Smoothed image
+    """
+    return filters.median_filter(input_image,filter_size)
+
+def sharpening_image(input_image, filter_size=3, alpha=30):
+    """
+    Sharpen image with a median filter
+
+    Parameters
+    ----------
+    input_image : nadarray
+        Image to be sharpened
+    filter_size : int
+        Size of the filter
+    alpha : float
+        Strength of the sharpening
+    Returns
+    -------
+    ndarray
+        Sharpened image
+    """
+    blurredimg = filters.median_filter(input_image, filter_size)
+    filter_blurredimg = filters.median_filter(blurredimg, 1)
+    sharpimg = blurredimg + alpha * (blurredimg - filter_blurredimg)
+    return sharpimg
 
 
 def sort_array(input_array, ref_array):
@@ -59,6 +101,7 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
                 input_stack[ii] = input_stack[ii - 1]
             else:
                 input_stack[ii] = (input_stack[ii - 1] + input_stack[ii + 1]) / 2
+        print('\r')
     return input_stack
 
 

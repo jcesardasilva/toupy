@@ -3,18 +3,16 @@
 
 # standard libraries imports
 import re
-import sys
 import socket
-
-# third party package
-import numpy
 
 ### quick fix to avoid ImportError: dlopen: cannot load any more object with static TLS
 ### not used when not using GPUs
 if re.search("gpu", socket.gethostname()) or re.search("gpid16a", socket.gethostname()):
     import pyfftw  # has to be imported first
-    from skimage.transform import radon
 ###
+
+# third party package
+import numpy as np
 
 # local packages
 from toupy.io import LoadData, SaveData
@@ -36,7 +34,7 @@ params["samplename"] = "v97_v_nfptomo2_15nm"
 params["phaseonly"] = True
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
-params["filtertomo"] = 0.2  # Frequency cutoff
+params["filtertomo"] = 0.2  # Frequency cutoff (between 0 and 1)
 params["circle"] = True
 # initial guess of the offset of the axis of rotation
 params["rot_axis_offset"] = 0
@@ -76,7 +74,7 @@ if __name__ == "__main__":
         print("Using previous estimate of shiftstack")
     else:
         # initializing shiftstack with zero plus rot_axis_offset
-        shiftstack[1] = np.zeros(sinogram.shape[1]) + params["rot_axis_offset"]
+        shiftstack[1] = np.zeros(aligned_diff.shape[0]) + params["rot_axis_offset"]
 
     # calculate the sinogram needed for the alignment
     sinogram = np.transpose(aligned_diff[:, params["slicenum"], :]).copy()
@@ -85,7 +83,7 @@ if __name__ == "__main__":
     shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params)
 
     # alignment refinement with different parameters if necessary
-    shiftstack = refine_horizontalalignment(input_stack, theta, shiftstack, **params)
+    shiftstack = refine_horizontalalignment(aligned_diff, theta, shiftstack, **params)
 
     # tomographic consistency on multiples slices
     a = input(
@@ -100,20 +98,20 @@ if __name__ == "__main__":
     # Shift projections (Only shift the horizontal)
     print("Shifting the projections (only shifts in the horizontal direction)")
     aligned_projections = compute_aligned_horizontal(
-        input_stack, shiftstack, shift_method=params["shiftmeth"]
+        aligned_diff, shiftstack, shift_method=params["shiftmeth"]
     )
     # correcting bad projections after the alignment if needed
     if params["correct_bad"]:
         aligned_projections = replace_bad(
             aligned_projections, list_bad=params["bad_projs"], temporary=False
         )
-
+    
     a = input("Do you want to display the aligned projections? (y/[n]) :").lower()
     if str(a) == "y":
         iterative_show(
             aligned_projections, vmin=-0.2, vmax=0.2
         )  # Show aligned projections derivatives
-
+    
     # calculate one slice for display
     aligned_sinogram = np.transpose(aligned_projections[:, params["slicenum"], :])
     oneslicefordisplay(aligned_sinogram, theta, **params)
