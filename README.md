@@ -11,9 +11,9 @@ Installation should be as simple as:
 
     sudo python3 setup.py install
 
-or, for local installation, using the flag - -user:
+or, for local installation, using the flag --user:
 
-    python3 setup.py install - -user
+    python3 setup.py install --user
 
 Running test
 ------------
@@ -46,4 +46,4 @@ For example, work on the documentation are valuable.
 
 # Guide for Github-flavored Markdown
 
-[Github-flavored Markdown](https: // guides.github.com/features/mastering-markdown/)
+[Github-flavored Markdown](https://guides.github.com/features/mastering-markdown/)
