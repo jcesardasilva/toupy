@@ -57,3 +57,5 @@ ax1.set_title("fourier")
 plt.tight_layout()
 fig3.subplots_adjust(top=0.88)
 plt.show(block=False)
+
+a = input('Press Enter to close')
