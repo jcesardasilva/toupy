@@ -19,7 +19,7 @@ __all__ = [
     "show_linearphase",
     "iterative_show",
     "animated_image",
-    "display_slice"
+    "display_slice",
 ]
 
 
@@ -461,7 +461,14 @@ class RegisterPlot:
 
 @interativesession
 def iterative_show(
-    stack_array, limrow=[], limcol=[], airpixel=[], onlyroi=False, colormap='bone', vmin=None, vmax=None
+    stack_array,
+    limrow=[],
+    limcol=[],
+    airpixel=[],
+    onlyroi=False,
+    colormap="bone",
+    vmin=None,
+    vmax=None,
 ):
     """
     Iterative plot of the images
@@ -479,10 +486,10 @@ def iterative_show(
         delimiters = False
     if limcol == [] or limcol == None:
         delimiters = False
-    if vmin=='none':
-        vmin=None
-    if vmax=='none':
-        vmax=None
+    if vmin == "none":
+        vmin = None
+    if vmax == "none":
+        vmax = None
 
     # display
     plt.close("all")
@@ -750,16 +757,17 @@ def show_linearphase(image, mask, *args):
     plt.draw()
     # ax2.cla()
 
-def display_slice(recons, colormap='bone', vmin=None, vmax=None):
+
+def display_slice(recons, colormap="bone", vmin=None, vmax=None):
     """
     Display tomographic slice
     """
-    if vmin=='none':
-        vmin=None
-    if vmax=='none':
-        vmax=None
-    
-    plt.close('all')
+    if vmin == "none":
+        vmin = None
+    if vmax == "none":
+        vmax = None
+
+    plt.close("all")
     fig = plt.figure(num=1)
     plt.clf()
     ax1 = fig.add_subplot(111)

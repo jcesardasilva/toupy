@@ -728,7 +728,7 @@ class LoadData(PathName, Variables):
     @classmethod
     def loadshiftstack(cls, *args, **kwargs):
         return cls(**kwargs)._load_shiftstack(*args)
-        
+
     @classmethod
     def loadtheta(cls, *args, **kwargs):
         return cls(**kwargs)._load_theta(*args)
@@ -918,11 +918,10 @@ class SaveTomogram(SaveData):
     @classmethod
     def save(cls, *args, **kwargs):
         return cls(**kwargs)._save_tomogram(*args)
-        
+
     @classmethod
     def save_vol_to_h5(cls, *args, **kwargs):
         return cls(**kwargs)._save_vol_to_h5(*args)
-
 
     @classmethod
     def save(cls, *args, **kwargs):
@@ -947,7 +946,7 @@ class SaveTomogram(SaveData):
         tomogram = args[1]
         nslices, nr, nc = tomogram.shape
         theta = args[2]
-        
+
         if len(args) == 4:
             shiftstack = args[3]
         else:
@@ -1000,7 +999,7 @@ class SaveTomogram(SaveData):
         """
         h5name = args[0]
         theta = args[1]
-        
+
         print("Saving .vol into HDF5")
         filename = "volfloat/{}.vol".format(params["samplename"])
         # Usually, the file .vol.info contains de size of the volume
@@ -1018,7 +1017,7 @@ class SaveTomogram(SaveData):
         )
         nslices = tomogram.shape[0]
         print("Found {} slices in the volume.".format(nslices))
-        self._save_tomogram(self,h5name,tomogram,theta,**params)
+        self._save_tomogram(self, h5name, tomogram, theta, **params)
 
 
 class LoadTomogram(LoadData):

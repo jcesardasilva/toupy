@@ -16,15 +16,15 @@ params = dict()
 # Edit section
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
-params["phaseonly"] = False # True for the phase projections.
-params["amponly"] = True # True for the amplitude projections.
+params["phaseonly"] = False  # True for the phase projections.
+params["amponly"] = True  # True for the amplitude projections.
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
 params["filtertomo"] = 1.0  # Frequency cutoff (between 0 and 1)
 params["circle"] = True
-params["tomo_algorithm"] = "FBP"  # 'FBP' # u'SART' # SART does not work with derivatives
-params["derivatives"] = True  ### only for FBP
-params["calc_derivatives"] = False # Calculate the derivatives of sinogram if not yet done
+params["algorithm"] = "FBP"  # FBP or SART
+params["derivatives"] = True  # only for FBP
+params["calc_derivatives"] = False  # Calculate derivatives if not done
 params["opencl"] = True
 params["autosave"] = False
 params["vmin_plot"] = None  # 0.5e-5
@@ -40,7 +40,7 @@ params["showrecons"] = False  # to display the reconstructed slice on the fly.
 if __name__ == "__main__":
 
     if params["phaseonly"] == params["amponly"]:
-	raise ValueError('Phaseonly and amponly cannot be True at the same time")
+        raise ValueError("phaseonly and amponly cannot be True at the same time")
 
     # loading the data
     aligned_projections, theta, shiftstack, params = LoadData.load(
@@ -62,9 +62,7 @@ if __name__ == "__main__":
         )  # Show aligned projections derivatives
 
     # save the tomograms
-    SaveData.save(
-        "tomogram_amp.h5", tomogram, theta, shiftstack, **params
-    )
+    SaveData.save("tomogram_amp.h5", tomogram, theta, shiftstack, **params)
 
     # next step
     print('You should run "tiff_convertion.py" now')

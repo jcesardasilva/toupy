@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # local packages
-from toupy.io import LoadData,SaveData, load_paramsh5
+from toupy.io import LoadData, SaveData, load_paramsh5
 
 # initializing dictionaries
 params = dict()
@@ -24,10 +24,10 @@ if __name__ == "__main__":
     # loading theta and shiftstack for the saving
     shiftstack = LoadData.loadshiftstack("aligned_projections.h5", **params)
     theta = LoadData.loadtheta("aligned_projections.h5", **params)
-    
+
     # actual saving
     SaveData.save_vol_to_h5("tomogramVOL.h5", theta, **params)
- 
+
     # next step
     print('You can now run "tiff_convertion.py" if needed')
     # =============================================================================#
