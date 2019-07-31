@@ -105,13 +105,13 @@ if __name__ == "__main__":
         aligned_projections = replace_bad(
             aligned_projections, list_bad=params["bad_projs"], temporary=False
         )
-    
+
     a = input("Do you want to display the aligned projections? (y/[n]) :").lower()
     if str(a) == "y":
         iterative_show(
             aligned_projections, vmin=-0.2, vmax=0.2
         )  # Show aligned projections derivatives
-    
+
     # calculate one slice for display
     aligned_sinogram = np.transpose(aligned_projections[:, params["slicenum"], :])
     oneslicefordisplay(aligned_sinogram, theta, **params)

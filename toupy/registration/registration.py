@@ -22,7 +22,7 @@ from ..utils import (
     projectpoly1d,
     progbar,
     RegisterPlot,
-    replace_bad
+    replace_bad,
 )
 
 __all__ = [
@@ -752,9 +752,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     # Filtered back projection
     print("Backprojecting")
     t0 = time.time()
-    recons = backprojector(
-        sinogram, theta=theta, **params
-    )
+    recons = backprojector(sinogram, theta=theta, **params)
     print("Done. Time elapsed: {} s".format(time.time() - t0))
     print("Slice standard deviation = {:0.04e}".format(recons.std()))
 
@@ -894,16 +892,15 @@ def oneslicefordisplay(sinogram, theta, **params):
             params["filtertype"] = str(filtertype)
         print("Calculating a tomographic slice")
     # display of the slice:
-    _oneslicefordisplay(sinogram,theta,**params)
+    _oneslicefordisplay(sinogram, theta, **params)
 
-def _oneslicefordisplay(sinogram,theta,**params):
+
+def _oneslicefordisplay(sinogram, theta, **params):
     """
     Auxiliary for displaying the slice without the questions
     """
     p0 = time.time()
-    recons = backprojector(
-        sinogram, theta=theta, **params
-    )
+    recons = backprojector(sinogram, theta=theta, **params)
     # clipping gray level if needed
     recons = _clipping_tomo(recons, **params)
     if params["circle"]:
@@ -913,7 +910,9 @@ def _oneslicefordisplay(sinogram,theta,**params):
     recons = recons * circleROI
     print("Done. Time elapsed: {} s".format(time.time() - p0))
 
-    display_slice(recons,colormap='bone',vmin=params["cliplow"], vmax=params["cliphigh"])
+    display_slice(
+        recons, colormap="bone", vmin=params["cliplow"], vmax=params["cliphigh"]
+    )
 
 
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):

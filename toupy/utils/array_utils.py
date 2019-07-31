@@ -23,6 +23,7 @@ __all__ = [
     "sort_array",
 ]
 
+
 def smooth_image(input_image, filter_size=3):
     """
     Smooth image with a median filter
@@ -38,7 +39,8 @@ def smooth_image(input_image, filter_size=3):
     ndarray
         Smoothed image
     """
-    return filters.median_filter(input_image,filter_size)
+    return filters.median_filter(input_image, filter_size)
+
 
 def sharpening_image(input_image, filter_size=3, alpha=30):
     """
@@ -101,7 +103,7 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
                 input_stack[ii] = input_stack[ii - 1]
             else:
                 input_stack[ii] = (input_stack[ii - 1] + input_stack[ii + 1]) / 2
-        print('\r')
+        print("\r")
     return input_stack
 
 
