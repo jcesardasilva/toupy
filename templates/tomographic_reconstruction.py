@@ -5,7 +5,7 @@
 import time
 
 # local packages
-from toupy.io import LoadData, SaveData
+from toupy.io import LoadData, SaveTomogram
 from toupy.utils import display_slice, iterative_show
 from toupy.tomo import full_tomo_recons
 
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         )  # Show aligned projections derivatives
 
     # save the tomograms
-    SaveData.save("tomogram.h5", tomogram, theta, shiftstack, **params)
+    SaveTomogram.save("tomogram.h5", tomogram, theta, shiftstack, **params)
 
     # next step
     print('You should run "tiff_convertion.py" now')

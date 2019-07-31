@@ -37,8 +37,12 @@ __all__ = [
     "load_paramsh5",
     "write_paramsh5",
     "read_tiff",
-    "converttiffto16bits",
-    "converttiffto8bits",
+    "write_tiff",
+    "write_tiffmetadata",
+    "convertimageto16bits",
+    "convertimageto8bits",
+    "convert16bitstiff",
+    "convert8bitstiff",
 ]
 
 
@@ -97,8 +101,6 @@ def _reorient_ptyrimg(input_array):
 
 
 metaptyr = dict()
-
-
 def _print_attrs_ptyr(name):
     """
     Auxiliary function to indentify from where the data must be read in
@@ -178,8 +180,6 @@ def _h5py_dataset_iterator(g, prefix=""):
 
 
 metacxi = dict()
-
-
 def _h5pathcxi(filename):
     """
     h5py visititems does not find links
@@ -451,15 +451,49 @@ def read_tiff(imgpath):
     tiff.close()
     return imgout
 
-
-def converttiffto16bits(tiffimage, low_cutoff, high_cutoff):
+def write_tiff(input_array,pathfilename):
     """
-    Convert tiff files to 16 bits
+    Write tiff files using libtiff
+    """
+    # Writing to file
+    tiff = libtiff.TIFF.open(pathfilename,"w")
+    tiff.write_image(input_array)
+    tiff.close()
 
+def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
+    """
+    Creates a txt file with the information about the Tiff normalization
+    """
+    voxelsize = params["voxelsize"] * 1e9 # in nm
+    filtertype = params["filtertype"]
+    freqcutoff = params["filtertomo"]
+    nbits = params["bits"]
+
+    # writing
+    fid = open(filename,"w")
+    fid.write("# Tomo filter = {}\n".format(filtertype))
+    fid.write("# Tomo filter cutoff = {}\n".format(freqcutoff))
+    fid.write("# low_cutoff = {}\n".format(low_cutoff))
+    fid.write("# high_cutoff = {}\n".format(high_cutoff))
+    fid.write("# factor = {}\n".format(factor))
+    fid.write("# voxel size = {} nm\n".format(voxelsize))
+    fid.write("# to convert back to quantitative values:\n")
+    fid.write(
+        "# low_cutoff + [(high_cutoff-low_cutoff)*tiff_image/(2^{:d}-1)] \n".format(
+            nbits
+        )
+    )
+    fid.close()
+
+
+def convertimageto16bits(input_image, low_cutoff, high_cutoff):
+    """
+    Convert image gray-level to 16 bits with normalization
+    
     Parameters
     ----------
-    imgpath : ndarray
-        Image read from tiff file
+    input_image : ndarray
+        Input image to be converted
     low_cutoff : float
         Low cutoff of the gray level
     high_cutoff : float
@@ -470,23 +504,71 @@ def converttiffto16bits(tiffimage, low_cutoff, high_cutoff):
     tiffimage : ndarray
         Array containing the image at 16 bits
     """
+    # Tiff normalization - 16 bits
+    imgtiff = input_image-low_cutoff
+    imgtiff /= high_cutoff - low_cutoff
+    imgtiff *= 2 ** 16 - 1  # 16 bits
+    return np.uint16(imgtiff)
+
+def convertimageto8bits(input_image, low_cutoff, high_cutoff):
+    """
+    Convert image gray-level to 8 bits with normalization
+    
+    Parameters
+    ----------
+    input_image : ndarray
+        Input image to be converted
+    low_cutoff : float
+        Low cutoff of the gray level
+    high_cutoff : float
+        High cutoff of the gray level
+
+    Returns
+    -------
+    tiffimage : ndarray
+        Array containing the image at 8 bits
+    """
+    # Tiff normalization - 8 bits
+    imgtiff = input_image - low_cutoff
+    imgtiff /= high_cutoff - low_cutoff
+    imgtiff *= 2 ** 8 - 1  # 8 bits
+    return np.uint8(imgtiff)
+
+
+def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
+    """
+    Convert 16 bits tiff files back to quantitative values
+
+    Parameters
+    ----------
+    imgpath : ndarray
+        Image read from 16 bits tiff file
+    low_cutoff : float
+        Low cutoff of the gray level
+    high_cutoff : float
+        High cutoff of the gray level
+
+    Returns
+    -------
+    tiffimage : ndarray
+        Array containing the image with quantitative values
+    """
     tiffimage = tiffimage.astype(np.float)
-    # Convert to beta
+    # Convert to 16 bits
     tiffimage /= 2 ** 16 - 1
     tiffimage *= high_cutoff - low_cutoff
     tiffimage += low_cutoff
 
     return tiffimage
 
-
-def converttiffto8bits(filename, low_cutoff, high_cutoff):
+def convert8bitstiff(filename, low_cutoff, high_cutoff):
     """
-    Convert tiff files to 8 bits
+    Convert 8bits tiff files back to quantitative values
 
     Parameters
     ----------
     imgpath : ndarray
-        Image read from tiff file
+        Image read from 8 bits tiff file
     low_cutoff : float
         Low cutoff of the gray level
     high_cutoff : float
@@ -495,10 +577,10 @@ def converttiffto8bits(filename, low_cutoff, high_cutoff):
     Returns
     -------
     tiffimage : ndarray
-        Array containing the image at 16 bits
+        Array containing the image with quantitative values
     """
     tiffimage = tiffimage.astype(np.float)
-    # Convert to beta
+    # Convert to 8 bits
     tiffimage /= 2 ** 8 - 1
     tiffimage *= high_cutoff - low_cutoff
     tiffimage += low_cutoff
