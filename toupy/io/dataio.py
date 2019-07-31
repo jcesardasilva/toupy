@@ -28,6 +28,8 @@ from .filesrw import *
 from .h5chunk_shape_3D import chunk_shape_3D
 from ..utils import (
     checkhostname,
+    convert_to_delta,
+    convert_to_beta,
     padarray_bothsides,
     progbar,
     ShowProjections,
@@ -927,6 +929,10 @@ class SaveTomogram(SaveData):
     def save(cls, *args, **kwargs):
         return cls(**kwargs)._save_tomogram(*args)
 
+    @classmethod
+    def convert_to_tiff(cls, *args, **kwargs):
+        return cls(**kwargs)._convert_to_tiff(*args)
+
     @savecheck
     def _save_tomogram(self, *args):
         """
@@ -987,10 +993,116 @@ class SaveTomogram(SaveData):
                 # ~ print(' Slice: {} out of {}'.format(ii+1, nslices), end='\r')
                 dset[ii, :, :] = tomogram[ii]
                 progbar(ii + 1, nslices, strbar)
-            # ~ print('\r')
+            print("\r")
             print("Done. Time elapsed = {:.03f} s".format(time.time() - p0))
         print("Tomogram saved to file {}".format(h5name))
         print("In the folder {}".format(self.results_folder()))
+
+    def tiff_folderpath(self, foldername):
+        """
+        Create the path to the folder in which the tiff files will be
+        stored.
+        """
+        aux_path = self.results_folder()
+        folderpath = os.path.join(aux_path, foldername)
+        if not os.path.isdir(folderpath):
+            print("Folder {} does not exists and will be created.".format(folderpath))
+            os.makedirs(folderpath)
+        else:
+            print("Folder exists:{}".format(folderpath))
+            userans = input(
+                "Do you want to overwrite TIFFs in this folder ([y]/n)?"
+            ).lower()
+            if userans == "" or userans == "y":
+                print("Overwritting")
+            else:
+                print("Writting of TIFFs aborted")
+                raise SystemExit("Writting of TIFFs aborted")
+
+        return folderpath
+
+    def _convert_to_tiff(self, *args):
+        """
+        Convert the HDF5 file with the tomogram to tiff
+
+        Parameters:
+        -----------
+        *args: positional arguments
+            args[0] : str
+                H5 file name
+            args[1] : ndarray
+                Array containing the stack of slices (tomogram)
+            args[2] : ndarray
+                Values of theta
+            args[3] : ndarray
+                Array containing the shifts for each projection in the stack
+        """
+        tomogram = args[0]
+        nslices, nr, nc = tomogram.shape
+
+        try:
+            voxelsize = self.params["voxelsize"]
+        except KeyError:
+            voxelsize = self.params["pixelsize"]
+
+        energy = self.params["energy"]
+
+        print("The total number of slides is {}".format(nslices))
+        print("The voxel size is {} nm".format(voxelsize[0] * 1e9))
+
+        create_paramsh5(**self.params)
+
+        # create the TIFF folder
+        tiff_subfolder_name = "TIFF_{}_{}_freqscl_{:0.2f}_{:d}bits".format(
+            self.params["tomo_type"],
+            self.params["filtertype"],
+            self.params["filtertomo"],
+            self.params["bits"],
+        )
+
+        if params["tomo_type"] == "delta":
+            # Conversion from phase-shifts tomogram to delta
+            print("Converting from phase-shifts values to delta values")
+            for ii in range(nslices):
+                strbar = "Slice {} out of {}".format(ii + 1, nslices)
+                tomogram[ii], factor = convert_to_delta(tomogram[ii], energy, voxelsize)
+                progbar(ii + 1, nslices, strbar)
+        elif params["tomo_type"] == "beta":
+            # Conversion from amplitude to beta
+            print("Converting from amplitude to beta values")
+            for ii in range(slices):
+                strbar = "Slice {} out of {}".format(ii + 1, nslices)
+                tomogram[ii], factor = convert_to_beta(tomogram[ii], energy, voxelsize)
+                progbar(ii + 1, nslices, strbar)
+        print("\r")
+        # low and high cutoff for Tiff normalization
+        low_cutoff = np.min(tomogram)
+        high_cutoff = np.max(tomogram)
+
+        # writing the tiffs
+        print("Writing the tiff files...")
+        tiff_path = self.tiff_folderpath(tiff_subfolder_name)
+        for ii in range(nslices):
+            strbar = "Writing slice {} out of {}".format(ii + 1, nslices)
+            if params["bits"] == 16:
+                imgtiff = convertimageto16bits(tomogram[ii], low_cutoff, high_cutoff)
+            elif params["bits"] == 8:
+                imgtiff = convertimageto8bits(tomogram[ii], low_cutoff, high_cutoff)
+            filename = "tomo_{}_filter_{}_cutoff_{:0.2f}_{:04d}.tif".format(
+                self.params["tomo_type"],
+                self.params["filtertype"],
+                self.params["filtertomo"],
+                ii
+            )
+            pathfilename = os.path.join(tiff_path, filename)
+            write_tiff(imgtiff, pathfilename)
+            progbar(ii + 1, nslices, strbar)
+        print("\r")
+
+        # writing the metadata
+        filename = tiff_subfolder_name + "_cutoffs.txt"
+        metadatafile = os.path.join(tiff_path, filename)
+        write_tiffmetadata(metadatafile, low_cutoff, high_cutoff, factor, **self.params)
 
     @savecheck
     def _save_vol_to_h5(self, *args):
@@ -1005,8 +1117,8 @@ class SaveTomogram(SaveData):
         # Usually, the file .vol.info contains de size of the volume
         linesff = []
         infofilename = filename + ".info"
-        with open(infofilename, "r") as ff:
-            for lines in ff:
+        with open(infofilename, "r") as fid:
+            for lines in fid:
                 linesff.append(lines.strip("\n"))
         x_size = int(linesff[1].split("=")[1])
         y_size = int(linesff[2].split("=")[1])
@@ -1026,16 +1138,19 @@ class LoadTomogram(LoadData):
     """
 
     def __init__(self, **params):
-        super().__init__(**params)
-        self.params = params
+        paramsh5 = load_paramsh5(**params)
+        super().__init__(**paramsh5)
+        self.params = paramsh5
+        self.params.update(params)
 
     def __call__(self, h5name):
         return self._load_tomogram(h5name)
 
     @classmethod
     def load(cls, *args, **kwargs):
-        return cls(**kwargs)._save_tomogram(*args)
+        return cls(**kwargs)._load_tomogram(*args)
 
+    @checkhostname
     def _load_tomogram(self, h5name):
         """
         Load tomographic data from h5 file
@@ -1066,21 +1181,20 @@ class LoadTomogram(LoadData):
             # read the inputkwargs dict
             datakwargs = dict()
             print("\rLoading metadata...", end="")
-            for keys in sorted(list(ff["info"].keys())):
-                datakwargs[keys] = ff["info/{}".format(keys)][()]
+            for keys in sorted(list(fid["info"].keys())):
+                datakwargs[keys] = fid["info/{}".format(keys)][()]
             datakwargs.update(self.params)
             print("\b\b Done")
             print("Loading tomogram. This takes time, please wait...")
             dset = fid["tomogram/slices"]
             nslices = dset.shape[0]
             tomogram = np.empty(dset.shape)
-            # ~ tomogram = ff[u'tomogram/slices'][()]
+            # ~ tomogram = fid[u'tomogram/slices'][()]
             for ii in range(nslices):
                 strbar = "Slice: {} out of {}".format(ii + 1, nslices)
-                # ~ print(' Slice: {} out of {}'.format(ii+1, nslices), end='\r')
                 tomogram[ii : ii + 1, :, :] = dset[ii, :, :]
                 progbar(ii + 1, nslices, strbar)
-            # ~ print('\r')
+            print('\r')
         print("Tomogram loaded from file {}".format(h5name))
         print("Time elapsed = {:.03f} s".format(time.time() - p0))
         return tomogram, theta, shiftstack, datakwargs

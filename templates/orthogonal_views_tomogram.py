@@ -1,14 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Jun 16 10:41:50 2016
-
-@author: jdasilva
-"""
-from __future__ import division, print_function
-
-# standard libraries imports
-import sys
 
 # third packages
 import matplotlib.pyplot as plt
@@ -17,93 +8,59 @@ import numpy as np
 from scipy.ndimage import filters
 
 # local packages
-from io_utils import (
-    checkhostname,
-    save_or_load_tomogram,
-    create_paramsh5,
-    load_paramsh5,
-)
+from toupy.io import LoadTomogram, SaveTomogram
 
 # initializing dictionaries
 params = dict()
 
-# ==================
-# photon energy to convert tomogram to delta or beta values
-params[u"energy"] = 33.6
-params[u"samplename"] = u"H2int_15000h_inlet"
-params[u"phaseonly"] = True
+# Edit section
+# =========================
+params["samplename"] = "v97_v_nfptomo2_15nm"
+params["energy"] = 17.05  # photon energy to convert tomogram to delta or beta values
+params["phaseonly"] = True
 # ~ params['roi'] = [600, 1600, 675, 1685]
-params[u"tomo_type"] = u"delta"
-params[u"slice_num"] = 500
-params[u"vmin_plot"] = 1e-7  # None
-params[u"vmax_plot"] = 5e-6  # 5e-4
-params[u"scale_bar_size"] = 5  # in microns
-params[u"scale_bar_height"] = 1
-params[u"scale_bar_color"] = u"yellow"
-params[u"bar_start"] = [50, 860]
-params[u"bar_axial"] = [70, 100]  # [cols,rows]
-params[u"save_figures"] = True
-params[u"colormap"] = u"bone"  # u'jet'
-params[u"interpolation"] = u"nearest"  # u'bilinear'
-params[u"gaussian_filter"] = False  # True
-params[u"sigma_gaussian"] = 3  # if gaussian filter
+params["tomo_type"] = "delta"
+params["slice_num"] = 650
+params["vmin_plot"] = 1e-7  # None
+params["vmax_plot"] = 5e-6  # 5e-4
+params["scale_bar_size"] = 5  # in microns
+params["scale_bar_height"] = 1
+params["scale_bar_color"] = u"yellow"
+params["bar_start"] = [50, 860]
+params["bar_axial"] = [70, 100]  # [cols,rows]
+params["save_figures"] = True
+params["colormap"] = "bone"
+params["interpolation"] = "nearest"
+params["gaussian_filter"] = False  # True
+params["sigma_gaussian"] = 3  # if gaussian filter
 # ==================
 
 # =============================================================================#
 # Don't edit below this line, please                                          #
 # =============================================================================#
+
 if __name__ == "__main__":
-    # load the tomograms
-    host_machine = checkhostname()
-
-    # -------------------------------------------------------
-    # still keep this block, but it should disappear soon
-    if sys.version_info < (3, 0):
-        range = xrange
-    # -------------------------------------------------------
-
-    # auxiliary dictionary to avoid overwriting of variables
-    inputparams = dict()
-
-    # loading parameters from h5file
-    kwargs = load_paramsh5(**params)
-    inputparams.update(kwargs)
-    inputparams.update(params)
 
     # loading files
-    if params[u"tomo_type"] == "delta":
-        params[u"phaseonly"] = True
-        params[u"amponly"] = False
-        tomogram, theta, deltastack, voxelsize, kwargs = save_or_load_tomogram(
-            "tomogram.h5", **inputparams
-        )  # pathfilename=params['path_filename'],h5name='tomogram.h5')
-    elif params[u"tomo_type"] == "beta":
-        params[u"phaseonly"] = False
-        params[u"amponly"] = True
-        tomogram, theta, deltastack, voxelsize, kwargs = save_or_load_tomogram(
-            "tomogram_amp.h5", **inputparams
-        )  # pathfilename=params['path_filename'],h5name='tomogram_amp.h5')
+    if params["tomo_type"] == "delta":
+        tomogram, theta, shiftstack, params = LoadTomogram.load("tomogram.h5", **params)
+    elif params["tomo_type"] == "beta":
+        tomogram, theta, shiftstack, params = LoadTomogram.load(
+            "tomogram_amp.h5", **params
+        )
     else:
         raise ValueError("Unrecognized tomography type")
 
-    inputparams.update(kwargs)  # updating the params
-    inputparams.update(params)  # updating the params
-
-    # updating parameter h5 file
-    create_paramsh5(**inputparams)
-    pixelsize = voxelsize[0]
-
     # conversion from phase-shifts to delta or from amplitude to beta
-    energy = params[u"energy"]
+    pixelsize = params["voxelsize"][0]
+    energy = params["energy"]
     wavelen = (12.4 / energy) * 1e-10  # in meters
     if params[u"tomo_type"] == "delta":
         # Conversion from phase-shifts tomogram to delta
         print("Converting from phase-shifts values to delta values")
         factor = wavelen / (2 * np.pi * voxelsize[0])
-        # tomogram_delta = np.zeros_like(tomogram)
         for ii in range(tomogram.shape[0]):
             print("Tomogram {}".format(ii + 1))
-            # tomogram_delta[ii] = -tomogram[ii].copy()*factor
             tomogram[ii] *= -factor
     elif params[u"tomo_type"] == "beta":
         # Conversion from amplitude to beta
@@ -126,7 +83,7 @@ if __name__ == "__main__":
     interp_type = params["interpolation"]
     scale_bar_color = params["scale_bar_color"]
 
-    if params[u"gaussian_filter"]:
+    if params["gaussian_filter"]:
         print(
             "Applying gaussian filter with sigma = {}".format(params[u"sigma_gaussian"])
         )
@@ -139,7 +96,7 @@ if __name__ == "__main__":
         # coronal slice
         coronal_slice = filters.gaussian_filter(
             tomogram[:, :, np.round(tomogram.shape[1] / 2).astype("int")],
-            params[u"sigma_gaussian"],
+            params["sigma_gaussian"],
         )
         # coronal_slice = filters.gaussian_filter(tomogram_delta[:,:,630],params[u'sigma_gaussian'])
         # axial slice
@@ -160,8 +117,9 @@ if __name__ == "__main__":
 
     # Sagital slice
     figsag = plt.figure(num=1)  # ,figsize=(15,6))
-    # plt.subplots(num=6,nrows=1,ncols=1,figsize=(15,6))
-    axsag = figsag.add_subplot(111)
+    axsag = figsag.add_subplot(
+        111
+    )  # plt.subplots(num=6,nrows=1,ncols=1,figsize=(15,6))
     imsag = axsag.imshow(
         sagital_slice,
         interpolation=interp_type,
@@ -229,8 +187,9 @@ if __name__ == "__main__":
 
     # Axial slice
     figaxial = plt.figure(num=3)  # ,figsize=(15,6))
-    # plt.subplots(num=6,nrows=1,ncols=1,figsize=(15,6))
-    axaxial = figaxial.add_subplot(111)
+    axaxial = figaxial.add_subplot(
+        111
+    )  # plt.subplots(num=6,nrows=1,ncols=1,figsize=(15,6))
     imaxial = axaxial.imshow(
         axial_slice,
         interpolation=interp_type,
