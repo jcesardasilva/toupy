@@ -1060,14 +1060,14 @@ class SaveTomogram(SaveData):
             self.params["bits"],
         )
 
-        if params["tomo_type"] == "delta":
+        if self.params["tomo_type"] == "delta":
             # Conversion from phase-shifts tomogram to delta
             print("Converting from phase-shifts values to delta values")
             for ii in range(nslices):
                 strbar = "Slice {} out of {}".format(ii + 1, nslices)
                 tomogram[ii], factor = convert_to_delta(tomogram[ii], energy, voxelsize)
                 progbar(ii + 1, nslices, strbar)
-        elif params["tomo_type"] == "beta":
+        elif self.params["tomo_type"] == "beta":
             # Conversion from amplitude to beta
             print("Converting from amplitude to beta values")
             for ii in range(slices):
@@ -1084,9 +1084,9 @@ class SaveTomogram(SaveData):
         tiff_path = self.tiff_folderpath(tiff_subfolder_name)
         for ii in range(nslices):
             strbar = "Writing slice {} out of {}".format(ii + 1, nslices)
-            if params["bits"] == 16:
+            if self.params["bits"] == 16:
                 imgtiff = convertimageto16bits(tomogram[ii], low_cutoff, high_cutoff)
-            elif params["bits"] == 8:
+            elif self.params["bits"] == 8:
                 imgtiff = convertimageto8bits(tomogram[ii], low_cutoff, high_cutoff)
             filename = "tomo_{}_filter_{}_cutoff_{:0.2f}_{:04d}.tif".format(
                 self.params["tomo_type"],
@@ -1113,7 +1113,7 @@ class SaveTomogram(SaveData):
         theta = args[1]
 
         print("Saving .vol into HDF5")
-        filename = "volfloat/{}.vol".format(params["samplename"])
+        filename = "volfloat/{}.vol".format(self.params["samplename"])
         # Usually, the file .vol.info contains de size of the volume
         linesff = []
         infofilename = filename + ".info"
@@ -1129,7 +1129,7 @@ class SaveTomogram(SaveData):
         )
         nslices = tomogram.shape[0]
         print("Found {} slices in the volume.".format(nslices))
-        self._save_tomogram(self, h5name, tomogram, theta, **params)
+        self._save_tomogram(self, h5name, tomogram, theta, **self.params)
 
 
 class LoadTomogram(LoadData):
