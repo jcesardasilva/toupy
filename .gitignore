@@ -1,4 +1,5 @@
 __pycache__
+*.pyc
 build
 toupy.egg-info
 dist
