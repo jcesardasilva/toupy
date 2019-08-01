@@ -464,7 +464,10 @@ def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
     """
     Creates a txt file with the information about the Tiff normalization
     """
-    voxelsize = params["voxelsize"] * 1e9 # in nm
+    try:
+        voxelsize = params["voxelsize"] * 1e9 # in nm
+    except KeyError:
+        voxelsize = params["pixelsize"] * 1e9
     filtertype = params["filtertype"]
     freqcutoff = params["filtertomo"]
     nbits = params["bits"]
