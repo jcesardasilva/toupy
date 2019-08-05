@@ -15,11 +15,8 @@ params["crop_reg"] = None  # [20,0,20,0] # left, bottom, right, top
 params["autosave"] = False
 params["vmin"] = -np.pi / 2
 params["vmax"] = np.pi / 2
-params["phaseonly"] = False  # ensuring that we are loading only phase
-params["amponly"] = False  # ensuring that we are loading only amplitude
+params["amponly"] = True  # ensuring that we are loading only amplitude
 # =========================
-# params[u'correct_bad'] = True
-# params[u'bad_projs'] = [117] # starting at zero
 
 # =============================================================================#
 # Don't edit below this line, please                                          #

@@ -21,8 +21,12 @@ def tomo_recons(sinogram, theta, **params):
     Wrapper to select tomographic algorithm
     """
     if params["algorithm"] == "FBP":
+        if params["calc_derivatives"]:
+            sinogram = derivatives_sino(sinogram, shift_method="fourier")
         recons = backprojector(sinogram, theta, **params)
     elif params["algorithm"] == "SART":
+        if params["calc_derivatives"]:
+            raise ValueError("Reconstruction from derivatives only works with FBP")
         recons = reconsSART(sinogram, theta, **params)
     return recons
 
@@ -41,8 +45,6 @@ def full_tomo_recons(input_stack, theta, **params):
     slicenum = params["slicenum"]
 
     sinogram0 = np.transpose(input_stack[:, slicenum, :])
-    if calc_derivatives:
-        sinogram0 = derivatives_sino(sinogram0, shift_method="fourier")
 
     # calculating one slice for estimating sizes
     t0 = time.time()
@@ -70,8 +72,6 @@ def full_tomo_recons(input_stack, theta, **params):
         for ii in range(nslices):  # num_projections):#sorted(frames):
             strbar = "Slice: {} out of {}".format(ii + 1, nslices)
             sinogram = np.transpose(input_stack[:, ii, :])
-            if calc_derivatives:
-                sinogram = derivatives_sino(sinogram, shift_method="fourier")
             tomogram[ii] = tomo_recons(sinogram, theta, **params)
             progbar(ii + 1, nslices, strbar)
         print("\r")

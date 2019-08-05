@@ -17,6 +17,7 @@ from skimage.restoration import unwrap_phase
 from ..io.dataio import LoadData, SaveData
 from .ramptools import rmphaseramp, rmlinearphase, rmair
 from .roipoly import roipoly
+from ..utils import progbar
 
 __all__ = ["gui_plotamp", "gui_plotphase", "AmpTracker", "PhaseTracker"]
 
@@ -450,13 +451,14 @@ class PhaseTracker(object):
         )
         for ii in range(self.slices):
             self.ind = ii
-            print("Projection {} out of {}".format(ii + 1, self.slices), end="\r")
+            strbar = "Projection {} out of {}".format(ii + 1, self.slices)
             imgin = np.exp(1j * self.X1[ii, :, :]).copy()
             mask = self.mask[ii, :, :].copy()
             # ~ self.X1[ii,:,:]=np.angle(remove_linearphase(imgin,mask,100)).copy()
             self.X1[ii, :, :] = np.angle(rmlinearphase(imgin, mask)).copy()
             self.X2[ii, :] = self.X1[ii, np.int(self.X1.shape[1] / 2.0), :].copy()
             self.update()
+            progbar(ii + 1, self.slices, strbar)
         print("\r")
         print("Done")
 
@@ -486,7 +488,7 @@ class PhaseTracker(object):
         print("\nRemove linear phase ramp of all projections")
         for ii in range(self.slices):
             self.ind = ii
-            print("Projection {} out of {}".format(ii + 1, self.slices), end="\r")
+            strbar = "Projection {} out of {}".format(ii + 1, self.slices)
             self.X1[self.ind, :, :] = np.angle(
                 rmphaseramp(
                     np.exp(1j * self.X1[self.ind, :, :]),
@@ -500,6 +502,7 @@ class PhaseTracker(object):
                 self.ind, np.int(self.X1.shape[1] / 2.0), :
             ].copy()
             self.update()
+            progbar(ii + 1, self.slices, strbar)
         print("\r")
         print("Done")
 
@@ -526,7 +529,7 @@ class PhaseTracker(object):
         print("\nRemove linear phase ramp of all projections")
         for ii in range(self.slices):
             self.ind = ii
-            print("Projection {} out of {}".format(ii + 1, self.slices), end="\r")
+            strbar = "Projection {} out of {}".format(ii + 1, self.slices)
             self.X1[self.ind, :, :] = unwrap_phase(self.X1[self.ind, :, :])
             if np.any(self.mask[self.ind, :, :] == True):
                 vals = self.X1[self.ind, :, :][
@@ -537,6 +540,7 @@ class PhaseTracker(object):
                 self.ind, np.int(self.X1.shape[1] / 2.0), :
             ].copy()
             self.update()
+            progbar(ii + 1, self.slices, strbar)
         print("\r")
         print("Done")
 
@@ -545,9 +549,7 @@ class PhaseTracker(object):
         Load masks from file
         """
         print("\nLoad masks from file")
-        self.mask = LoadData.load("masks.h5", **params)
-        # ~ Lm = LoadData(**self.params)
-        # ~ self.mask = Lm.load_masks('masks.h5')
+        self.mask = LoadData.loadmasks("masks.h5", **self.params)
         self.update()
 
     def save_masks(self, event):
@@ -555,9 +557,7 @@ class PhaseTracker(object):
         Save mask to file
         """
         print("\nSave masks to file")
-        SaveData.save("masks.h5", self.mask, **self.params)
-        # ~ Sm = SaveData(**self.params)
-        # ~ Sm.save_masks('masks.h5',self.mask)
+        SaveData.savemasks("masks.h5", self.mask, **self.params)
 
     def submit(self, text):
         """
@@ -636,9 +636,9 @@ class AmpTracker(PhaseTracker):
         )
         for ii in range(self.slices):
             self.ind = ii
-            print("Projection {}".format(ii + 1))
+            strbar = "Projection {} out of {}".format(ii + 1, self.slices)
             if self.ind in self.done:
-                print("Projection {} was already corrected".format(self.ind + 1))
+                print("\rProjection {} was already corrected".format(self.ind + 1),end="")
             else:
                 # np.exp(1j*self.X1[ii,:,:]).copy()
                 imgin = self.X1[ii, :, :].copy()
@@ -648,4 +648,5 @@ class AmpTracker(PhaseTracker):
                 self.X2[ii, :] = self.X1[ii, np.int(self.X1.shape[1] / 2.0), :].copy()
                 self.done.append(self.ind)
             self.update()
+            progbar(ii + 1, self.slices, strbar)
         print("Done")

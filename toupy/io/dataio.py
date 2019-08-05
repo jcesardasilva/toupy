@@ -195,6 +195,9 @@ class Variables(object):
     missingnum = None
     border_crop_x = None
     border_crop_y = None
+    shiftmeth = 'fourier'
+    derivatives = True
+    calc_derivatives = False
 
 
 class LoadProjections(PathName, Variables):
@@ -204,6 +207,7 @@ class LoadProjections(PathName, Variables):
 
     def __init__(self, **params):
         super().__init__(**params)
+        self.params = params
         try:
             self.showrecons = params["showrecons"]
         except:
@@ -386,16 +390,21 @@ class LoadProjections(PathName, Variables):
             raise SystemExit("Exiting the script")
 
         # Read the first projection to check size and reconstruction parameters
-        objs0, probe0, pixelsize = self.read_reconfile(self.pathfilename)
+        objs0, probe0, pxsize, energy = self.read_reconfile(self.pathfilename)
+        # add the information of pixelsize and energy to params
+        paramsload = dict()
+        paramsload.update(self.params)
+        paramsload["pixelsize"] = pxsize
+        paramsload["energy"] = energy
         # crop image if requested
         objs0 = crop_array(objs0, self.border_crop_x, self.border_crop_y)
         nr, nc = objs0.shape
         print(objs0.shape)
-        if pixelsize[0] != pixelsize[1]:
+        if pxsize[0] != pxsize[1]:
             raise SystemExit("Pixel size is not symmetric. Exiting the script")
         print(
             "the pixelsize of the first projection is {:.2f} nm".format(
-                pixelsize[0] * 1e9
+                pxsize[0] * 1e9
             )
         )
 
@@ -407,7 +416,7 @@ class LoadProjections(PathName, Variables):
         for idxp, proj in enumerate(self.proj_files):
             print("\nProjection: {}".format(idxp))
             print("Reading: {}".format(proj))
-            objs, probes, pixelsize = self.read_reconfile(proj)  # reading file
+            objs, probes, pxsize, energy = self.read_reconfile(proj)  # reading file
             # crop image if requested
             if self.border_crop_x is not None:
                 if self.border_crop_y is not None:
@@ -448,7 +457,7 @@ class LoadProjections(PathName, Variables):
             print("New number of projections: {}".format(nprojs))
         print("Dimensions {} x {} pixels".format(nr, nc))
         print("All projections loaded\n")
-        return stack_objs, stack_angles, pixelsize
+        return stack_objs, stack_angles, pxsize, paramsload
 
 
 class SaveData(PathName, Variables):
@@ -634,7 +643,7 @@ class SaveData(PathName, Variables):
         tomogram1 = args[4]
         tomogram2 = args[5]
         theta = args[6]
-        pixelsize = args[7]
+        pxsize = args[7]
 
         print("Saving {}".format(h5name))
         h5file = self.results_datapath(h5name)
@@ -651,7 +660,7 @@ class SaveData(PathName, Variables):
             fid.create_dataset(
                 "angles/thetas", data=theta, dtype=np.float32
             )  # add the thetas
-            # fid.create_dataset('pixelsize',data=pixelsize,dtype=np.float32)
+            # fid.create_dataset('pxsize',data=pxsize,dtype=np.float32)
             fid.create_dataset(
                 "FSC", data=FSCcurve, dtype=np.float32
             )  # add the FSC curve
@@ -1114,19 +1123,7 @@ class SaveTomogram(SaveData):
 
         print("Saving .vol into HDF5")
         filename = "volfloat/{}.vol".format(self.params["samplename"])
-        # Usually, the file .vol.info contains de size of the volume
-        linesff = []
-        infofilename = filename + ".info"
-        with open(infofilename, "r") as fid:
-            for lines in fid:
-                linesff.append(lines.strip("\n"))
-        x_size = int(linesff[1].split("=")[1])
-        y_size = int(linesff[2].split("=")[1])
-        z_size = int(linesff[3].split("=")[1])
-        # Now we read indeed the .vol file
-        tomogram = np.fromfile(filename, dtype=np.float32).reshape(
-            (z_size, x_size, y_size)
-        )
+        tomogram = read_volfile(filename)
         nslices = tomogram.shape[0]
         print("Found {} slices in the volume.".format(nslices))
         self._save_tomogram(self, h5name, tomogram, theta, **self.params)
