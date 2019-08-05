@@ -8,11 +8,11 @@ import scipy.constants as consts
 
 
 __all__ = [
+    "convert_to_beta",
+    "convert_to_delta",
     "convert_to_mu",
     "convert_to_rhoe",
     "convert_to_rhom",
-    "convert_to_delta",
-    "convert_to_beta"
     ]
 
 

@@ -8,7 +8,8 @@ import numpy as np
 from scipy.ndimage import filters
 
 # local packages
-from toupy.io import LoadTomogram, SaveTomogram
+from toupy.io import LoadTomogram
+from toupy.utils import convert_to_beta, convert_to_delta
 
 # initializing dictionaries
 params = dict()
@@ -16,11 +17,8 @@ params = dict()
 # Edit section
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
-params["energy"] = 17.05  # photon energy to convert tomogram to delta or beta values
-params["phaseonly"] = True
-# ~ params['roi'] = [600, 1600, 675, 1685]
 params["tomo_type"] = "delta"
-params["slice_num"] = 650
+params["slicenum"] = 650
 params["vmin_plot"] = 1e-7  # None
 params["vmax_plot"] = 5e-6  # 5e-4
 params["scale_bar_size"] = 5  # in microns
@@ -52,27 +50,27 @@ if __name__ == "__main__":
         raise ValueError("Unrecognized tomography type")
 
     # conversion from phase-shifts to delta or from amplitude to beta
-    pixelsize = params["voxelsize"][0]
+    voxelsize = params["pixelsize"][0]
     energy = params["energy"]
-    wavelen = (12.4 / energy) * 1e-10  # in meters
-    if params[u"tomo_type"] == "delta":
+    if params["tomo_type"] == "delta":
         # Conversion from phase-shifts tomogram to delta
         print("Converting from phase-shifts values to delta values")
-        factor = wavelen / (2 * np.pi * voxelsize[0])
-        for ii in range(tomogram.shape[0]):
-            print("Tomogram {}".format(ii + 1))
-            tomogram[ii] *= -factor
-    elif params[u"tomo_type"] == "beta":
+        for ii in range(nslices):
+            strbar = "Slice {} out of {}".format(ii + 1, nslices)
+            tomogram[ii], factor = convert_to_delta(tomogram[ii], energy, voxelsize)
+            progbar(ii + 1, nslices, strbar)
+    elif params["tomo_type"] == "beta":
         # Conversion from amplitude to beta
         print("Converting from amplitude to beta values")
-        factor = wavelen / (2 * np.pi * voxelsize[0])  # amplitude correction factor
-        for ii in range(tomogram.shape[0]):
-            print("Tomogram {}".format(ii + 1))
-            tomogram[ii] *= -factor
-
+        for ii in range(slices):
+            strbar = "Slice {} out of {}".format(ii + 1, nslices)
+            tomogram[ii], factor = convert_to_beta(tomogram[ii], energy, voxelsize)
+            progbar(ii + 1, nslices, strbar)
+    print("\r")
+        
+    
     # simple transfer of variables
-    pixelsize = voxelsize[0]
-    slice_num = params["slice_num"]
+    slice_num = params["slicenum"]
     vmin_plot = params["vmin_plot"]
     vmax_plot = params["vmax_plot"]
     scale_bar_size = params["scale_bar_size"]
@@ -83,43 +81,33 @@ if __name__ == "__main__":
     interp_type = params["interpolation"]
     scale_bar_color = params["scale_bar_color"]
 
-    if params["gaussian_filter"]:
-        print(
-            "Applying gaussian filter with sigma = {}".format(params[u"sigma_gaussian"])
-        )
-        # sagital slice
-        sagital_slice = filters.gaussian_filter(
-            tomogram[:, np.round(tomogram.shape[1] / 2).astype("int"), :],
-            params[u"sigma_gaussian"],
-        )
-        # sagital_slice = filters.gaussian_filter(tomogram_delta[:,821,:],params[u'sigma_gaussian'])
-        # coronal slice
-        coronal_slice = filters.gaussian_filter(
-            tomogram[:, :, np.round(tomogram.shape[1] / 2).astype("int")],
-            params["sigma_gaussian"],
-        )
-        # coronal_slice = filters.gaussian_filter(tomogram_delta[:,:,630],params[u'sigma_gaussian'])
-        # axial slice
-        axial_slice = filters.gaussian_filter(
-            tomogram[slice_num], params[u"sigma_gaussian"]
-        )
-    else:
-        # sagital slice
-        sagital_slice = tomogram[:, np.round(tomogram.shape[1] / 2).astype("int"), :]
-        # coronal slice
-        coronal_slice = tomogram[:, :, np.round(tomogram.shape[1] / 2).astype("int")]
-        # axial slice
-        axial_slice = tomogram[slice_num]
-
+    # text style for the scale bar text
     textstr = r"{} $\mu$m".format(scale_bar_size)
 
-    plt.close("all")
+    # sagital slice
+    sagital_slice = tomogram[:, np.round(tomogram.shape[1] / 2).astype("int"), :]
+    # coronal slice
+    coronal_slice = tomogram[:, :, np.round(tomogram.shape[1] / 2).astype("int")]
+    # axial slice
+    axial_slice = tomogram[slice_num]
 
+    if params["gaussian_filter"]:
+        print(
+            "Applying gaussian filter with sigma = {}".format(params["sigma_gaussian"])
+        )
+        # sagital slice
+        sagital_slice = filters.gaussian_filter(sagital_slice)
+        # coronal slice
+        coronal_slice = filters.gaussian_filter(coronal_slice)
+        # axial slice
+        axial_slice = filters.gaussian_filter(axial_slice)
+
+    # display the figures
+    plt.close("all")
+    
     # Sagital slice
-    figsag = plt.figure(num=1)  # ,figsize=(15,6))
-    axsag = figsag.add_subplot(
-        111
-    )  # plt.subplots(num=6,nrows=1,ncols=1,figsize=(15,6))
+    figsag = plt.figure(num=1)
+    axsag = figsag.add_subplot(111)
     imsag = axsag.imshow(
         sagital_slice,
         interpolation=interp_type,
@@ -127,7 +115,7 @@ if __name__ == "__main__":
         vmin=vmin_plot,
         vmax=vmax_plot,
     )
-    axsag.set_title(u"Sagital slice - {}".format(params["tomo_type"]))
+    axsag.set_title("Sagital slice - {}".format(params["tomo_type"]))
     axsag.text(
         bar_start[0] - 10,
         bar_start[1] - 5,
@@ -138,8 +126,8 @@ if __name__ == "__main__":
     )
     rectsag = patches.Rectangle(
         (bar_start[0], bar_start[1]),  # (x,y)
-        (np.round(scale_bar_size * 1e-6 / pixelsize)),  # width
-        (np.round(scale_bar_height * 1e-6 / pixelsize)),  # height
+        (np.round(scale_bar_size * 1e-6 / voxelsize)),  # width
+        (np.round(scale_bar_height * 1e-6 / voxelsize)),  # height
         color=scale_bar_color,
     )
     axsag.add_patch(rectsag)
@@ -161,7 +149,7 @@ if __name__ == "__main__":
         vmin=vmin_plot,
         vmax=vmax_plot,
     )
-    axcor.set_title(u"Coronal slice - {}".format(params["tomo_type"]))
+    axcor.set_title("Coronal slice - {}".format(params["tomo_type"]))
     axcor.text(
         bar_start[0] - 10,
         bar_start[1] - 5,
@@ -172,8 +160,8 @@ if __name__ == "__main__":
     )
     rectcor = patches.Rectangle(
         (bar_start[0], bar_start[1]),  # (x,y)
-        (np.round(scale_bar_size * 1e-6 / pixelsize)),  # width
-        (np.round(scale_bar_height * 1e-6 / pixelsize)),  # height
+        (np.round(scale_bar_size * 1e-6 / voxelsize)),  # width
+        (np.round(scale_bar_height * 1e-6 / voxelsize)),  # height
         color=scale_bar_color,
     )
     axcor.add_patch(rectcor)
@@ -186,10 +174,8 @@ if __name__ == "__main__":
         )
 
     # Axial slice
-    figaxial = plt.figure(num=3)  # ,figsize=(15,6))
-    axaxial = figaxial.add_subplot(
-        111
-    )  # plt.subplots(num=6,nrows=1,ncols=1,figsize=(15,6))
+    figaxial = plt.figure(num=3)
+    axaxial = figaxial.add_subplot(111)
     imaxial = axaxial.imshow(
         axial_slice,
         interpolation=interp_type,
@@ -198,7 +184,7 @@ if __name__ == "__main__":
         vmax=vmax_plot,
     )
     axaxial.set_title(
-        u"Axial slice {} - {} ".format(slice_num + 1, params["tomo_type"])
+        "Axial slice {} - {} ".format(slice_num + 1, params["tomo_type"])
     )
     axaxial.text(
         bar_axial[0] - 10,
@@ -210,8 +196,8 @@ if __name__ == "__main__":
     )
     rectaxial = patches.Rectangle(
         (bar_axial[0], bar_axial[1]),  # (x,y)
-        (np.round(scale_bar_size * 1e-6 / pixelsize)),  # width
-        (np.round(scale_bar_height * 1e-6 / pixelsize)),  # height
+        (np.round(scale_bar_size * 1e-6 / voxelsize)),  # width
+        (np.round(scale_bar_height * 1e-6 / voxelsize)),  # height
         color=scale_bar_color,
     )
     axaxial.add_patch(rectaxial)

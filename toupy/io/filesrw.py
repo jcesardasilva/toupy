@@ -26,27 +26,57 @@ from matplotlib.colors import hsv_to_rgb
 import numpy as np
 
 __all__ = [
-    "read_info_file",
-    "read_ptyr",
-    "read_cxi",
+    "convert8bitstiff",
+    "convert16bitstiff",
+    "convertimageto8bits",
+    "convertimageto16bits",
+    "create_paramsh5",
     "crop_array",
-    "write_edf",
+    "load_paramsh5",
+    "read_cxi",
     "read_edf",
     "read_edffilestack",
-    "create_paramsh5",
-    "load_paramsh5",
-    "write_paramsh5",
+    "read_ptyr",
     "read_tiff",
+    "read_tiff_info",
+    "read_volfile",
+    "write_edf",
+    "write_paramsh5",
     "write_tiff",
     "write_tiffmetadata",
-    "convertimageto16bits",
-    "convertimageto8bits",
-    "convert16bitstiff",
-    "convert8bitstiff",
 ]
 
+def read_volfile(filename):
+    """
+    Read tomogram from .vol file
 
-def read_info_file(tiff_info_file):
+    Parameter
+    ---------
+    filename : str
+        filename to be read
+
+    Return
+    ------
+    tomogram : ndarray
+        3D array containing the tomogram
+    """
+    # Usually, the file .vol.info contains de size of the volume
+    linesff = []
+    infofilename = filename + ".info"
+    with open(infofilename, "r") as fid:
+        for lines in fid:
+            linesff.append(lines.strip("\n"))
+    x_size = int(linesff[1].split("=")[1])
+    y_size = int(linesff[2].split("=")[1])
+    z_size = int(linesff[3].split("=")[1])
+    # Now we read indeed the .vol file
+    tomogram = np.fromfile(filename, dtype=np.float32).reshape(
+        (z_size, x_size, y_size)
+    )
+
+    return tomogram
+
+def read_tiff_info(tiff_info_file):
     """
     Read info file from tiff slices of the reconstructed tomographic 
     volume
@@ -110,6 +140,8 @@ def _print_attrs_ptyr(name):
     if "obj" in name:
         if "_psize" in name:
             metaptyr["psize_h5path"] = name
+        if "_energy" in name:
+            metaptyr["energy_h5path"] = name
         if "data" in name:
             metaptyr["obj_h5path"] = name
     if "probe" in name:
@@ -158,12 +190,14 @@ def read_ptyr(pathfilename):
         probe0 = np.squeeze(fid[metaptyr["probe_h5path"]]).astype(np.complex64)
         # get the pixel size
         pixelsize = (fid[metaptyr["psize_h5path"]][()]).astype(np.float32)
+        # get the energy
+        energy = (fid[metaptyr["energy_h5path"]][()]).astype(np.float32)
 
     # reorienting the object
     data1 = _reorient_ptyrimg(data0)
     probe1 = _reorient_ptyrimg(probe0)
 
-    return data1, probe1, pixelsize
+    return data1, probe1, pixelsize, energy
 
 
 def _h5py_dataset_iterator(g, prefix=""):
@@ -189,7 +223,7 @@ def _h5pathcxi(filename):
         listpath = [
             path
             for path, dset in _h5py_dataset_iterator(fid)
-            if "object" in path or "probe" in path
+            if "object" in path or "probe" in path or "incident_energy" in path
         ]
     metacxi["obj_h5path"] = [
         ii for ii in sorted(listpath) if "object/data" in ii and ii.endswith("data")
@@ -207,6 +241,9 @@ def _h5pathcxi(filename):
         for ii in sorted(listpath)
         if "object/y_pixel_size" in ii and ii.endswith("y_pixel_size")
     ][-1]
+    metacxi["energy_h5path"] = [
+        ii
+        for ii in sorted(listpath) if "incident_energy" in ii][-1]
 
 
 def read_cxi(pathfilename):
@@ -232,6 +269,8 @@ def read_cxi(pathfilename):
         print("meta is empty")
         _h5pathcxi(pathfilename)
 
+    factorJ2eV=1.602177e-16
+    
     with h5py.File(pathfilename, "r") as fid:
         # get the data from the object
         data0 = np.squeeze(fid[metacxi["obj_h5path"]]).astype(np.complex64)
@@ -240,13 +279,14 @@ def read_cxi(pathfilename):
         # get the pixel size
         pixelsizex = fid[metacxi["xpsize_h5path"]][()]
         pixelsizey = fid[metacxi["ypsize_h5path"]][()]
+        energy = round(fid[metacxi["energy_h5path"]][()]/factorJ2eV,2)
     pixelsize = np.array([pixelsizex, pixelsizey]).astype(np.float32)
 
     # reorienting the object
     data1 = _reorient_ptyrimg(data0)
     probe1 = _reorient_ptyrimg(probe0)
 
-    return data1, probe1, pixelsize
+    return data1, probe1, pixelsize, energy
 
 
 def crop_array(input_array, delcropx, delcropy):

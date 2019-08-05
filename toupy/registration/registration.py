@@ -15,7 +15,7 @@ from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from .register_translation_fast import register_translation
 from ..restoration import derivatives, derivatives_sino
 from .shift import ShiftFunc
-from ..tomo import projector, backprojector, create_circle
+from ..tomo import projector, tomo_recons, create_circle
 from ..utils import (
     deprecated,
     fract_hanning_pad,
@@ -540,8 +540,8 @@ def _alignprojections_horizontal(
     # Compute tomogram with current sinogram
     print("Initializing tomographic slice...")
     t0 = time.time()
-    recons = backprojector(
-        sinogram, theta=theta, output_size=sinogram.shape[0], **params
+    recons = tomo_recons(
+        sinogram, theta=theta, **params
     )
     recons_std = recons.std()
     # clipping gray level if needed
@@ -582,8 +582,8 @@ def _alignprojections_horizontal(
         # Compute tomogram with current sinogram
         print("Computing tomographic slice...")
         t0 = time.time()
-        recons = backprojector(
-            sinogram, theta=theta, output_size=sinogram.shape[0], **params
+        recons = tomo_recons(
+            sinogram, theta=theta, **params
         )
         recons_std = recons.std()
         # clipping gray level if needed
@@ -752,7 +752,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     # Filtered back projection
     print("Backprojecting")
     t0 = time.time()
-    recons = backprojector(sinogram, theta=theta, **params)
+    recons = tomo_recons(sinogram, theta=theta, **params)
     print("Done. Time elapsed: {} s".format(time.time() - t0))
     print("Slice standard deviation = {:0.04e}".format(recons.std()))
 
@@ -900,7 +900,7 @@ def _oneslicefordisplay(sinogram, theta, **params):
     Auxiliary for displaying the slice without the questions
     """
     p0 = time.time()
-    recons = backprojector(sinogram, theta=theta, **params)
+    recons = tomo_recons(sinogram, theta=theta, **params)
     # clipping gray level if needed
     recons = _clipping_tomo(recons, **params)
     if params["circle"]:
@@ -1283,7 +1283,7 @@ def estimate_rot_axis(input_array, theta, **params):
         # reconstruction
         print("Calculating a tomographic slice")
         p0 = time.time()
-        tomogram = backprojector(sinogram, theta, **params)
+        tomogram = tomo_recons(sinogram, theta, **params)
         print("Time elapsed: {} s".format(time.time() - p0))
 
         # Display slice:

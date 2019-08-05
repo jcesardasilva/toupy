@@ -32,10 +32,7 @@ params["missingnum"] = []
 
 if __name__ == "__main__":
     # loading the projections from files
-    stack_objs, theta, pixelsize = LoadProjections.load(**params)
-
-    # add the information of the pixelsize to params
-    params["pixelsize"] = pixelsize
+    stack_objs, theta, pixelsize, params = LoadProjections.load(**params)
 
     # Save reconstructed phase projections
     SaveData.save("reconstructed_projections.h5", stack_objs, theta, **params)

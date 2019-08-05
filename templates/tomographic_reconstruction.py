@@ -16,8 +16,6 @@ params = dict()
 # Edit section
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
-params["phaseonly"] = True  # True for the phase projections.
-params["amponly"] = False  # True for the amplitude projections.
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
 params["filtertomo"] = 1.0  # Frequency cutoff (between 0 and 1)

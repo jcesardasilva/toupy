@@ -10,9 +10,7 @@ params = dict()
 # Edit section
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
-params["energy"] = 17.05  # In keV
 params["tomo_type"] = "delta"  #'delta' or 'beta'
-params["pyhst"] = True
 params["bits"] = 16  # 8 or 16 bits
 # =========================
 

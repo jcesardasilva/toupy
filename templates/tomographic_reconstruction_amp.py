@@ -5,7 +5,7 @@
 import time
 
 # local packages
-from toupy.io import LoadData, SaveData
+from toupy.io import LoadData, SaveTomogram
 from toupy.utils import display_slice, iterative_show
 from toupy.tomo import full_tomo_recons
 
@@ -16,8 +16,6 @@ params = dict()
 # Edit section
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
-params["phaseonly"] = False  # True for the phase projections.
-params["amponly"] = True  # True for the amplitude projections.
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
 params["filtertomo"] = 1.0  # Frequency cutoff (between 0 and 1)
@@ -62,7 +60,7 @@ if __name__ == "__main__":
         )  # Show aligned projections derivatives
 
     # save the tomograms
-    SaveData.save("tomogram_amp.h5", tomogram, theta, shiftstack, **params)
+    SaveTomogram.save("tomogram_amp.h5", tomogram, theta, shiftstack, **params)
 
     # next step
     print('You should run "tiff_convertion.py" now')

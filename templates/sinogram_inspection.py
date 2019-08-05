@@ -11,7 +11,6 @@ params = dict()
 # Edit section
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
-params["phaseonly"] = True
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
 params["filtertomo"] = 0.9  # Frequency cutoff
@@ -25,6 +24,7 @@ params["sinohigh"] = None  # -0.1
 params["sinolow"] = None  # 0.1
 params["sinocmap"] = "bone"
 params["derivatives"] = True
+params["calc_derivatives"] = False  # Calculate derivatives if not done
 params["opencl"] = True
 # =========================
 
