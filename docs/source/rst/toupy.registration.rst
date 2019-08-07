@@ -1,6 +1,11 @@
 toupy.registration package
 ==========================
 
+.. automodule:: toupy.registration
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -36,11 +41,3 @@ toupy.registration.shift module
    :undoc-members:
    :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: toupy.registration
-   :members:
-   :undoc-members:
-   :show-inheritance:
