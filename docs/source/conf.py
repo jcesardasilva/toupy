@@ -6,21 +6,15 @@
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
 
-import mock
-import os
-import sys
-
-MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot', 'scipy.interpolate']
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.Mock()
-
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-sys.path.insert(0, os.path.abspath('./../..'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../..'))
 #sys.path.insert(0, os.path.abspath('./../../toupy/'))
 #sys.setrecursionlimit(1500)
 
