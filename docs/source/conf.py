@@ -50,7 +50,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
     #'numpydoc',
-    'rinoh.frontend.sphinx',
+    #'rinoh.frontend.sphinx',
 ]
 
 # Napoleon settings
