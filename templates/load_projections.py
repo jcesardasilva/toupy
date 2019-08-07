@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Template for loading the projections from phase retrieved files
+"""
+
 # third party packages
 import numpy as np
 

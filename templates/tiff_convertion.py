@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+"""
+Template for the convertion of the tomographic volume to tiff files
+"""
+
 # local packages
 from toupy.io import LoadTomogram, SaveTomogram
 

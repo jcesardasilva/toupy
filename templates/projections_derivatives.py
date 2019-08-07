@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Template to calculate the derivatives of the projections prior to the
+tomographic reconstruction, which will facilitate the horizontal
+alignment. 
+This saves us time relative to calculating the derivatives at each time
+we reconstruct a slice. 
+"""
+
 # standard libraries imports
 import time
 

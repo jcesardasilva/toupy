@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+"""
+Template for displaying orthogonal views of the tomogram
+"""
+
 # third packages
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches

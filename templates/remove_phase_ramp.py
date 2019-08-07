@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Template for the phase ramp removal from the phase projections
+"""
+
 # local packages
 from toupy.io import LoadData, SaveData
 from toupy.restoration import gui_plotphase

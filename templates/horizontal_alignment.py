@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Template for the horizontal alignment of the projections based on the
+tomographic consistency conditions.
+"""
+
 # standard libraries imports
 import re
 import socket

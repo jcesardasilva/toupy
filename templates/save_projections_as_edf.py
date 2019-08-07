@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+"""
+Template to save the projections in edf files
+"""
+
 # standard libraries imports
 import os
 import time

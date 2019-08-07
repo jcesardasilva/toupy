@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Template for phase unwrapping using the algorithm implement in skimage:
+https://scikit-image.org/docs/dev/auto_examples/filters/plot_phase_unwrap.html?highlight=unwrapping
+"""
+
 # local packages
 from toupy.io import LoadData, SaveData
 from toupy.restoration import phaseresidues, chooseregiontounwrap, unwrapping_phase
