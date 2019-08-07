@@ -12,8 +12,15 @@ Welcome to Toupy's documentation!
 
 Toupy io
 ========
+.. automodule:: toupy.__init__
+   :members:
+
+Toupy io
+========
 .. automodule:: toupy.io
    :members:
+   :undoc-members:
+   :show-inheritance:
 
 Toupy registration
 ==================

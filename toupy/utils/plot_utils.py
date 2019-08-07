@@ -24,6 +24,9 @@ __all__ = [
 
 
 def interativesession(func):
+    """
+    Decorator to activate matplotlib interactive
+    """
     @functools.wraps(func)
     def new_func(*args, **kwargs):
         matplotlib.interactive(True)
@@ -320,6 +323,7 @@ class RegisterPlot:
         else:
             self.updatevertical()
 
+    @interativesession
     def updatevertical(self):
         """
         Update the plot canvas during vertical registration
@@ -425,6 +429,7 @@ class RegisterPlot:
         else:
             self.updatehorizontal()
 
+    @interativesession
     def updatehorizontal(self):
         """
         Update the plot canvas during horizontal registration
@@ -685,6 +690,7 @@ class ShowProjections:
         else:
             self.update_show()
 
+    @interativesession
     def update_show(self):
         """
         Update the canvas
