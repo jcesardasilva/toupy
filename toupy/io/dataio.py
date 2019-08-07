@@ -198,6 +198,10 @@ class Variables(object):
     shiftmeth = 'fourier'
     derivatives = True
     calc_derivatives = False
+    correct_bad = False
+    bad_projs = []
+    opencl = True
+    load_previous_shiftstack = False
 
 
 class LoadProjections(PathName, Variables):

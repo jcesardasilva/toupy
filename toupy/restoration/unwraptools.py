@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # third party packages
+import matplotlib.pyplot as plt
 import numpy as np
 from skimage.restoration import unwrap_phase
 
@@ -94,7 +95,7 @@ def get_charge(residues):
     resneg = len(negres[0])
 
     nres = respos + resneg
-    print("Found {} residues".format(nres), end="")
+    print("Found {:>3.0f} residues".format(nres), end="")
 
     return posres, negres
 
@@ -193,7 +194,7 @@ def chooseregiontounwrap(stack_array):
         fig = plt.figure(2)
         plt.clf()
         ax1 = fig.add_subplot(111)
-        im1 = ax1.imshow(stack_phasecorr[0], cmap="bone")
+        im1 = ax1.imshow(stack_array[0], cmap="bone")
         ax1.plot(xres, yres, "or")
         ax1.axis("tight")
         plt.show(block=False)
