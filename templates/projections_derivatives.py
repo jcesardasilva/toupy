@@ -10,7 +10,7 @@ import numpy as np
 
 # local packages
 from toupy.io import LoadData, SaveData
-from toupy.restoration import derivatives, chooseregiontoderivatives
+from toupy.restoration import calculate_derivatives, chooseregiontoderivatives
 from toupy.utils import iterative_show
 
 # initializing dictionaries

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # third party packages
+import matplotlib.pyplot as plt
 import numpy as np
 
 # local packages
@@ -10,10 +11,11 @@ from ..utils.plot_utils import _plotdelimiters
 from ..utils import progbar
 
 __all__ = [
-    "gradient_axis",
+    "calculate_derivatives",
     "chooseregiontoderivatives",
     "derivatives",
     "derivatives_sino",
+    "gradient_axis",
 ]
 
 
@@ -44,7 +46,7 @@ def chooseregiontoderivatives(stack_array, **params):
     # horizontal ROI
     deltax = params["deltax"]
     roix = range(deltax, stack_array.shape[2] - deltax)  # update roix
-    roiy = params["limsy"]
+    roiy = range(*params["limsy"]) # tuple unpacking
 
     # Display the projections
     while True:
