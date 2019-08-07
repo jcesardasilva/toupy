@@ -1,6 +1,11 @@
 toupy.restoration package
 =========================
 
+.. automodule:: toupy.restoration
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -52,11 +57,3 @@ toupy.restoration.vorticestools module
    :undoc-members:
    :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: toupy.restoration
-   :members:
-   :undoc-members:
-   :show-inheritance:
