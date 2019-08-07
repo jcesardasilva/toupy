@@ -22,7 +22,7 @@ Toupy documentation
 
 .. toctree::
    :caption: Package and modules
-   :maxdepth: 2
+   :maxdepth: 3
 
    rst/toupy.io
    rst/toupy.registration
