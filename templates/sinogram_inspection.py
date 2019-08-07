@@ -20,6 +20,7 @@ params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
 params["filtertomo"] = 0.9  # Frequency cutoff
 params["circle"] = True
+params["algorithm"] = "FBP" 
 # initial guess of the offset of the axis of rotation
 params["rot_axis_offset"] = 0
 params["cliplow"] = None  # clip on low threshold
