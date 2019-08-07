@@ -1,6 +1,11 @@
 toupy.resolution package
 ========================
 
+.. automodule:: toupy.resolution
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -20,11 +25,3 @@ toupy.resolution.resolution\_edge\_estimate module
    :undoc-members:
    :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: toupy.resolution
-   :members:
-   :undoc-members:
-   :show-inheritance:

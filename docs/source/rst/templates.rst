@@ -1,6 +1,11 @@
 templates package
 =================
 
+.. automodule:: templates
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -124,11 +129,3 @@ templates.vertical\_alignment module
    :undoc-members:
    :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: templates
-   :members:
-   :undoc-members:
-   :show-inheritance:

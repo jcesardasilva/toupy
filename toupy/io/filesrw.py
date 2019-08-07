@@ -50,13 +50,13 @@ def read_volfile(filename):
     """
     Read tomogram from .vol file
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     filename : str
         filename to be read
 
-    Return
-    ------
+    Returns
+    -------
     tomogram : ndarray
         3D array containing the tomogram
     """

@@ -1,6 +1,11 @@
 toupy.io package
 ================
 
+.. automodule:: toupy.io
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -28,11 +33,3 @@ toupy.io.h5chunk\_shape\_3D module
    :undoc-members:
    :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: toupy.io
-   :members:
-   :undoc-members:
-   :show-inheritance:
