@@ -1278,8 +1278,8 @@ def estimate_rot_axis(input_array, theta, **params):
     slicenum = params["slicenum"]
     rot_axis_offset = params["rot_axis_offset"]
     while True:
-        sinogram = np.transpose(input_array[:, slice_num, :])
-        sinogram = _offset_sinogram2(sinogram, rot_axis_offset)
+        sinogram = np.transpose(input_array[:, slicenum, :])
+        sinogram = _offset_sinogram(sinogram, rot_axis_offset)
 
         # reconstruction
         print("Calculating a tomographic slice")

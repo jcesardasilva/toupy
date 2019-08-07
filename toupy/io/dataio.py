@@ -201,6 +201,7 @@ class Variables(object):
     bad_projs = []
     opencl = True
     load_previous_shiftstack = False
+    algorithm = 'FBP'
 
 
 class LoadProjections(PathName, Variables):
