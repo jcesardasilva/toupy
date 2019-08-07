@@ -1,11 +1,6 @@
 toupy.tomo package
 ==================
 
-.. automodule:: toupy.tomo
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Submodules
 ----------
 
@@ -33,3 +28,11 @@ toupy.tomo.tomorecons module
    :undoc-members:
    :show-inheritance:
 
+
+Module contents
+---------------
+
+.. automodule:: toupy.tomo
+   :members:
+   :undoc-members:
+   :show-inheritance:
