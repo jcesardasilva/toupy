@@ -29,7 +29,9 @@ def interativesession(func):
     """
     @functools.wraps(func)
     def new_func(*args, **kwargs):
-        matplotlib.interactive(True)
+        flagmpl = matplotlib.is_interactive()
+        if flagmpl == False:
+            matplotlib.interactive(True)
         return func(*args, **kwargs)
 
     return new_func
