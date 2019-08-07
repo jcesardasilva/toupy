@@ -5,8 +5,10 @@ The script for building/installing packages
 
 import setuptools
 
-with open("README.md", "r") as fid:
-    long_description = fid.read()
+def readreadme(filename):
+    with open(filename, "r") as fid:
+        long_description = fid.read()
+    return long_description
 
 setuptools.setup(
     name="toupy",
@@ -17,12 +19,12 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     scripts=["bin/file_comp", "bin/missing_recons"],
     license="LICENCE",
-    description="Tomography utils in Python for high-resolution imaging",
-    long_description=long_description,
+    description="Tomographic Utilities for Python",
+    long_description=readreadme("README.md"),
     long_description_content_type="text/markdown",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: BSD License",
+        "License :: OSI Approved :: GPLv3 License",
         "Topic :: Scientific/Engineering",
         "Topic :: Software Development",
         "Operating System :: Unix",
@@ -40,13 +42,3 @@ setuptools.setup(
         "silx >= 0.9.0",
     ],
 )
-
-"""
-packages=['toupy',
-                'toupy.io',
-                'toupy.registration',
-                'toupy.resolution',
-                'toupy.tomo',
-                'toupy.unwrapping',
-                'toupy.utils'],
-"""

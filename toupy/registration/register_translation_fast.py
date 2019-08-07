@@ -43,11 +43,11 @@ def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=
     ----
     This code is intended to provide the same result as if the following
     operations were performed:
-    - Embed the array "data" in an array that is ``upsample_factor`` times
+    1) Embed the array "data" in an array that is ``upsample_factor`` times
       larger in each dimension.  ifftshift to bring the center of the
       image to (1,1).
-    - Take the FFT of the larger array.
-    - Extract an ``[upsampled_region_size]`` region of the result, starting
+    2) Take the FFT of the larger array.
+    3) Extract an ``[upsampled_region_size]`` region of the result, starting
       with the ``[axis_offsets+1]`` element.
     It achieves this result by computing the DFT in the output array without
     the need to zeropad. Much faster and memory efficient than the zero-padded

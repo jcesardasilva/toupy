@@ -7,7 +7,6 @@ Updated on Tue Mar 25 2019:
     - Fully compatible to Python 3
     - No more backcompatibility to Python 2
 
-@author: jdasilva
 """
 # Standard library imports
 import functools
