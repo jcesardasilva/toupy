@@ -125,13 +125,20 @@ def remove_linearphase_old(image, mask, upsamp):
     """
     Removes linear phase from object considering only pixels where mask is
     unity, arrays have center on center of array
-    Inputs:
-        image  = Image
-        mask   = Binary array with ones where the linear phase should be
-                  computed from
-        upsamp = Linear phase will be removed within 2*pi/upsamp peak to valley
-                  in radians
 
+    Parameters
+    ----------
+    image : ndarray
+        Image
+    mask : boolean ndarray 
+        Binary array with ones where the linear phase should be 
+        computed from
+    upsamp : int
+        Linear phase will be removed within 2*pi/upsamp peak to valley
+        in radians
+
+    Note
+    -----
     Inspired by remove_linearphase.m created by Manuel Guizar-Sicairos in Aug 19th, 2010.
     Please, cite: Manuel Guizar-Sicairos, Ana Diaz, Mirko Holler, Miriam S. Lucas,
     Andreas Menzel, Roger A. Wepf, and Oliver Bunk, "Phase tomography from x-ray
@@ -161,9 +168,10 @@ def remove_linearphase_old(image, mask, upsamp):
 
 def rmair(image, mask):
     """
-    Correcting amplitude factor using the mask from the phase ramp removal
-    considering only pixels where mask is
-    unity, arrays have center on center of array
+    Correcting amplitude factor using the mask from the phase ramp 
+    removal considering only pixels where mask is  unity, arrays have 
+    center on center of array
+
     Parameters
     ---------
     image : ndarray
@@ -171,6 +179,7 @@ def rmair(image, mask):
     mask  : bool
         Boolean array with indicating the locations from where the air
         value should be obtained
+
     Returns
     -------
     normalizedimage : ndarray

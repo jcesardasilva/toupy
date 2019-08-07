@@ -183,10 +183,20 @@ def projectpoly1d(func1d, order=1, w=1):
 def crop(input_array, delcropx, delcropy):
     """
     Crop images
-    Inputs:
-        input_array: input image to be cropped
-        **params: dict of parameters
-    @author: Julio C. da Silva (jdasilva@esrf.fr)
+
+    Parameters
+    ----------
+    input_array : ndarray
+        Input image to be cropped
+    delcropx : int
+        amount of pixel to be cropped in x
+    delcropy : int
+        amount of pixel to be cropped in y
+
+    Returns
+    -------
+    ndarray
+        cropped image
     """
     if delcropx is not None or delcropy is not None:
         print("Cropping ROI of data")
@@ -207,7 +217,6 @@ def radtap(X, Y, tappix, zerorad):
     Creates a central cosine tapering for beam.
     It receives the X and Y coordinates, tappix is the extent of
     tapering, zerorad is the radius with no data (zeros).
-    @author: jdasilva
     """
     tau = 2 * tappix  # period of cosine function (only half a period is used)
 
@@ -220,15 +229,24 @@ def radtap(X, Y, tappix, zerorad):
 
 def fract_hanning(outputdim, unmodsize):
     """
-    fract_hanning(outputdim,unmodsize)
-    out = Square array containing a fractional separable Hanning window with
-    DC in upper left corner.
-    outputdim = size of the output array
-    unmodsize = Size of the central array containing no modulation.
     Creates a square hanning window if unmodsize = 0 (or ommited), otherwise the output array
     will contain an array of ones in the center and cosine modulation on the
     edges, the array of ones will have DC in upper left corner.
-    @author: jdasilva
+
+    Parameters
+    ----------
+    out : ndarray
+        Square array containing a fractional separable Hanning window with
+        DC in upper left corner.
+    outputdim : int 
+        Size of the output array
+    unmodsize : int
+        Size of the central array containing no modulation.
+
+    Returns
+    -------
+    ndarray
+        Filtered image
     """
     if outputdim < unmodsize:
         raise SystemExit(
@@ -286,16 +304,26 @@ def fract_hanning(outputdim, unmodsize):
 
 def fract_hanning_pad(outputdim, filterdim, unmodsize):
     """
-    fract_hanning_pad(outputdim,filterdim,unmodsize)
-    out = Square array containing a fractional separable Hanning window with
-    DC in upper left corner.
-    outputdim = size of the output array
-    filterdim = size of filter (it will zero pad if filterdim<outputdim
-    unmodsize = Size of the central array containing no modulation.
     Creates a square hanning window if unmodsize = 0 (or ommited), otherwise the output array
     will contain an array of ones in the center and cosine modulation on the
     edges, the array of ones will have DC in upper left corner.
-    @author: jdasilva
+    
+    Parameters
+    ----------
+    out : ndarray
+        Square array containing a fractional separable Hanning window with
+        DC in upper left corner.
+    outputdim : int
+        Size of the output array
+    filterdim : int
+        Size of filter (it will zero pad if filterdim < outputdim)
+    unmodsize : int
+        Size of the central array containing no modulation.
+
+    Returns
+    -------
+    ndarray
+        Filtered image
     """
     if outputdim < unmodsize:
         raise SystemExit(
@@ -317,6 +345,23 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
 
 
 def mask_borders(imgarray, mask_array, threshold=4e-7):
+    """
+    Mask borders using the gradient
+    
+    Parameters
+    ----------
+    imgarray : ndarray
+        Input image
+    mask_array : boolean ndarray
+        Input mask 
+    threshold : float (default = 4e-7)
+        Threshold value
+
+    Returns
+    -------
+    mask_array : ndarray
+        Masked array
+    """
     # mask borders
     gr, gc = np.gradient(imgarray)
     mask_border = np.sqrt(gr ** 2 + gc ** 2) > threshold

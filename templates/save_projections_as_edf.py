@@ -89,7 +89,7 @@ if __name__ == "__main__":
     # writing the edf files
     print("Saving projections as edf files.")
     for ii in range(nprojs):
-        strbar = "Projection: {} out of {}".format(ii, nprojs))
+        strbar = "Projection: {} out of {}".format(ii, nprojs)
         fname = pathfile.format(params["samplename"], ii)
         write_edf(fname, output_stack_sorted[ii], hd=params)
         progbar(ii + 1, nprojs, strbar)

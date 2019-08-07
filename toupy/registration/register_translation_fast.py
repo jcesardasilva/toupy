@@ -21,20 +21,6 @@ def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=
     """
     Upsampled DFT by matrix multiplication.
 
-    This code is intended to provide the same result as if the following
-    operations were performed:
-        - Embed the array "data" in an array that is ``upsample_factor`` times
-          larger in each dimension.  ifftshift to bring the center of the
-          image to (1,1).
-        - Take the FFT of the larger array.
-        - Extract an ``[upsampled_region_size]`` region of the result, starting
-          with the ``[axis_offsets+1]`` element.
-
-    It achieves this result by computing the DFT in the output array without
-    the need to zeropad. Much faster and memory efficient than the zero-padded
-    FFT approach if ``upsampled_region_size`` is much smaller than
-    ``data.size * upsample_factor``.
-
     Parameters
     ----------
     data : 2D ndarray
@@ -52,6 +38,21 @@ def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=
     -------
     output : 2D ndarray
             The upsampled DFT of the specified region.
+
+    Note
+    ----
+    This code is intended to provide the same result as if the following
+    operations were performed:
+    - Embed the array "data" in an array that is ``upsample_factor`` times
+      larger in each dimension.  ifftshift to bring the center of the
+      image to (1,1).
+    - Take the FFT of the larger array.
+    - Extract an ``[upsampled_region_size]`` region of the result, starting
+      with the ``[axis_offsets+1]`` element.
+    It achieves this result by computing the DFT in the output array without
+    the need to zeropad. Much faster and memory efficient than the zero-padded
+    FFT approach if ``upsampled_region_size`` is much smaller than
+    ``data.size * upsample_factor``.
     """
     # monkey patch fftpack
     np.fft = pyfftw.interfaces.numpy_fft
@@ -96,7 +97,7 @@ def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=
 def _compute_phasediff(cross_correlation_max):
     """
     Compute global phase difference between the two images (should be
-        zero if images are non-negative).
+    zero if images are non-negative).
 
     Parameters
     ----------
@@ -129,12 +130,6 @@ def register_translation(src_image, target_image, upsample_factor=1, space="real
     """
     Efficient subpixel image translation registration by cross-correlation.
 
-    This code gives the same precision as the FFT upsampled cross-correlation
-    in a fraction of the computation time and with reduced memory requirements.
-    It obtains an initial estimate of the cross-correlation peak by an FFT and
-    then refines the shift estimation by upsampling the DFT only in a small
-    neighborhood of that estimate by means of a matrix-multiply DFT.
-
     Parameters
     ----------
     src_image : ndarray
@@ -162,6 +157,14 @@ def register_translation(src_image, target_image, upsample_factor=1, space="real
     phasediff : float
         Global phase difference between the two images (should be
         zero if images are non-negative).
+
+    Note
+    ----
+    This code gives the same precision as the FFT upsampled cross-correlation
+    in a fraction of the computation time and with reduced memory requirements.
+    It obtains an initial estimate of the cross-correlation peak by an FFT and
+    then refines the shift estimation by upsampling the DFT only in a small
+    neighborhood of that estimate by means of a matrix-multiply DFT.
 
     References
     ----------
