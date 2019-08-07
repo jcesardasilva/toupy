@@ -1,11 +1,6 @@
 toupy.utils package
 ===================
 
-.. automodule:: toupy.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Submodules
 ----------
 
@@ -49,3 +44,11 @@ toupy.utils.plot\_utils module
    :undoc-members:
    :show-inheritance:
 
+
+Module contents
+---------------
+
+.. automodule:: toupy.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:

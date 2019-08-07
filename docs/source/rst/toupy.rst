@@ -1,11 +1,6 @@
 toupy package
 =============
 
-.. automodule:: toupy
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Subpackages
 -----------
 
@@ -17,3 +12,11 @@ Subpackages
    toupy.restoration
    toupy.tomo
    toupy.utils
+
+Module contents
+---------------
+
+.. automodule:: toupy
+   :members:
+   :undoc-members:
+   :show-inheritance:
