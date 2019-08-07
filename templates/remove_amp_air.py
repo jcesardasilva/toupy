@@ -3,7 +3,7 @@
 
 # local packages
 from toupy.io import LoadData, SaveData
-from toupy.restoration import gui_plotphaseamp
+from toupy.restoration import gui_plotamp
 
 # initializing params
 params = dict()
@@ -13,8 +13,8 @@ params = dict()
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["crop_reg"] = None  # [20,0,20,0] # left, bottom, right, top
 params["autosave"] = False
-params["vmin"] = -np.pi / 2
-params["vmax"] = np.pi / 2
+params["vmin"] = -1.6
+params["vmax"] = 1.6
 params["amponly"] = True  # ensuring that we are loading only amplitude
 # =========================
 

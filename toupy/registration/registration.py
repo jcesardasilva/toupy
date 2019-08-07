@@ -114,6 +114,7 @@ def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
 def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear"):
     """
     Compute the alignment of the stack on at the horizontal direction
+
     Parameters
     ----------
     input_array : ndarray

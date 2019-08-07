@@ -45,6 +45,9 @@ class ShiftFunc(Variables):
     def __call__(self, *args):  # input_array,shift):
         """
         Implement the shifts
+
+        Parameters
+        ----------
         *args:
             args[0] : ndarray
                 Input array

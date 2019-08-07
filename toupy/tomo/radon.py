@@ -14,7 +14,6 @@ P = None
 def radonSilx(recons, theta):
     """
     Forward Radon transform using Silx and OpenCL
-    @author: jdasilva
     """
     # using Silx Projector
     # , axis_position=my_axis_pos)

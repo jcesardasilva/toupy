@@ -27,7 +27,9 @@ def wraptopi(phase, endpoint=True):
     Wrap a scalar value or an entire array to:
     [-pi, pi) if endpoint=False
     (-pi, pi] if endpoint=True (default)
-    Example:
+
+    Example
+    -------
     >>> import numpy as np
     >>> wraptopi(np.linspace(-np.pi,np.pi,7),endpoint=True)
     array([ 3.14159265, -2.0943951 , -1.04719755, -0.        ,  1.04719755,
@@ -35,7 +37,6 @@ def wraptopi(phase, endpoint=True):
     >>> wraptopi(np.linspace(-np.pi,np.pi,7),endpoint=False)
     array([-3.14159265, -2.0943951 , -1.04719755,  0.        ,  1.04719755,
         2.0943951 , -3.14159265])
-    Created 07/10/2015
     """
     if not endpoint:  # case [-pi, pi)
         return (phase + np.pi) % (2 * np.pi) - np.pi
@@ -64,10 +65,11 @@ def wrap(phase):
 def distance(pixel1, pixel2):
     """
     Return the Euclidean distance of two pixels.
-    Example:
+
+    Example
+    -------
     >>> distance(np.arange(1,10),np.arange(2,11))
     3.0
-    Created 26/11/2015
     """
     if (not isinstance(pixel1, np.ndarray)) and (not isinstance(pixel2, np.ndarray)):
         pixel1 = np.asarray(pixel1)
@@ -78,10 +80,12 @@ def distance(pixel1, pixel2):
 def get_charge(residues):
     """
     Get the residues charges
+
     Parameters
     ----------
     residues : ndarray
         2D arrays with residues
+
     Returns
     -------
     posres : ndarray
@@ -110,24 +114,25 @@ def phaseresidues(phimage, disp=1):
         Array containing the phase-contrast images with gray-level 
         in radians
     disp : bool
-        False -> No feedback
-        True ->  Text feedback (additional computation)
+        False gives No feedback
+        True gives Text feedback (additional computation)
 
     Returns
     -------
     residues : ndarray
         Map of residues (valued +1 or -1)
 
-    Notes
+    Note
     -----
     Note that by convention the positions of the phase residues are
     marked on the top left corner of the 2 by 2 regions.
 
-      active---res4---right
-         |              |
-        res1           res3
-         |              |
-      below---res2---belowright
+    active---res4---right
+       |              |
+      res1           res3
+       |              |
+    below---res2---belowright
+
     Inspired by PhaseResidues.m created by B.S. Spottiswoode on 07/10/2004
     and by find_residues.m created by Manuel Guizar - Sept 27, 2011
     Relevant literature: R. M. Goldstein, H. A. Zebker and C. L. Werner,
@@ -148,10 +153,12 @@ def phaseresidues(phimage, disp=1):
 def phaseresiduesStack(stack_array):
     """
     Calculate the map of residues on the stack
+
     Parameters
     ----------
     stack_array : ndarray
         Stack from which to calculate the phase residues
+
     Returns
     -------
     resmap : ndarray
@@ -176,6 +183,18 @@ def phaseresiduesStack(stack_array):
 def chooseregiontounwrap(stack_array):
     """
     Choose the region to be unwrapped
+
+    Parameters
+    ----------
+    stack_array : ndarray
+        Input stack to be unwrapped
+
+    Returns
+    -------
+    rx, ry : tuples
+        Limits of the are to be unwrapped
+    airpix : tuple
+        Position of the pixel which should contains only air/vacuum
     """
     resmap, posres = phaseresiduesStack(stack_array)
     yres, xres = posres
