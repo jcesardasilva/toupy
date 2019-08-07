@@ -33,9 +33,9 @@ Toupy documentation
 
 .. toctree::
    :caption: Templates
-   :maxdepth: 3
-   
-    rst/templates
+   :maxdepth: 2
+
+   rst/templates
 
 Indices and tables
 ==================
