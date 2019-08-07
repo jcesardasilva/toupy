@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Template for the air removal from the amplitude projections
+"""
+
 # local packages
 from toupy.io import LoadData, SaveData
 from toupy.restoration import gui_plotamp

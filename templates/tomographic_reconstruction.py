@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Template for tomographic reconstruction from the phase projections
+"""
+
 # standard packages
 import time
 

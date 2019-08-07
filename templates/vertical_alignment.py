@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Template to vertical alignment of the projections based on the
+vertical mass fluctuations and tomographic consistency.
+"""
+
 # third party packages
 import numpy as np
 

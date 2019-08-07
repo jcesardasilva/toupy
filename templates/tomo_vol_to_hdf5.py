@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+"""
+Template for converting .vol files to HDF5 files
+"""
+
 # local packages
 from toupy.io import LoadData, SaveData, load_paramsh5
 

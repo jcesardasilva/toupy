@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+"""
+Template for the alignment of the amplitude projections based on the
+results of the alignment of the phase projections
+"""
+
 # local packages
 from toupy.io import LoadData, SaveData
 from toupy.utils import replace_bad, iterative_show

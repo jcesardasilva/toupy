@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
+"""
+Template for inspecting the rotation axis and obtaining a first guess
+"""
+
 # local packages
 from toupy.io import LoadData, SaveData
 from toupy.registration import estimate_rot_axis
