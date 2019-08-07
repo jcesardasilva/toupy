@@ -24,7 +24,7 @@ or, for local installation, using the flag --user:
 Get started
 -----------
 
-Get started quickly with the examples in the [templates](toupy/templates) directory.
+Get started quickly with the examples in the [templates](https://github.com/jcesardasilva/toupy/tree/master/templates) directory.
 
 Or you can edit the files in test folder and run, for example:
 
