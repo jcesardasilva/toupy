@@ -18,6 +18,7 @@ def radonSilx(recons, theta):
     global P
     # using Silx Projector
     # , axis_position=my_axis_pos)
+    P = None
     P = Projection(recons.shape, angles=np.pi * (theta) / 180.0)
     sinogramcomp = P(recons.astype(np.float32)).T
     return sinogramcomp
