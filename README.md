@@ -20,6 +20,11 @@ Installation should be as simple as:
 or, for local installation, using the flag --user:
 
     python3 setup.py install --user
+    
+Documentation
+-------------
+
+The documentation can be found in [ReadTheDocs](https://toupy.readthedocs.io/en/latest/).
 
 Get started
 -----------
