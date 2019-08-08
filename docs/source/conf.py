@@ -34,7 +34,7 @@ release = '0.1.0'
 import mock
 
 #MOCK_MODULES = ['scipy', 'fabio', 'h5py', 'pyfftw', 'roipoly', 'math', 'scikit-image', 'libtiff', 'silx','pyopencl']
-MOCK_MODULES = ['libtiff', 'silx','pyopencl']
+MOCK_MODULES = ['pyopencl']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
@@ -43,7 +43,7 @@ for mod_name in MOCK_MODULES:
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-# needs_sphinx = '1.0'
+needs_sphinx = '2.1.2'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
