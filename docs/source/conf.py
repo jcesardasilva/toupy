@@ -14,7 +14,7 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../..'))
+#sys.path.insert(0, os.path.abspath('../..'))
 sys.path.insert(0, os.path.abspath('../../toupy'))
 #sys.setrecursionlimit(1500)
 
@@ -29,13 +29,11 @@ version = '0.1.0'
 # The full version, including alpha/beta/rc tags
 release = '0.1.0'
 
-
-
 # -- General configuration ---------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-# needs_sphinx = '1.0'
+needs_sphinx = '2.1.2'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -66,6 +64,7 @@ napoleon_use_admonition_for_references = False
 napoleon_use_ivar = False
 napoleon_use_param = True
 napoleon_use_rtype = True
+autodoc_mock_imports = ["pyopencl"]
 #numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
@@ -255,3 +254,35 @@ intersphinx_mapping = {
     'https://docs.python.org/': None,
     #'toupy': ('https://github.com/jcesardasilva/toupy.git', None),
 }
+
+#import os
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
+if on_rtd:
+    html_theme = 'default'
+else:
+    html_theme = 'sphinx_rtd_theme'
+
+def run_apidoc(_):
+    # ~ ignore_paths = [
+        # ~ ...
+    # ~ ]
+
+    argv = [
+        "-f", #Overwrite existing files
+        "-T", #Create table of contents
+        #"-e", #Give modules their own pages
+        #"-E", #user docstring headers
+        "-M", #Modules first
+        "-o", #Output the files to:
+        "docs/source/rst",
+        "../../toupy" #Main Module directory
+    ]
+    # ~ ] + ignore_paths
+
+    # Sphinx 1.7+
+    from sphinx.ext import apidoc
+    apidoc.main(argv)
+
+
+def setup(app):
+    app.connect('builder-inited', run_apidoc)
