@@ -2,15 +2,15 @@
 Welcome to toupy documentation
 ******************************
 
-|toupy| is a suite of tools for the processing of high-resolution tomography dataset compiled by
+**Toupy** is a suite of tools for the processing of high-resolution tomography dataset compiled by
 J. C. da Silva and licensed under the GPLv3 license.
 
-The name |toupy| stands for Tomographic Utilites for Python and it is a wordplay with the French 
+The name **toupy** stands for **Tomographic Utilites for Python** and it is a wordplay with the French 
 word `toupie` for spinning top , the toy designed to spin rapidly on the ground, the motion of 
 which causes it to remain precisely balanced on its tip due to its rotational inertia. Here you can 
 find the wikipedia page in `English <https://en.wikipedia.org/wiki/Top>`_ and in `French <https://fr.wikipedia.org/wiki/Toupie_(jouet)>`_.
 
-|toupy| implements tools for preprocessing the projections before the tomographic reconstruction
+**Toupy** implements tools for preprocessing the projections before the tomographic reconstruction
 and the reconstruction itself. The pipeline and algorithms is briefly summarized in this publication [ [#algos]_ ], but which is also based on 
 previous works [ [#psi]_ ].
 
