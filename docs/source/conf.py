@@ -276,7 +276,7 @@ def run_apidoc(_):
         "-M", #Modules first
         "-o", #Output the files to:
         "docs/source/rst",
-        "./toupy" #Main Module directory
+        "../../toupy" #Main Module directory
     ]
     # ~ ] + ignore_paths
 
