@@ -9,5 +9,5 @@ scikit-image>=0.15.0
 libtiff>=0.4.2
 silx>=0.11.0
 sphinx>=2.1.2
-pyopencl[ocl]
+pyopencl>=2019.1
 
