@@ -18,7 +18,6 @@ sys.path.insert(0, os.path.abspath('../..'))
 sys.path.insert(0, os.path.abspath('../../toupy'))
 #sys.setrecursionlimit(1500)
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'Toupy - Tomographic Utilities for Python'
