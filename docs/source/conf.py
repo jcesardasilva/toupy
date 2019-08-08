@@ -269,13 +269,13 @@ def run_apidoc(_):
 
     argv = [
         "-f", #Overwrite existing files
-        "-T", #Create table of contents
+        #"-T", #Create table of contents
         #"-e", #Give modules their own pages
-        #"-E", #user docstring headers
+        "-E", #user docstring headers
         "-M", #Modules first
         "-o", #Output the files to:
         "docs/source/rst",
-        "../.." #Main Module directory
+        "../toupy" #Main Module directory
     ]
     # ~ ] + ignore_paths
 
