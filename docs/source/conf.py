@@ -29,6 +29,13 @@ version = '0.1.0'
 # The full version, including alpha/beta/rc tags
 release = '0.1.0'
 
+########### TRICK FOUND ON SOME TUTORIAL : ADD IN THE MOCK_MODULES ANY EXTERNAL MODULE YOU'RE USING IN YOUR PACKAGE.
+
+import mock
+
+MOCK_MODULES = ['numpy', 'scipy', 'fabio', 'h5py', 'matplotlib', 'matplotlib.pyplot', 'pyfftw', 'roipoly', 'math', 'scikit-image', 'libtiff', 'silx','sphinx','pyopencl']
+for mod_name in MOCK_MODULES:
+    sys.modules[mod_name] = mock.Mock()
 
 
 # -- General configuration ---------------------------------------------------
