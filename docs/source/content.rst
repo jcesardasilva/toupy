@@ -22,8 +22,9 @@ Toupy documentation
 
 .. toctree::
    :caption: Package and modules
-   :maxdepth: 3
+   :maxdepth: 2
 
+   rst/toupy
    rst/toupy.io
    rst/toupy.registration
    rst/toupy.resolution

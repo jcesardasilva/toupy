@@ -2,8 +2,8 @@
 #
 # Configuration file for the Sphinx documentation builder.
 #
-# This file does only contain a selection of the most common options. For a
-# full list see the documentation:
+# This file only contains a selection of the most common options. For a full
+# list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
 
 # -- Path setup --------------------------------------------------------------
@@ -49,8 +49,10 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
+    'sphinx.ext.coverage',
     #'numpydoc',
     #'rinoh.frontend.sphinx',
+    'sphinx.ext.todo',
 ]
 
 # Napoleon settings
@@ -204,7 +206,7 @@ latex_logo = '../../resources/toupy_logo.png'
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'toupy', u'Toupy Documentation',
+    (master_doc, 'toupy', 'Toupy Documentation',
      [author], 1)
 ]
 
@@ -241,39 +243,16 @@ epub_exclude_files = ['search.html']
 
 # -- Extension configuration -------------------------------------------------
 
-# -- Options for intersphinx extension ---------------------------------------
+# -- Options for todo extension ----------------------------------------------
 
+# If true, `todo` and `todoList` produce output, else they produce nothing.
+todo_include_todos = True
+
+# -- Options for intersphinx extension ---------------------------------------
 # Example configuration for intersphinx: refer to the Python standard library.
 #intersphinx_mapping = {'https://docs.python.org/': None}
 
 intersphinx_mapping = {
     'https://docs.python.org/': None,
-    'toupy': ('https://github.com/jcesardasilva/toupy.git', None),
+    #'toupy': ('https://github.com/jcesardasilva/toupy.git', None),
 }
-
-# ~ # Extensions to theme docs
-# ~ def setup(app):
-    # ~ from sphinx.domains.python import PyField
-    # ~ from sphinx.util.docfields import Field
-
-    # ~ app.add_object_type(
-        # ~ 'confval',
-        # ~ 'confval',
-        # ~ objname='configuration value',
-        # ~ indextemplate='pair: %s; configuration value',
-        # ~ doc_field_types=[
-            # ~ PyField(
-                # ~ 'type',
-                # ~ label=('Type'),
-                # ~ has_arg=False,
-                # ~ names=('type',),
-                # ~ bodyrolename='class'
-            # ~ ),
-            # ~ Field(
-                # ~ 'default',
-                # ~ label=('Default'),
-                # ~ has_arg=False,
-                # ~ names=('default',),
-            # ~ ),
-        # ~ ]
-    # ~ )
