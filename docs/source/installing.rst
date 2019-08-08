@@ -8,7 +8,7 @@ Requirements
 The required packages are list in the file requirements.txt. Before the
 installation of Toupy, you should run:
 
-..code:: shell
+.. code:: shell
 
    pip install -r requirements.txt
 
