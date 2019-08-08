@@ -11,8 +11,8 @@ which causes it to remain precisely balanced on its tip due to its rotational in
 find the wikipedia page in `English <https://en.wikipedia.org/wiki/Top>`_ and in `French <https://fr.wikipedia.org/wiki/Toupie_(jouet)>`_.
 
 **Toupy** implements tools for preprocessing the projections before the tomographic reconstruction
-and the reconstruction itself. The pipeline and algorithms is briefly summarized in this publication[#algos]_, but which is also based on 
-previous works[#psi]_.
+and the reconstruction itself. The pipeline and algorithms is briefly summarized in this publication [#algos]_, but which is also based on 
+previous works [#psi]_.
 
 Get started quickly with the examples in the :doc:`templates <rst/templates>` directory.
 

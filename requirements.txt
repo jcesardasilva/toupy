@@ -7,6 +7,6 @@ PyFFTW>=0.11.1
 roipoly>=0.5.0
 scikit-image>=0.15.0
 libtiff>=0.4.2
-silx>=0.11.0
+silx==0.9.0
 sphinx>=2.1.2
 pyopencl>=2019.1
