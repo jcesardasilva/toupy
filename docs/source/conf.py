@@ -33,7 +33,8 @@ release = '0.1.0'
 
 import mock
 
-MOCK_MODULES = ['numpy', 'scipy', 'fabio', 'h5py', 'pyfftw', 'roipoly', 'math', 'scikit-image', 'libtiff', 'silx','pyopencl']
+#MOCK_MODULES = ['scipy', 'fabio', 'h5py', 'pyfftw', 'roipoly', 'math', 'scikit-image', 'libtiff', 'silx','pyopencl']
+MOCK_MODULES = ['libtiff', 'silx','pyopencl']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
