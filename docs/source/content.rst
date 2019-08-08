@@ -24,7 +24,6 @@ Toupy documentation
    :caption: Package and modules
    :maxdepth: 2
 
-   rst/toupy
    rst/toupy.io
    rst/toupy.registration
    rst/toupy.resolution
