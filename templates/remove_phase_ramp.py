@@ -3,6 +3,9 @@
 
 """
 Template for the phase ramp removal from the phase projections
+
+This module will call a GUI with button for each task. Don't forget to
+close the GUI once finished and proceed to the saving. 
 """
 
 # local packages

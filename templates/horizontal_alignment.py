@@ -4,6 +4,10 @@
 """
 Template for the horizontal alignment of the projections based on the
 tomographic consistency conditions.
+
+You will first align for one slice and we repeat the alignment at
+multiple slices and average the shift function. If the average is
+satisfactory, you can proceed and save the data. 
 """
 
 # standard libraries imports
@@ -38,8 +42,9 @@ params = dict()
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
-params["filtertomo"] = 0.2  # Frequency cutoff (between 0 and 1)
+params["freqcutoff"] = 0.2  # Frequency cutoff (between 0 and 1)
 params["circle"] = True
+params["algorithm"] = "FBP"
 # initial guess of the offset of the axis of rotation
 params["rot_axis_offset"] = 0
 params["pixtol"] = 0.01  # Tolerance of registration in pixels
@@ -75,7 +80,7 @@ if __name__ == "__main__":
 
     # If you want to initialize shiftstack with previous alignment values
     if params["load_previous_shiftstack"]:
-        shiftstack = LoadData.loadshiftstack("aligned_projections.h5", **inputparams)
+        shiftstack = LoadData.loadshiftstack("aligned_projections.h5", **params)
         print("Using previous estimate of shiftstack")
     else:
         # initializing shiftstack with zero plus rot_axis_offset

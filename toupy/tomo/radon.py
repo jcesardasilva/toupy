@@ -15,6 +15,7 @@ def radonSilx(recons, theta):
     """
     Forward Radon transform using Silx and OpenCL
     """
+    global P
     # using Silx Projector
     # , axis_position=my_axis_pos)
     P = Projection(recons.shape, angles=np.pi * (theta) / 180.0)

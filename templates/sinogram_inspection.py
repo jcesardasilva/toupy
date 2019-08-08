@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 """
-Template for inspecting the rotation axis and obtaining a first guess
+Template for inspecting the rotation axis
+
+This routine will help you to estimate a first guess for the position of
+the rotation axis. This will be useful to speed up the horizontal
+alignment.
 """
 
 # local packages
@@ -18,7 +21,7 @@ params = dict()
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
-params["filtertomo"] = 0.9  # Frequency cutoff
+params["freqcutoff"] = 0.9  # Frequency cutoff
 params["circle"] = True
 params["algorithm"] = "FBP" 
 # initial guess of the offset of the axis of rotation
