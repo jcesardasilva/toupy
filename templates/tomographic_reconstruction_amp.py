@@ -22,7 +22,7 @@ params = dict()
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
-params["filtertomo"] = 1.0  # Frequency cutoff (between 0 and 1)
+params["freqcutoff"] = 1.0  # Frequency cutoff (between 0 and 1)
 params["circle"] = True
 params["algorithm"] = "FBP"  # FBP or SART
 params["derivatives"] = True  # only for FBP
@@ -41,16 +41,10 @@ params["showrecons"] = False  # to display the reconstructed slice on the fly.
 
 if __name__ == "__main__":
 
-    if params["phaseonly"] == params["amponly"]:
-        raise ValueError("phaseonly and amponly cannot be True at the same time")
-
     # loading the data
     aligned_projections, theta, shiftstack, params = LoadData.load(
         "aligned_amp_projections.h5", **params
     )
-
-    # from now on, voxelsize is pixelsize.
-    voxelsize = params["pixelsize"]
 
     tomogram_amp = full_tomo_recons(aligned_projections, theta, **params)
 
