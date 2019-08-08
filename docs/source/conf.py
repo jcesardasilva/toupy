@@ -29,15 +29,6 @@ version = '0.1.0'
 # The full version, including alpha/beta/rc tags
 release = '0.1.0'
 
-########### TRICK FOUND ON SOME TUTORIAL : ADD IN THE MOCK_MODULES ANY EXTERNAL MODULE YOU'RE USING IN YOUR PACKAGE.
-
-import mock
-
-#MOCK_MODULES = ['scipy', 'fabio', 'h5py', 'pyfftw', 'roipoly', 'math', 'scikit-image', 'libtiff', 'silx','pyopencl']
-MOCK_MODULES = ['pyopencl']
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.Mock()
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -62,19 +53,19 @@ extensions = [
     'sphinx.ext.todo',
 ]
 
-# ~ # Napoleon settings
-# ~ napoleon_google_docstring = False
-# ~ napoleon_numpy_docstring = True
-# ~ napoleon_include_init_with_doc = False
-# ~ napoleon_include_private_with_doc = False
-# ~ napoleon_include_special_with_doc = True
-# ~ napoleon_use_admonition_for_examples = False
-# ~ napoleon_use_admonition_for_notes = False
-# ~ napoleon_use_admonition_for_references = False
-# ~ napoleon_use_ivar = False
-# ~ napoleon_use_param = True
-# ~ napoleon_use_rtype = True
-# ~ #numpydoc_show_class_members = False
+# Napoleon settings
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_rtype = True
+#numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
