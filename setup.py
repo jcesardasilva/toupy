@@ -22,7 +22,7 @@ setuptools.setup(
     scripts=["bin/file_comp", "bin/missing_recons"],
     license="LICENCE",
     description="Tomographic Utilities for Python",
-    long_description=long_description_toupy
+    long_description=long_description_toupy,
     #long_description=readreadme("README.md"),
     #long_description_content_type="text/markdown",
     classifiers=[
