@@ -24,13 +24,13 @@ Toupy documentation
    :caption: Package and modules
    :maxdepth: 2
 
-   toupy
-   toupy.io
-   toupy.registration
-   toupy.resolution
-   toupy.restoration
-   toupy.tomo
-   toupy.utils
+   rst/toupy
+   rst/toupy.io
+   rst/toupy.registration
+   rst/toupy.resolution
+   rst/toupy.restoration
+   rst/toupy.tomo
+   rst/toupy.utils
 
 Indices and tables
 ==================
