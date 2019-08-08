@@ -1,7 +1,4 @@
-setup module
-============
-
-.. automodule:: setup
+.. automodule:: templates.horizontal_alignment
    :members:
    :undoc-members:
    :show-inheritance:

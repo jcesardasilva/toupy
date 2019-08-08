@@ -1,7 +1,4 @@
-setup module
-============
-
-.. automodule:: setup
+.. automodule:: toupy.restoration.vorticestools
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,7 +1,4 @@
-setup module
-============
-
-.. automodule:: setup
+.. automodule:: toupy.utils.FFT_utils
    :members:
    :undoc-members:
    :show-inheritance:

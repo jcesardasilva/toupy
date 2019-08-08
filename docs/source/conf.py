@@ -14,8 +14,8 @@
 #
 import os
 import sys
-#sys.path.insert(0, os.path.abspath('../..'))
-sys.path.insert(0, os.path.abspath('../../toupy'))
+sys.path.insert(0, os.path.abspath('../..'))
+#sys.path.insert(0, os.path.abspath('../../toupy'))
 #sys.setrecursionlimit(1500)
 
 # -- Project information -----------------------------------------------------
@@ -270,12 +270,12 @@ def run_apidoc(_):
     argv = [
         "-f", #Overwrite existing files
         "-T", #Create table of contents
-        "-e", #Give modules their own pages
-        "-E", #user docstring headers
+        #"-e", #Give modules their own pages
+        #"-E", #user docstring headers
         "-M", #Modules first
         "-o", #Output the files to:
         "docs/source/rst",
-        "../../toupy" #Main Module directory
+        "../.." #Main Module directory
     ]
     # ~ ] + ignore_paths
 

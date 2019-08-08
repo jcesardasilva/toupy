@@ -1,7 +1,4 @@
-setup module
-============
-
-.. automodule:: setup
+.. automodule:: toupy.tomo.iradon
    :members:
    :undoc-members:
    :show-inheritance:

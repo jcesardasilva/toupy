@@ -1,7 +1,7 @@
-setup module
+bunch module
 ============
 
-.. automodule:: setup
+.. automodule:: bunch
    :members:
    :undoc-members:
    :show-inheritance:
