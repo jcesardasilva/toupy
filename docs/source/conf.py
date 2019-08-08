@@ -261,28 +261,28 @@ if on_rtd:
     html_theme = 'default'
 else:
     html_theme = 'sphinx_rtd_theme'
+if on_rtd:
+    def run_apidoc(_):
+        # ~ ignore_paths = [
+            # ~ ...
+        # ~ ]
 
-def run_apidoc(_):
-    # ~ ignore_paths = [
-        # ~ ...
-    # ~ ]
+        argv = [
+            "-f", #Overwrite existing files
+            #"-T", #Create table of contents
+            #"-e", #Give modules their own pages
+            "-E", #user docstring headers
+            "-M", #Modules first
+            "-o", #Output the files to:
+            "docs/source/rst",
+            "../../toupy" #Main Module directory
+        ]
+        # ~ ] + ignore_paths
 
-    argv = [
-        "-f", #Overwrite existing files
-        #"-T", #Create table of contents
-        #"-e", #Give modules their own pages
-        "-E", #user docstring headers
-        "-M", #Modules first
-        "-o", #Output the files to:
-        "docs/source/rst",
-        "../toupy" #Main Module directory
-    ]
-    # ~ ] + ignore_paths
-
-    # Sphinx 1.7+
-    from sphinx.ext import apidoc
-    apidoc.main(argv)
+        # Sphinx 1.7+
+        from sphinx.ext import apidoc
+        apidoc.main(argv)
 
 
-def setup(app):
-    app.connect('builder-inited', run_apidoc)
+    def setup(app):
+        app.connect('builder-inited', run_apidoc)
