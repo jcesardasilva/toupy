@@ -35,7 +35,7 @@ def create_circle(inputimg):
     return t
 
 
-def compute_filter(nbins, filter_type="ram-lak", derivative=True, freqcutoff=1):
+def compute_filter(nbins, filter_type="ram-lak", derivatives=True, freqcutoff=1):
 
     # resize image to next power of two (but no less than 64) for
     # Fourier analysis; speeds up Fourier and lessens artifacts
@@ -44,7 +44,7 @@ def compute_filter(nbins, filter_type="ram-lak", derivative=True, freqcutoff=1):
     # Construct the Fourier filter
     f = fftfreq(projection_size_padded).reshape(-1, 1)  # digital frequency
     omega = 2 * np.pi * f  # angular frequency
-    if derivative:
+    if derivatives:
         fourier_filter = np.ones_like(f).astype(np.complex)  # differential filter
     else:
         fourier_filter = 2 * np.abs(f)  # ramp filter
@@ -74,7 +74,7 @@ def compute_filter(nbins, filter_type="ram-lak", derivative=True, freqcutoff=1):
     fourier_filter[np.where(np.abs(omega) > np.pi * freqcutoff)] = 0
 
     # Change the filter to adapte to projection derivative
-    if derivative:
+    if derivatives:
         fourier_filter = np.sign(f) * fourier_filter / (1j * np.pi)
 
     return fourier_filter
@@ -216,18 +216,16 @@ def mod_iradon(
 
 
 B = None
-
-
 def mod_iradonSilx(
     radon_image,
     theta=None,
     output_size=None,
     filter_type="ram-lak",
-    derivative=True,
+    derivatives=True,
     interpolation="linear",
     circle=False,
     freqcutoff=1,
-    use_numpy=False,
+    use_numpy=True,
 ):
     """
     Inverse radon transform using Silx and OpenCL.
@@ -252,7 +250,7 @@ def mod_iradonSilx(
         Filter used in frequency domain filtering. Ram-Lak filter used by default.
         Filters available: ram-lak, shepp-logan, cosine, hamming, hann.
         Assign None to use no filter.
-    derivative : boolean (default True)
+    derivatives : boolean (default True)
         If True, assumes that the radon_image contains the derivates of the
         projections.
     interpolation : str, optional (default 'linear')
@@ -278,6 +276,7 @@ def mod_iradonSilx(
     multiplying the frequency domain of the filter with the FFT of the
     projection data. This algorithm is called filtered back projection.
     """
+    global B
     if radon_image.ndim != 2:
         raise ValueError("The input image must be 2-D")
     if theta is None:
@@ -289,35 +288,36 @@ def mod_iradonSilx(
     cust_filter = compute_filter(
         radon_image.shape[0],
         filter_type=filter_type,
-        derivative=derivative,
+        derivatives=derivatives,
         freqcutoff=freqcutoff,
     )
-    # ~ print("Using Silx v{}".format(version))
+    #~ if B is None: # creates the object
+    #~ print('Initializing backprojector object...')
     silx_version = float(version[2:])
+    
     if silx_version < 10.0:
         B = Backprojection(radon_image.T.shape, angles=np.pi * (theta) / 180.0)
         # ~ print("Initialized OpenCL backprojector on {}".format(B.device))
         B.filter = cust_filter.ravel() / 2.0  # has to be divided by 2.
     else:
-        if use_numpy:
-            B = Backprojection(
-                radon_image.T.shape,
-                angles=np.pi * (theta) / 180.0,
-                filter_name=filter_type,
-                extra_options={"use_numpy_fft": True},
-            )
-        else:
-            B = Backprojection(
-                radon_image.T.shape,
-                angles=np.pi * (theta) / 180.0,
-                filter_name=filter_type,
-            )
-        # ~ print("Initialized OpenCL backprojector on {}".format(B.device))
+        B = Backprojection(
+            radon_image.T.shape,
+            angles=np.pi * (theta) / 180.0,
+            filter_name=filter_type,
+            extra_options={"use_numpy_fft": use_numpy, "cutoff": freqcutoff},
+        )
         # from version 0.10.0, silx filtering uses R2C Fourier transforms
         cust_filter2 = cust_filter.ravel()[: B.sino_filter.dwidth_padded // 2 + 1]
-        cust_filter2 = np.ascontiguousarray(cust_filter2 / 2.0, dtype=np.complex64)
+        cust_filter2 = np.ascontiguousarray(cust_filter2 / 2.0)#, dtype=np.complex64)
         B.sino_filter.set_filter(cust_filter2)
-    recons = B(radon_image.T)
+
+    if not use_numpy:
+        sinogram = np.ascontiguousarray(radon_image.T).astype(np.float32)
+    else:
+        sinogram = radon_image.T.astype(np.float32)
+
+    # actual reconstruction
+    recons = B(sinogram)
 
     if circle:
         recons_circle = create_circle(recons)
@@ -344,9 +344,9 @@ def backprojector(sinogram, theta, **params):
         theta=theta,
         output_size=sinogram.shape[0],
         filter_type=params["filtertype"],
-        derivative=params["derivatives"],
+        derivatives=params["derivatives"],
         circle=params["circle"],
-        freqcutoff=params["filtertomo"],
+        freqcutoff=params["freqcutoff"],
     )
     return recons
 

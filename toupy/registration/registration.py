@@ -23,6 +23,7 @@ from ..utils import (
     progbar,
     RegisterPlot,
     replace_bad,
+    display_slice,
 )
 
 __all__ = [
@@ -664,7 +665,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
            'spline' - Shift images with spline interpolation
     params['circle'] : bool
         Use a circular mask to eliminate corners of the tomogram
-    params['filtertomo'] : float
+    params['freqcutoff'] : float
         Frequency cutoff for tomography filter
     params['cliplow'] : float
         Minimum value in tomogram
@@ -715,7 +716,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     print("\nStarting the horizontal alignment")
     print("=====================================")
     print("Number of iteration: {}".format(params["maxit"]))
-    print("Using a frequency cutoff of {}".format(params["filtertomo"]))
+    print("Using a frequency cutoff of {}".format(params["freqcutoff"]))
     print("Low limit for tomo values = {}".format(params["cliplow"]))
     print("High limit for tomo values = {}".format(params["cliphigh"]))
 
@@ -725,7 +726,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     # pad sinogram of derivatives
     # TODO: check if we only need this for derivative (if params['derivatives']:) or not!
-    padval = int(2 * np.round(1 / params["filtertomo"]))
+    padval = int(2 * np.round(1 / params["freqcutoff"]))
     sinogram = np.pad(
         sinogram, ((padval, padval), (0, 0)), "constant", constant_values=0
     ).copy()
@@ -733,7 +734,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     # applying a filter to the sinogram #TODO: improve this part
     filteraux = fract_hanning_pad(
-        N, N, np.round(N * (1 - params["filtertomo"]))
+        N, N, np.round(N * (1 - params["freqcutoff"]))
     )  # 1- at the beginning
     filteraux = np.tile(np.fft.fftshift(filteraux[0, :]), (len(theta), 1))
     sino_orig = np.real(np.fft.ifft(np.fft.fft(sinogram) * filteraux.T))
@@ -837,10 +838,10 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
                 if a2 != "":
                     params["pixtol"] = eval(a2)
                 a3 = input(
-                    "Filter Tomo cutoff (e.g. {}): ".format(params["filtertomo"])
+                    "Filter Tomo cutoff (e.g. {}): ".format(params["freqcutoff"])
                 )
                 if a3 != "":
-                    params["filtertomo"] = eval(a3)
+                    params["freqcutoff"] = eval(a3)
                 a4 = input("Number of iterations (e.g. {}): ".format(params["maxit"]))
                 if a4 != "":
                     params["maxit"] = eval(a4)
@@ -883,9 +884,9 @@ def oneslicefordisplay(sinogram, theta, **params):
         "Do you want to reconstruct the slice with different parameters? ([y]/n) :"
     ).lower()
     if str(a) == "" or str(a) == "y":
-        filtertomo = input("filtertomo (current: {}) = ".format(params["filtertomo"]))
-        if filtertomo != "":
-            params["filtertomo"] = eval(filtertomo)
+        freqcutoff = input("freqcutoff (current: {}) = ".format(params["freqcutoff"]))
+        if freqcutoff != "":
+            params["freqcutoff"] = eval(freqcutoff)
         filtertype = str(
             input("filtertype (current: {}) = ".format(params["filtertype"])).lower()
         )
@@ -1289,7 +1290,7 @@ def estimate_rot_axis(input_array, theta, **params):
 
         # Display slice:
         plt.close("all")
-        print("Slice: {}".format(slice_num))
+        print("Slice: {}".format(slicenum))
         fig1 = plt.figure(num=5, figsize=(12, 4))
         ax1 = fig1.add_subplot(121)
         im1 = ax1.imshow(
@@ -1299,7 +1300,7 @@ def estimate_rot_axis(input_array, theta, **params):
             vmin=params["cliplow"],
             vmax=params["cliphigh"],
         )
-        ax1.set_title("Slice".format(slice_num))
+        ax1.set_title("Slice".format(slicenum))
         fig1.colorbar(im1)
         ax2 = fig1.add_subplot(122)
         im2 = ax2.imshow(
@@ -1310,7 +1311,7 @@ def estimate_rot_axis(input_array, theta, **params):
             vmax=params["sinohigh"],
         )
         ax2.axis("tight")
-        ax2.set_title("Sinogram - Slice".format(slice_num))
+        ax2.set_title("Sinogram - Slice".format(slicenum))
         fig1.colorbar(im2)
         plt.show(block=False)
         a = input("Are you happy with the rotation axis?([y]/n)").lower()

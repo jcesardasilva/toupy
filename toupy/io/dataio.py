@@ -1,13 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  4 2015
 
-Updated on Tue Mar 25 2019:
-    - Fully compatible to Python 3
-    - No more backcompatibility to Python 2
-
-"""
 # Standard library imports
 import functools
 import fnmatch
