@@ -1,7 +1,7 @@
-setup module
-============
+cercle module
+=============
 
-.. automodule:: setup
+.. automodule:: cercle
    :members:
    :undoc-members:
    :show-inheritance:

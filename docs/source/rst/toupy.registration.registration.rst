@@ -1,7 +1,4 @@
-setup module
-============
-
-.. automodule:: setup
+.. automodule:: toupy.registration.registration
    :members:
    :undoc-members:
    :show-inheritance:

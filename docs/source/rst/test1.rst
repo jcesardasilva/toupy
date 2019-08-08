@@ -1,7 +1,7 @@
-setup module
+test1 module
 ============
 
-.. automodule:: setup
+.. automodule:: test1
    :members:
    :undoc-members:
    :show-inheritance:

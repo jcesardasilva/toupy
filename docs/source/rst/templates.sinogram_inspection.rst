@@ -1,7 +1,4 @@
-setup module
-============
-
-.. automodule:: setup
+.. automodule:: templates.sinogram_inspection
    :members:
    :undoc-members:
    :show-inheritance:
