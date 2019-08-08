@@ -270,8 +270,8 @@ def run_apidoc(_):
     argv = [
         "-f", #Overwrite existing files
         "-T", #Create table of contents
-        #"-e", #Give modules their own pages
-        #"-E", #user docstring headers
+        "-e", #Give modules their own pages
+        "-E", #user docstring headers
         "-M", #Modules first
         "-o", #Output the files to:
         "docs/source/rst",
