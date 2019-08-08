@@ -10,6 +10,8 @@ def readreadme(filename):
         long_description = fid.read()
     return long_description
 
+long_description_toupy = "The name **Toupy** stands for Tomographic Utilites for Python"
+
 setuptools.setup(
     name="toupy",
     version="0.1.0",
@@ -20,8 +22,9 @@ setuptools.setup(
     scripts=["bin/file_comp", "bin/missing_recons"],
     license="LICENCE",
     description="Tomographic Utilities for Python",
-    long_description=readreadme("README.md"),
-    long_description_content_type="text/markdown",
+    long_description=long_description_toupy
+    #long_description=readreadme("README.md"),
+    #long_description_content_type="text/markdown",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GPLv3 License",
@@ -40,5 +43,6 @@ setuptools.setup(
         "roipoly>=0.5.0",
         "scikit-image>=0.15.0",
         "silx>=0.9.0",
+        "pyopencl>=2019.1",
     ],
 )
