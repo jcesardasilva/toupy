@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 # local packages
-# from .register_translation import register_translation as register_translation_slow
-from .register_translation_fast import register_translation
+from .register_translation import *
 from .registration import *
 from .shift import ShiftFunc

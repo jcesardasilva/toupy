@@ -263,9 +263,9 @@ else:
     html_theme = 'sphinx_rtd_theme'
 if on_rtd:
     def run_apidoc(_):
-        # ~ ignore_paths = [
-            # ~ ...
-        # ~ ]
+        ignore_paths = [
+            "../../*.py"
+        ] # files to be ignored
 
         argv = [
             "-f", #Overwrite existing files
@@ -276,8 +276,8 @@ if on_rtd:
             "-o", #Output the files to:
             "docs/source/rst",
             "../../toupy" #Main Module directory
-        ]
-        # ~ ] + ignore_paths
+        # ~ ]
+        ] + ignore_paths
 
         # Sphinx 1.7+
         from sphinx.ext import apidoc

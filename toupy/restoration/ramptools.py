@@ -12,7 +12,7 @@ import time
 import numpy as np
 
 # local packages
-from ..registration.register_translation_fast import register_translation
+from ..registration.register_translation import register_translation
 from ..utils.funcutils import deprecated
 
 __all__ = ["rmphaseramp", "rmlinearphase", "rmair"]

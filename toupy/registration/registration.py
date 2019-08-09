@@ -12,7 +12,7 @@ from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 
 
 # local packages
-from .register_translation_fast import register_translation
+from .register_translation import register_translation
 from ..restoration import derivatives, derivatives_sino
 from .shift import ShiftFunc
 from ..tomo import projector, tomo_recons, create_circle

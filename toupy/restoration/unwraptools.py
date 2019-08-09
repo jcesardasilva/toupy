@@ -106,12 +106,12 @@ def get_charge(residues):
 
 def phaseresidues(phimage, disp=1):
     """
-    Calculates the phase residues for a given wrapped phase image. 
+    Calculates the phase residues for a given wrapped phase image.
 
     Parameters
     ----------
     phimage : array_like
-        Array containing the phase-contrast images with gray-level 
+        Array containing the phase-contrast images with gray-level
         in radians
     disp : bool
         False gives No feedback

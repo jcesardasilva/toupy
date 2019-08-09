@@ -14,10 +14,14 @@ find the wikipedia page in `English <https://en.wikipedia.org/wiki/Top>`_ and in
 and the reconstruction itself. The pipeline and algorithms is briefly summarized in this publication [#algos]_, but which is also based on 
 previous works [#psi]_.
 
-Get started quickly with the examples in the :doc:`templates <rst/templates>` directory.
+Quicklinks
+----------
+* | Get started quickly with the examples in the :doc:`templates <rst/templates>` directory.
 
+* | The complete :ref:`documentation <contents>`.
 
-.. rubric:: References
+References
+----------
 
 .. [#algos] da Silva, J. C., Haubrich, J., Requena, G., Hubert, M., Pacureanu, A., Bloch, L., Yang, Y., Cloetens, P.,
             *High energy near-and far-field ptychographic tomography at the ESRF*.
@@ -26,3 +30,11 @@ Get started quickly with the examples in the :doc:`templates <rst/templates>` di
           tomography from x-ray coherent diffractive imaging projections*, **Opt. Express** 19, 21345–21357 
           (2011). `doi <http://dx.doi.org/10.1364/OE.19.021345>`__
 
+Acknowledgments
+---------------
+
+* Ana Diaz, PSI, Switzerland
+* Andreas Menzel, PSI, Switzerland
+* Manuel Guizar-Sicairos, PSI, Switzerland
+* Pierre Paleo, ESRF, France
+* Peter Cloetens, ESRF, France

@@ -14,5 +14,6 @@ Submodules
    toupy.utils.FFT_utils
    toupy.utils.array_utils
    toupy.utils.converter_utils
+   toupy.utils.fit_utils
    toupy.utils.funcutils
    toupy.utils.plot_utils
