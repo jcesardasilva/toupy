@@ -2,13 +2,6 @@
 Templates
 *********
 
-
-You can also install it using pip:
-
-.. code-block:: shell
-
-    pip install -e git+https://github.com/jcesardasilva/toupy.git
-
 The templates here are routines to analyze the X-ray tomographic data.
 It is exemplified by the case of data acquired at ID16A beamline of
 ESRF, but it can easily adapted to datas from any other beamline.
