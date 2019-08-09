@@ -57,7 +57,7 @@ def read_volfile(filename):
 
     Returns
     -------
-    tomogram : ndarray
+    tomogram : array_like
         3D array containing the tomogram
     """
     # Usually, the file .vol.info contains de size of the volume
@@ -171,9 +171,9 @@ def read_ptyr(pathfilename):
 
     Returns
     -------
-    data1 : ndarray (complex)
+    data1 : array_like, complex
         Object image
-    probe1 : ndarray (complex)
+    probe1 : array_like, complex
         Probe images
     pixelsize : float
         List with pixelsizes in vertical and horizontal directions
@@ -257,11 +257,11 @@ def read_cxi(pathfilename):
 
     Returns
     -------
-    data1 : ndarray (complex)
+    data1 : array_like, complex
         Object image
-    probe1 : ndarray (complex)
+    probe1 : array_like, complex
         Probe images
-    pixelsize : list float
+    pixelsize : list of floats
         List with pixelsizes in vertical and horizontal directions
     """
     global metacxi
@@ -295,14 +295,14 @@ def crop_array(input_array, delcropx, delcropy):
 
     Parameters
     ----------
-    input_array : ndarray
+    input_array : array_like
         Input array to be cropped
     delcropx, delcropy : int
         Number of pixels to be crop from borders in x and y directions
 
     Returns
     -------
-    cropped_array : ndarray
+    cropped_array : array_like
         Cropped array
     """
     if delcropx is not None or delcropy is not None:
@@ -327,7 +327,7 @@ def write_edf(fname, data_array, hd=None):
     ----------
     fname : str
         File name
-    data_array : ndarray
+    data_array : array_like
         Data to be saved as edf
     hd : dict
         Dictionary with header information
@@ -350,7 +350,7 @@ def read_edf(fname):
 
     Returns
     -------
-    projs: ndarray
+    projs : array_like
         Array of projections
     pixelsize : list of float
         List with pixelsizes in vertical and horizontal directions
@@ -376,7 +376,7 @@ def read_edffilestack(**params):
 
     Returns
     -------
-    projs: ndarray
+    projs : array_like
         Array of projections
     pixelsize : list of float
         List with pixelsizes in vertical and horizontal directions
@@ -473,8 +473,9 @@ def read_tiff(imgpath):
 
     Returns
     -------
-    imgout : ndarray
+    imgout : array_like
         Array containing the image
+        
     Examples:
     ---------
     >>> imgpath = 'libtiff.tiff'
@@ -509,7 +510,7 @@ def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
     except KeyError:
         voxelsize = params["pixelsize"] * 1e9
     filtertype = params["filtertype"]
-    freqcutoff = params["filtertomo"]
+    freqcutoff = params["freqcutoff"]
     nbits = params["bits"]
 
     # writing
@@ -535,7 +536,7 @@ def convertimageto16bits(input_image, low_cutoff, high_cutoff):
     
     Parameters
     ----------
-    input_image : ndarray
+    input_image : array_like
         Input image to be converted
     low_cutoff : float
         Low cutoff of the gray level
@@ -544,7 +545,7 @@ def convertimageto16bits(input_image, low_cutoff, high_cutoff):
 
     Returns
     -------
-    tiffimage : ndarray
+    tiffimage : array_like
         Array containing the image at 16 bits
     """
     # Tiff normalization - 16 bits
@@ -559,7 +560,7 @@ def convertimageto8bits(input_image, low_cutoff, high_cutoff):
     
     Parameters
     ----------
-    input_image : ndarray
+    input_image : array_like
         Input image to be converted
     low_cutoff : float
         Low cutoff of the gray level
@@ -568,7 +569,7 @@ def convertimageto8bits(input_image, low_cutoff, high_cutoff):
 
     Returns
     -------
-    tiffimage : ndarray
+    tiffimage : array_like
         Array containing the image at 8 bits
     """
     # Tiff normalization - 8 bits
@@ -584,7 +585,7 @@ def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
 
     Parameters
     ----------
-    imgpath : ndarray
+    imgpath : array_like
         Image read from 16 bits tiff file
     low_cutoff : float
         Low cutoff of the gray level
@@ -593,7 +594,7 @@ def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
 
     Returns
     -------
-    tiffimage : ndarray
+    tiffimage : array_like
         Array containing the image with quantitative values
     """
     tiffimage = tiffimage.astype(np.float)
@@ -610,7 +611,7 @@ def convert8bitstiff(filename, low_cutoff, high_cutoff):
 
     Parameters
     ----------
-    imgpath : ndarray
+    imgpath : array_like
         Image read from 8 bits tiff file
     low_cutoff : float
         Low cutoff of the gray level
@@ -619,7 +620,7 @@ def convert8bitstiff(filename, low_cutoff, high_cutoff):
 
     Returns
     -------
-    tiffimage : ndarray
+    tiffimage : array_like
         Array containing the image with quantitative values
     """
     tiffimage = tiffimage.astype(np.float)

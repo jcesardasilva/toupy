@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # local packages
+from .fit_utils import *
 from .funcutils import *
 from .FFT_utils import *
 from .plot_utils import *

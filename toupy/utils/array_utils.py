@@ -36,7 +36,7 @@ def smooth_image(input_image, filter_size=3):
         Size of the filter
     Returns
     -------
-    ndarray
+    array_like
         Smoothed image
     """
     return filters.median_filter(input_image, filter_size)
@@ -56,7 +56,7 @@ def sharpening_image(input_image, filter_size=3, alpha=30):
         Strength of the sharpening
     Returns
     -------
-    ndarray
+    array_like
         Sharpened image
     """
     blurredimg = filters.median_filter(input_image, filter_size)
@@ -71,16 +71,16 @@ def sort_array(input_array, ref_array):
     
     Parameters
     ----------
-    input_array : ndarray
+    input_array : array_like
         Array to be sorted
-    ref_array : ndarray
+    ref_array : array_like
         Array on which the sorting will be based
 
     Returns
     -------
-    sorted_input_array : ndarray
+    sorted_input_array : array_like
         Sorted input array
-    sorted_ref_array : ndarray
+    sorted_ref_array : array_like
         Sorted reference array
     """
     idxsort = np.argsort(ref_array)
@@ -108,6 +108,9 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
 
 
 def round_to_even(x):
+    """
+    Round number x to next even number
+    """
     return int(2 * np.floor(x / 2))
 
 
@@ -118,7 +121,7 @@ def polynomial1d(x, order=1, w=1):
 
     Parameters
     ----------
-    x : ndarray
+    x : array_like
         Array containing the values of x for the polynomial
     order : int
         Order of the polynomial
@@ -127,7 +130,7 @@ def polynomial1d(x, order=1, w=1):
 
     Returns
     -------
-    polyseries : ndarray
+    polyseries : array_like
         Orthonormal polymonial up to order
     """
 
@@ -157,7 +160,7 @@ def projectpoly1d(func1d, order=1, w=1):
 
     Parameters
     ----------
-    func1d : ndarray
+    func1d : array_like
         Array containing the values of the 1D function
     order : int (default=1)
         Order of the polynomial
@@ -166,7 +169,7 @@ def projectpoly1d(func1d, order=1, w=1):
 
     Returns
     -------
-    projfunc1d : ndarray
+    projfunc1d : array_like
         Projected 1D funtion on orthonormal base
     """
     x = np.indices(func1d.shape)
@@ -186,7 +189,7 @@ def crop(input_array, delcropx, delcropy):
 
     Parameters
     ----------
-    input_array : ndarray
+    input_array : array_like
         Input image to be cropped
     delcropx : int
         amount of pixel to be cropped in x
@@ -195,8 +198,8 @@ def crop(input_array, delcropx, delcropy):
 
     Returns
     -------
-    ndarray
-        cropped image
+    array_like
+        Cropped image
     """
     if delcropx is not None or delcropy is not None:
         print("Cropping ROI of data")
@@ -235,7 +238,7 @@ def fract_hanning(outputdim, unmodsize):
 
     Parameters
     ----------
-    out : ndarray
+    out : array_like
         Square array containing a fractional separable Hanning window with
         DC in upper left corner.
     outputdim : int 
@@ -245,7 +248,7 @@ def fract_hanning(outputdim, unmodsize):
 
     Returns
     -------
-    ndarray
+    array_like
         Filtered image
     """
     if outputdim < unmodsize:
@@ -310,7 +313,7 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
     
     Parameters
     ----------
-    out : ndarray
+    out : array_like
         Square array containing a fractional separable Hanning window with
         DC in upper left corner.
     outputdim : int
@@ -322,7 +325,7 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
 
     Returns
     -------
-    ndarray
+    array_like
         Filtered image
     """
     if outputdim < unmodsize:
@@ -350,16 +353,16 @@ def mask_borders(imgarray, mask_array, threshold=4e-7):
     
     Parameters
     ----------
-    imgarray : ndarray
+    imgarray : array_like
         Input image
-    mask_array : boolean ndarray
+    mask_array : bool array_like
         Input mask 
     threshold : float (default = 4e-7)
         Threshold value
 
     Returns
     -------
-    mask_array : ndarray
+    mask_array : array_like
         Masked array
     """
     # mask borders
