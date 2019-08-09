@@ -558,7 +558,7 @@ class SaveData(PathName, Variables):
         if len(args) == 4:
             shiftstack = args[3]
         else:
-            shiftstack = np.zeros((2, nprojs))
+            shiftstack = np.zeros((2, nprojs),dtype=np.float32)
 
         if len(args) == 5:
             masks = args[4]
@@ -763,7 +763,7 @@ class LoadData(PathName, Variables):
         print("Loading shiftstack from file {}".format(h5name))
         h5file = self.results_datapath(h5name)
         with h5py.File(h5file, "r") as fid:
-            shiftstack = fid[u"shiftstack/shiftstack"][()]
+            shiftstack = fid["shiftstack/shiftstack"][()]
         return shiftstack
 
     def _load_theta(self, h5name):
@@ -829,7 +829,6 @@ class LoadData(PathName, Variables):
         datakwargs : dict
             Dictionary with metadata information
         """
-        print("Loading the projections from file {}".format(h5name))
         h5file = self.results_datapath(h5name)
         shiftstack = self._load_shiftstack(h5name)
         theta = self._load_theta(h5name)
@@ -842,14 +841,14 @@ class LoadData(PathName, Variables):
                 datakwargs[keys] = fid["info/{}".format(keys)][()]
             datakwargs.update(self.params)  # add/update with new values
             print("\b\b Done")
-            print("Loading projections...")
+            print("Loading the projections from file {}".format(h5name))
             dset = fid["projections/stack"]
             # ~ stack_projs = dset[()]
             if self.loadroi:
                 roi = self.roi
                 nprojs, nr, nc = [roi[ii + 1] - roi[ii] for ii in range(0, len(roi), 2)]
                 print("\rInitializing array...", end="")
-                stack_projs = np.empty((nprojs, nr, nc)).astype(dset.dtype)
+                stack_projs = np.empty((nprojs, nr, nc), dtype=dset.dtype)
                 print("\b\b Done")
                 print("Loading. This takes time, please wait...")
                 for ii in [projs]:
@@ -858,20 +857,18 @@ class LoadData(PathName, Variables):
                         ii, roi[2] : roi[3], roi[4] : roi[5]
                     ]
                     progbar(ii + 1, nprojs, strbar)
+                print("\r")
             else:
                 nprojs = dset.shape[0]
                 print("\rInitializing array...", end="")
-                stack_projs = np.empty(dset.shape).astype(dset.dtype)
+                stack_projs = np.empty(dset.shape, dtype=dset.dtype)
                 print("\b\b Done")
                 print("Loading. This takes time, please wait...")
-                p0 = time.time()
                 for ii in range(nprojs):
                     strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
                     stack_projs[ii, :, :] = dset[ii, :, :]
                     progbar(ii + 1, nprojs, strbar)
                 print("\r")
-                print("Time elapsed = {:.03f} s".format(time.time() - p0))
-        # ~ print('\r')
         if self.amponly and np.iscomplexobj(stack_projs):
             print("\rTaking only amplitudes...", end="")
             stack_projs = np.abs(stack_projs)
@@ -880,6 +877,66 @@ class LoadData(PathName, Variables):
             print("\rTaking only phases...", end="")
             stack_projs = np.angle(stack_projs)
             print("\b\b Done")
+        print("Projections loaded from file {}".format(h5name))
+        print("Time elapsed = {:.03f} s".format(time.time() - it0))
+        return stack_projs, theta, shiftstack, datakwargs
+        
+    @checkhostname
+    def load_olddata(h5name, **params):
+        """
+        Load data from h5 file (old format)
+        May be **deprecated** soon
+
+        Parameters:
+        ---------
+        h5name: str
+            File name from which data is loaded
+
+        Returns:
+        --------
+        stack_projs: ndarray
+            Stack of projections
+        theta: ndarray
+            Stack of thetas
+        shiftstack: ndarray
+            Shifts in vertical (1st dimension) and horizontal
+                    (2nd dimension)
+        datakwargs : dict
+            Dictionary with metadata information
+        """
+        h5file = self.results_datapath(h5name)
+        shiftstack = self._load_shiftstack(h5name)
+        theta = self._load_theta(h5name)
+        it0 = time.time()
+        print("The file format is old.")
+        with h5py.File(h5file, "r") as fid:
+            # read the inputkwargs dict
+            datakwargs = dict()
+            print("\rLoading metadata...", end="")
+            for keys in sorted(list(fid["info"].keys())):
+                datakwargs[keys] = fid["info/{}".format(keys)][()]
+            datakwargs.update(self.params)  # add/update with new values
+            print("\b\b Done")
+            datakwargs['pixelsize'] = fid["pixelsize"][()]
+            dset0 = fid["aligned_projections_proj/projection_000"]
+            nr, nc = dset0.shape
+            key_list = list(fid["aligned_projections_proj"].keys())
+            nprojs = len(key_list)
+            stack_projs = np.empty((nprojs, nr, nc), dtype=dset.dtype)
+            print("Loading projections. This takes time, please wait...")
+            for ii in range(nprojs):
+                strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
+                dset = fid[
+                    "aligned_projections_proj/{}".format(key_list[ii])
+                ]
+                stack_projs[ii] = dset[()]
+                progbar(ii + 1, nprojs, strbar)
+            print("\r")
+
+        # sorting theta
+        print("Sorting theta...")
+        stack_projs, theta = sort_array(stack_projs, theta)
+
         print("Projections loaded from file {}".format(h5name))
         print("Time elapsed = {:.03f} s".format(time.time() - it0))
         return stack_projs, theta, shiftstack, datakwargs
@@ -962,7 +1019,7 @@ class SaveTomogram(SaveData):
         if len(args) == 4:
             shiftstack = args[3]
         else:
-            shiftstack = np.zeros((2, nprojs))
+            shiftstack = np.zeros((2, nprojs),dtype=np.float32)
 
         # calculate the chunk size for writing the HDF5 files
         chunk_size = chunk_shape_3D(tomogram.shape)
@@ -1062,7 +1119,7 @@ class SaveTomogram(SaveData):
         tiff_subfolder_name = "TIFF_{}_{}_freqscl_{:0.2f}_{:d}bits".format(
             self.params["tomo_type"],
             self.params["filtertype"],
-            self.params["filtertomo"],
+            self.params["freqcutoff"],
             self.params["bits"],
         )
 
@@ -1089,7 +1146,7 @@ class SaveTomogram(SaveData):
         print("Writing the tiff files...")
         tiff_path = self.tiff_folderpath(tiff_subfolder_name)
         for ii in range(nslices):
-            strbar = "Writing slice {} out of {}".format(ii + 1, nslices)
+            strbar = "Writing slice {:>5.0f} out of {:>5.0f}".format(ii + 1, nslices)
             if self.params["bits"] == 16:
                 imgtiff = convertimageto16bits(tomogram[ii], low_cutoff, high_cutoff)
             elif self.params["bits"] == 8:
@@ -1097,7 +1154,7 @@ class SaveTomogram(SaveData):
             filename = "tomo_{}_filter_{}_cutoff_{:0.2f}_{:04d}.tif".format(
                 self.params["tomo_type"],
                 self.params["filtertype"],
-                self.params["filtertomo"],
+                self.params["freqcutoff"],
                 ii
             )
             pathfilename = os.path.join(tiff_path, filename)
@@ -1182,7 +1239,7 @@ class LoadTomogram(LoadData):
             print("Loading tomogram. This takes time, please wait...")
             dset = fid["tomogram/slices"]
             nslices = dset.shape[0]
-            tomogram = np.empty(dset.shape)
+            tomogram = np.empty(dset.shape, dtype=dset.dtype)
             # ~ tomogram = fid[u'tomogram/slices'][()]
             for ii in range(nslices):
                 strbar = "Slice: {} out of {}".format(ii + 1, nslices)

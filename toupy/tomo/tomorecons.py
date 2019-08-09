@@ -22,6 +22,7 @@ def tomo_recons(sinogram, theta, **params):
     """
     if params["algorithm"] == "FBP":
         if params["calc_derivatives"]:
+            print("Calculating the derivatives of the sinogram")
             sinogram = derivatives_sino(sinogram, shift_method="fourier")
         recons = backprojector(sinogram, theta, **params)
     elif params["algorithm"] == "SART":
@@ -35,11 +36,6 @@ def full_tomo_recons(input_stack, theta, **params):
     """
     Full tomographic reconstruction
     """
-    try:
-        calc_derivatives = params["calc_derivatives"]
-        print("Calculating the derivatives of the sinogram")
-    except KeyError:
-        calc_derivatives = False
 
     print("Calculating a slice for display")
     slicenum = params["slicenum"]
@@ -68,7 +64,7 @@ def full_tomo_recons(input_stack, theta, **params):
     a = input("Do you want to start the full reconstruction? ([y]/n): ").lower()
     if str(a) == "" or str(a) == "y":
         plt.close("all")
-        tomogram = np.zeros((nslices, nr, nc))
+        tomogram = np.zeros((nslices, nr, nc),dtype=np.float32)
         for ii in range(nslices):  # num_projections):#sorted(frames):
             strbar = "Slice: {} out of {}".format(ii + 1, nslices)
             sinogram = np.transpose(input_stack[:, ii, :])

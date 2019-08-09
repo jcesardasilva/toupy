@@ -98,7 +98,7 @@ def mod_iradon(
 
     Parameters
     ----------
-    radon_image (sinogram) : array_like, dtype=float
+    radon_image : array_like, dtype=float
         Image containing radon transform (sinogram). Each column of
         the image corresponds to a projection along a different angle. The
         tomography rotation axis should lie at the pixel index
@@ -109,26 +109,27 @@ def mod_iradon(
         between 0 and 180 (if the shape of `radon_image` is (N, M)).
     output_size : int
         Number of rows and columns in the reconstruction.
-    filter : str, optional (default ramp)
+    filter : str, optional
         Filter used in frequency domain filtering. Ram-Lak filter used by default.
         Filters available: ram-lak, shepp-logan, cosine, hamming, hann.
         Assign None to use no filter.
-    derivative : boolean (default True)
+    derivative : bool
         If True, assumes that the radon_image contains the derivates of the
-        projections.
-    interpolation : str, optional (default 'linear')
+        projections. The default is True
+    interpolation : str, optional
         Interpolation method used in reconstruction. Methods available:
-        'linear', 'nearest', and 'cubic' ('cubic' is slow).
-    circle : boolean, optional
+        'linear', 'nearest', and 'cubic' ('cubic' is slow). The default
+        is 'linear'
+    circle : bool, optional
         Assume the reconstructed image is zero outside the inscribed circle.
         Also changes the default output_size to match the behaviour of
         ``radon`` called with ``circle=True``.
-    freqcutoff : int (normalized to 1)
-        Frequency cutoff of the filter. 1 means no cutoff
+    freqcutoff : int
+        Normalized frequency cutoff of the filter. 1 means no cutoff
 
     Returns
     -------
-    reconstructed : ndarray
+    reconstructed : array_like
         Reconstructed image. The rotation axis will be located in the pixel
         with indices
         ``(reconstructed.shape[0] // 2, reconstructed.shape[1] // 2)``.
@@ -265,7 +266,7 @@ def mod_iradonSilx(
 
     Returns
     -------
-    reconstructed : ndarray
+    reconstructed : array_like
         Reconstructed image. The rotation axis will be located in the pixel
         with indices
         ``(reconstructed.shape[0] // 2, reconstructed.shape[1] // 2)``.

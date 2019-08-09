@@ -25,10 +25,10 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
 
     Parameters
     ----------
-    a : ndarray
+    a : array_like
         Input image as complex 2D-array.
 
-    weight : ndarray, str, optional
+    weight : array_like, str, optional
         Pass weighting array or use ``'abs'`` for a modulus-weighted
         phaseramp and ``Non`` for no weights.
 
@@ -37,9 +37,9 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
 
     Returns
     -------
-    out : ndarray
+    out : array_like
         Modified 2D-array, ``out=a*p``
-    p : ndarray, optional
+    p : array_like, optional
         Phaseramp if ``return_phaseramp = True``, otherwise omitted
 
     Note
@@ -86,7 +86,7 @@ def rmlinearphase(image, mask):
 
     Parameters
     ----------
-    image : ndarray
+    image : array_like
         Input image
     mask : bool
         Boolean array with ones where the linear phase should be
@@ -94,7 +94,7 @@ def rmlinearphase(image, mask):
 
     Returns
     -------
-    im_output : ndarray
+    im_output : array_like
         Linear ramp corrected image
     """
 
@@ -128,9 +128,9 @@ def remove_linearphase_old(image, mask, upsamp):
 
     Parameters
     ----------
-    image : ndarray
+    image : array_like
         Image
-    mask : boolean ndarray 
+    mask : bool, array_like 
         Binary array with ones where the linear phase should be 
         computed from
     upsamp : int
@@ -174,7 +174,7 @@ def rmair(image, mask):
 
     Parameters
     ---------
-    image : ndarray
+    image : array_like
         Amplitude-contrast image
     mask  : bool
         Boolean array with indicating the locations from where the air
@@ -182,7 +182,7 @@ def rmair(image, mask):
 
     Returns
     -------
-    normalizedimage : ndarray
+    normalizedimage : array_like
         Image normalized by the air values
     """
     norm_val = np.sum(mask * image) / mask.sum()

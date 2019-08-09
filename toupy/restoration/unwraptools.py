@@ -83,14 +83,14 @@ def get_charge(residues):
 
     Parameters
     ----------
-    residues : ndarray
+    residues : array_like
         2D arrays with residues
 
     Returns
     -------
-    posres : ndarray
+    posres : array_like
         Positions of the residues with positive charge
-    negres : ndarray
+    negres : array_like
         Positions of the residues with negative charge
     """
     posres = np.where(np.round(residues) == 1)
@@ -110,7 +110,7 @@ def phaseresidues(phimage, disp=1):
 
     Parameters
     ----------
-    phimage : ndarray
+    phimage : array_like
         Array containing the phase-contrast images with gray-level 
         in radians
     disp : bool
@@ -119,7 +119,7 @@ def phaseresidues(phimage, disp=1):
 
     Returns
     -------
-    residues : ndarray
+    residues : array_like
         Map of residues (valued +1 or -1)
 
     Note
@@ -156,12 +156,12 @@ def phaseresiduesStack(stack_array):
 
     Parameters
     ----------
-    stack_array : ndarray
+    stack_array : array_like
         Stack from which to calculate the phase residues
 
     Returns
     -------
-    resmap : ndarray
+    resmap : array_like
         Phase residue map
     posres : tuple
         Positions of the residues.
@@ -186,7 +186,7 @@ def chooseregiontounwrap(stack_array):
 
     Parameters
     ----------
-    stack_array : ndarray
+    stack_array : array_like
         Input stack to be unwrapped
 
     Returns
