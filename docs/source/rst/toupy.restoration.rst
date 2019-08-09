@@ -9,39 +9,11 @@ toupy.restoration package
 Submodules
 ----------
 
+.. toctree::
 
-.. automodule:: toupy.restoration.GUI_tracker
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.restoration.derivativetools
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.restoration.ramptools
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.restoration.roipoly
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.restoration.unwraptools
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.restoration.vorticestools
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
+   toupy.restoration.GUI_tracker
+   toupy.restoration.derivativetools
+   toupy.restoration.ramptools
+   toupy.restoration.roipoly
+   toupy.restoration.unwraptools
+   toupy.restoration.vorticestools

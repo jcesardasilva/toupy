@@ -9,21 +9,8 @@ toupy.io package
 Submodules
 ----------
 
+.. toctree::
 
-.. automodule:: toupy.io.dataio
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.io.filesrw
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.io.h5chunk_shape_3D
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
+   toupy.io.dataio
+   toupy.io.filesrw
+   toupy.io.h5chunk_shape_3D

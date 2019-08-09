@@ -9,21 +9,8 @@ toupy.tomo package
 Submodules
 ----------
 
+.. toctree::
 
-.. automodule:: toupy.tomo.iradon
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.tomo.radon
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.tomo.tomorecons
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
+   toupy.tomo.iradon
+   toupy.tomo.radon
+   toupy.tomo.tomorecons

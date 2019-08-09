@@ -9,27 +9,9 @@ toupy.registration package
 Submodules
 ----------
 
+.. toctree::
 
-.. automodule:: toupy.registration.register_translation
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.registration.register_translation_fast
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.registration.registration
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.registration.shift
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
+   toupy.registration.register_translation
+   toupy.registration.register_translation_fast
+   toupy.registration.registration
+   toupy.registration.shift
