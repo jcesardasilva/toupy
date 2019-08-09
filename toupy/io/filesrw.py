@@ -35,7 +35,6 @@ __all__ = [
     "load_paramsh5",
     "read_cxi",
     "read_edf",
-    "read_edffilestack",
     "read_ptyr",
     "read_tiff",
     "read_tiff_info",
@@ -358,47 +357,20 @@ def read_edf(fname):
     imgobj = fabio.open(fname)
     imgdata = imgobj.data
     try:
-        pixelsize = imgobj.header["pixel_size"]
+        pixelsize = eval(imgobj.header["pixel_size"])
     except:
         pixelsize = 1
+    try:
+        energy = eval(imgobj.header["energy"])
+    except:
+        raise AttributeError("Value of energy not found")
+    try:
+        nvue = eval(imgobj.header["nvue"])
+    except:
+        raise AttributeError("Number of projections not found")
     imgobj.close()
-    return imgdata, pixelsize
-
-
-def read_edffilestack(**params):
-    """
-    Read projection stack
-
-    Parameters
-    ----------
-    inputkwargs : dict
-        dict with parameters
-
-    Returns
-    -------
-    projs : array_like
-        Array of projections
-    pixelsize : list of float
-        List with pixelsizes in vertical and horizontal directions
-    """
-    # create the file wildcard
-    file_wcard = re.sub(r"_\d{4}.edf", "*.edf", params[u"pathfilename"])
-    # glob the list of files in sorted order
-    listfiles = sorted(glob.glob(file_wcard))
-    nfiles = len(listfiles)
-    print("{} files found".format(nfiles))
-    # read one file to obtain array shape
-    img0, px = read_edf(listfiles[0])
-    print("The pixel size is: {:.02f} nm".format(eval(px) * 1e9))
-    nr, nc = img0.shape
-    # initializing the array of projections
-    projs = np.empty((nfiles, nr, nc))
-    for ii in range(nfiles):
-        print("Reading projection {}:".format(ii))
-        print("File: {}".format(listfiles[ii]))
-        projs[ii], _ = read_edf(listfiles[ii])
-    return projs, eval(px)
-
+    return imgdata, pixelsize, energy, nvue
+    
 
 def load_paramsh5(**params):
     """

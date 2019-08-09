@@ -89,15 +89,16 @@ class PathName:
         self.useraccount = params["account"]
         self.samplename = params["samplename"]
         self.regime = params["regime"]
-        # ~ self.rootpath = os.path.split(os.path.split(os.path.split(os.path.split(os.path.dirname(self.pathfilename))[0])[0])[0])[0]
-        # .parents[3]) # root path
-        self.rootpath = str(Path(self.pathfilename).parents[3])
         self.filename = os.path.basename(self.pathfilename)  # data filename
         self.dirname = os.path.dirname(self.pathfilename)  # data filename
         self.fileprefix, self.fileext = os.path.splitext(
             self.filename
         )  # filename and extension
         # metadata filename
+        if self.fileext == ".edf":  # edf
+            self.rootpath = str(Path(self.pathfilename).parents[3])
+        else:
+            self.rootpath = str(Path(self.pathfilename).parents[2])
         self.icath5file = "{}-id16a.h5".format(self.useraccount)
         self.icath5path = os.path.join(
             self.rootpath, self.icath5file
@@ -115,7 +116,7 @@ class PathName:
 
     def metadatafilewcard(self):
         """
-        Create file wildcard to search for files
+        Create file wildcard to search for metafiles
         """
         if not os.path.isfile(self.icath5path):
             raise IOError("File {} not found".format(self.icath5file))
@@ -129,9 +130,13 @@ class PathName:
             metafile_wcard = re.sub(
                 r"_subtomo\d{3}_\d{4}", "_subtomo*", os.path.splitext(self.filename)[0]
             )
+        elif self.fileext == ".edf":  # edf
+            metafile_wcard = re.sub(
+                r"_\d{4}$", "*", os.path.splitext(self.filename)[0]
+            )
         else:
             raise IOError(
-                "File {} is not a .ptyr or a .cxi file. Please, load a .ptyr or a .cxi file.".format(
+                "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
                     filename
                 )
             )
@@ -143,10 +148,13 @@ class PathName:
         """
         print("Path: {}".format(self.dirname))
         print("First projection file: {}".format(self.filename))
-        scan_wcard = os.path.join(
-            re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
-            self.metadatafilewcard() + "_ML" + self.fileext,
-        )
+        if self.fileext == ".edf":
+            scan_wcard = re.sub(r"_\d{4}.edf", "*.edf", self.pathfilename)
+        else:
+            scan_wcard = os.path.join(
+                re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
+                self.metadatafilewcard() + "_ML" + self.fileext,
+            )
         return scan_wcard
 
     def results_folder(self):
@@ -158,6 +166,8 @@ class PathName:
             foldername = aux_wcard + "_nfpxct"
         elif self.regime == "farfield":
             foldername = aux_wcard + "_pxct"
+        elif self.regime == "holoct":
+            foldername = aux_wcard + "_hxct"
         else:
             raise ValueError("Unrecognized regime")
         results_path = os.path.join(os.path.dirname(self.dirname), foldername)
@@ -241,9 +251,11 @@ class LoadProjections(PathName, Variables):
             self.read_reconfile = read_ptyr
         elif self.fileext == ".cxi":  # PyNX
             self.read_reconfile = read_cxi
+        elif self.fileext == ".edf": # edf projections
+            self.read_reconfile = read_edf
         else:
             raise IOError(
-                "File {} is not a .ptyr or a .cxi file. Please, load a .ptyr or a .cxi file.".format(
+                "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
                     self.filename
                 )
             )
@@ -260,6 +272,10 @@ class LoadProjections(PathName, Variables):
     def load(cls, *args, **kwargs):
         return cls(**kwargs)._load_projections()
 
+    @classmethod
+    def loadedf(cls, *args, **kwargs):
+        return cls(**kwargs)._load_edfprojections()
+        
     def check_angles(self):
         """
         Find the angles of the projections and plot them to be checked
@@ -277,6 +293,7 @@ class LoadProjections(PathName, Variables):
                         # new style at ID16A beamline
                         positioners = fid[keys + "/sample/positioners/value"][()]
                     thetas[keys] = np.float(positioners.split()[0])
+        # remove additional angles
         if self.checkextraprojs:
             theta_keys = sorted(list(thetas.keys()))
             thetas_array = np.array([ii for ii in thetas.values()])
@@ -396,7 +413,7 @@ class LoadProjections(PathName, Variables):
         # crop image if requested
         objs0 = crop_array(objs0, self.border_crop_x, self.border_crop_y)
         nr, nc = objs0.shape
-        print(objs0.shape)
+        #~ print(objs0.shape)
         if pxsize[0] != pxsize[1]:
             raise SystemExit("Pixel size is not symmetric. Exiting the script")
         print(
@@ -437,7 +454,7 @@ class LoadProjections(PathName, Variables):
             for keys in sorted(thetas.keys()):
                 if keys.find(key_finder) != -1:
                     stack_angles[idxp] = thetas[keys]
-                    print(u"Angle: {}".format(thetas[keys]))
+                    print("Angle: {}".format(thetas[keys]))
                     break
             if self.showrecons:
                 print("Showing projection {}".format(idxp + 1))
@@ -456,6 +473,73 @@ class LoadProjections(PathName, Variables):
         print("All projections loaded\n")
         return stack_objs, stack_angles, pxsize, paramsload
 
+    @checkhostname
+    def _load_edfprojections(self):
+        """
+        Load the reconstructed projections from the edf files
+        This is adapted for the phase-contrast imaging generating
+        projections as edf files
+        """
+        # remove the last projection, which is 180 degrees
+        self.proj_files = self.proj_files[:-1]
+        
+        # count the number of available projections
+        num_projections = len(self.proj_files)
+
+        a = input(
+            "I have found {} projections. Do you want to continue?([Y]/n)".format(
+                num_projections
+            )
+        ).lower()
+        if a == "" or a == "y":
+            print("Continuing...")
+            plt.close("all")
+        else:
+            raise SystemExit("Exiting the script")
+
+        # Read the first projection to check size and reconstruction parameters
+        objs0, pxsize, energy, nvue = self.read_reconfile(self.pathfilename)
+        if nvue != num_projections:
+            raise ValueError(
+                "The number of projections is different from nvue in file"
+            )
+        nr, nc = objs0.shape
+        # add the information of pixelsize and energy to params
+        paramsload = dict()
+        paramsload.update(self.params)
+        paramsload["pixelsize"] = pxsize
+        paramsload["energy"] = energy
+        print(
+            "the pixelsize of the first projection is {:.2f} nm".format(
+                pxsize * 1e9
+            )
+        )
+
+        # initialize the array for the stack objects
+        stack_objs = np.empty((num_projections, nr, nc), dtype=np.float32)
+        stack_angles = np.arange(0,180,180/nvue, dtype=np.float32)
+        if stack_angles.shape[0] != num_projections:
+            raise ValueError(
+                "The number of projections is different from number of thetas"
+            )
+
+        # reads the ptyr or cxi files and get object and probe in a stack
+        for idxp, proj in enumerate(self.proj_files):
+            print("\nProjection: {}".format(idxp))
+            print("Reading: {}".format(proj))
+            objs, _, _, _ = self.read_reconfile(proj)  # reading file
+            # update stack_objs
+            stack_objs[idxp] = objs
+            if self.showrecons:
+                print("Showing projection {}".format(idxp + 1))
+                self.SP.show_projections(objs, probes, idxp)
+
+        nprojs, nr, nc = stack_objs.shape
+        print("\nNumber of projections loaded: {}".format(nprojs))
+        print("Dimensions {} x {} pixels".format(nr, nc))
+        print("All projections loaded\n")
+        return stack_objs, stack_angles, pxsize, paramsload
+            
 
 class SaveData(PathName, Variables):
     """
@@ -877,7 +961,7 @@ class LoadData(PathName, Variables):
         print("Projections loaded from file {}".format(h5name))
         print("Time elapsed = {:.03f} s".format(time.time() - it0))
         return stack_projs, theta, shiftstack, datakwargs
-        
+
     @checkhostname
     def load_olddata(h5name, **params):
         """
@@ -901,7 +985,7 @@ class LoadData(PathName, Variables):
 
         Note
         ----
-        May be deprecated soon. 
+        May be deprecated soon.
         """
         h5file = self.results_datapath(h5name)
         shiftstack = self._load_shiftstack(h5name)
