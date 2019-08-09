@@ -264,7 +264,7 @@ else:
 if on_rtd:
     def run_apidoc(_):
         ignore_paths = [
-            "../../*.py"
+            "../../setup.py"
         ] # files to be ignored
 
         argv = [
