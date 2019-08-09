@@ -16,9 +16,9 @@ previous works [#psi]_.
 
 Quicklinks
 ----------
-* | Get started quickly with the examples in the :doc:`templates <rst/templates>` directory.
+* Get started quickly with the examples in the :doc:`templates <rst/templates>` directory.
 
-* | The complete :ref:`documentation <contents>`.
+* The complete :ref:`documentation <contents>`.
 
 References
 ----------
