@@ -1,6 +1,8 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-@author: jdasilva
+Resolution estimate of projections using
+Fourier Ring correlation
 """
 from io_utils import (
     read_ptyr,
@@ -23,17 +25,6 @@ import sys
 import socket
 import re
 import os
-
-In[122]: pathfilename1
-Out[
-    122
-]: "/mntdirect/_data_id16a_inhouse4/visitor/ma4351/id16a/v97_h_nfptomo/v97_h_nfptomo_15nm_analysis/recons/v97_h_nfptomo_15nm_subtomo001_0000/v97_h_nfptomo_15nm_subtomo001_0000_ML.ptyr"
-
-In[123]: pathfilename2
-Out[
-    123
-]: "/mntdirect/_data_id16a_inhouse4/visitor/ma4351/id16a/v97_h_nfptomo/v97_h_nfptomo_15nm_analysis/recons/v97_h_nfptomo_15nm_subtomo004_0200/v97_h_nfptomo_15nm_subtomo004_0200_ML.ptyr"
-
 
 # import of standard libraries
 if re.search("gpu", socket.gethostname()) or re.search("gpid16a", socket.gethostname()):
@@ -62,14 +53,14 @@ params = dict()
 # =========================
 # Edit session
 # =========================
-params[u"transv_apod"] = 250  # transverse apodization
-params[u"axial_apod"] = 200  # axial apodization
-params[u"thick_ring"] = 4  # number of pixel to average each FRC ring
+params["transv_apod"] = 250  # transverse apodization
+params["axial_apod"] = 200  # axial apodization
+params["thick_ring"] = 4  # number of pixel to average each FRC ring
 # [448:2150,350:-350]#[550,1800,550,1800]#[580] #640
-params[u"crop"] = [450, 1150, 350, -350]
-params[u"vmin_plot"] = None  # 0.5e-5
-params[u"vmax_plot"] = -0.5e-4  # None
-params[u"colormap"] = "bone"  # colormap to show images
+params["crop"] = [450, 1150, 350, -350]
+params["vmin_plot"] = None  # 0.5e-5
+params["vmax_plot"] = -0.5e-4  # None
+params["colormap"] = "bone"  # colormap to show images
 # =========================
 
 # open GUI to choose file

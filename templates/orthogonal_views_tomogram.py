@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 """
 Template for displaying orthogonal views of the tomogram
 """
+
+# standard packages
+import os
 
 # third packages
 import matplotlib.pyplot as plt
@@ -14,7 +16,7 @@ from scipy.ndimage import filters
 
 # local packages
 from toupy.io import LoadTomogram
-from toupy.utils import convert_to_beta, convert_to_delta
+from toupy.utils import convert_to_beta, convert_to_delta, progbar
 
 # initializing dictionaries
 params = dict()
@@ -24,13 +26,13 @@ params = dict()
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["tomo_type"] = "delta"
 params["slicenum"] = 650
-params["vmin_plot"] = 1e-7  # None
-params["vmax_plot"] = 5e-6  # 5e-4
+params["vmin_plot"] = 2.5e-6  # None
+params["vmax_plot"] = 4.6e-6  # 5e-4
 params["scale_bar_size"] = 5  # in microns
 params["scale_bar_height"] = 1
-params["scale_bar_color"] = u"yellow"
+params["scale_bar_color"] = "yellow"
 params["bar_start"] = [50, 860]
-params["bar_axial"] = [70, 100]  # [cols,rows]
+params["bar_axial"] = [70, 350]  # [cols,rows]
 params["save_figures"] = True
 params["colormap"] = "bone"
 params["interpolation"] = "nearest"
@@ -46,34 +48,33 @@ if __name__ == "__main__":
 
     # loading files
     if params["tomo_type"] == "delta":
-        tomogram, theta, shiftstack, params = LoadTomogram.load("tomogram.h5", **params)
+        file2load = "tomogram.h5"
     elif params["tomo_type"] == "beta":
-        tomogram, theta, shiftstack, params = LoadTomogram.load(
-            "tomogram_amp.h5", **params
-        )
+        file2load = "tomogram_amp.h5"
     else:
         raise ValueError("Unrecognized tomography type")
+    tomogram, theta, shiftstack, params = LoadTomogram.load(file2load, **params)
+    nslices, nr, nc = tomogram.shape
 
     # conversion from phase-shifts to delta or from amplitude to beta
     voxelsize = params["pixelsize"][0]
     energy = params["energy"]
     if params["tomo_type"] == "delta":
         # Conversion from phase-shifts tomogram to delta
+        converter = convert_to_delta
         print("Converting from phase-shifts values to delta values")
-        for ii in range(nslices):
-            strbar = "Slice {} out of {}".format(ii + 1, nslices)
-            tomogram[ii], factor = convert_to_delta(tomogram[ii], energy, voxelsize)
-            progbar(ii + 1, nslices, strbar)
     elif params["tomo_type"] == "beta":
         # Conversion from amplitude to beta
+        converter = convert_to_beta
         print("Converting from amplitude to beta values")
-        for ii in range(slices):
-            strbar = "Slice {} out of {}".format(ii + 1, nslices)
-            tomogram[ii], factor = convert_to_beta(tomogram[ii], energy, voxelsize)
-            progbar(ii + 1, nslices, strbar)
+
+    # loop over the tomogram
+    for ii in range(nslices):
+        strbar = "Slice {} out of {}".format(ii + 1, nslices)
+        tomogram[ii], factor = converter(tomogram[ii], energy, voxelsize)
+        progbar(ii + 1, nslices, strbar)
     print("\r")
-        
-    
+
     # simple transfer of variables
     slice_num = params["slicenum"]
     vmin_plot = params["vmin_plot"]
@@ -86,13 +87,20 @@ if __name__ == "__main__":
     interp_type = params["interpolation"]
     scale_bar_color = params["scale_bar_color"]
 
+    if params["save_figures"]:
+        if not os.path.isdir('screenshots'):
+            os.makedir("screenshots")
+        print("Saving pngs to folder screenshots")
+
     # text style for the scale bar text
     textstr = r"{} $\mu$m".format(scale_bar_size)
 
     # sagital slice
-    sagital_slice = tomogram[:, np.round(tomogram.shape[1] / 2).astype("int"), :]
+    slicesag = np.s_[:,np.round(nr / 2).astype("int"),:]
+    sagital_slice = tomogram[slicesag]
     # coronal slice
-    coronal_slice = tomogram[:, :, np.round(tomogram.shape[1] / 2).astype("int")]
+    slicecor = np.s_[:, :, np.round(nc / 2).astype("int")]
+    coronal_slice = tomogram[slicecor]
     # axial slice
     axial_slice = tomogram[slice_num]
 
@@ -109,7 +117,7 @@ if __name__ == "__main__":
 
     # display the figures
     plt.close("all")
-    
+
     # Sagital slice
     figsag = plt.figure(num=1)
     axsag = figsag.add_subplot(111)
@@ -139,7 +147,7 @@ if __name__ == "__main__":
     axsag.set_axis_off()
     if params["save_figures"]:
         plt.savefig(
-            "sagital_{}.png".format(params["tomo_type"]), bbox_inches="tight", dpi=200
+            "screenshots/sagital_{}.png".format(params["tomo_type"]), bbox_inches="tight", dpi=200
         )
 
     # fig.colorbar(imsag)
@@ -172,10 +180,9 @@ if __name__ == "__main__":
     axcor.add_patch(rectcor)
     axcor.set_axis_off()
     plt.tight_layout()
-    plt.show()
     if params["save_figures"]:
         plt.savefig(
-            "coronal_{}.png".format(params["tomo_type"]), bbox_inches="tight", dpi=200
+            "screenshots/coronal_{}.png".format(params["tomo_type"]), bbox_inches="tight", dpi=200
         )
 
     # Axial slice
@@ -207,10 +214,11 @@ if __name__ == "__main__":
     )
     axaxial.add_patch(rectaxial)
     axaxial.set_axis_off()
-    plt.show()
     if params["save_figures"]:
         plt.savefig(
-            "axial_slice{}_{}.png".format(slice_num + 1, params["tomo_type"]),
+            "screenshots/axial_slice{}_{}.png".format(slice_num + 1, params["tomo_type"]),
             bbox_inches="tight",
             dpi=200,
         )
+    plt.show(block=False)
+

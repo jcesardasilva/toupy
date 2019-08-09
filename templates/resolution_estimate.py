@@ -3,7 +3,6 @@
 """
 Resolution estimate of projections using
 Fourier Ring correlation
-@author: jdasilva
 """
 # import of standard libraries
 import os
@@ -41,15 +40,15 @@ params = dict()
 # =========================
 # Edit session
 # =========================
-params[u"apod_width"] = 100  # apodization width in pixels
-params[u"thick_ring"] = 8  # number of pixel to average each FRC ring
-params[u"crop"] = [200, -370, 300, -300]  # cropping [top,bottom,left,right]
-params[u"vmin_plot"] = None
-params[u"vmax_plot"] = -0.5e-4  # None
-params[u"colormap"] = "bone"  # colormap to show images
-params[u"unwrap"] = False  # unwrap the phase
-params[u"flip2ndimage"] = False  # flip the 2nd image
-params[u"normalizeimage"] = False  # normalize the images
+params["apod_width"] = 100  # apodization width in pixels
+params["thick_ring"] = 8  # number of pixel to average each FRC ring
+params["crop"] = [200, -370, 300, -300]  # cropping [top,bottom,left,right]
+params["vmin_plot"] = None
+params["vmax_plot"] = -0.5e-4  # None
+params["colormap"] = "bone"  # colormap to show images
+params["unwrap"] = False  # unwrap the phase
+params["flip2ndimage"] = False  # flip the 2nd image
+params["normalizeimage"] = False  # normalize the images
 # =========================
 
 # open GUI to choose file

@@ -35,7 +35,7 @@ Toupy documentation
    :caption: Templates
    :maxdepth: 2
 
-   rst/templates
+   templates
 
 Indices and tables
 ==================
