@@ -9,15 +9,7 @@ toupy.resolution package
 Submodules
 ----------
 
+.. toctree::
 
-.. automodule:: toupy.resolution.FSC
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-.. automodule:: toupy.resolution.resolution_edge_estimate
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
+   toupy.resolution.FSC
+   toupy.resolution.resolution_edge_estimate
