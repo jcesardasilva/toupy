@@ -10,7 +10,14 @@ def readreadme(filename):
         long_description = fid.read()
     return long_description
 
-long_description_toupy = "The name **Toupy** stands for Tomographic Utilites for Python"
+long_description_toupy = "**Toupy** - Tomographic Utilites for Python"
+packages_list = setuptools.find_packages()
+
+if __name__=='__main__':
+    packages_list = setuptools.find_packages()
+    long_description_toupy = readreadme("./README.md")
+    if packages_list is None:
+        sys.exit("Failed to fetch packages")
 
 setuptools.setup(
     name="toupy",
@@ -18,12 +25,12 @@ setuptools.setup(
     author="Julio Cesar da Silva",
     author_email="jdasilva@esrf.fr",
     package_dir={"toupy": "toupy"},
-    packages=setuptools.find_packages(),
+    packages=packages_list,
     scripts=["bin/file_comp", "bin/missing_recons"],
     license="LICENCE",
     description="Tomographic Utilities for Python",
-    long_description=long_description_toupy,
-    #long_description=readreadme("README.md"),
+    #long_description=long_description_toupy,
+    long_description=readreadme("./README.md"),
     #long_description_content_type="text/markdown",
     classifiers=[
         "Programming Language :: Python :: 3",

@@ -46,17 +46,17 @@ def remove_extraprojs(stack_projs, theta):
 
     Parameters
     ----------
-    stack_projs : ndarray
+    stack_projs : array_like
         Stack of projections with the first index correspoding to the
         projection number
-    theta : ndarray
+    theta : array_like
         Array of theta values
 
     Returns
     -------
-        stack_projs : ndarray
+        stack_projs : array_like
             Stack of projections after the removal
-        theta : ndarray
+        theta : array_like
             Array of theta values after the removal
     """
     print(theta[-5:])
@@ -322,16 +322,16 @@ class LoadProjections(PathName, Variables):
 
         Parameters
         ----------
-        theta : ndarray
+        theta : array_like
             Array of theta values
         proj_files : list of str
             List of projection files
 
         Returns
         -------
-            stack_projs : ndarray
+            stack_projs : array_like
                 Stack of projections after the removal
-            theta : ndarray
+            theta : array_like
                 Array of theta values after the removal
         """
         print("The final 5 angles are: {}".format(list(thetas[-5:])))
@@ -540,14 +540,14 @@ class SaveData(PathName, Variables):
         *args: positional arguments
             args[0] : str
                 H5 file name
-            args[1] : ndarray
+            args[1] : array_like
                 Array containing the stack of projections
-            args[2] : ndarray
+            args[2] : array_like
                 Values of theta
-            args[3] : ndarray
+            args[3] : array_like
                 Array containing the shifts for each projection in the
                 stack. If not provided, it will be initialized with zeros
-            args[4] : ndarray or None
+            args[4] : array_like or None
                 Array containing the projection masks
         """
         h5name = args[0]
@@ -618,17 +618,17 @@ class SaveData(PathName, Variables):
         *args: positional arguments
             args[0] : str
                 H5 file name
-            args[1] : ndarray
+            args[1] : array_like
                 Normalized frequencies
-            args[2] : ndarray
+            args[2] : array_like
                 Value of the threshold for each frequency
-            args[3] : ndarray
+            args[3] : array_like
                 The FSC curve
-            args[4] : ndarray
+            args[4] : array_like
                 The first tomogram
-            args[5] : ndarray
+            args[5] : array_like
                 The second tomogram
-            args[6] : ndarray
+            args[6] : array_like
                 The array of theta values
             args[7] : float
                 Pixel size
@@ -751,14 +751,13 @@ class LoadData(PathName, Variables):
 
         Parameters:
         ---------
-        h5name: str
+        h5name : str
             File name from which data is loaded
 
         Returns:
         --------
-        shiftstack: ndarray
-            Shifts in vertical (1st dimension) and horizontal
-                    (2nd dimension)
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
         """
         print("Loading shiftstack from file {}".format(h5name))
         h5file = self.results_datapath(h5name)
@@ -772,14 +771,13 @@ class LoadData(PathName, Variables):
 
         Parameters:
         ---------
-        h5name: str
+        h5name : str
             File name from which data is loaded
 
         Returns:
         --------
-        shiftstack: ndarray
-            Shifts in vertical (1st dimension) and horizontal
-                    (2nd dimension)
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
         """
         print("Loading thetas from file {}".format(h5name))
         h5file = self.results_datapath(h5name)
@@ -798,7 +796,7 @@ class LoadData(PathName, Variables):
 
         Returns:
         --------
-        masks: ndarray
+        masks: array_like
             Array with the masks
         """
         print("Loading the projections from file {}".format(h5name))
@@ -812,20 +810,19 @@ class LoadData(PathName, Variables):
         """
         Load data from h5 file
 
-        Parameters:
-        ---------
+        Parameters
+        ---------_
         h5name: str
             File name from which data is loaded
 
-        Returns:
-        --------
-        stack_projs: ndarray
+        Returns
+        -------
+        stack_projs: array_like
             Stack of projections
-        theta: ndarray
+        theta: array_like
             Stack of thetas
-        shiftstack: ndarray
-            Shifts in vertical (1st dimension) and horizontal
-                    (2nd dimension)
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
         datakwargs : dict
             Dictionary with metadata information
         """
@@ -884,25 +881,27 @@ class LoadData(PathName, Variables):
     @checkhostname
     def load_olddata(h5name, **params):
         """
-        Load data from h5 file (old format)
-        May be **deprecated** soon
+        Load data from the old-format h5 file.
 
-        Parameters:
-        ---------
+        Parameters
+        ----------
         h5name: str
             File name from which data is loaded
 
-        Returns:
-        --------
-        stack_projs: ndarray
+        Returns
+        -------
+        stack_projs : array_like
             Stack of projections
-        theta: ndarray
+        theta : array_like
             Stack of thetas
-        shiftstack: ndarray
-            Shifts in vertical (1st dimension) and horizontal
-                    (2nd dimension)
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
         datakwargs : dict
             Dictionary with metadata information
+
+        Note
+        ----
+        May be deprecated soon. 
         """
         h5file = self.results_datapath(h5name)
         shiftstack = self._load_shiftstack(h5name)
@@ -1004,11 +1003,11 @@ class SaveTomogram(SaveData):
         *args: positional arguments
             args[0] : str
                 H5 file name
-            args[1] : ndarray
+            args[1] : array_like
                 Array containing the stack of slices (tomogram)
-            args[2] : ndarray
+            args[2] : array_like
                 Values of theta
-            args[3] : ndarray
+            args[3] : array_like
                 Array containing the shifts for each projection in the stack
         """
         h5name = args[0]
@@ -1093,11 +1092,11 @@ class SaveTomogram(SaveData):
         *args: positional arguments
             args[0] : str
                 H5 file name
-            args[1] : ndarray
+            args[1] : array_like
                 Array containing the stack of slices (tomogram)
-            args[2] : ndarray
+            args[2] : array_like
                 Values of theta
-            args[3] : ndarray
+            args[3] : array_like
                 Array containing the shifts for each projection in the stack
         """
         tomogram = args[0]
@@ -1213,13 +1212,12 @@ class LoadTomogram(LoadData):
 
         Returns:
         --------
-        tomogram: ndarray
+        tomogram : array_like
             Stack of tomographic slices
-        theta: ndarray
+        theta : array_like
             Stack of thetas
-        shiftstack: ndarray
-            Shifts in vertical (1st dimension) and horizontal
-                    (2nd dimension)
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
         datakwargs : dict
             Dictionary with metadata information
         """

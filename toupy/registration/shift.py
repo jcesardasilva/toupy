@@ -49,7 +49,7 @@ class ShiftFunc(Variables):
         Parameters
         ----------
         *args:
-            args[0] : ndarray
+            args[0] : array_like
                 Input array
             args[1] : int or tuple
                 Shift amplitude
@@ -89,7 +89,7 @@ class ShiftFunc(Variables):
 
         Parameters
         ----------
-        input_array: ndarray
+        input_array: array_like
             Input image to calculate the shifts.
         shift: int or tuple
             Number of pixels to shift. For 1D, use a integer value. 
@@ -99,7 +99,7 @@ class ShiftFunc(Variables):
 
         Returns
         -------
-        output_array : ndarray
+        output_array : array_like
             Shifted image
         """
         shiftfloor = np.floor(shift).astype(int)
@@ -116,7 +116,7 @@ class ShiftFunc(Variables):
 
         Parameters
         ----------
-        input_array: ndarray
+        input_array: array_like
             Input image to calculate the shifts.
         shift: int or tuple
             Number of pixels to shift. For 1D, use a integer value. 
@@ -126,7 +126,7 @@ class ShiftFunc(Variables):
 
         Returns
         -------
-        output_array : ndarray
+        output_array : array_like
             Shifted image
         """
         # pixel shift
@@ -170,7 +170,7 @@ class ShiftFunc(Variables):
 
         Parameters
         ----------
-        input_array: ndarray
+        input_array: array_like
             Input image to calculate the shifts.
         shift: int or tuple
             Number of pixels to shift. For 1D, use a integer value. 
@@ -180,7 +180,7 @@ class ShiftFunc(Variables):
 
         Returns
         -------
-        output_array : ndarray
+        output_array : array_like
             Shifted image
         """
         ni = input_array.shape

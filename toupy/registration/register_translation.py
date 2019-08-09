@@ -2,39 +2,36 @@
 """
 Port of Manuel Guizar's code from:
 http://www.mathworks.com/matlabcentral/fileexchange/18401-efficient-subpixel-image-registration-by-cross-correlation
+Changes on July 21st, 2016 by Julio C. da Silva:
+    - changes all ffts to drop-in replacements pyfftw.interfaces
 """
 
 import numpy as np
+import pyfftw
+import multiprocessing
 
+cores = multiprocessing.cpu_count()
+
+# enable cache for pyfftw
+pyfftw.interfaces.cache.enable()
+pyfftw.interfaces.cache.set_keepalive_time(30)
+
+__all__=["register_translation"]
 
 def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=None):
     """
     Upsampled DFT by matrix multiplication.
 
-    This code is intended to provide the same result as if the following
-    operations were performed:
-        - Embed the array "data" in an array that is ``upsample_factor`` times
-          larger in each dimension.  ifftshift to bring the center of the
-          image to (1,1).
-        - Take the FFT of the larger array.
-        - Extract an ``[upsampled_region_size]`` region of the result, starting
-          with the ``[axis_offsets+1]`` element.
-
-    It achieves this result by computing the DFT in the output array without
-    the need to zeropad. Much faster and memory efficient than the zero-padded
-    FFT approach if ``upsampled_region_size`` is much smaller than
-    ``data.size * upsample_factor``.
-
     Parameters
     ----------
-    data : 2D ndarray
+    data : array_like
         The input data array (DFT of original data) to upsample.
-    upsampled_region_size : integer or tuple of integers, optional
+    upsampled_region_size : int or tuple of ints, optional
         The size of the region to be sampled.  If one integer is provided, it
         is duplicated up to the dimensionality of ``data``.
-    upsample_factor : integer, optional
+    upsample_factor : int, optional
         The upsampling factor.  Defaults to 1.
-    axis_offsets : tuple of integers, optional
+    axis_offsets : tuple of ints, optional
         The offsets of the region to be sampled.  Defaults to None (uses
         image center)
 
@@ -42,7 +39,25 @@ def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=
     -------
     output : 2D ndarray
             The upsampled DFT of the specified region.
+
+    Note
+    ----
+    This code is intended to provide the same result as if the following
+    operations were performed:
+    1) Embed the array "data" in an array that is ``upsample_factor`` times
+      larger in each dimension.  ifftshift to bring the center of the
+      image to (1,1).
+    2) Take the FFT of the larger array.
+    3) Extract an ``[upsampled_region_size]`` region of the result, starting
+      with the ``[axis_offsets+1]`` element.
+    It achieves this result by computing the DFT in the output array without
+    the need to zeropad. Much faster and memory efficient than the zero-padded
+    FFT approach if ``upsampled_region_size`` is much smaller than
+    ``data.size * upsample_factor``.
     """
+    # monkey patch fftpack
+    np.fft = pyfftw.interfaces.numpy_fft
+
     # if people pass in an integer, expand it to a list of equal-sized sections
     if not hasattr(upsampled_region_size, "__iter__"):
         upsampled_region_size = [upsampled_region_size] * data.ndim
@@ -83,11 +98,11 @@ def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=
 def _compute_phasediff(cross_correlation_max):
     """
     Compute global phase difference between the two images (should be
-        zero if images are non-negative).
+    zero if images are non-negative).
 
     Parameters
     ----------
-    cross_correlation_max : complex
+    cross_correlation_max : array_like, complex
         The complex value of the cross correlation at its maximum point.
     """
     return np.arctan2(cross_correlation_max.imag, cross_correlation_max.real)
@@ -99,7 +114,7 @@ def _compute_error(cross_correlation_max, src_amp, target_amp):
 
     Parameters
     ----------
-    cross_correlation_max : complex
+    cross_correlation_max : array_like, complex
         The complex value of the cross correlation at its maximum point.
     src_amp : float
         The normalized average image intensity of the source image
@@ -116,46 +131,52 @@ def register_translation(src_image, target_image, upsample_factor=1, space="real
     """
     Efficient subpixel image translation registration by cross-correlation.
 
+    Parameters
+    ----------
+    src_image : array_like
+        Reference image.
+    target_image : array_like
+        Image to register.  Must be same dimensionality as ``src_image``.
+    upsample_factor : int, optional
+        Upsampling factor. Images will be registered to within ``1 / upsample_factor``
+        of a pixel. For example ``upsample_factor = 20`` means the images
+        will be registered within 1/20th of a pixel.  Default is 1 (no upsampling)
+    space : str
+        Defines how the algorithm interprets input data. ``real`` means data
+        will be FFT'd to compute the correlation, while ``fourier`` data will
+        bypass FFT of input data.  Case insensitive.
+
+    Returns
+    -------
+    shifts : array_like
+        Shift vector (in pixels) required to register ``target_image``
+        with ``src_image``.  Axis ordering is consistent with numpy (e.g. Z, Y, X)
+    error : float
+        Translation invariant normalized RMS error between ``src_image``
+        and ``target_image``.
+    phasediff : float
+        Global phase difference between the two images (should be
+        zero if images are non-negative).
+
+    Note
+    ----
     This code gives the same precision as the FFT upsampled cross-correlation
     in a fraction of the computation time and with reduced memory requirements.
     It obtains an initial estimate of the cross-correlation peak by an FFT and
     then refines the shift estimation by upsampling the DFT only in a small
     neighborhood of that estimate by means of a matrix-multiply DFT.
-
-    Parameters
-    ----------
-    src_image : ndarray
-        Reference image.
-    target_image : ndarray
-        Image to register.  Must be same dimensionality as ``src_image``.
-    upsample_factor : int, optional
-        Upsampling factor. Images will be registered to within
-        ``1 / upsample_factor`` of a pixel. For example
-        ``upsample_factor == 20`` means the images will be registered
-        within 1/20th of a pixel.  Default is 1 (no upsampling)
-    space : string, one of "real" or "fourier"
-        Defines how the algorithm interprets input data.  "real" means data
-        will be FFT'd to compute the correlation, while "fourier" data will
-        bypass FFT of input data.  Case insensitive.
-
-    Returns
-    -------
-    shifts : ndarray
-        Shift vector (in pixels) required to register ``target_image`` with
-        ``src_image``.  Axis ordering is consistent with numpy (e.g. Z, Y, X)
-    error : float
-        Translation invariant normalized RMS error between ``src_image`` and
-        ``target_image``.
-    phasediff : float
-        Global phase difference between the two images (should be
-        zero if images are non-negative).
+    The implementation of the algorithm described in [1]_.
 
     References
     ----------
     .. [1] Manuel Guizar-Sicairos, Samuel T. Thurman, and James R. Fienup,
-           "Efficient subpixel image registration algorithms,"
-           Optics Letters 33, 156-158 (2008).
+      `Efficient subpixel image registration algorithms`, **Optics
+      Letters** 33, 156-158 (2008).
+
     """
+    # monkey patch fftpack
+    np.fft = pyfftw.interfaces.numpy_fft
+
     # images must be the same shape
     if src_image.shape != target_image.shape:
         raise ValueError("Error: images must be same size for " "register_translation")
@@ -173,10 +194,16 @@ def register_translation(src_image, target_image, upsample_factor=1, space="real
         target_freq = target_image
     # real data needs to be fft'd.
     elif space.lower() == "real":
-        src_image = np.array(src_image, dtype=np.complex128, copy=False)
-        target_image = np.array(target_image, dtype=np.complex128, copy=False)
-        src_freq = np.fft.fftn(src_image)
-        target_freq = np.fft.fftn(target_image)
+        # src_image = np.array(src_image, dtype=np.complex128, copy=False)
+        src_image = pyfftw.byte_align(
+            src_image, dtype=np.complex128, n=16
+        )  # copy=False)
+        # target_image = np.array(target_image, dtype=np.complex128, copy=False)
+        target_image = pyfftw.byte_align(
+            target_image, dtype=np.complex128, n=16
+        )  # copy=False)
+        src_freq = np.fft.fftn(src_image, threads=cores)
+        target_freq = np.fft.fftn(target_image, threads=cores)
     else:
         raise ValueError(
             'Error: register_translation only knows the "real" '
@@ -185,7 +212,9 @@ def register_translation(src_image, target_image, upsample_factor=1, space="real
 
     # Whole-pixel shift - Compute cross-correlation by an IFFT
     shape = src_freq.shape
-    image_product = src_freq * target_freq.conj()
+    image_product = pyfftw.byte_align(
+        src_freq * target_freq.conj(), dtype=np.complex128, n=16
+    )
     cross_correlation = np.fft.ifftn(image_product)
 
     # Locate maximum

@@ -3,9 +3,6 @@
 
 """
 FOURIER SHELL CORRELATION modules
-
-Reference: M. van Heel, M. Schatzb, "Fourier shell correlation
-threshold criteria," Journal of Structural Biology 151, 250-262 (2005)
 """
 
 # standard library
@@ -24,88 +21,32 @@ from ..utils.FFT_utils import fastfftn
 __all__ = ["FourierShellCorr", "FSCPlot"]
 
 
-#~ def load_data_FSC(h5name, **params):
-    #~ """
-    #~ ### TODO: check the functions in io.dataio #####
-    #~ Load the projections for the FSC calculations
-    #~ @author: Julio C. da Silva (jdasilva@esrf.fr)
-    #~ """
-    #~ oldfileformat = params["oldfileformat"]
-    #~ pathfilename = params["pathfilename"]
-    #~ bodypath, filename = os.path.split(pathfilename)
-    #~ aux_wcard = re.sub(r"_subtomo\d{3}_\d{4}_\w*", "", os.path.splitext(filename)[0])
-    #~ aux_path = os.path.join(os.path.dirname(bodypath), aux_wcard + "_nfpxct")
-    #~ h5file = os.path.join(aux_path, h5name)
-    #~ print("Loading the projections from file {}".format(h5file))
-    #~ if oldfileformat:
-        #~ print("The file format is old.")
-        #~ with h5py.File(h5file, "r") as fid:
-            #~ thetaunsort = fid["angles/thetas"][()]
-            #~ pixelsize = fid["pixelsize"][()]
-            #~ proj0 = fid["aligned_projections_proj/projection_000"][()]
-            #~ key_list = list(fid["aligned_projections_proj"].keys())
-            #~ nprojs = len(key_list)
-            #~ stack_proj = np.zeros((nprojs, proj0.shape[0], proj0.shape[1]))
-            #~ print("Loading projections. This takes time, please wait...")
-            #~ p0 = time.time()
-            #~ for ii in range(nprojs):
-                #~ print(
-                    #~ "Loading projection {} out of {}".format(ii + 1, nprojs), end="\r"
-                #~ )
-                #~ stack_proj[ii] = fid[
-                    #~ "aligned_projections_proj/{}".format(key_list[ii])
-                #~ ][()]
-            #~ print("Done. Time elapsed = {:.03f} s".format(time.time() - p0))
-    #~ else:
-        #~ with h5py.File(h5file, "r") as fid:
-            #~ thetaunsort = fid["angles/thetas"][()]
-            #~ # read the inputkwargs dict
-            #~ inputkwargs = dict()
-            #~ print("Loading metadata")
-            #~ for keys in sorted(list(fid["info"].keys())):
-                #~ inputkwargs[keys] = fid["info/{}".format(keys)][()]
-            #~ print("Done")
-            #~ pixelsize = inputkwargs["pixelsize"]
-            #~ print("Loading projections. This takes time, please wait...")
-            #~ p0 = time.time()
-            #~ stack_proj = fid[u"projections/stack"][()]
-            #~ print("Done. Time elapsed = {:.03f} s".format(time.time() - p0))
-#~ 
-    #~ print("")  # to skip one line after the for loop print out
-    #~ # sorting theta
-    #~ print("Sorting data")
-    #~ idxsort = np.argsort(thetaunsort)
-    #~ theta = thetaunsort[idxsort]
-    #~ # stack_proj = stack_proj[idxsort]
-    #~ return stack_proj[idxsort], theta, pixelsize
-
-
 class FourierShellCorr:
     """
-    FOURIER SHELL CORRELATION
-
-    Computes the Fourier Shell Correlation between image1 and image2,
+    Computes the Fourier Shell Correlation [1]_ between image1 and image2,
     and estimate the resolution based on the threshold funcion T of 1 or 1/2 bit.
 
     Parameters
     ----------
-    img1 : ndarray
+    img1 : array_like
         Image 1
-    img2 : ndarray
+    img2 : array_like
         Image 2
-    
     threshold : str
-        Threshold options:
-        - onebit: 1 bit threshold -> SNRt = 0.5 (for two independent measurements)
-        - halfbit: 1/2 bit threshold -> SNRt = 0.2071 (for split tomogram)
-    ring_thick : int (default 1)
+        The option `onebit` means 1 bit threshold with ``SNRt = 0.5``, which
+        should be used for two independent measurements. The option `halfbit`
+        means 1/2 bit threshold with ``SNRt = 0.2071``, which should be
+        use for split tomogram.
+    ring_thick : int
         Thickness of the frequency rings. Normally the pixels get
         assined to the closest integer pixel ring in Fourier Domain.
         With ring_thick, each ring gets more pixels and more statistics.
-    apod_width : int (default 20)
+        The default value is 1.
+    apod_width : int
         Width in pixel of the edges apodization. It applies a Hanning
         window of the size of the data to the data before the Fourier
-        transform calculations to attenuate the border effects.
+        transform calculations to attenuate the border effects. The
+        default value is 20.
 
     Returns
     -------
@@ -115,12 +56,15 @@ class FourierShellCorr:
         Threshold curve
 
     Note
-    ---------
-    If 3D images, the first axis is the number of slices, ie.,
-    `[slices, rows, cols]`
-    
-    Reference: M. van Heel, M. Schatzb, "Fourier shell correlation
-    threshold criteria," Journal of Structural Biology 151, 250-262 (2005)
+    ----
+    If 3D images, the first axis is the number of slices, ie., ``[slices, rows, cols]``
+
+    References
+    ----------
+
+    .. [1] M. van Heel, M. Schatzb, `Fourier shell correlation threshold criteria,`
+      Journal of Structural Biology 151, 250-262 (2005)
+
     """
 
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
@@ -439,7 +383,7 @@ class FSCPlot(FourierShellCorr):
         Image 1
     img2 : ndarray
         Image 2
-    
+
     threshold : str
         Threshold options:
         - onebit: 1 bit threshold -> SNRt = 0.5 (for two independent measurements)

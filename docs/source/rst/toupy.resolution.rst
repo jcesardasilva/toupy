@@ -12,4 +12,3 @@ Submodules
 .. toctree::
 
    toupy.resolution.FSC
-   toupy.resolution.resolution_edge_estimate
