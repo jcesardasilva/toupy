@@ -49,16 +49,16 @@ def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
 
     Parameters
     ----------
-    input_array : ndarray
+    input_array : array_like
         Stack of images to be shifted
-    shiftstack : ndarray
+    shiftstack : array_like
         Array of initial estimates for object motion (2,n)
     shift_method : str (default linear)
         Name of the shift method. Options: 'linear', 'fourier', 'spline'
 
-    Returns
-    -------
-    output_stack : ndarray
+    Return
+    ------
+    output_stack : array_like
         2D function containing the stack of aligned images
     """
     # Initialize shift class
@@ -84,16 +84,16 @@ def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
 
     Parameters
     ----------
-    input_sino : ndarray
+    input_sino : array_like
         Input sinogram to be shifted
-    shiftslice : ndarray
+    shiftslice : array_like
         Array of estimates for object motion (1,n)
     shift_method : str (default linear)
         Name of the shift method. Options: 'linear', 'fourier', 'spline'
 
-    Returns
-    -------
-    output_sino: ndarray
+    Return
+    ------
+    output_sino: array_like
         2D function containing the aligned sinogram
     """
     # Initialize shift class
@@ -118,17 +118,17 @@ def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear"):
 
     Parameters
     ----------
-    input_array : ndarray
+    input_array : array_like
         Stack of images to be shifted
-    shiftstack : ndarray
+    shiftstack : array_like
         Array of initial estimates for object motion (2,n)
         The estimates for vertical movement will be changed to 0
     shift_method : str (default linear)
         Name of the shift method. Options: 'linear', 'fourier', 'spline'
 
-    Returns
-    -------
-    output_stack : ndarray
+    Return
+    ------
+    output_stack : array_like
         2D function containing the stack of aligned images
     """
     deltashift = np.zeros_like(shiftstack)
@@ -201,21 +201,22 @@ def vertical_fluctuations(
 
     Parameters
     ----------
-    input_array : ndarray
+    input_array : array_like
         Stack of images to be shifted
     lims : list of ints
         Limits of rows and columns to be considered. lims=[limrow,limcol]
-    shiftstack : ndarray
+    shiftstack : array_like
         Array of initial estimates for object motion (2,n)
-    shift_method : str (default linear)
-        Name of the shift method. Options: 'linear', 'fourier', 'spline'
-    polyorder : int (default 2)
+    shift_method : str, optional
+        Name of the shift method. Options: 'linear', 'fourier', 'spline'.
+        The default method is 'linear'.
+    polyorder : int, optional
         Order of the polynomial to remove bias from the mass fluctuation
-        function
+        function. The default value is 2.
 
-    Returns
-    -------
-    vert_fluct : ndarray
+    Return
+    ------
+    vert_fluct : array_like
         2D function containing the mass fluctuation after shift and bias
         removal for the stack of images
     """
@@ -255,7 +256,7 @@ def vertical_shift(
 
     Parameters
     ----------
-    input_array : ndarray
+    input_array : array_like
         Image to be shifted
     lims : list of ints
         Limits of rows and columns to be considered. lims=[limrow,limcol]
@@ -263,15 +264,16 @@ def vertical_shift(
         Amount to shift the input_array vertically
     maxshift : float
         Maximum value of the shifts in order to avoid border problems
-    shift_method : str (default linear)
-        Name of the shift method. Options: 'linear', 'fourier', 'spline'
-    polyorder : int (default 2)
+    shift_method : str, optional
+        Name of the shift method. Options: 'linear', 'fourier', 'spline'.
+        The default method is 'linear'.
+    polyorder : int, optional
         Order of the polynomial to remove bias from the mass fluctuation
-        function
+        function. The default value is 2.
 
     Returns
     -------
-    shift_cal : ndarray
+    shift_cal : array_like
         1D function containing the mass fluctuation after shift and bias
         removal
     """
@@ -411,13 +413,13 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
 
     Parameters
     ----------
-    input_stack : ndarray
+    input_stack : array_like
         Stack of projections
     limrow : list of ints
         Limits of window of interest in y
     limcol : list of ints
         Limits of window of interest in x
-    shiftstack : ndarray
+    shiftstack : array_like
         Array of initial estimates for object motion (2,n)
     Extra parameters in the dictionary params:
     params['pixtol'] : float
@@ -436,9 +438,9 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
 
     Returns
     -------
-    shiftstack : ndarray
+    shiftstack : array_like
         Corrected bject positions
-    input_stack : ndarray
+    input_stack : array_like
         Aligned stack of the projections
     """
     if not isinstance(params["maxit"], int):
@@ -644,9 +646,12 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     Parameters
     ----------
-    sinogram : ndarray
+    sinogram : array_like
         Sinogram derivative, the second index should be the angle
-    shiftstack : ndarray
+    theta : array_like
+        Reconstruction angles (in degrees). Default: m angles evenly spaced
+        between 0 and 180 (if the shape of `radon_image` is (N, M)).
+    shiftstack : array_like
         Array with initial estimates of positions
     Extra parameters in the dictionary params:
     params['pixtol'] : float
@@ -674,9 +679,9 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     Returns
     -------
-    shiftstack : ndarray
+    shiftstack : array_like
         Corrected object positions
-    alinedsinogram : ndarray
+    alinedsinogram : array_like
         Array containting the aligned sinogram
     """
     # parsing of the parameters
@@ -919,7 +924,46 @@ def _oneslicefordisplay(sinogram, theta, **params):
 
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     """
-    Apply tomographic consistency alignement on multiple slices
+    Apply tomographic consistency alignement on multiple slices. By 
+    default is implemented over 10 slices. 
+
+    Parameters
+    ----------
+    Input_stack : array_like
+        Stack of projections
+    theta : array_like
+        Reconstruction angles (in degrees). Default: m angles evenly spaced
+        between 0 and 180 (if the shape of `radon_image` is (N, M)).
+    shiftstack : array_like
+        Array with initial estimates of positions
+    Extra parameters in the dictionary params:
+    params['pixtol'] : float
+        Tolerance for alignment, which is also used as a search step
+    params['disp'] : int
+        = 0 Display no images
+        = 1 Final diagnostic images
+        = 2 Diagnostic images per iteration
+    params['alignx'] : bool
+        True or False to activate align x using center of mass
+        (default= False, which means align y only)
+    params['shiftmeth'] : str
+        Shift images with sinc interpolation (default). The options are:
+           'linear' - Shift images with linear interpolation (default)
+           'fourier' - Fourier shift
+           'spline' - Shift images with spline interpolation
+    params['circle'] : bool
+        Use a circular mask to eliminate corners of the tomogram
+    params['freqcutoff'] : float
+        Frequency cutoff for tomography filter
+    params['cliplow'] : float
+        Minimum value in tomogram
+    params['cliphigh'] : float
+        Maximum value in tomogram
+
+    Return
+    ------
+    shiftstack : array_like
+        Average of the object shifts over 10 slices
     """
     print("Starting Tomographic consistency on multiple slices")
     # select the slices, which are typically +5 and -5 relative to slicenum
