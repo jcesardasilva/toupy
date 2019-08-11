@@ -20,7 +20,7 @@ params = dict()
 # Register (align) projections by vertical mass fluctuations and center of mass
 # =========================
 params["samplename"] = "H2int_15000h_outlet"
-params["phaseonly"] = True
+params["regime"] = "holoct"
 params["pixtol"] = 0.1  # Tolerance of registration in pixels
 params["polyorder"] = 2  # Polynomial order to remove bias
 params["shiftmeth"] = "linear"
@@ -30,8 +30,6 @@ params["deltax"] = 20  # From edge of region to edge of image in x
 params["limsy"] = (190, 800)
 params["autosave"] = False
 params["load_previous_shiftstack"] = False  # True
-params["correct_bad"] = True
-params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
 # =========================
 
 # =============================================================================#
@@ -59,10 +57,6 @@ if __name__ == "__main__":
         shiftstack, aligned = alignprojections_vertical(
             stack_unwrap, shiftstack, **params
         )
-
-    # correcting bad projections after unwrapping
-    if params["correct_bad"]:
-        aligned = replace_bad(aligned, list_bad=params["bad_projs"], temporary=False)
 
     a = input("Do you want to display the aligned projections? (y/[n]) :").lower()
     if str(a) == "y":

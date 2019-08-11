@@ -96,9 +96,9 @@ class PathName:
         )  # filename and extension
         # metadata filename
         if self.fileext == ".edf":  # edf
-            self.rootpath = str(Path(self.pathfilename).parents[3])
-        else:
             self.rootpath = str(Path(self.pathfilename).parents[2])
+        else:
+            self.rootpath = str(Path(self.pathfilename).parents[3])
         self.icath5file = "{}-id16a.h5".format(self.useraccount)
         self.icath5path = os.path.join(
             self.rootpath, self.icath5file
