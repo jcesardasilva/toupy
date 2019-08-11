@@ -569,7 +569,7 @@ def _alignprojections_horizontal(
         # Compute synthetic sinogram
         print("Computing synthetic sinogram...")
         sinogramcomp = projector(recons, theta, **params)
-        if params["derivatives"]:
+        if params["derivatives"] and not params["calc_derivatives"]:
             sinogramcomp = derivatives_sino(
                 sinogramcomp, shift_method=params["shiftmeth"]
             )
@@ -775,7 +775,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     print("Computing synthetic sinogram...")
     t0 = time.time()
     sinogramcomp = projector(recons, theta, **params)
-    if params["derivatives"]:
+    if params["derivatives"] and not params["calc_derivatives"]:
         sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params["shiftmeth"])
     print("Done. Time elapsed: {:0.02f} s".format(time.time() - t0))
 
@@ -831,6 +831,10 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
     """
     Refine horizontal alignment
     """
+    try:
+        params["correct_bad"]
+    except KeyError:
+        params["correct_bad"] = False
     while True:
         a = input("Do you want to refine further the alignment? ([y]/n): ").lower()
         if str(a) == "" or str(a) == "y":
