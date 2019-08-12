@@ -12,3 +12,4 @@ Submodules
 .. toctree::
 
    toupy.resolution.FSC
+   toupy.resolution.FSCtools
