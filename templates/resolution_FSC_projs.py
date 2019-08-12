@@ -1,272 +1,171 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Resolution estimate of projections using
-Fourier Ring correlation
+Template for resolution estimate of projections using Fourier Ring correlation
 """
-from io_utils import (
-    read_ptyr,
-    save_or_load_data,
-    checkhostname,
-    create_paramsh5,
-    load_paramsh5,
-    save_or_load_FSCdata,
-)
-from FSC import FSCPlot, checkhostname, load_data_FSC
-from scipy.ndimage.fourier import fourier_shift
-from skimage.restoration import unwrap_phase
-from skimage.feature.register_translation import _upsampled_dft
-from skimage.feature import register_translation
-import numpy as np
-import matplotlib.pyplot as plt
-import h5py
-import time
-import sys
-import socket
-import re
-import os
 
-# import of standard libraries
-if re.search("gpu", socket.gethostname()) or re.search("gpid16a", socket.gethostname()):
-    import pyfftw  # has to be imported first to avoid ImportError: dlopen: cannot load any more object with static TLS
-else:
-    import pyfftw
+# standard packages
+import os
+import time
 
 # import of third party packages
-# from skimage.measure import profile_line
-# from scipy.special import erf
-# from FSC import *
+import matplotlib.pyplot as plt
+import numpy as np
+from skimage.restoration import unwrap_phase
+import tkinter
+import tkinter.filedialog as tkFileDialog
 
 # import of local packages
-
-if sys.version_info < (3, 0):
-    import Tkinter
-    import tkFileDialog
-
-    input = raw_input
-else:
-    import tkinter as Tkinter
-    import tkinter.filedialog as tkFileDialog
+from toupy.utils import normalize_array, cropROI
+from toupy.io import read_recon
+from toupy.resolution import FSCPlot
+from toupy.restoration import rmphaseramp
+from toupy.registration import register_2Darrays
 
 # initializing params
 params = dict()
+
+# Edit section
 # =========================
 # Edit session
 # =========================
-params["transv_apod"] = 250  # transverse apodization
-params["axial_apod"] = 200  # axial apodization
-params["thick_ring"] = 4  # number of pixel to average each FRC ring
-# [448:2150,350:-350]#[550,1800,550,1800]#[580] #640
-params["crop"] = [450, 1150, 350, -350]
-params["vmin_plot"] = None  # 0.5e-5
+params["apod_width"] = 100  # apodization width in pixels
+params["thick_ring"] = 8  # number of pixel to average each FRC ring
+params["crop"] = [200, -370, 300, -300]  # cropping [top,bottom,left,right]
+params["vmin_plot"] = None
 params["vmax_plot"] = -0.5e-4  # None
 params["colormap"] = "bone"  # colormap to show images
+params["unwrap"] = False  # unwrap the phase
+params["flip2ndimage"] = False  # flip the 2nd image
+params["normalizeimage"] = False  # normalize the images
 # =========================
 
-# open GUI to choose file
-root = Tkinter.Tk()
-root.withdraw()
-pathfilename1 = tkFileDialog.askopenfilename(
-    initialdir=".", title="Please, load the reference frame ..."
-)  # '/data/id16a/inhouse1/commissioning/')
-print("File 1: {}".format(pathfilename1))
-pathfilename2 = tkFileDialog.askopenfilename(
-    initialdir=".", title="Please, load the frame for comparison..."
-)
-print("File 2: {}".format(pathfilename2))
+# =============================================================================#
+# Don't edit below this line, please                                          #
+# =============================================================================#
+if __name__ == "__main__":
+    # open GUI to choose file
+    root = tkinter.Tk()
+    root.withdraw()
+    print("You need to load two files for the FSC evalution")
+    print("Please, load the first file...")
+    pathfilename1 = tkFileDialog.askopenfilename(
+        initialdir=".", title="Please, load the first file..."
+    )
+    print("File 1: {}".format(pathfilename1))
+    print("Please, load the second file...")
+    pathfilename2 = tkFileDialog.askopenfilename(
+        initialdir=".", title="Please, load the second file..."
+    )
+    print("File 2: {}".format(pathfilename2))
 
-# %% Auxiliary functions
+    # Read the files
+    fileprefix, fileext = os.path.splitext(pathfilename1)
 
+    if fileext == ".ptyr" or fileext == ".cxi":
+        data1, probe1, pixelsize1, energy = read_recon(pathfilename1)  # file1
+        data2, probe2, pixelsize2, energy = read_recon(pathfilename2)  # file2
+    elif fileext == ".edf":
+        data1, pixelsize1, energy, nvue = read_recon(pathfilename1)  # file1
+        data2, pixelsize2, energy, nvue = read_recon(pathfilename2)  # file2
 
-def rmphaseramp(a, weight=None, return_phaseramp=False):
-    """
-    Attempts to remove the phase ramp in a two-dimensional complex array
-    ``a``.
-    Parameters
-    ----------
-    a : ndarray
-        Input image as complex 2D-array.
+    if params["flip2ndimage"]:  # flip one of the images
+        print("Flipping 2nd image")
+        data2 = np.fliplr(data2)
 
-    weight : ndarray, str, optional
-        Pass weighting array or use ``'abs'`` for a modulus-weighted
-        phaseramp and ``Non`` for no weights.
+    print("the pixelsize of data1 is {:0.02f} nm".format(pixelsize1[0] * 1e9))
+    print("the pixelsize of data2 is {:0.02f} nm".format(pixelsize2[0] * 1e9))
 
-    return_phaseramp : bool, optional
-        Use True to get also the phaseramp array ``p``.
+    # cropping the image to an useful area
+    if params["crop"] is not None:
+        if params["crop"] != 0:
+            img1 = cropROI(data1, roi=params["crop"])
+            img2 = cropROI(data2, roi=params["crop"])
 
-    Returns
-    -------
-    out : ndarray
-        Modified 2D-array, ``out=a*p``
-    p : ndarray, optional
-        Phaseramp if ``return_phaseramp = True``, otherwise omitted
+    # remove phase ramp
+    print("Removing the ramp")
+    image1 = rmphaseramp(img1, weight=None, return_phaseramp=False)
+    image2 = rmphaseramp(img2, weight=None, return_phaseramp=False)
 
-    Examples
-    --------
-    >>> b = rmphaseramp(image)
-    >>> b, p = rmphaseramp(image , return_phaseramp=True)
-    """
-
-    useweight = True
-    if weight is None:
-        useweight = False
-    elif weight == "abs":
-        weight = np.abs(a)
-
-    ph = np.exp(1j * np.angle(a))
-    [gx, gy] = np.gradient(ph)
-    gx = -np.real(1j * gx / ph)
-    gy = -np.real(1j * gy / ph)
-
-    if useweight:
-        nrm = weight.sum()
-        agx = (gx * weight).sum() / nrm
-        agy = (gy * weight).sum() / nrm
+    if params["unwrap"]:
+        # remove also wrapping
+        print("Unwrapping the phase image1")
+        image1 = unwrap_phase(np.angle(image1))
+        print("Unwrapping the phase image2")
+        image2 = unwrap_phase(np.angle(image2))
     else:
-        agx = gx.mean()
-        agy = gy.mean()
+        image1 = np.angle(image1)
+        image2 = np.angle(image2)
 
-    (xx, yy) = np.indices(a.shape)
-    p = np.exp(-1j * (agx * xx + agy * yy))
+    if params["normalizeimage"]:
+        image1 = normalize_array(image1)
+        image2 = normalize_array(image2)
 
-    if return_phaseramp:
-        return a * p, p
-    else:
-        return a * p
+    # Display the images
+    plt.close("all")
+    fig, (ax1, ax2, ax3) = plt.subplots(num=1, ncols=3)
+    ax1.imshow(image1, interpolation="none", cmap="bone")
+    ax1.set_axis_off()
+    ax1.set_title("Image 1 (ref.)")
+    ax2.imshow(image2, interpolation="none", cmap="bone")
+    ax2.set_axis_off()
+    ax2.set_title("Image 2")
+    # View the output of a cross-correlation
+    image_product = np.fft.fft2(image1) * np.fft.fft2(image2).conj()
+    cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
+    ax3.imshow(cc_image.real)
+    # ax3.set_axis_off()
+    ax3.set_title("Cross-correlation")
+    plt.show(block=False)
 
+    # align the two images
+    shift, diffphase, offset_image2 = register_2Darrays(image1, image2)
 
-# Read the HDF5 file .ptyr
-data1, probe1, pixelsize1 = read_ptyr(pathfilename1)  # file1
-data2, probe2, pixelsize2 = read_ptyr(pathfilename2)  # file2
+    # cropping the images beyond the shift amplitude
+    regfsc = np.ceil(np.abs(shift)).astype(np.int)
+    if regfsc[0] != 0 and regfsc[1] != 0:
+        image1FSC = image1[regfsc[0] : -regfsc[0], regfsc[1] : -regfsc[1]]
+        offset_image2FSC = offset_image2[regfsc[0] : -regfsc[0], regfsc[1] : -regfsc[1]]
 
-# flip one of the images
-data2 = np.fliplr(data2)
+    # display aligned images
+    plt.close("all")
+    fig, (ax1, ax2) = plt.subplots(num=1, ncols=2)
+    ax1.imshow(image1FSC, interpolation="none", cmap="bone")
+    ax1.set_axis_off()
+    ax1.set_title("Image1 (ref.)")
+    ax2.imshow(offset_image2FSC.real, interpolation="none", cmap="bone")
+    ax2.set_axis_off()
+    ax2.set_title("Offset corrected image2")
+    plt.show(block=False)
 
-print("the pixelsize of data1 is {:g} nm".format(pixelsize1[0] * 1e9))
-print("the pixelsize of data2 is {:g} nm".format(pixelsize2[0] * 1e9))
+    # estimate the resolution
+    print("Estimating the resolution by FSC. Press <Enter> to continue")
+    a = input()
+    plt.close("all")
 
-# cropping the image to an useful area
-# how many pixels are cropped from the borders of the image
-reg = params[u"crop"]
-img1 = data1[reg[0] : reg[1], reg[2] : reg[3]]
-# ~ img1 = (data1[reg:-reg,reg:-reg])
-img2 = data2[reg[0] : reg[1], reg[2] : reg[3]]
-# ~ img2 = (data2[reg:-reg,reg:-reg])
+    startfsc = time.time()
+    # transv_apod=params['transv_apod'],axial_apod=params['axial_apod'])
+    FSC2D = FSCPlot(
+        image1FSC,
+        offset_image2FSC.real,
+        "onebit",
+        params["thick_ring"],
+        apod_width=params["apod_width"],
+    )
+    normfreqs, T, FSC2Dcurve = FSC2D.plot()
+    endfsc = time.time()
+    print("Time elapsed: {:g} s".format(endfsc - startfsc))
 
-print("Removing the ramp")
-# ~ image1 = rmphaseramp(img1, weight=None, return_phaseramp=False)
-# ~ image2 = rmphaseramp(img2, weight=None, return_phaseramp=False)
-image1 = np.angle(rmphaseramp(np.exp(1j * img1), weight=None, return_phaseramp=False))
-image2 = np.angle(rmphaseramp(np.exp(1j * img2), weight=None, return_phaseramp=False))
+    print("The pixelsize of the data is {:.02f} nm".format(pixelsize1[0] * 1e9))
 
-# remove also wrapping
-print("Unwrapping the phase")
-image1 = unwrap_phase(image1)
-image2 = unwrap_phase(image2)
+    a = input("\nPlease, input the value of the intersection: ")
+    print("------------------------------------------")
+    print(
+        "| Resolution is estimated to be {:.02f} nm |".format(
+            pixelsize1[0] * 1e9 / float(a)
+        )
+    )
+    print("------------------------------------------")
 
-# normalizing the images
-image1 = (image1 - image1.min()) / (image1.max() - image1.min())
-image2 = (image2 - image2.min()) / (image2.max() - image2.min())
-
-# Display the images
-plt.close("all")
-fig, (ax1, ax2, ax3) = plt.subplots(ncols=3, figsize=(14, 6))
-ax1.imshow(image1, interpolation="none", cmap="bone")
-ax1.set_axis_off()
-ax1.set_title("Image 1 (ref.)")
-ax2.imshow(image2, interpolation="none", cmap="bone")
-ax2.set_axis_off()
-ax2.set_title("Image 2")
-
-# View the output of a cross-correlation to show what the algorithm is
-# doing behind the scenes
-image_product = np.fft.fft2(image1) * np.fft.fft2(image2).conj()
-cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
-ax3.imshow(cc_image.real)
-# ax3.set_axis_off()
-ax3.set_title("Cross-correlation")
-plt.show(block=False)
-
-# Choose between pixel or subpixel precision image registration. By default, it is pixel precision.
-precision = input(
-    "Do you want to use pixel(1) or subpixel(2) precision registration?[1] "
-)
-if precision == str(1) or precision == "":
-    # pixel precision
-    print("\nCalculating the pixel precision image registration ...")
-    start = time.time()
-    shift, error, diffphase = register_translation(image1, image2)
-    print(diffphase)
-    end = time.time()
-    print("Time elapsed: {:g} s".format(end - start))
-    print("Detected pixel offset [y,x]: [{:g}, {:g}]".format(shift[0], shift[1]))
-elif precision == str(2):
-    # subpixel precision
-    print("\nCalculating the subpixel image registration ...")
-    start = time.time()
-    shift, error, diffphase = register_translation(image1, image2, 100)
-    print(diffphase)
-    end = time.time()
-    print("Time elapsed: {:g} s".format(end - start))
-    print("Detected subpixel offset [y,x]: [{:g}, {:g}]".format(shift[0], shift[1]))
-else:
-    print("You must choose between 1 and 2")
-    raise SystemExit
-
-print(
-    "Shift = [%g, %g], Error= %g, DiffPhase = %g"
-    % (shift[0], shift[1], error, diffphase)
-)
-
-print("\nCorrecting the shift of image2 by using subpixel precision...")
-offset_image2 = np.fft.ifftn(fourier_shift(np.fft.fftn(image2), shift))
-offset_image2 *= np.exp(1j * diffphase)
-
-# cropping the images beyond the shift amplitude
-regfsc = int(np.ceil(np.max(shift)))
-if regfsc != 0:
-    image1 = image1[regfsc:-regfsc, regfsc:-regfsc]
-    offset_image2 = offset_image2[regfsc:-regfsc, regfsc:-regfsc]
-
-print("Removing the ramp again")
-# ~ image1 = np.real(rmphaseramp(image1, weight=None, return_phaseramp=False))
-# ~ offset_image2 = np.real(rmphaseramp(offset_image2, weight=None, return_phaseramp=False))
-
-# ~ image1 = np.angle(rmphaseramp(np.exp(1j*image1),weight=None,return_phaseramp=False))
-# ~ offset_image2 = np.angle(rmphaseramp(np.exp(1j*offset_image2),weight=None,return_phaseramp=False))
-
-fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(14, 6))
-ax1.imshow(image1, interpolation="none", cmap="bone")
-ax1.set_axis_off()
-ax1.set_title("Image1 (ref.)")
-ax2.imshow(offset_image2.real, interpolation="none", cmap="bone")
-ax2.set_axis_off()
-ax2.set_title("Offset corrected image2")
-plt.show(block=False)
-
-print("Estimating the resolution by FSC...")
-startfsc = time.time()
-FSC2D = FSCPlot(
-    image1,
-    offset_image2.real,
-    "onebit",
-    params["thick_ring"],
-    transv_apod=params["transv_apod"],
-    axial_apod=params["axial_apod"],
-)
-normfreqs, T, FSC2Dcurve, intersec = FSC2D.plot()
-endfsc = time.time()
-print("Time elapsed: {:g} s".format(endfsc - startfsc))
-
-print("The pixelsize of the data is %.2f nm" % (pixelsize1[0] * 1e9))
-
-a = input("\nPlease, input the value of the intersection: ")
-# a = intersection
-print("------------------------------------------")
-print("| Resolution is estimated to be %.2f nm |" % (pixelsize1[0] * 1e9 / float(a)))
-print("------------------------------------------")
-
-raw_input("\n<Hit Return to close images>")
-plt.close("all")
-
-print("Your program has finished!")
+    input("\n<Hit Return to close images>")
+    plt.close("all")

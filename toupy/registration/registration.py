@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
+from scipy.ndimage.fourier import fourier_shift
 
 
 # local packages
@@ -37,11 +38,66 @@ __all__ = [
     "estimate_rot_axis",
     "oneslicefordisplay",
     "refine_horizontalalignment",
+    "register_2Darrays",
     "tomoconsistency_multiple",
     "vertical_fluctuations",
     "vertical_shift",
 ]
 
+def register_2Darrays(image1, image2):
+    """
+    Image registration. Register two images using phase cross correlations.
+    
+    Parameters
+    ----------
+    image1 : array_like
+        Image of reference
+    image2 : array_like
+        Image to be shifted relative to image1
+
+    Returns
+    -------
+    shift : list of floats
+        List of shifts applied, with the row shift in the 1st dimension
+        and the column shift in the 2nd dimension.
+    diffphase : float
+        Difference of phase between the two images
+    offset_image2 : array_like
+        Shifted image2 relative to image1
+    """
+    # Choose between pixel or subpixel precision image registration. By default, it is pixel precision.
+    precision = input(
+        "Do you want to use pixel(1) or subpixel(2) precision registration?[1] "
+    )
+    if precision == str(1) or precision == "":
+        # pixel precision
+        print("\nCalculating the pixel precision image registration ...")
+        start = time.time()
+        shift, error, diffphase = register_translation(image1.copy(), image2.copy())
+        print(diffphase)
+        end = time.time()
+        print("Time elapsed: {:g} s".format(end - start))
+        print("Detected pixel offset [y,x]: [{:g}, {:g}]".format(shift[0], shift[1]))
+    elif precision == str(2):
+        # subpixel precision
+        print("\nCalculating the subpixel image registration ...")
+        start = time.time()
+        shift, error, diffphase = register_translation(image1.copy(), image2.copy(), 100)
+        print(diffphase)
+        end = time.time()
+        print("Time elapsed: {:g} s".format(end - start))
+        print("Detected subpixel offset [y,x]: [{:g}, {:g}]".format(shift[0], shift[1]))
+    else:
+        print("You must choose between 1 and 2")
+        raise SystemExit
+    
+    print("\nCorrecting the shift of image2 by using subpixel precision...")
+    # (shift[0],-shift[1])))
+    offset_image2 = np.fft.ifftn(fourier_shift(np.fft.fftn(image2.copy()), shift))
+    # TODO: check if we can use ShiftFunc here.
+    offset_image2 *= np.exp(1j * diffphase)
+
+    return shift, diffphase, offset_image2
 
 def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
     """

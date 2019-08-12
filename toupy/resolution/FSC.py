@@ -17,9 +17,9 @@ import numpy as np
 
 # local packages
 from ..utils.FFT_utils import fastfftn
+from ..utils.funcutils import checkhostname
 
 __all__ = ["FourierShellCorr", "FSCPlot"]
-
 
 class FourierShellCorr:
     """
@@ -66,7 +66,7 @@ class FourierShellCorr:
       Journal of Structural Biology 151, 250-262 (2005)
 
     """
-
+    @checkhostname
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
         print("Calling the class FourierShellCorr")
         self.img1 = np.array(img1)
@@ -283,6 +283,7 @@ class FourierShellCorr:
                 self.window = 1
             else:
                 print("Apodization in 3D. This takes time and memory...")
+                p0 = time.time()
                 # TODO: find a more efficient way to do this. It know this is not optimum
                 window3D = self.transverse_apodization()
                 circle3D = np.asarray([circular_region for ii in range(self.ns)])
@@ -302,7 +303,7 @@ class FourierShellCorr:
                         for ii in range(self.nr)
                     ]
                 ).swapaxes(0, 1)
-                print("Done")
+                print("Done. Time elapsed: {:.02f}s".format(time.time() - p0))
 
             # sagital slices
             slicenum = np.round(self.nr / 2).astype("int")
@@ -323,6 +324,7 @@ class FourierShellCorr:
 
         # FSC computation
         print("Calling method fouriercorr from the class FourierShellCorr")
+        p1 = time.time()
         F1 = fastfftn(self.img1 * self.window)  # FFT of the first image
         F2 = fastfftn(self.img2 * self.window)  # FFT of the second image
         index = self.ringthickness()  # index for the ring thickness
@@ -370,8 +372,9 @@ class FourierShellCorr:
         Tden = self.snrt + (2 * np.sqrt(self.snrt) / np.sqrt(npts + np.spacing(1))) + 1
         T = Tnum / Tden
 
-        return FSC, T
+        print("Done. Time elapsed: {:.02f}s".format(time.time() - p1))
 
+        return FSC, T
 
 class FSCPlot(FourierShellCorr):
     """
@@ -410,6 +413,7 @@ class FSCPlot(FourierShellCorr):
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
         print("calling the class FSCplot")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
+        
         self.FSC, self.T = FourierShellCorr.fouriercorr(self)
         self.f, self.fnyquist = FourierShellCorr.nyquist(self)
 

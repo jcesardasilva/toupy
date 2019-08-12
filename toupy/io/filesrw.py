@@ -36,6 +36,7 @@ __all__ = [
     "read_cxi",
     "read_edf",
     "read_ptyr",
+    "read_recon",
     "read_tiff",
     "read_tiff_info",
     "read_volfile",
@@ -44,6 +45,25 @@ __all__ = [
     "write_tiff",
     "write_tiffmetadata",
 ]
+
+def read_recon(filename):
+    """
+    Wrapper for choosing the function to read recon file
+    """
+    fileprefix, fileext = os.path.splitext(filename)
+    if fileext == ".ptyr":  # Ptypy
+        read_reconfile = read_ptyr
+    elif fileext == ".cxi":  # PyNX
+        read_reconfile = read_cxi
+    elif fileext == ".edf": # edf projections
+        read_reconfile = read_edf
+    else:
+        raise IOError(
+            "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
+                filename
+            )
+        )
+    return read_reconfile(filename)
 
 def read_volfile(filename):
     """

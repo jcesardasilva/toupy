@@ -8,18 +8,13 @@ from scipy.optimize import leastsq
 from scipy.special import erf, erfc
 
 # local packages
-from toupy.utils import (
-    model_erf,
-    model_tanh,
-    residuals_erf,
-    residuals_tanh,
-)
+from toupy.utils import model_erf, model_tanh, residuals_erf, residuals_tanh
 
-# filename containing 
-filename = "Values.txt" 
+# filename containing
+filename = "Values.txt"
 values = np.loadtxt(filename)
 
-# normalization 
+# normalization
 values[:, 1] = (values[:, 1] - values[:, 1].min()) / (
     values[:, 1].max() - values[:, 1].min()
 )
@@ -43,7 +38,7 @@ popt1, pcov1, infodict1, errmsg1, ier1 = leastsq(
 )
 x1_1 = popt1
 FWHMerf = np.sqrt(2 * np.log(2)) * np.abs(x1_1[-1])
-#FWHMerf = 2 * np.sqrt(2 * np.log(2)) * np.abs(x1_1[-1])
+# FWHMerf = 2 * np.sqrt(2 * np.log(2)) * np.abs(x1_1[-1])
 
 # display plots
 plt.close("all")
@@ -84,7 +79,8 @@ popt2, pcov2, infodict2, errmsg2, ier2 = leastsq(
 x1_2 = popt2
 FWHMtanh = (
     np.arccosh(1 / np.sqrt(1 / 2.0 - x1_2[1] * np.abs(x1_2[4]) / x1_2[2]))
-    * 2 * np.abs(x1_2[4])
+    * 2
+    * np.abs(x1_2[4])
 )
 FWHMtanh_back = np.arccosh(1 / np.sqrt(1 / 2.0)) * 2 * np.abs(x1_2[4])
 
