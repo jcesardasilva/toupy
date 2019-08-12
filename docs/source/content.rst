@@ -21,6 +21,12 @@ Toupy documentation
    installing
 
 .. toctree::
+   :caption: Templates
+   :maxdepth: 2
+
+   templates
+
+.. toctree::
    :caption: Package and modules
    :maxdepth: 2
 
@@ -30,12 +36,6 @@ Toupy documentation
    rst/toupy.restoration
    rst/toupy.tomo
    rst/toupy.utils
-
-.. toctree::
-   :caption: Templates
-   :maxdepth: 2
-
-   templates
 
 Indices and tables
 ==================
