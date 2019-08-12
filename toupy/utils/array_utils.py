@@ -8,10 +8,12 @@ from scipy.ndimage import filters
 
 __all__ = [
     "crop",
+    "cropROI",
     "fract_hanning",
     "fract_hanning_pad",
     "mask_borders",
     "mask_borders",
+    "normalize_array",
     "padarray_bothsides",
     "polynomial1d",
     "projectpoly1d",
@@ -23,6 +25,13 @@ __all__ = [
     "sort_array",
 ]
 
+
+def normalize_array(input_array):
+    """
+    Normalize the input array
+    """
+    return (input_array - input_array.min()) / (input_array.max() - input_array.min())
+    
 
 def smooth_image(input_image, filter_size=3):
     """
@@ -230,6 +239,34 @@ def crop(input_array, delcropx, delcropy):
     else:
         print("No cropping of data")
         return input_array
+
+def cropROI(input_array, roi=[]):
+    """
+    Crop ROI
+
+    Parameters
+    ----------
+    input_array : array_like
+        Input image to be cropped
+    roi : list of int
+        ROI of interest. roi should be [top, bottom, left, right]
+
+    Returns
+    -------
+    array_like
+        Cropped image
+    """
+    if roi == []:
+        print("No cropping of data")
+        return input_array
+    else:
+        print("Cropping ROI of data")
+        print("Before: " + input_array.shape)
+        if input_array.ndim == 2:
+            return input_array[roi[0] : roi[1], roi[2] : roi[3]]
+        elif input_array.ndim == 3:
+            return input_array[:, roi[0] : roi[1], roi[2] : roi[3]]
+        print("After: " + input_array.shape)
 
 
 def radtap(X, Y, tappix, zerorad):

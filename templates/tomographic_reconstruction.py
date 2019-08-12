@@ -14,7 +14,7 @@ from toupy.utils import display_slice, iterative_show
 from toupy.tomo import full_tomo_recons
 
 
-# initializing dictionaries
+# initializing params
 params = dict()
 
 # Edit section

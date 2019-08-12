@@ -283,7 +283,7 @@ def chooseregiontounwrap(stack_array):
     return rx, ry, airpix
 
 
-def _unwrapping_phase(img2unwrap, rx, ry, airpix):
+def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
     """
     Unwrap the phases of a projection
 
@@ -291,7 +291,7 @@ def _unwrapping_phase(img2unwrap, rx, ry, airpix):
     ----------
     img2unwrap : array_like
         Image to be unwrapped
-    rx, ry : tuples
+    rx, ry : tuples, list of ints
         Limits of the are to be unwrapped in x and y
     airpix : list of ints
         Position of pixel in the air/vacuum area
@@ -301,16 +301,20 @@ def _unwrapping_phase(img2unwrap, rx, ry, airpix):
     img2unwrap : array_like
         Unwrapped image
     """
-    # select the region to be unwrapped
-    img2wrap_sel = img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]]
-    # unwrap the region using the algorithm from skimage
-    img2unwrap_sel = unwrap_phase(img2wrap_sel)
-    # update the image in the original array
-    img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel
-    img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel - 2 * np.pi * np.round(
-        img2unwrap[airpix[1], airpix[0]] / (2 * np.pi)
-    )
-
+    if rx == [] and ry ==[]:
+        img2unwrap = unwrap_phase(im2unwrap)
+        img2unwrap -= - 2 * np.pi * np.round(img2unwrap / (2 * np.pi))
+    else:
+        # select the region to be unwrapped
+        img2wrap_sel = img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]]
+        # unwrap the region using the algorithm from skimage
+        img2unwrap_sel = unwrap_phase(img2wrap_sel)
+        # update the image in the original array
+        img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel
+        img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel - 2 * np.pi * np.round(
+            img2unwrap[airpix[1], airpix[0]] / (2 * np.pi)
+        )
+    
     return img2unwrap
 
 

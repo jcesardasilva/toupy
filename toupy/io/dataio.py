@@ -37,8 +37,7 @@ __all__ = [
     "SaveTomogram",
     "LoadTomogram",
 ]
-
-
+    
 def remove_extraprojs(stack_projs, theta):
     """
     Remove extra projections of tomographic scans with projections at
@@ -1003,6 +1002,65 @@ class LoadData(PathName, Variables):
         return cls(**params)._load_data(*args)
 
     @classmethod
+    def load_olddata(cls, *args, **params):
+        """
+        Load old data from h5 file. It should disappear soon. 
+
+        Parameters
+        ----------
+        h5name: str
+            File name from which data is loaded
+        params : dict
+            Dictionary of additonal parameters
+        params["autosave"] : bool
+            Save the projections once load without asking
+        params["phaseonly"] : bool
+            Load only phase projections. Used when the projections are
+            complex-valued.
+        params["amponly"] : bool
+            Load only amplitude projections. Used when the projections are
+            complex-valued.
+        params["pixtol"] : float
+            Tolerance for alignment, which is also used as a search step
+        params["alignx"] : bool
+            True or False to activate align x using center of mass
+            (default= False, which means align y only)
+        params["shiftmeth"] : str
+            Shift images with fourier method (default). The options are
+            `linear` ->  Shift images with linear interpolation (default);
+            `fourier` -> Fourier shift or `spline` -> Shift images with spline
+            interpolation.
+        params["circle"] : bool
+            Use a circular mask to eliminate corners of the tomogram
+        params["filtertype"] : str
+            Filter to use for FBP
+        params["freqcutoff"] : float
+            Frequency cutoff for tomography filter (between 0 and 1)
+        params["cliplow"] : float
+            Minimum value in tomogram
+        params["cliphigh"] : float
+            Maximum value in tomogram
+        params["correct_bad"] : bool
+            If true, it will interpolate bad projections. The numbers of
+            projections to be corrected is given by `params["bad_projs"]`.
+        params["bad_projs"] : list of ints
+            List of projections to be interpolated. It starts at 0.
+
+        Returns
+        -------
+        stack_projs: array_like
+            Stack of projections
+        theta: array_like
+            Stack of thetas
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        datakwargs : dict
+            Dictionary with metadata information
+        """
+
+        return cls(**params)._load_olddata(*args)
+
+    @classmethod
     def loadshiftstack(cls, *args, **params):
         """
         Load shitstack from previous h5 file
@@ -1187,7 +1245,7 @@ class LoadData(PathName, Variables):
         return stack_projs, theta, shiftstack, datakwargs
 
     @checkhostname
-    def load_olddata(h5name, **params):
+    def _load_olddata(h5name, **params):
         """
         Load data from the old-format h5 file.
 
