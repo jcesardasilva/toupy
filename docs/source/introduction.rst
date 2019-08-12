@@ -3,7 +3,7 @@ Welcome to toupy documentation
 ******************************
 
 **Toupy** is a suite of tools for the processing of high-resolution tomography dataset compiled by
-J. C. da Silva and licensed under the `GPLv3 license <https://choosealicense.com/licenses/gpl-3.0/>`.
+J. C. da Silva and licensed under the `GPLv3 license <https://choosealicense.com/licenses/gpl-3.0/>`_ .
 
 The name **toupy** stands for **Tomographic Utilites for Python** and it is a wordplay with the French 
 word `toupie` for spinning top , the toy designed to spin rapidly on the ground, the motion of 
