@@ -65,7 +65,6 @@ napoleon_use_admonition_for_references = False
 napoleon_use_ivar = False
 napoleon_use_param = True
 napoleon_use_rtype = True
-autodoc_mock_imports = ["pyopencl", "libtiff"]
 #numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
@@ -263,6 +262,7 @@ if on_rtd:
 else:
     html_theme = 'sphinx_rtd_theme'
 if on_rtd:
+    autodoc_mock_imports = ["pyopencl", "libtiff","numpy"]
     def run_apidoc(_):
         ignore_paths = [
             "../../setup.py"
