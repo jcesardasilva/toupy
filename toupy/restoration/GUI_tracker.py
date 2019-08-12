@@ -28,7 +28,7 @@ def _crop_stack(stack_images, cropreg):
 
     Parameters
     ----------
-    stack_images : ndarray
+    stack_images : array_like
         Stack of images
     cropreg : sequence of ints
         List of number of pixel to cut from border. The order is
@@ -36,7 +36,7 @@ def _crop_stack(stack_images, cropreg):
 
     Returns
     -------
-    crop_stack : ndarray
+    crop_stack : array_like
         Cropped stack
     """
     return stack_objs[:, cropreg[0] : -cropreg[0], cropreg[1] : -cropreg[1]]
@@ -45,6 +45,29 @@ def _crop_stack(stack_images, cropreg):
 def gui_plotamp(stack_objs, **params):
     """
     GUI for the air removal from amplitude projections
+
+    Parameters
+    ----------
+    stack_objs : array_like
+        Stack of amplitude projections
+    params : dict
+        Dictionary of additonal parameters
+    params["autosave"] : bool
+        Save the projections once load without asking
+    params["correct_bad"] : bool
+        If true, it will interpolate bad projections. The numbers of
+        projections to be corrected is given by `params["bad_projs"]`.
+    params["bad_projs"] : list of ints
+        List of projections to be interpolated. It starts at 0.
+    params["vmin"] : float, None
+        Minimum value of gray-level to display
+    params["vmax"] : float, None
+        Maximum value of gray-level to display
+
+    Returns
+    -------
+    stack_ampcorr : array_like
+        Stack of corrected amplitude projections
     """
     if params["crop_reg"] is not None:
         if params["crop_reg"] != []:
@@ -143,6 +166,29 @@ def gui_plotamp(stack_objs, **params):
 def gui_plotphase(stack_objs, **params):
     """
     GUI for the phase ramp removal from phase projections
+    
+    Parameters
+    ----------
+    stack_objs : array_like
+        Stack of phase projections
+    params : dict
+        Dictionary of additonal parameters
+    params["autosave"] : bool
+        Save the projections once load without asking
+    params["correct_bad"] : bool
+        If true, it will interpolate bad projections. The numbers of
+        projections to be corrected is given by `params["bad_projs"]`.
+    params["bad_projs"] : list of ints
+        List of projections to be interpolated. It starts at 0.
+    params["vmin"] : float, None
+        Minimum value of gray-level to display
+    params["vmax"] : float, None
+        Maximum value of gray-level to display
+
+    Returns
+    -------
+    stack_phasecorr : array_like
+        Stack of corrected phase projections
     """
     if params["crop_reg"] is not None:
         if params["crop_reg"] != []:
@@ -255,6 +301,9 @@ def gui_plotphase(stack_objs, **params):
 
 
 class PhaseTracker(object):
+    """
+    Widgets for the phase ramp removal
+    """
     def __init__(self, fig, ax1, ax2, X1, **params):
         self.fig = fig
         self.ax1 = ax1
@@ -289,7 +338,7 @@ class PhaseTracker(object):
 
     def cmvmin(self, val):
         """
-        Set the vmin on colormap
+        Set the vmin equals to ``val`` on colormap
         """
         if eval(val) >= self.vmax:
             print("vmin is equal or larger than vmax. Choose smaller value")
@@ -300,7 +349,7 @@ class PhaseTracker(object):
 
     def cmvmax(self, val):
         """
-        Set the vmax on colormap
+        Set the vmax equals to ``val`` on colormap
         """
         if eval(val) <= self.vmin:
             print("vmax is equal or smaller than vmin. Choose larger value")
@@ -600,6 +649,15 @@ class PhaseTracker(object):
 
 
 class AmpTracker(PhaseTracker):
+    """
+    Widgets for the phase ramp removal
+
+    Note
+    ----
+    It inherits most of the functionality of :py:class:`PhaseTracker`, except
+    the ones related to amplitude projections rather than to phase projections.
+    Please, refert to the docstring of :py:class:`PhaseTracker` for further description.
+    """
     def __init__(self, ax1, ax2, X1, **params):
         super().__init__(self, ax1, ax2, X1, **params)
         self.done = []  # flag to keep the already corrected projections

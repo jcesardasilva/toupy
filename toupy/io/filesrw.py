@@ -54,8 +54,8 @@ def read_volfile(filename):
     filename : str
         filename to be read
 
-    Returns
-    -------
+    Return
+    ------
     tomogram : array_like
         3D array containing the tomogram
     """
@@ -77,13 +77,13 @@ def read_volfile(filename):
 
 def read_tiff_info(tiff_info_file):
     """
-    Read info file from tiff slices of the reconstructed tomographic 
+    Read info file from tiff slices of the reconstructed tomographic
     volume
 
     Parameters
     ----------
     tiff_info_file : str
-        Filename
+        Info filename
 
     Returns
     -------
@@ -92,7 +92,7 @@ def read_tiff_info(tiff_info_file):
     high_cutoff : float
         High cutoff of the gray level
     pixelsize : float
-        Pixelsize    
+        Pixelsize
     """
     # read info file
     # with open(tiff_info_beta,'r') as ff:
@@ -114,7 +114,7 @@ def read_tiff_info(tiff_info_file):
 def _reorient_ptyrimg(input_array):
     """
 
-    Auxiliary function to corrects the orientation of the image and 
+    Auxiliary function to corrects the orientation of the image and
     probe from the arrays in ptyr file
     """
     # reorienting the probe
@@ -269,7 +269,7 @@ def read_cxi(pathfilename):
         _h5pathcxi(pathfilename)
 
     factorJ2eV=1.602177e-16
-    
+
     with h5py.File(pathfilename, "r") as fid:
         # get the data from the object
         data0 = np.squeeze(fid[metacxi["obj_h5path"]]).astype(np.complex64)
@@ -370,7 +370,7 @@ def read_edf(fname):
         raise AttributeError("Number of projections not found")
     imgobj.close()
     return imgdata, pixelsize, energy, nvue
-    
+
 
 def load_paramsh5(**params):
     """
@@ -387,9 +387,14 @@ def load_paramsh5(**params):
     return out_params
 
 
-def create_paramsh5(*args, **params):
+def create_paramsh5(**params):
     """
     Create parameter file in HDF5 format
+
+    Parameters
+    ----------
+    params : dict
+        Dictionary containing the parameters to be saved
     """
     # create a parameter file
     print("Creating the h5 parameter file")
@@ -403,6 +408,13 @@ def create_paramsh5(*args, **params):
 def write_paramsh5(h5filename, **params):
     """
     Writes params to HDF5 file
+
+    Parameters
+    ----------
+    h5filename : str
+        Filename of the params file
+    params : dict
+        Dictionary containing the parameters to be saved
     """
     # check if file already exists and overwritte it if so
     if os.path.isfile(h5filename):
@@ -447,9 +459,9 @@ def read_tiff(imgpath):
     -------
     imgout : array_like
         Array containing the image
-        
-    Examples:
-    ---------
+
+    Examples
+    --------
     >>> imgpath = 'libtiff.tiff'
     >>> tiff = read_tiff(imgpath)
     >>> ar = tiff.read_image()
@@ -467,6 +479,13 @@ def read_tiff(imgpath):
 def write_tiff(input_array,pathfilename):
     """
     Write tiff files using libtiff
+
+    Parameters
+    ----------
+    input_array : array_like
+        Input array to be saved
+    pathfilename : str
+        Path and filename to save the file
     """
     # Writing to file
     tiff = libtiff.TIFF.open(pathfilename,"w")
@@ -476,6 +495,27 @@ def write_tiff(input_array,pathfilename):
 def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
     """
     Creates a txt file with the information about the Tiff normalization
+
+    Parameters
+    ----------
+    filename : str
+        Filename to save the file.
+    low_cutoff : float
+        Low cutoff value for the tiff normalization.
+    high_cutoff : float
+        High cutoff value for the tiff normalization.
+    factor : float
+        Multiplicative factor in case it is needed.
+    params : dict
+        Dictionary of additional parameters.
+    params["voxelsize"] : float
+        Voxel size.
+    params["filtertype"] : str
+        Filter used in the tomographic reconstruction.
+    params["freqcutoff"] : float
+        Frequency cutoff used in the tomographic reconstruction.
+    params["bits"] : int
+        The tiff type. Options: `8` for 8 bits or `16` for 16 bits.
     """
     try:
         voxelsize = params["voxelsize"] * 1e9 # in nm
@@ -505,20 +545,20 @@ def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
 def convertimageto16bits(input_image, low_cutoff, high_cutoff):
     """
     Convert image gray-level to 16 bits with normalization
-    
+
     Parameters
     ----------
     input_image : array_like
-        Input image to be converted
+        Input image to be converted.
     low_cutoff : float
-        Low cutoff of the gray level
+        Low cutoff of the gray level.
     high_cutoff : float
-        High cutoff of the gray level
+        High cutoff of the gray level.
 
     Returns
     -------
     tiffimage : array_like
-        Array containing the image at 16 bits
+        Array containing the image at 16 bits.
     """
     # Tiff normalization - 16 bits
     imgtiff = input_image-low_cutoff
@@ -528,21 +568,21 @@ def convertimageto16bits(input_image, low_cutoff, high_cutoff):
 
 def convertimageto8bits(input_image, low_cutoff, high_cutoff):
     """
-    Convert image gray-level to 8 bits with normalization
-    
+    Convert image gray-level to 8 bits with normalization.
+
     Parameters
     ----------
     input_image : array_like
-        Input image to be converted
+        Input image to be converted.
     low_cutoff : float
-        Low cutoff of the gray level
+        Low cutoff of the gray level.
     high_cutoff : float
-        High cutoff of the gray level
+        High cutoff of the gray level.
 
     Returns
     -------
     tiffimage : array_like
-        Array containing the image at 8 bits
+        Array containing the image at 8 bits.
     """
     # Tiff normalization - 8 bits
     imgtiff = input_image - low_cutoff
@@ -553,21 +593,21 @@ def convertimageto8bits(input_image, low_cutoff, high_cutoff):
 
 def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
     """
-    Convert 16 bits tiff files back to quantitative values
+    Convert 16 bits tiff files back to quantitative values.
 
     Parameters
     ----------
     imgpath : array_like
-        Image read from 16 bits tiff file
+        Image read from 16 bits tiff file.
     low_cutoff : float
-        Low cutoff of the gray level
+        Low cutoff of the gray level.
     high_cutoff : float
-        High cutoff of the gray level
+        High cutoff of the gray level.
 
     Returns
     -------
     tiffimage : array_like
-        Array containing the image with quantitative values
+        Array containing the image with quantitative values.
     """
     tiffimage = tiffimage.astype(np.float)
     # Convert to 16 bits
@@ -579,21 +619,21 @@ def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
 
 def convert8bitstiff(filename, low_cutoff, high_cutoff):
     """
-    Convert 8bits tiff files back to quantitative values
+    Convert 8bits tiff files back to quantitative values.
 
     Parameters
     ----------
     imgpath : array_like
-        Image read from 8 bits tiff file
+        Image read from 8 bits tiff file.
     low_cutoff : float
-        Low cutoff of the gray level
+        Low cutoff of the gray level.
     high_cutoff : float
-        High cutoff of the gray level
+        High cutoff of the gray level.
 
     Returns
     -------
     tiffimage : array_like
-        Array containing the image with quantitative values
+        Array containing the image with quantitative values.
     """
     tiffimage = tiffimage.astype(np.float)
     # Convert to 8 bits
@@ -602,45 +642,3 @@ def convert8bitstiff(filename, low_cutoff, high_cutoff):
     tiffimage += low_cutoff
 
     return tiffimage
-
-
-def saveh5file(h5file, stack_projs, theta, shiftstack, **kwargs):
-    """
-    Save data to h5 file
-    """
-    nprojs, nr, nc = stack_projs.shape
-    # check if file exists
-    if os.path.isfile(h5file):
-        print("File {} already exists and will be overwritten".format(h5name))
-        os.remove(h5file)
-    # save metadata first
-    print("Saving metadata")
-    write_paramsh5(h5file, **kwargs)
-    # save the data
-    print("Saving data. This takes time, please wait...")
-    if np.iscomplexobj(stack_projs[0]):
-        array_dtype = np.complex64
-    else:
-        array_dtype = np.float32
-    with h5py.File(h5file, "a") as fid:
-        fid.create_dataset(
-            "shiftstack/shiftstack", data=shiftstack, dtype=np.float32
-        )  # shiftstack
-        fid.create_dataset("angles/thetas", data=theta, dtype=np.float32)  # thetas
-        dset = fid.create_dataset(
-            "projections/stack",
-            shape=(nprojs, nr, nc),
-            dtype=array_dtype,
-            chunks=chunk_size,
-        )
-        p0 = time.time()
-        for ii in range(nprojs):
-            print("Projection: {} out of {}".format(ii + 1, nprojs), end="\r")
-            dset[ii, :, :] = stack_projs[ii]
-        print("\r")
-        if masks is not None:
-            fid.create_dataset(
-                "masks/stack", data=masks, dtype=np.bool
-            )  # air/vacuum mask
-        print("Done. Time elapsed = {:.03f} s".format(time.time() - p0))
-    print("Data saved to file {}".format(h5name))
