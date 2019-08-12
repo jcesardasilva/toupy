@@ -15,8 +15,7 @@ __all__ = ["switch", "deprecated", "checkhostname", "progbar"]
 class switch(object):
     """
     This class provides the functionality of switch or case in other
-    languages than python
-    Python does not have switch
+    languages than python. This mimics the functionality of `switch` in Python
     """
 
     def __init__(self, value):
@@ -116,6 +115,18 @@ def close_allopenfiles(obj_test):
 
 
 def progbar(curr, total, textstr=""):
+    """
+    Create a progress bar for for-loops. 
+
+    Parameters
+    ----------
+    curr : int
+        Current value to shown in the progress bar
+    total : int
+        Maximum size of the progress bar.         
+    textstr : str
+        String to be shown at the right side of the progress bar
+    """
     termwidth, termheight = shutil.get_terminal_size()
     full_progbar = int(math.ceil(termwidth / 2))
     #~ full_progbar = termwidth - len(textstr) - 2 # some margin

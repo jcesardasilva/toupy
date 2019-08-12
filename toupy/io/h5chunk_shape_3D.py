@@ -59,9 +59,9 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
     ----------
     varShape : sequence of ints
         length 3 list of variable dimension sizes
-    chunkSize : int
+    chunkSize : int, optional
         maximum chunksize desired, in bytes (default 4096)
-    valSize : int
+    valSize : int, optional
         size of each data value, in bytes (default 4)
 
     Notes

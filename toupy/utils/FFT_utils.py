@@ -29,21 +29,21 @@ __all__ = [
 
 def is_power2(num):
     """
-    states if a number is a power of two
+    States if a number ``num`` is a power of two
     """
     return num != 0 and ((num & (num - 1)) == 0)
 
 
 def nextpoweroftwo(number):
     """
-    Returns next power of two following 'number'
+    Returns next power of two following ``number``
     """
     return int(np.ceil(np.log2(number)))
 
 
 def _nextpoweroftwo_print(number):
     """
-    Return next power of two following 'number'
+    Return next power of two following ``number``
     """
     nextPower = int(np.ceil(np.log2(number)))
     return np.power(2, nextPower)
@@ -51,7 +51,7 @@ def _nextpoweroftwo_print(number):
 
 def nextpow2(number):
     """
-    Find the next power 2 number for FFT
+    Find the next power 2 of ``number`` for FFT
     """
     n = 1
     while n < number:
@@ -61,7 +61,7 @@ def nextpow2(number):
 
 def padwidthbothsides(nbins):
     """
-    Returns pad_width for padding both sides
+    Returns pad_width for padding both sides given a value of ``nbins``
     """
     # ~ nextPower = nextpoweroftwo(nbins)
     deficit = int(nextpow2(nbins) - nbins)
@@ -71,7 +71,7 @@ def padwidthbothsides(nbins):
 
 def padrightside(nbins):
     """
-    Returns pad_width for padding both sides
+    Returns pad_width for padding both sides given a value of ``nbins``
     """
     # ~ nextPower = nextpoweroftwo(nbins)
     # ~ nextPower = nextpow2(nbins)
@@ -105,15 +105,14 @@ def fastfftn(input_array, **kwargs):
 
     Parameters
     ---------
-    input_array: ndarray
+    input_array : array_like
         Array to be FFTWed
 
     Returns
     -------
-    fftw_array : ndarray
+    fftw_array : array_like
         Fourier transformed array
 
-    Note: It is fast for array sizes which are power of 2
     """
     # number of cores available
     ncores = kwargs["ncores"]  # multiprocessing.cpu_count()
@@ -137,15 +136,14 @@ def fastifftn(input_array, **kwargs):
 
     Parameters
     ---------
-    input_array: ndarray
+    input_array : array_like
         Array to be FFTWed
 
     Returns
     -------
-    ifftw_array : ndarray
+    ifftw_array : array_like
         Inverse Fourier transformed array
 
-    Note: It is fast for array sizes which are power of 2
     """
     # number of cores available
     ncores = kwargs["ncores"]  # multiprocessing.cpu_count()
@@ -167,18 +165,19 @@ def padfft(input_array, pad_mode="reflect"):
 
     Parameters
     ---------
-    input_array : ndarray
+    input_array : array_like
         Array to be padded
-    mode : str (default = 'reflect')
-        Padding mode to treat the array borders. See np.pad for modes.
+    mode : str
+        Padding mode to treat the array borders. See :py:mod:`numpy.pad` 
+        for modes. The default value is `reflect`.
 
     Returns
     -------
-    array_pad : ndarray
+    array_pad : array_like
         Padded array
-    N_pad : ndarray
+    N_pad : array_like
         padded frequency coordinates
-    padw : int or list of ints
+    padw : int, list of ints
         pad width
     """
     # padding to reduce artifacts with FFTs

@@ -21,6 +21,16 @@ __all__ = [
 def create_circle(inputimg):
     """
     Create circle with apodized edges
+
+    Parameters
+    ----------
+    inputimg : array_like
+        Input image from which to calculate the circle
+
+    Return
+    ------
+    t : array_like
+        Array containing the circle
     """
     bordercrop = 10
     nr, nc = inputimg.shape
@@ -36,6 +46,27 @@ def create_circle(inputimg):
 
 
 def compute_filter(nbins, filter_type="ram-lak", derivatives=True, freqcutoff=1):
+    """
+    Compute the filter for the FBP tomographic reconstruction
+
+    Parameters
+    ----------
+    nbins : int
+        Size of the filter to be calculated
+    filter_type: str
+        Name of the filter to be applied. The options are: `ram-lak`, 
+        `shepp-logan`, `cosine`, `hamming`, `hann`. The default is `ram-lak`.
+    derivatives : bool
+        If True, it will use a Hilbert filter used for derivative projections.
+        The default is True.
+    freqcutoff : float
+        default: 1.0
+
+    Return
+    ------
+    fourier_filter : array_like
+        Filter to be used in the FBP reconstruction
+    """
 
     # resize image to next power of two (but no less than 64) for
     # Fourier analysis; speeds up Fourier and lessens artifacts
@@ -236,7 +267,7 @@ def mod_iradonSilx(
 
     Parameters
     ----------
-    radon_image (sinogram) : array_like, dtype=float
+    radon_image : array_like, dtype=float
         Image containing radon transform (sinogram). Each column of
         the image corresponds to a projection along a different angle. The
         tomography rotation axis should lie at the pixel index
@@ -329,7 +360,23 @@ def mod_iradonSilx(
 def backprojector(sinogram, theta, **params):
     """
     Wrapper to choose between Forward Radon transform using Silx and
-    OpenCL or standard reconstruction
+    OpenCL or standard reconstruction.
+    
+    Parameters
+    ----------
+    sinogram : array_like
+        Array containing the sinogram
+    theta : array_like
+        Array of thetas
+    params : dict
+        Dictionary containing the parameters to be used in the reconstruction. 
+        See :py:meth:`mod_iradonSilx` and :py:meth:`mod_iradon` for the 
+        list of parameters
+
+    Return
+    ------
+    recons : array_like
+        Reconstructed sliced by the choosen method
     """
     if params["opencl"]:
         # using Silx backprojector

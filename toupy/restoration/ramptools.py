@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  4 16:22:54 2015
 
-@author: jdasilva
-"""
 # standard packages
 import time
 
@@ -90,7 +86,7 @@ def rmlinearphase(image, mask):
         Input image
     mask : bool
         Boolean array with ones where the linear phase should be
-                  computed from
+        computed from
 
     Returns
     -------

@@ -47,7 +47,10 @@ def wraptopi(phase, endpoint=True):
 def wrap(phase):
     """
     Wrap a scalar value or an entire array to -0.5 <= a < 0.5.
-    Created by Sebastian Theilenberg, PyMRR
+
+    Note
+    ----
+    Created by Sebastian Theilenberg, PyMRR, which is available at
     Github repository: https://github.com/theilen/PyMRR.git
     """
     if hasattr(phase, "__len__"):
@@ -106,7 +109,7 @@ def get_charge(residues):
 
 def phaseresidues(phimage, disp=1):
     """
-    Calculates the phase residues for a given wrapped phase image.
+    Calculates the phase residues [1]_ for a given wrapped phase image.
 
     Parameters
     ----------
@@ -125,18 +128,27 @@ def phaseresidues(phimage, disp=1):
     Note
     -----
     Note that by convention the positions of the phase residues are
-    marked on the top left corner of the 2 by 2 regions.
+    marked on the top left corner of the 2 by 2 regions as shown below:
 
-    active---res4---right
-       |              |
-      res1           res3
-       |              |
-    below---res2---belowright
+    .. graphviz::
+    
+        graph g {
+            node [shape=plaintext];
+            active -- right [label="  res4   "];
+            right  -- belowright [label=" res3 "];
+            below  -- belowright [label=" res2 "];
+            below  -- active [label=" res1 "];
+            { rank=same; active right }
+            { rank=same; belowright below }
+        }
 
     Inspired by PhaseResidues.m created by B.S. Spottiswoode on 07/10/2004
     and by find_residues.m created by Manuel Guizar - Sept 27, 2011
-    Relevant literature: R. M. Goldstein, H. A. Zebker and C. L. Werner,
-    Radio Science 23, 713-720(1988).
+
+    References
+    ----------
+    .. [1] R. M. Goldstein, H. A. Zebker and C. L. Werner,
+      Radio Science 23, 713-720 (1988).
     """
     residues = wraptopi(phimage[2:, 1:-1] - phimage[1:-1, 1:-1])
     residues += wraptopi(phimage[2:, 2:] - phimage[2:, 1:-1])
@@ -227,7 +239,7 @@ def chooseregiontounwrap(stack_array):
         while True:
             deltax = eval(input("From edge of region to edge of image in x: "))
             if isinstance(deltax, int):
-                rx = (deltax, stack_array.shape[2] - deltax)
+                rx = range(deltax, stack_array.shape[2] - deltax)
                 break
             else:
                 print("Wrong typing. Try it again.")
@@ -274,6 +286,20 @@ def chooseregiontounwrap(stack_array):
 def _unwrapping_phase(img2unwrap, rx, ry, airpix):
     """
     Unwrap the phases of a projection
+
+    Parameters
+    ----------
+    img2unwrap : array_like
+        Image to be unwrapped
+    rx, ry : tuples
+        Limits of the are to be unwrapped in x and y
+    airpix : list of ints
+        Position of pixel in the air/vacuum area
+
+    Returns
+    -------
+    img2unwrap : array_like
+        Unwrapped image
     """
     # select the region to be unwrapped
     img2wrap_sel = img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]]
@@ -290,7 +316,39 @@ def _unwrapping_phase(img2unwrap, rx, ry, airpix):
 
 def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     """
-    Unwrap the phase of the projections in a stack
+    Unwrap the phase of the projections in a stack.
+
+    Parameters
+    ----------
+    stack_phasecorr : array_like
+        Array containing the stack of projection to be unwrapped
+    rx, ry : tuples
+        Limits of the are to be unwrapped in x and y
+    airpix : list of ints
+        Position of pixel in the air/vacuum area
+    params : dict
+        Dictionary of additional parameters
+    params["vmin"] : float, None
+        Minimum value for the gray level at each display
+    params["vmin"] : float, None
+        Maximum value for the gray level at each display
+
+    Returns
+    -------
+    stack_unwrap : array_like
+        Stack of unwrapped projections
+
+    Note
+    ----
+    It uses the phase unwrapping algorithm by Herraez et al. [#skimage]_
+    implemented in Scikit-Image (https://scikit-image.org).
+    
+    References
+    ----------
+    .. [#skimage] Miguel Arevallilo Herraez, David R. Burton, Michael J. Lalor,
+      and Munther A. Gdeisat, “Fast two-dimensional phase-unwrapping algorithm 
+      based on sorting by reliability following a noncontinuous path”, 
+      Journal Applied Optics, Vol. 41, No. 35, pp. 7437, 2002
     """
     stack_unwrap = np.empty_like(stack_phasecorr)
     # test on first projection
@@ -302,7 +360,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     fig = plt.figure(7)
     ax1 = fig.add_subplot(111)
     im1 = ax1.imshow(
-        stack_phasecorr[0], cmap="bone", vmin=params[u"vmin"], vmax=params[u"vmax"]
+        stack_phasecorr[0], cmap="bone", vmin=params["vmin"], vmax=params["vmax"]
     )
     # update images with boudaries
     ax1 = _plotdelimiters(ax1, ry, rx, airpix)

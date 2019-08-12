@@ -110,15 +110,15 @@ def derivatives(input_array, shift_method="fourier"):
 
     Parameters
     ----------
-    input_array: ndarray
+    input_array: array_like
         Input image to calculate the derivatives
     shift_method: str
-        Name of the shift method to use. Available options:
-        'sinc', 'linear'
+        Name of the shift method to use. For the available options, please
+        see :class:`ShiftFunc()` in :mod:`toupy.registration`
 
     Returns
     -------
-    diffimg : ndarray
+    diffimg : array_like
         Derivatives of the images along the row direction
     """
     S = ShiftFunc(shiftmeth=shift_method)
@@ -136,15 +136,15 @@ def derivatives_sino(input_sino, shift_method="fourier"):
 
     Parameters
     ----------
-    input_array : ndarray
+    input_array : array_like
         Input sinogram to calculate the derivatives
     shift_method : str
-        Name of the shift method to use. Available options:
-        'fourier', 'linear', 'spline'
+        Name of the shift method to use. For the available options, please
+        see :class:`ShiftFunc()` in :mod:`toupy.registration`
 
     Returns
     -------
-    diffsino : ndarray
+    diffsino : array_like
         Derivatives of the sinogram along the radial direction
     """
     rollsino = np.rollaxis(input_sino, 1)  # same as np.transpose(input_sino,1)

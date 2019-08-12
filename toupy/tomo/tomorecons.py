@@ -19,6 +19,47 @@ __all__ = ["full_tomo_recons", "tomo_recons"]
 def tomo_recons(sinogram, theta, **params):
     """
     Wrapper to select tomographic algorithm
+    
+    Parameters
+    ----------
+    sinogram : array_like
+        Array containing the sinogram
+    theta : array_like
+        Array containing the theta
+    params : dict
+        Dictionary containing additional parameters
+    params["algorithm"] : str
+        Choice of algorithm. Two algorithm implemented: "FBP" and "SART"
+    params["slicenum"] : int
+        Slice number
+    params["filtertype"] : str
+        Filter to use for FBP
+    params["freqcutoff"] : float
+        Frequency cutoff (between 0 and 1)
+    params["circle"] : bool
+        Multiply the reconstructed slice by a circle to remove borders
+    params["derivatives"] : bool
+        If the projections are derivatives. Only for FBP.
+    params["calc_derivatives"] : bool
+        Calculate derivatives of the sinogram if not done yet.
+    params["opencl"] : bool
+        Implement the tomographic reconstruction in opencl as implemented
+        in Silx
+    params["autosave"] : bool
+        Save the data at the end without asking
+    params["vmin_plot"] : float
+        Minimum value for the gray level at each display
+    params["vmax_plot"] : float
+        Maximum value for the gray level at each display
+    params["colormap"] : str
+        Colormap
+    params["showrecons"] : bool
+        If to show the reconstructed slices
+
+    Return
+    ------
+    recons : array_like
+        Reconstructed slice
     """
     if params["algorithm"] == "FBP":
         if params["calc_derivatives"]:
@@ -35,6 +76,48 @@ def tomo_recons(sinogram, theta, **params):
 def full_tomo_recons(input_stack, theta, **params):
     """
     Full tomographic reconstruction
+
+    Parameters
+    ----------
+    input_stack : array_like
+        Stack of projections
+    theta : array_like
+        Array containing the theta
+    params : dict
+        Dictionary containing additional parameters
+    params["algorithm"] : str
+        Choice of algorithm. Two algorithm implemented: "FBP" and "SART"
+    params["slicenum"] : int
+        Slice number
+    params["filtertype"] : str
+        Filter to use for FBP
+    params["freqcutoff"] : float
+        Frequency cutoff (between 0 and 1)
+    params["circle"] : bool
+        Multiply the reconstructed slice by a circle to remove borders
+    params["derivatives"] : bool
+        If the projections are derivatives. Only for FBP.
+    params["calc_derivatives"] : bool
+        Calculate derivatives of the sinogram if not done yet.
+    params["opencl"] : bool
+        Implement the tomographic reconstruction in opencl as implemented
+        in Silx
+    params["autosave"] : bool
+        Save the data at the end without asking
+    params["vmin_plot"] : float
+        Minimum value for the gray level at each display
+    params["vmax_plot"] : float
+        Maximum value for the gray level at each display
+    params["colormap"] : str
+        Colormap
+    params["showrecons"] : bool
+        If to show the reconstructed slices
+
+
+    Return
+    ------
+    Tomogram : array_like
+        Full reconstructed tomogram
     """
 
     print("Calculating a slice for display")

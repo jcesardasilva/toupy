@@ -14,6 +14,18 @@ P = None
 def radonSilx(recons, theta):
     """
     Forward Radon transform using Silx and OpenCL
+
+    Parameters
+    ----------
+    recons : array_like
+        Array containing the tomographic slice
+    theta : array_like
+        Array of thetas
+
+    Return
+    ------
+    sinogramcomp : array_like
+        Reprojected sinogram
     """
     global P
     # using Silx Projector
@@ -27,7 +39,24 @@ def radonSilx(recons, theta):
 def projector(recons, theta, **params):
     """
     Wrapper to choose between Forward Radon transform using Silx and
-    OpenCL or standard reconstruction
+    OpenCL or standard reconstruction. 
+
+    Parameters
+    ----------
+    recons : array_like
+        Array containing the tomographic slice
+    theta : array_like
+        Array of thetas
+    params : dict
+        Dictionary of parameters to be used
+    params["opencl"] : bool
+        If True, it will perform the tomographic reconstruction using
+        the opencl implementation of Silx.
+
+    Return
+    ------
+    sinogramcomp : array_like
+        Reprojected sinogram
     """
     # array shape
     N = recons.shape[0]

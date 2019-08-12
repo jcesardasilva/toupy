@@ -30,7 +30,7 @@ def smooth_image(input_image, filter_size=3):
 
     Parameters
     ----------
-    input_image : nadarray
+    input_image : array_like
         Image to be smoothed
     filter_size : int
         Size of the filter
@@ -48,7 +48,7 @@ def sharpening_image(input_image, filter_size=3, alpha=30):
 
     Parameters
     ----------
-    input_image : nadarray
+    input_image : array_like
         Image to be sharpened
     filter_size : int
         Size of the filter
@@ -93,6 +93,17 @@ def sort_array(input_array, ref_array):
 def replace_bad(input_stack, list_bad=[], temporary=False):
     """
     correcting bad projections before unwrapping
+    
+    Parameters
+    ----------
+    input_stack : array_like
+        Stack of projections
+    list_bad : list
+        List of bad projections
+    temporary : bool
+        If `False`, the projection will be interpolated with the previous and
+        after projections. If `True`, the projection will be replaced by the
+        previous projection. 
     """
     if list_bad == []:
         raise ValueError("List of bad projections is empty")
@@ -109,7 +120,7 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
 
 def round_to_even(x):
     """
-    Round number x to next even number
+    Round number ``x`` to next even number
     """
     return int(2 * np.floor(x / 2))
 
@@ -117,21 +128,24 @@ def round_to_even(x):
 def polynomial1d(x, order=1, w=1):
     """
     Generates a 1D orthonormal polynomial base.
-    Inspired by legendrepoly1D_2.m created by Manuel Guizar in March 10,2009
 
     Parameters
     ----------
     x : array_like
-        Array containing the values of x for the polynomial
-    order : int
-        Order of the polynomial
-    w : int
-        Weights of the coefficients
+        Array containing the values of ``x`` for the polynomial
+    order : int, optional
+        Order of the polynomial. The defaul value is ``1``.
+    w : int, optional
+        Weights of the coefficients. The defaul value is ``1``.
 
     Returns
     -------
     polyseries : array_like
         Orthonormal polymonial up to order
+
+    Note
+    ----
+    Inspired by legendrepoly1D_2.m created by Manuel Guizar in March 10,2009
     """
 
     polyseries = []
@@ -156,21 +170,24 @@ def polynomial1d(x, order=1, w=1):
 def projectpoly1d(func1d, order=1, w=1):
     """
     Projects a 1D function onto orthonormalized base
-    Inspired by projectleg1D_2.m created by Manuel Guizar in March 10,2009
 
     Parameters
     ----------
     func1d : array_like
         Array containing the values of the 1D function
-    order : int (default=1)
-        Order of the polynomial
-    w : int (default=1)
-        Weights of the coefficients
+    order : int, optional
+        Order of the polynomial. The defaul value is ``1``.
+    w : int, optional
+        Weights of the coefficients. The defaul value is ``1``.
 
     Returns
     -------
     projfunc1d : array_like
         Projected 1D funtion on orthonormal base
+
+    Note
+    ----
+    Inspired by projectleg1D_2.m created by Manuel Guizar in March 10,2009
     """
     x = np.indices(func1d.shape)
     x -= np.ceil(x.mean()).astype("int")
@@ -238,9 +255,6 @@ def fract_hanning(outputdim, unmodsize):
 
     Parameters
     ----------
-    out : array_like
-        Square array containing a fractional separable Hanning window with
-        DC in upper left corner.
     outputdim : int 
         Size of the output array
     unmodsize : int
@@ -249,7 +263,8 @@ def fract_hanning(outputdim, unmodsize):
     Returns
     -------
     array_like
-        Filtered image
+        Square array containing a fractional separable Hanning window with
+        DC in upper left corner.
     """
     if outputdim < unmodsize:
         raise SystemExit(
@@ -313,9 +328,6 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
     
     Parameters
     ----------
-    out : array_like
-        Square array containing a fractional separable Hanning window with
-        DC in upper left corner.
     outputdim : int
         Size of the output array
     filterdim : int
@@ -326,7 +338,8 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
     Returns
     -------
     array_like
-        Filtered image
+        Square array containing a fractional separable Hanning window with
+        DC in upper left corner.
     """
     if outputdim < unmodsize:
         raise SystemExit(
@@ -357,8 +370,8 @@ def mask_borders(imgarray, mask_array, threshold=4e-7):
         Input image
     mask_array : bool array_like
         Input mask 
-    threshold : float (default = 4e-7)
-        Threshold value
+    threshold : float, optional
+        Threshold value. The default value is ``4e-7``.
 
     Returns
     -------
@@ -375,6 +388,19 @@ def mask_borders(imgarray, mask_array, threshold=4e-7):
 def padarray_bothsides(input_array, newshape, padmode="edge"):
     """
     Pad array in both sides
+
+    Parameters
+    ----------
+    input_array : array_like
+        Input array
+    newshape : tuple
+        New shape of the array to be padded
+    padmode : str
+        Padding mode. The default is ``edge``
+    Returns
+    -------
+    array_like
+        Padded array
     """
     nro, nco = input_array.shape
     nrn, ncn = newshape

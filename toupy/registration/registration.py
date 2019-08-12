@@ -421,7 +421,8 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
         Limits of window of interest in x
     shiftstack : array_like
         Array of initial estimates for object motion (2,n)
-    Extra parameters in the dictionary params:
+    params : dict
+        Container with parameters for the registration
     params['pixtol'] : float
         Tolerance for alignment, which is also used as a search step
     params['polyorder'] : int
@@ -431,10 +432,10 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
         True or False to activate align x using center of mass
         (default= False, which means align y only)
     params['shiftmeth'] : str
-        Shift images with sinc interpolation (default). The options are:
-           'linear' - Shift images with linear interpolation (default)
-           'fourier' - Fourier shift
-           'spline' - Shift images with spline interpolation
+        Shift images with fourier method  (default). The options are
+        `linear` ->  Shift images with linear interpolation (default);
+        `fourier` -> Fourier shift or `spline` -> Shift images with spline
+        interpolation.
 
     Returns
     -------
@@ -653,28 +654,27 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         between 0 and 180 (if the shape of `radon_image` is (N, M)).
     shiftstack : array_like
         Array with initial estimates of positions
-    Extra parameters in the dictionary params:
-    params['pixtol'] : float
+    params : dict
+        Container with parameters for the registration
+    params["pixtol"] : float
         Tolerance for alignment, which is also used as a search step
-    params['disp'] : int
-        = 0 Display no images
-        = 1 Final diagnostic images
-        = 2 Diagnostic images per iteration
-    params['alignx'] : bool
+    params["alignx"] : bool
         True or False to activate align x using center of mass
         (default= False, which means align y only)
-    params['shiftmeth'] : str
-        Shift images with sinc interpolation (default). The options are:
-           'linear' - Shift images with linear interpolation (default)
-           'fourier' - Fourier shift
-           'spline' - Shift images with spline interpolation
-    params['circle'] : bool
+    params["shiftmeth"] : str
+        Shift images with fourier method (default). The options are
+        `linear` ->  Shift images with linear interpolation (default);
+        `fourier` -> Fourier shift or `spline` -> Shift images with spline
+        interpolation.
+    params["circle"] : bool
         Use a circular mask to eliminate corners of the tomogram
-    params['freqcutoff'] : float
-        Frequency cutoff for tomography filter
-    params['cliplow'] : float
+    params["filtertype"] : str
+        Filter to use for FBP
+    params["freqcutoff"] : float
+        Frequency cutoff for tomography filter (between 0 and 1)
+    params["cliplow"] : float
         Minimum value in tomogram
-    params['cliphigh'] : float
+    params["cliphigh"] : float
         Maximum value in tomogram
 
     Returns
@@ -829,7 +829,8 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
 def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
     """
-    Refine horizontal alignment
+    Refine horizontal alignment. Please, see the description of each 
+    parameter in :py:meth:`alignprojections_horizontal`.
     """
     try:
         params["correct_bad"]
@@ -887,7 +888,21 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
 
 def oneslicefordisplay(sinogram, theta, **params):
     """
-    Calculate one slice for display
+    Calculate one slice for display.
+    
+    Parameters
+    ----------
+    sinogram : array_like
+        Sinogram derivative, the second index should be the angle
+    theta : array_like
+        Reconstruction angles (in degrees). Default: m angles evenly spaced
+        between 0 and 180 (if the shape of `radon_image` is (N, M)).
+    params : dict
+        Container with parameters for the registration.
+    params["filtertype"] : str
+        Filter to use for FBP
+    params["freqcutoff"] : float
+        Frequency cutoff for tomography filter (between 0 and 1)        
     """
     a = input(
         "Do you want to reconstruct the slice with different parameters? ([y]/n) :"
@@ -928,8 +943,8 @@ def _oneslicefordisplay(sinogram, theta, **params):
 
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     """
-    Apply tomographic consistency alignement on multiple slices. By 
-    default is implemented over 10 slices. 
+    Apply tomographic consistency alignement on multiple slices. By
+    default is implemented over 10 slices.
 
     Parameters
     ----------
@@ -940,29 +955,10 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
         between 0 and 180 (if the shape of `radon_image` is (N, M)).
     shiftstack : array_like
         Array with initial estimates of positions
-    Extra parameters in the dictionary params:
-    params['pixtol'] : float
-        Tolerance for alignment, which is also used as a search step
-    params['disp'] : int
-        = 0 Display no images
-        = 1 Final diagnostic images
-        = 2 Diagnostic images per iteration
-    params['alignx'] : bool
-        True or False to activate align x using center of mass
-        (default= False, which means align y only)
-    params['shiftmeth'] : str
-        Shift images with sinc interpolation (default). The options are:
-           'linear' - Shift images with linear interpolation (default)
-           'fourier' - Fourier shift
-           'spline' - Shift images with spline interpolation
-    params['circle'] : bool
-        Use a circular mask to eliminate corners of the tomogram
-    params['freqcutoff'] : float
-        Frequency cutoff for tomography filter
-    params['cliplow'] : float
-        Minimum value in tomogram
-    params['cliphigh'] : float
-        Maximum value in tomogram
+    params : dict 
+        Dictionary with additional parameters for the alignment. Please,
+        see the description of each parameter in 
+        :py:meth:`alignprojections_horizontal`.
 
     Return
     ------

@@ -85,16 +85,15 @@ class ShiftFunc(Variables):
         """
         Shifts an image with wrap around. Performs pixel shift using
         numpy.roll. Simpler than shift_linear.
-        TODO: Check if same functionality than shift_linear for integer shifts
 
         Parameters
         ----------
         input_array : array_like
             Input image to calculate the shifts.
         shift : int or tuple
-            Number of pixels to shift. For 1D, use a integer value. 
-            For 2D, use a tuple of integers where the first value 
-            corresponds to shifts in the rows and the second value 
+            Number of pixels to shift. For 1D, use a integer value.
+            For 2D, use a tuple of integers where the first value
+            corresponds to shifts in the rows and the second value
             corresponds to shifts in the columns.
 
         Return
@@ -119,13 +118,13 @@ class ShiftFunc(Variables):
         input_array : array_like
             Input image to calculate the shifts.
         shift : int or tuple
-            Number of pixels to shift. For 1D, use a integer value. 
-            For 2D, use a tuple of integers where the first value 
-            corresponds to shifts in the rows and the second value 
+            Number of pixels to shift. For 1D, use a integer value.
+            For 2D, use a tuple of integers where the first value
+            corresponds to shifts in the rows and the second value
             corresponds to shifts in the columns.
 
         Return
-        -------
+        ------
         output_array : array_like
             Shifted image
         """
@@ -173,9 +172,9 @@ class ShiftFunc(Variables):
         input_array : array_like
             Input image to calculate the shifts.
         shift : int or tuple
-            Number of pixels to shift. For 1D, use a integer value. 
-            For 2D, use a tuple of integers where the first value 
-            corresponds to shifts in the rows and the second value 
+            Number of pixels to shift. For 1D, use a integer value.
+            For 2D, use a tuple of integers where the first value
+            corresponds to shifts in the rows and the second value
             corresponds to shifts in the columns.
 
         Return
@@ -205,15 +204,15 @@ class ShiftFunc(Variables):
     def shift_spline_wrap(self, input_array, shift):
         """
         Performs pixel and subpixel shift (with wraping) using splines
-        
+
         Parameters
         ----------
         input_array : array_like
             Input image to calculate the shifts.
         shift : int or tuple
-            Number of pixels to shift. For 1D, use a integer value. 
-            For 2D, use a tuple of integers where the first value 
-            corresponds to shifts in the rows and the second value 
+            Number of pixels to shift. For 1D, use a integer value.
+            For 2D, use a tuple of integers where the first value
+            corresponds to shifts in the rows and the second value
             corresponds to shifts in the columns.
 
         Return

@@ -59,6 +59,7 @@ def remove_extraprojs(stack_projs, theta):
         theta : array_like
             Array of theta values after the removal
     """
+
     print(theta[-5:])
     a = str(input("Do you want to remove extra thetas?([y]/n)")).lower()
     if a == "" or a == "y":
@@ -108,6 +109,7 @@ class PathName:
         """
         Create file wildcard to search for files
         """
+
         file_wcard = re.sub(
             self.samplename + r"\w*", self.samplename + "*", self.fileprefix
         )  # file_wcard
@@ -118,6 +120,7 @@ class PathName:
         """
         Create file wildcard to search for metafiles
         """
+
         if not os.path.isfile(self.icath5path):
             raise IOError("File {} not found".format(self.icath5file))
         if self.fileext == ".ptyr":  # Ptypy
@@ -177,6 +180,9 @@ class PathName:
         return results_path
 
     def results_datapath(self, h5name):
+        """
+        create path for the h5file in result folder
+        """
         aux_path = self.results_folder()
         h5file = os.path.join(aux_path, h5name)
         return h5file
@@ -269,13 +275,100 @@ class LoadProjections(PathName, Variables):
         return self._load_projections()
 
     @classmethod
-    def load(cls, *args, **kwargs):
-        return cls(**kwargs)._load_projections()
+    def load(cls, **params):
+        """
+        Load the reconstructed projections from phase-retrieved files.
+
+        Parameters
+        ----------
+        params : dict
+            Container with parameters to load the files.
+        params["account"] : str
+            User experiment number at ESRF.
+        params["samplename"] : str
+            Sample name
+        params["pathfilename"] : str
+            Path to the first projection file.
+        params["regime"] : str
+            Imaging regime. The options are: `nearfield`, `farfield`,
+            `holoct`.
+        params["showrecons"] : bool
+            To show or not the projections once loaded
+        params["autosave"] : bool
+            Save the projections once load without asking
+        params["phaseonly"] : bool
+            Load only phase projections. Used when the projections are
+            complex-valued.
+        params["amponly"] : bool
+            Load only amplitude projections. Used when the projections are
+            complex-valued.
+        params["border_crop_x"] : int, None
+            Amount of pixels to crop at each border in x.
+        params["border_crop_y"] : int, None
+            Amount of pixels to crop at each border in y.
+        params["checkextraprojs"] : bool
+            Check for the projections acquired at and over 180 degrees.
+        params["missingprojs"] : bool
+            Allow to interpolate for missing projections. The numbers of
+            the projections need to be provided in params["missingnum"].
+        params["missingnum"] : list of ints
+            Numbers of the missing projections to be interpolated.
+
+        Returns
+        -------
+        stack_objs : array_like
+            Array containing the projections
+        stack_angles : array_like
+            Array containing the thetas
+        pxsize : list of floats
+            List containing the pixel size in the vertical and horizontal
+            directions. Typically, the resolution is isotropic and the
+            two values are the same
+        paramsload : dict
+            Parameters of the loading
+        """
+        return cls(**params)._load_projections()
 
     @classmethod
-    def loadedf(cls, *args, **kwargs):
-        return cls(**kwargs)._load_edfprojections()
-        
+    def loadedf(cls, **params):
+        """
+        Load the reconstructed projections from the edf files
+        This is adapted for the phase-contrast imaging generating
+        projections as edf files
+
+        Parameters
+        ----------
+        params : dict
+            Container with parameters to load the files.
+        params["account"] : str
+            User experiment number at ESRF.
+        params["samplename"] : str
+            Sample name
+        params["pathfilename"] : str
+            Path to the first projection file.
+        params["regime"] : str
+            Imaging regime. The options are: `nearfield`, `farfield`,
+            `holoct`.
+        params["showrecons"] : bool
+            To show or not the projections once loaded
+        params["autosave"] : bool
+            Save the projections once load without asking
+
+        Returns
+        -------
+        stack_objs : array_like
+            Array containing the projections
+        stack_angles : array_like
+            Array containing the thetas
+        pxsize : list of floats
+            List containing the pixel size in the vertical and horizontal
+            directions. Typically, the resolution is isotropic and the
+            two values are the same
+        paramsload : dict
+            Parameters of the loading
+        """
+        return cls(**params)._load_edfprojections()
+
     def check_angles(self):
         """
         Find the angles of the projections and plot them to be checked
@@ -346,10 +439,10 @@ class LoadProjections(PathName, Variables):
 
         Returns
         -------
-            stack_projs : array_like
-                Stack of projections after the removal
-            theta : array_like
-                Array of theta values after the removal
+        stack_projs : array_like
+            Stack of projections after the removal
+        theta : array_like
+            Array of theta values after the removal
         """
         print("The final 5 angles are: {}".format(list(thetas[-5:])))
         a = str(input("Do you want to remove extra thetas?([y]/n)")).lower()
@@ -482,7 +575,7 @@ class LoadProjections(PathName, Variables):
         """
         # remove the last projection, which is 180 degrees
         self.proj_files = self.proj_files[:-1]
-        
+
         # count the number of available projections
         num_projections = len(self.proj_files)
 
@@ -539,7 +632,7 @@ class LoadProjections(PathName, Variables):
         print("Dimensions {} x {} pixels".format(nr, nc))
         print("All projections loaded\n")
         return stack_objs, stack_angles, pxsize, paramsload
-            
+
 
 class SaveData(PathName, Variables):
     """
@@ -562,16 +655,57 @@ class SaveData(PathName, Variables):
         return self._save_data(*args)
 
     @classmethod
-    def save(cls, *args, **kwargs):
-        return cls(**kwargs)._save_data(*args)
+    def save(cls, *args, **params):
+        """
+        Save data to HDF5 File
+
+        Parameters
+        ----------
+        args: positional arguments
+            args[0] : str
+                H5 file name
+            args[1] : array_like
+                Array containing the stack of projections
+            args[2] : array_like
+                Values of theta
+            args[3] : array_like
+                Array containing the shifts for each projection in the
+                stack. If not provided, it will be initialized with zeros
+            args[4] : array_like or None
+                Array containing the projection masks
+        """
+        return cls(**params)._save_data(*args)
 
     @classmethod
-    def saveFSC(cls, *args, **kwargs):
-        return cls(**kwargs)._save_FSC(*args)
+    def saveFSC(cls, *args, **params):
+        """
+        Save FSC data to HDF5 file
+
+        Parameters
+        ----------
+        args: positional arguments
+            args[0] : str
+                H5 file name
+            args[1] : array_like
+                Normalized frequencies
+            args[2] : array_like
+                Value of the threshold for each frequency
+            args[3] : array_like
+                The FSC curve
+            args[4] : array_like
+                The first tomogram
+            args[5] : array_like
+                The second tomogram
+            args[6] : array_like
+                The array of theta values
+            args[7] : float
+                Pixel size
+        """
+        return cls(**params)._save_FSC(*args)
 
     @classmethod
-    def savemasks(cls, *args, **kwargs):
-        return cls(**kwargs)._save_masks(*args)
+    def savemasks(cls, *args, **params):
+        return cls(**params)._save_masks(*args)
 
     def _save_masks(self, h5name, masks):
         """
@@ -594,7 +728,7 @@ class SaveData(PathName, Variables):
         """
 
         @functools.wraps(func)
-        def new_func(self, *args, **kwargs):
+        def new_func(self, *args, **params):
             if self.autosave:
                 ansuser = "y"
                 func(self, *args)
@@ -619,9 +753,9 @@ class SaveData(PathName, Variables):
         """
         Save data to HDF5 File
 
-        Parameters:
-        -----------
-        *args: positional arguments
+        Parameters
+        ----------
+        args: positional arguments
             args[0] : str
                 H5 file name
             args[1] : array_like
@@ -672,7 +806,6 @@ class SaveData(PathName, Variables):
                 "shiftstack/shiftstack", data=shiftstack, dtype=np.float32
             )  # shiftstack
             fid.create_dataset("angles/thetas", data=theta, dtype=np.float32)  # thetas
-            # ,compression='lzf')#, compression='gzip', compression_opts=9)
             dset = fid.create_dataset(
                 "projections/stack",
                 shape=(nprojs, nr, nc),
@@ -682,7 +815,6 @@ class SaveData(PathName, Variables):
             p0 = time.time()
             for ii in range(nprojs):
                 strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
-                # ~ print(' Projection: {} out of {}'.format(ii+1, nprojs), end='\r')
                 dset[ii : ii + 1, :, :] = stack_projs[ii]  # avoid fancy slicing
                 progbar(ii + 1, nprojs, strbar)
             print("\r")
@@ -697,9 +829,10 @@ class SaveData(PathName, Variables):
     def _save_FSC(self, *args):
         """
         Save FSC data to HDF5 file
-        Parameters:
-        -----------
-        *args: positional arguments
+
+        Parameters
+        ----------
+        args: positional arguments
             args[0] : str
                 H5 file name
             args[1] : array_like
@@ -741,7 +874,6 @@ class SaveData(PathName, Variables):
             fid.create_dataset(
                 "angles/thetas", data=theta, dtype=np.float32
             )  # add the thetas
-            # fid.create_dataset('pxsize',data=pxsize,dtype=np.float32)
             fid.create_dataset(
                 "FSC", data=FSCcurve, dtype=np.float32
             )  # add the FSC curve
@@ -757,14 +889,12 @@ class SaveData(PathName, Variables):
                 # calculate the chunk size for writing the HDF5 files
                 chunk_size = chunk_shape_3D(tomogram1.shape)
                 print("Saving tomogram1 and tomogram2. This takes time, please wait...")
-                # ,compression='lzf')#, compression='gzip', compression_opts=9)
                 dset1 = fid.create_dataset(
                     "tomogram1",
                     shape=tomogram1.shape,
                     dtype=np.float32,
                     chunks=chunk_size,
                 )
-                # ,compression='lzf')#, compression='gzip', compression_opts=9)
                 dset2 = fid.create_dataset(
                     "tomogram2",
                     shape=tomogram2.shape,
@@ -814,32 +944,126 @@ class LoadData(PathName, Variables):
         return self._load_data(h5name)
 
     @classmethod
-    def load(cls, *args, **kwargs):
-        return cls(**kwargs)._load_data(*args)
+    def load(cls, *args, **params):
+        """
+        Load data from h5 file
+
+        Parameters
+        ----------
+        h5name: str
+            File name from which data is loaded
+        params : dict
+            Dictionary of additonal parameters
+        params["autosave"] : bool
+            Save the projections once load without asking
+        params["phaseonly"] : bool
+            Load only phase projections. Used when the projections are
+            complex-valued.
+        params["amponly"] : bool
+            Load only amplitude projections. Used when the projections are
+            complex-valued.
+        params["pixtol"] : float
+            Tolerance for alignment, which is also used as a search step
+        params["alignx"] : bool
+            True or False to activate align x using center of mass
+            (default= False, which means align y only)
+        params["shiftmeth"] : str
+            Shift images with fourier method (default). The options are
+            `linear` ->  Shift images with linear interpolation (default);
+            `fourier` -> Fourier shift or `spline` -> Shift images with spline
+            interpolation.
+        params["circle"] : bool
+            Use a circular mask to eliminate corners of the tomogram
+        params["filtertype"] : str
+            Filter to use for FBP
+        params["freqcutoff"] : float
+            Frequency cutoff for tomography filter (between 0 and 1)
+        params["cliplow"] : float
+            Minimum value in tomogram
+        params["cliphigh"] : float
+            Maximum value in tomogram
+        params["correct_bad"] : bool
+            If true, it will interpolate bad projections. The numbers of
+            projections to be corrected is given by `params["bad_projs"]`.
+        params["bad_projs"] : list of ints
+            List of projections to be interpolated. It starts at 0.
+
+        Returns
+        -------
+        stack_projs: array_like
+            Stack of projections
+        theta: array_like
+            Stack of thetas
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        datakwargs : dict
+            Dictionary with metadata information
+        """
+
+        return cls(**params)._load_data(*args)
 
     @classmethod
-    def loadshiftstack(cls, *args, **kwargs):
-        return cls(**kwargs)._load_shiftstack(*args)
+    def loadshiftstack(cls, *args, **params):
+        """
+        Load shitstack from previous h5 file
+
+        Parameters
+        ----------
+        h5name : str
+            File name from which data is loaded
+
+        Returns
+        -------
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        """
+        return cls(**params)._load_shiftstack(*args)
 
     @classmethod
-    def loadtheta(cls, *args, **kwargs):
-        return cls(**kwargs)._load_theta(*args)
+    def loadtheta(cls, *args, **params):
+        """
+        Load shitstack from previous h5 file
+
+        Parameters
+        ----------
+        h5name : str
+            File name from which data is loaded
+
+        Returns
+        -------
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        """
+        return cls(**params)._load_theta(*args)
 
     @classmethod
-    def loadmasks(cls, *args, **kwargs):
-        return cls(**kwargs)._load_masks(*args)
+    def loadmasks(cls, *args, **params):
+        """
+        Load masks from previous h5 file
+
+        Parameters
+        ----------
+        h5name: str
+            File name from which data is loaded
+
+        Returns
+        -------
+        masks: array_like
+            Array with the masks
+        """
+        return cls(**params)._load_masks(*args)
 
     def _load_shiftstack(self, h5name):
         """
         Load shitstack from previous h5 file
 
-        Parameters:
-        ---------
+        Parameters
+        ----------
         h5name : str
             File name from which data is loaded
 
-        Returns:
-        --------
+        Returns
+        -------
         shiftstack : array_like
             Shifts in vertical (1st dimension) and horizontal (2nd dimension)
         """
@@ -853,13 +1077,13 @@ class LoadData(PathName, Variables):
         """
         Load shitstack from previous h5 file
 
-        Parameters:
-        ---------
+        Parameters
+        ----------
         h5name : str
             File name from which data is loaded
 
-        Returns:
-        --------
+        Returns
+        -------
         shiftstack : array_like
             Shifts in vertical (1st dimension) and horizontal (2nd dimension)
         """
@@ -873,13 +1097,13 @@ class LoadData(PathName, Variables):
         """
         Load masks from previous h5 file
 
-        Parameters:
-        ---------
+        Parameters
+        ----------
         h5name: str
             File name from which data is loaded
 
-        Returns:
-        --------
+        Returns
+        -------
         masks: array_like
             Array with the masks
         """
@@ -895,7 +1119,7 @@ class LoadData(PathName, Variables):
         Load data from h5 file
 
         Parameters
-        ---------_
+        ----------
         h5name: str
             File name from which data is loaded
 
@@ -1040,7 +1264,7 @@ class SaveTomogram(SaveData):
         """
 
         @functools.wraps(func)
-        def new_func(self, *args, **kwargs):
+        def new_func(self, *args, **params):
             if self.autosave:
                 ansuser = "y"
                 func(self, *args)
@@ -1064,27 +1288,55 @@ class SaveTomogram(SaveData):
         return self._save_tomogram(*args)
 
     @classmethod
-    def save(cls, *args, **kwargs):
-        return cls(**kwargs)._save_tomogram(*args)
+    def save(cls, *args, **params):
+        return cls(**params)._save_tomogram(*args)
 
     @classmethod
-    def save_vol_to_h5(cls, *args, **kwargs):
-        return cls(**kwargs)._save_vol_to_h5(*args)
+    def save_vol_to_h5(cls, *args, **params):
+        return cls(**params)._save_vol_to_h5(*args)
 
     @classmethod
-    def save(cls, *args, **kwargs):
-        return cls(**kwargs)._save_tomogram(*args)
+    def save(cls, *args, **params):
+        """
+        Parameters
+        ----------
+        args: positional arguments
+            args[0] : str
+                H5 file name
+            args[1] : array_like
+                Array containing the stack of slices (tomogram)
+            args[2] : array_like
+                Values of theta
+            args[3] : array_like
+                Array containing the shifts for each projection in the stack
+        """
+        return cls(**params)._save_tomogram(*args)
 
     @classmethod
-    def convert_to_tiff(cls, *args, **kwargs):
-        return cls(**kwargs)._convert_to_tiff(*args)
+    def convert_to_tiff(cls, *args, **params):
+        """
+        Convert the HDF5 file with the tomogram to tiff
+
+        Parameters
+        ----------
+        args: positional arguments
+            args[0] : str
+                H5 file name
+            args[1] : array_like
+                Array containing the stack of slices (tomogram)
+            args[2] : array_like
+                Values of theta
+            args[3] : array_like
+                Array containing the shifts for each projection in the stack
+        """
+        return cls(**params)._convert_to_tiff(*args)
 
     @savecheck
     def _save_tomogram(self, *args):
         """
-        Parameters:
-        -----------
-        *args: positional arguments
+        Parameters
+        ----------
+        args: positional arguments
             args[0] : str
                 H5 file name
             args[1] : array_like
@@ -1171,9 +1423,9 @@ class SaveTomogram(SaveData):
         """
         Convert the HDF5 file with the tomogram to tiff
 
-        Parameters:
-        -----------
-        *args: positional arguments
+        Parameter
+        ---------
+        args: positional arguments
             args[0] : str
                 H5 file name
             args[1] : array_like
@@ -1281,20 +1533,39 @@ class LoadTomogram(LoadData):
         return self._load_tomogram(h5name)
 
     @classmethod
-    def load(cls, *args, **kwargs):
-        return cls(**kwargs)._load_tomogram(*args)
+    def load(cls, *args, **params):
+        """
+        Load tomographic data from h5 file
+
+        Parameters
+        ----------
+        args[0] : str
+            HDF5 file name from which data is loaded
+
+        Returns
+        -------
+        tomogram : array_like
+            Stack of tomographic slices
+        theta : array_like
+            Stack of thetas
+        shiftstack : array_like
+            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        datakwargs : dict
+            Dictionary with metadata information
+        """
+        return cls(**params)._load_tomogram(*args)
 
     @checkhostname
     def _load_tomogram(self, h5name):
         """
         Load tomographic data from h5 file
 
-        Parameters:
-        ---------
-        h5name: str
+        Parameters
+        ----------
+        h5name : str
             File name from which data is loaded
 
-        Returns:
+        Returns
         --------
         tomogram : array_like
             Stack of tomographic slices
