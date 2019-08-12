@@ -253,7 +253,6 @@ todo_include_todos = True
 
 intersphinx_mapping = {
     'https://docs.python.org/': None,
-    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
     #'toupy': ('https://github.com/jcesardasilva/toupy.git', None),
 }
 

@@ -18,9 +18,9 @@ from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
 from ..tomo import tomo_recons
 
-__all__ = ["compute_2tomograms"]
+__all__ = ["compute_2tomograms","split_dataset"]
 
-def _split_dataset(sinogram, theta):
+def split_dataset(sinogram, theta):
     """
     Split the tomographic dataset in 2 datasets
     """
@@ -33,11 +33,11 @@ def _split_dataset(sinogram, theta):
     
     return sinogram1, sinogram2, theta1, theta2
 
-def compute_2tomograms(sinogram, theta, **params)
+def compute_2tomograms(sinogram, theta, **params):
     """
     Compute 2 tomograms from splitted tomographic dataset
     """
-    sino1, sino2, theta1, theta2 = _split_dataset(sinogram, theta)
+    sino1, sino2, theta1, theta2 = split_dataset(sinogram, theta)
 
     # tomographic reconstruction
     print("Calculating a slice 1...")
@@ -46,7 +46,7 @@ def compute_2tomograms(sinogram, theta, **params)
     print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
     
     print("Calculating a slice 2...")
-    t0 = time.time()s
+    t0 = time.time()
     recon2 = tomo_recons(sino2, theta2, **params)
     print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
 
