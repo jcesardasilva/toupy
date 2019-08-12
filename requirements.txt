@@ -1,4 +1,4 @@
-numpy>=1.16.4
+numpy>=1.16.0
 libtiff>=0.4.2
 sphinx>=2.1.2
 pyopencl>=2019.1
