@@ -46,12 +46,13 @@ params["freqcutoff"] = 0.2  # Frequency cutoff (between 0 and 1)
 params["circle"] = True
 params["algorithm"] = "FBP"
 # initial guess of the offset of the axis of rotation
-params["rot_axis_offset"] = 0
+params["rot_axis_offset"] = -40
 params["pixtol"] = 0.01  # Tolerance of registration in pixels
 params["shiftmeth"] = "fourier"  # 'sinc' or 'linear' better for noise
 params["maxit"] = 100  # max of iterations
 params["cliplow"] = None  # clip air threshold
 params["cliphigh"] = -1e-4  # clip on sample threshold
+params["colormap"] = "bone"
 params["sinohigh"] = None
 params["sinolow"] = None
 params["derivatives"] = True
@@ -126,7 +127,6 @@ if __name__ == "__main__":
 
     # save the shifts
     print("Saving the shifts to file correct_consistency.txt")
-    #shiftstack.T[[0,1]]= shiftstack[[1,0]]
     np.savetxt('correct_consistency.txt',np.flip(shiftstack,0).T, fmt='%4.8e')
     # next step
     print('You should run "tomographic_reconstruction.py" now')

@@ -398,8 +398,7 @@ def create_paramsh5(**params):
     """
     # create a parameter file
     print("Creating the h5 parameter file")
-    if len(args) == 0:
-        filename = params["samplename"] + "_params.h5"
+    filename = params["samplename"] + "_params.h5"
     # print(pathparamsh5)
     # paramsh5file = os.path.join(pathparamsh5,filename)
     write_paramsh5(filename, **params)
