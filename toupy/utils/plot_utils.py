@@ -41,8 +41,13 @@ def interativesession(func):
 def autoscale_y(ax, margin=0.1):
     """
     This function rescales the y-axis based on the data that is visible given the current xlim of the axis.
-    ax : a matplotlib axes object
-    margin : the fraction of the total height of the y-data to pad the upper and lower ylims
+    
+    Parameters
+    ----------
+    ax : object
+        A matplotlib axes object
+    margin : float 
+        The fraction of the total height of the y-data to pad the upper and lower ylims
     """
 
     import numpy as np
@@ -82,6 +87,8 @@ def _plotdelimiters(ax, limrow, limcol, airpixel=[]):
         Limits of rows in the format [begining, end]
     limcol : list of ints
         Limits of cols in the format [begining, end]
+    airpixel : list of ints
+        Position of pixel in the air/vacuum
     """
     ax.plot([limcol[0], limcol[-1]], [limrow[0], limrow[0]], "r-")
     ax.plot([limcol[0], limcol[-1]], [limrow[-1], limrow[-1]], "r-")
@@ -480,6 +487,28 @@ def iterative_show(
 ):
     """
     Iterative plot of the images
+
+    Parameters
+    ----------
+    stack_array : ndarray
+        Array containing the stack of images to animate. The first index
+        corresponds to the image number in the sequence of images.
+    limrow : list of ints
+        Limits of rows in the format [begining, end]
+    limcol : list of ints
+        Limits of cols in the format [begining, end]
+    airpixel : list of ints
+        Position of pixel in the air/vacuum
+    onlyroi : bool
+        If True, it displays only the ROI. If False, it displays the entire
+        image.
+    colormap : str, optional
+        Colormap name. The default value is ``bone``
+    vmin : float, None, optional
+        Minimum gray-level. The default value is ``None``
+    vmax : float, None, optional
+        Maximum gray-level. The default value is ``None``
+
     """
     nproj, nr, nc = stack_array.shape
     if onlyroi:
@@ -730,6 +759,11 @@ def plot_checkangles(angles):
     """
     Plot the angles for each projections and the derivatives to check
     for anomalies
+    
+    Parameters
+    ----------
+    angles : array_like
+        Array of angles
     """
     # plot the angles for verification
     plt.close("all")
@@ -770,6 +804,17 @@ def show_linearphase(image, mask, *args):
 def display_slice(recons, colormap="bone", vmin=None, vmax=None):
     """
     Display tomographic slice
+    
+    Parameters
+    ----------
+    recons : array_like
+        Tomographic slice
+    colormap : str, optional
+        Colormap name. The default value is ``bone``
+    vmin : float, None
+        Minimum gray-level. The default value is ``None``
+    vmax : float, None
+        Maximum gray-level. The default value is ``None``
     """
     if vmin == "none":
         vmin = None
