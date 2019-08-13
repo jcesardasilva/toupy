@@ -12,6 +12,8 @@ __all__ = [
     "create_circle",
     "fract_hanning",
     "fract_hanning_pad",
+    "hanning_apodization",
+    "hanning_apod1D",
     "mask_borders",
     "create_mask_borders",
     "normalize_array",
@@ -423,6 +425,64 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
         fract_hanning(filterdim, unmodsize)
     )
     return np.fft.fftshift(out)
+
+def hanning_apod1D(window_size, apod_width):
+    """
+    Create 1D apodization window using Hanning window
+    
+    Parameters
+    ----------
+    window_size : int
+        Window size
+    apod_width : int
+        Apodization width
+    
+    Returns
+    -------
+    hannwindow1D : array_like
+        1D Hanning window for the apodization
+    """
+    nr = window_size
+    Nr = np.fft.fftshift(np.arange(nr))
+    window1D = (
+        1.0
+        + np.cos(
+            2
+            * np.pi
+            * (Nr - np.floor((nr - 2 * apod_width - 1) / 2))
+            / (1 + 2 * apod_width)
+        )
+    ) / 2.0
+    
+    window1D[apod_width : -apod_width] = 1
+    
+    return window1D
+
+def hanning_apodization(window_size, apod_width):
+    """
+    Create apodization window using Hanning window
+    
+    Parameters
+    ----------
+    window_size : tuple
+        Window size
+    apod_width : int
+        Apodization width
+    
+    Returns
+    -------
+    hannwindow2D : array_like
+        2D Hanning window for the apodization
+    """
+    nr, nc = window_size
+    
+    window1D1 = hanning_apod1D(nr, apod_width)
+    window1D2 = hanning_apod1D(nc, apod_width)
+    
+    # 2D hanning window
+    hannwindow2D = np.outer(window1D1, window1D2)
+    
+    return hannwindow2D
 
 
 def mask_borders(imgarray, mask_array, threshold=4e-7):
