@@ -47,9 +47,28 @@ __all__ = [
 ]
 
 
-def read_recon(filename):
+def read_recon(filename, correct_orientation=False):
     """
     Wrapper for choosing the function to read recon file
+
+    
+    Parameters
+    ----------
+    pathfilename : str
+        Path to file
+
+    correct_orientation : bool, optional
+        True for correcting the image orientation and False to keep as it is.
+        The default value is ``False``.
+
+    Returns
+    -------
+    data1 : array_like, complex
+        Object image
+    probe1 : array_like, complex
+        Probe images
+    pixelsize : float
+        List with pixelsizes in vertical and horizontal directions
     """
     fileprefix, fileext = os.path.splitext(filename)
     if fileext == ".ptyr":  # Ptypy
@@ -64,7 +83,7 @@ def read_recon(filename):
                 filename
             )
         )
-    return read_reconfile(filename)
+    return read_reconfile(filename, correct_orientation)
 
 
 def read_volfile(filename):
@@ -182,7 +201,7 @@ def _findh5paths(filename):
     print(metaptyr)
 
 
-def read_ptyr(pathfilename):
+def read_ptyr(pathfilename,correct_orientation=True):
     """
     Read reconstruction files .ptyr from Ptypy
 
@@ -190,6 +209,10 @@ def read_ptyr(pathfilename):
     ----------
     pathfilename : str
         Path to file
+
+    correct_orientation : bool, optional
+        True for correcting the image orientation and False to keep as it is.
+        The default value is ``True``.
 
     Returns
     -------
@@ -216,8 +239,9 @@ def read_ptyr(pathfilename):
         energy = (fid[metaptyr["energy_h5path"]][()]).astype(np.float32)
 
     # reorienting the object
-    data1 = _reorient_ptyrimg(data0)
-    probe1 = _reorient_ptyrimg(probe0)
+    if correct_orientation:
+        data1 = _reorient_ptyrimg(data0)
+        probe1 = _reorient_ptyrimg(probe0)
 
     return data1, probe1, pixelsize, energy
 
@@ -270,7 +294,7 @@ def _h5pathcxi(filename):
     ][-1]
 
 
-def read_cxi(pathfilename):
+def read_cxi(pathfilename, correct_orientation=True):
     """
     Read reconstruction files .cxi from PyNX
 
@@ -278,6 +302,9 @@ def read_cxi(pathfilename):
     ----------
     pathfilename : str
         Path to file
+    correct_orientation : bool
+        True for correcting the image orientation and False to keep as it is.
+        The default value is ``True``.
 
     Returns
     -------
@@ -307,8 +334,9 @@ def read_cxi(pathfilename):
     pixelsize = np.array([pixelsizex, pixelsizey]).astype(np.float32)
 
     # reorienting the object
-    data1 = _reorient_ptyrimg(data0)
-    probe1 = _reorient_ptyrimg(probe0)
+    if correct_orientation:
+        data1 = _reorient_ptyrimg(data0)
+        probe1 = _reorient_ptyrimg(probe0)
 
     return data1, probe1, pixelsize, energy
 
