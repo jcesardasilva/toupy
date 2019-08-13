@@ -19,13 +19,14 @@ from .shift import ShiftFunc
 from ..tomo import projector, tomo_recons
 from ..utils import (
     deprecated,
-    fract_hanning_pad,
+    #fract_hanning_pad,
     projectpoly1d,
     progbar,
     RegisterPlot,
     replace_bad,
     display_slice,
-    create_circle
+    create_circle,
+    hanning_apodization,
 )
 
 __all__ = [
@@ -792,13 +793,14 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     sinogram = np.pad(
         sinogram, ((padval, padval), (0, 0)), "constant", constant_values=0
     ).copy()
-    N = sinogram.shape[0]
+    N,M = sinogram.shape
 
     # applying a filter to the sinogram #TODO: improve this part
-    filteraux = fract_hanning_pad(
-        N, N, np.round(N * (1 - params["freqcutoff"]))
-    )  # 1- at the beginning
-    filteraux = np.tile(np.fft.fftshift(filteraux[0, :]), (len(theta), 1))
+    filteraux = hanning_apodization(sinogram.shape,np.int(0.5 * N * (params["freqcutoff"])))
+    # filteraux = fract_hanning_pad(
+    #    N, N, np.round(N * (1 - params["freqcutoff"]))
+    #)  # 1- at the beginning
+    #filteraux = np.tile(np.fft.fftshift(filteraux[0, :]), (len(theta), 1))
     sino_orig = np.real(np.fft.ifft(np.fft.fft(sinogram) * filteraux.T))
 
     # Shifting projection according to the initial shiftslice
