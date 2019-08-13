@@ -13,7 +13,7 @@ __all__ = [
     "convert_to_mu",
     "convert_to_rhoe",
     "convert_to_rhom",
-    ]
+]
 
 
 def convert_to_mu(input_img, wavelen):
@@ -46,12 +46,12 @@ def convert_to_rhom(input_img, wavelen, A, Z):
     # return 1e-6*(2*np.pi*A_Z/(r0*Na*wavelen**2))*input_img
     return 1e-6 * (input_img / Na) * (A_Z)
 
-       
+
 def _converter_factor(input_img, energy, voxelsize):
     """
     Yields the factor to convert image gray-levels to quantitative valuess
     """
-    if isinstance(voxelsize,list) or isinstance(voxelsize,np.ndarray):
+    if isinstance(voxelsize, list) or isinstance(voxelsize, np.ndarray):
         if len(voxelsize) >= 1:
             voxelsize = voxelsize[0]
 
@@ -69,8 +69,8 @@ def convert_to_delta(input_img, energy, voxelsize):
     Converts the image gray-levels from phase-shifts to delta
     """
     factor = _converter_factor(input_img, energy, voxelsize)
-    return input_img*(-factor), factor
-    
+    return input_img * (-factor), factor
+
 
 def convert_to_beta(input_img, energy, voxelsize, apply_log=False):
     """
@@ -81,4 +81,4 @@ def convert_to_beta(input_img, energy, voxelsize, apply_log=False):
     # In case the log has not yet been applied to the image
     if apply_log:
         input_img = np.log(input_img)
-    return input_img*(-factor), factor
+    return input_img * (-factor), factor

@@ -44,6 +44,7 @@ __all__ = [
     "vertical_shift",
 ]
 
+
 def register_2Darrays(image1, image2):
     """
     Image registration. Register two images using phase cross correlations.
@@ -82,7 +83,9 @@ def register_2Darrays(image1, image2):
         # subpixel precision
         print("\nCalculating the subpixel image registration ...")
         start = time.time()
-        shift, error, diffphase = register_translation(image1.copy(), image2.copy(), 100)
+        shift, error, diffphase = register_translation(
+            image1.copy(), image2.copy(), 100
+        )
         print(diffphase)
         end = time.time()
         print("Time elapsed: {:g} s".format(end - start))
@@ -90,7 +93,7 @@ def register_2Darrays(image1, image2):
     else:
         print("You must choose between 1 and 2")
         raise SystemExit
-    
+
     print("\nCorrecting the shift of image2 by using subpixel precision...")
     # (shift[0],-shift[1])))
     offset_image2 = np.fft.ifftn(fourier_shift(np.fft.fftn(image2.copy()), shift))
@@ -98,6 +101,7 @@ def register_2Darrays(image1, image2):
     offset_image2 *= np.exp(1j * diffphase)
 
     return shift, diffphase, offset_image2
+
 
 def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
     """
@@ -601,9 +605,7 @@ def _alignprojections_horizontal(
     # Compute tomogram with current sinogram
     print("Initializing tomographic slice...")
     t0 = time.time()
-    recons = tomo_recons(
-        sinogram, theta=theta, **params
-    )
+    recons = tomo_recons(sinogram, theta=theta, **params)
     recons_std = recons.std()
     # clipping gray level if needed
     recons = _clipping_tomo(recons, **params)
@@ -643,9 +645,7 @@ def _alignprojections_horizontal(
         # Compute tomogram with current sinogram
         print("Computing tomographic slice...")
         t0 = time.time()
-        recons = tomo_recons(
-            sinogram, theta=theta, **params
-        )
+        recons = tomo_recons(sinogram, theta=theta, **params)
         recons_std = recons.std()
         # clipping gray level if needed
         recons = _clipping_tomo(recons, **params)

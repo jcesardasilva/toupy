@@ -31,7 +31,7 @@ def normalize_array(input_array):
     Normalize the input array
     """
     return (input_array - input_array.min()) / (input_array.max() - input_array.min())
-    
+
 
 def smooth_image(input_image, filter_size=3):
     """
@@ -239,6 +239,7 @@ def crop(input_array, delcropx, delcropy):
     else:
         print("No cropping of data")
         return input_array
+
 
 def cropROI(input_array, roi=[]):
     """

@@ -10,7 +10,8 @@ import numpy as np
 # local packages
 from ..utils import fastfftn, fastifftn
 
-__all__=["register_translation"]
+__all__ = ["register_translation"]
+
 
 def _upsampled_dft(data, upsampled_region_size, upsample_factor=1, axis_offsets=None):
     """

@@ -304,6 +304,7 @@ class PhaseTracker(object):
     """
     Widgets for the phase ramp removal
     """
+
     def __init__(self, fig, ax1, ax2, X1, **params):
         self.fig = fig
         self.ax1 = ax1
@@ -658,6 +659,7 @@ class AmpTracker(PhaseTracker):
     the ones related to amplitude projections rather than to phase projections.
     Please, refert to the docstring of :py:class:`PhaseTracker` for further description.
     """
+
     def __init__(self, ax1, ax2, X1, **params):
         super().__init__(self, ax1, ax2, X1, **params)
         self.done = []  # flag to keep the already corrected projections
@@ -696,7 +698,9 @@ class AmpTracker(PhaseTracker):
             self.ind = ii
             strbar = "Projection {} out of {}".format(ii + 1, self.slices)
             if self.ind in self.done:
-                print("\rProjection {} was already corrected".format(self.ind + 1),end="")
+                print(
+                    "\rProjection {} was already corrected".format(self.ind + 1), end=""
+                )
             else:
                 # np.exp(1j*self.X1[ii,:,:]).copy()
                 imgin = self.X1[ii, :, :].copy()

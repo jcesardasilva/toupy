@@ -6,12 +6,7 @@ import numpy as np
 from scipy.optimize import leastsq
 from scipy.special import erf, erfc
 
-__all__ = [
-    "model_erf",
-    "model_tanh",
-    "residuals_erf",
-    "residuals_tanh",
-]
+__all__ = ["model_erf", "model_tanh", "residuals_erf", "residuals_tanh"]
 
 
 def model_erf(t, *coeffs):
@@ -119,5 +114,3 @@ def residuals_tanh(coeffs, y, t):
         Residuals
     """
     return y - model_tanh(t, *coeffs)
-
-

@@ -37,7 +37,8 @@ __all__ = [
     "SaveTomogram",
     "LoadTomogram",
 ]
-    
+
+
 def remove_extraprojs(stack_projs, theta):
     """
     Remove extra projections of tomographic scans with projections at
@@ -133,9 +134,7 @@ class PathName:
                 r"_subtomo\d{3}_\d{4}", "_subtomo*", os.path.splitext(self.filename)[0]
             )
         elif self.fileext == ".edf":  # edf
-            metafile_wcard = re.sub(
-                r"_\d{4}$", "*", os.path.splitext(self.filename)[0]
-            )
+            metafile_wcard = re.sub(r"_\d{4}$", "*", os.path.splitext(self.filename)[0])
         else:
             raise IOError(
                 "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
@@ -202,14 +201,14 @@ class Variables(object):
     missingnum = None
     border_crop_x = None
     border_crop_y = None
-    shiftmeth = 'fourier'
+    shiftmeth = "fourier"
     derivatives = True
     calc_derivatives = False
     correct_bad = False
     bad_projs = []
     opencl = True
     load_previous_shiftstack = False
-    algorithm = 'FBP'
+    algorithm = "FBP"
 
 
 class LoadProjections(PathName, Variables):
@@ -256,7 +255,7 @@ class LoadProjections(PathName, Variables):
             self.read_reconfile = read_ptyr
         elif self.fileext == ".cxi":  # PyNX
             self.read_reconfile = read_cxi
-        elif self.fileext == ".edf": # edf projections
+        elif self.fileext == ".edf":  # edf projections
             self.read_reconfile = read_edf
         else:
             raise IOError(
@@ -505,13 +504,11 @@ class LoadProjections(PathName, Variables):
         # crop image if requested
         objs0 = crop_array(objs0, self.border_crop_x, self.border_crop_y)
         nr, nc = objs0.shape
-        #~ print(objs0.shape)
+        # ~ print(objs0.shape)
         if pxsize[0] != pxsize[1]:
             raise SystemExit("Pixel size is not symmetric. Exiting the script")
         print(
-            "the pixelsize of the first projection is {:.2f} nm".format(
-                pxsize[0] * 1e9
-            )
+            "the pixelsize of the first projection is {:.2f} nm".format(pxsize[0] * 1e9)
         )
 
         # initialize the array for the stack objects
@@ -592,24 +589,18 @@ class LoadProjections(PathName, Variables):
         # Read the first projection to check size and reconstruction parameters
         objs0, pxsize, energy, nvue = self.read_reconfile(self.pathfilename)
         if nvue != num_projections:
-            raise ValueError(
-                "The number of projections is different from nvue in file"
-            )
+            raise ValueError("The number of projections is different from nvue in file")
         nr, nc = objs0.shape
         # add the information of pixelsize and energy to params
         paramsload = dict()
         paramsload.update(self.params)
         paramsload["pixelsize"] = pxsize
         paramsload["energy"] = energy
-        print(
-            "the pixelsize of the first projection is {:.2f} nm".format(
-                pxsize * 1e9
-            )
-        )
+        print("the pixelsize of the first projection is {:.2f} nm".format(pxsize * 1e9))
 
         # initialize the array for the stack objects
         stack_objs = np.empty((num_projections, nr, nc), dtype=np.float32)
-        stack_angles = np.arange(0,180,180/nvue, dtype=np.float32)
+        stack_angles = np.arange(0, 180, 180 / nvue, dtype=np.float32)
         if stack_angles.shape[0] != num_projections:
             raise ValueError(
                 "The number of projections is different from number of thetas"
@@ -775,7 +766,7 @@ class SaveData(PathName, Variables):
         if len(args) == 4:
             shiftstack = args[3]
         else:
-            shiftstack = np.zeros((2, nprojs),dtype=np.float32)
+            shiftstack = np.zeros((2, nprojs), dtype=np.float32)
 
         if len(args) == 5:
             masks = args[4]
@@ -1282,7 +1273,7 @@ class LoadData(PathName, Variables):
                 datakwargs[keys] = fid["info/{}".format(keys)][()]
             datakwargs.update(self.params)  # add/update with new values
             print("\b\b Done")
-            datakwargs['pixelsize'] = fid["pixelsize"][()]
+            datakwargs["pixelsize"] = fid["pixelsize"][()]
             dset0 = fid["aligned_projections_proj/projection_000"]
             nr, nc = dset0.shape
             key_list = list(fid["aligned_projections_proj"].keys())
@@ -1291,9 +1282,7 @@ class LoadData(PathName, Variables):
             print("Loading projections. This takes time, please wait...")
             for ii in range(nprojs):
                 strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
-                dset = fid[
-                    "aligned_projections_proj/{}".format(key_list[ii])
-                ]
+                dset = fid["aligned_projections_proj/{}".format(key_list[ii])]
                 stack_projs[ii] = dset[()]
                 progbar(ii + 1, nprojs, strbar)
             print("\r")
@@ -1412,7 +1401,7 @@ class SaveTomogram(SaveData):
         if len(args) == 4:
             shiftstack = args[3]
         else:
-            shiftstack = np.zeros((2, nprojs),dtype=np.float32)
+            shiftstack = np.zeros((2, nprojs), dtype=np.float32)
 
         # calculate the chunk size for writing the HDF5 files
         chunk_size = chunk_shape_3D(tomogram.shape)
@@ -1548,7 +1537,7 @@ class SaveTomogram(SaveData):
                 self.params["tomo_type"],
                 self.params["filtertype"],
                 self.params["freqcutoff"],
-                ii
+                ii,
             )
             pathfilename = os.path.join(tiff_path, filename)
             write_tiff(imgtiff, pathfilename)
@@ -1656,7 +1645,7 @@ class LoadTomogram(LoadData):
                 strbar = "Slice: {} out of {}".format(ii + 1, nslices)
                 tomogram[ii : ii + 1, :, :] = dset[ii, :, :]
                 progbar(ii + 1, nslices, strbar)
-            print('\r')
+            print("\r")
         print("Tomogram loaded from file {}".format(h5name))
         print("Time elapsed = {:.03f} s".format(time.time() - p0))
         return tomogram, theta, shiftstack, datakwargs

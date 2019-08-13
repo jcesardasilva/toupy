@@ -147,7 +147,7 @@ def full_tomo_recons(input_stack, theta, **params):
     a = input("Do you want to start the full reconstruction? ([y]/n): ").lower()
     if str(a) == "" or str(a) == "y":
         plt.close("all")
-        tomogram = np.zeros((nslices, nr, nc),dtype=np.float32)
+        tomogram = np.zeros((nslices, nr, nc), dtype=np.float32)
         for ii in range(nslices):  # num_projections):#sorted(frames):
             strbar = "Slice: {} out of {}".format(ii + 1, nslices)
             sinogram = np.transpose(input_stack[:, ii, :])

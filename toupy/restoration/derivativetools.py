@@ -46,7 +46,7 @@ def chooseregiontoderivatives(stack_array, **params):
     # horizontal ROI
     deltax = params["deltax"]
     roix = range(deltax, stack_array.shape[2] - deltax)  # update roix
-    roiy = range(*params["limsy"]) # tuple unpacking
+    roiy = range(*params["limsy"])  # tuple unpacking
 
     # Display the projections
     while True:
