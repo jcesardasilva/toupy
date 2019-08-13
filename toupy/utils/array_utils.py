@@ -8,7 +8,7 @@ from scipy.ndimage import filters
 
 __all__ = [
     "crop",
-    "cropROI"
+    "cropROI",
     "create_circle",
     "fract_hanning",
     "fract_hanning_pad",
