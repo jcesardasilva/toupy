@@ -25,10 +25,10 @@ params["pixtol"] = 0.1  # Tolerance of registration in pixels
 params["polyorder"] = 2  # Polynomial order to remove bias
 params["shiftmeth"] = "linear"
 params["alignx"] = False  # Align horizontally with center of mass
-params["maxit"] = 10  # max of iterations
+params["maxit"] = 20  # max of iterations
 params["deltax"] = 20  # From edge of region to edge of image in x
 params["limsy"] = (190, 800)
-params["autosave"] = False
+params["autosave"] = True
 params["load_previous_shiftstack"] = False  # True
 # =========================
 
