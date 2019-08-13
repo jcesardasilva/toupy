@@ -45,6 +45,7 @@ setuptools.setup(
         "matplotlib>=3.1.1",
         "libtiff>=0.4.2",
         "numpy>=1.16.4",
+        "numexpr>=2.6.9",
         "scipy>=1.3.0",
         "PyFFTW>=0.11.1",
         "roipoly>=0.5.0",
