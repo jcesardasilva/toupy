@@ -1,4 +1,5 @@
 numpy>=1.16.0
+numexpr>=2.6.9
 sphinx>=2.1.2
 pyopencl>=2019.1
 fabio>=0.9.0
