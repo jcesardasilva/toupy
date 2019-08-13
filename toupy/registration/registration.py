@@ -16,7 +16,7 @@ from scipy.ndimage.fourier import fourier_shift
 from .register_translation import register_translation
 from ..restoration import derivatives, derivatives_sino
 from .shift import ShiftFunc
-from ..tomo import projector, tomo_recons, create_circle
+from ..tomo import projector, tomo_recons
 from ..utils import (
     deprecated,
     fract_hanning_pad,
@@ -25,6 +25,7 @@ from ..utils import (
     RegisterPlot,
     replace_bad,
     display_slice,
+    create_circle
 )
 
 __all__ = [

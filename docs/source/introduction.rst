@@ -20,6 +20,8 @@ Quicklinks
 
 * The complete :ref:`documentation <contents>`.
 
+* The source code can be obtained via `Github repo of toupy <https://github.com/jcesardasilva/toupy>`_ .
+
 References
 ----------
 
