@@ -12,8 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # local package
-from toupy.restoration import rmphaseramp
-from toupy.restoration import rmvortices
+from toupy.io import read_recon
+from toupy.restoration import rmvortices_probe
+from toupy.utils import progbar
 
 # initializing dictionaries
 params = dict()
@@ -22,95 +23,79 @@ params = dict()
 # =========================
 params["filename"] = "/data/visitor/ma3495/id16a/analysis/recons/O2_LSCF_CGO_25nm_subtomo001_0000/O2_LSCF_CGO_25nm_subtomo001_0000_ML.ptyr"
 params["overwrite_h5"] = True  # True or False
+params["to_ignore"] = 100
+params["show_figures"] = True
 # =========================
 
 # =============================================================================#
 # Don't edit below this line, please                                          #
 # =============================================================================#
 if __name__ == "__main__":
-    # only to keep a copy of the file and prevent overwritting
-    if not os.path.isfile(params["filename"] + ".vort"):
-        shutil.copy(params["filename"], params["filename"] + ".vort")
-    
+
     # Open the file and extract the image data
-    with h5py.File(params["filename"], "r") as fid:
-        probe = fid["content/probe/S00G00/data"][()]
-    
+    # The orientation is not changed because the image is fed back into file
+    objimg, probe, pixelsize, energy = read_recon(
+        params["filename"], correct_orientation=False
+    )
+
+    n_probes = probe.shape[0]
+    print("I found {} probe modes.".format(n_probes))
     # get the phase of the modes
-    p1_phase = np.angle(probe[0])
-    p2_phase = np.angle(probe[1])
-    p3_phase = np.angle(probe[2])
-    
+    probe_phase = np.angle(probe)  # don't know how many in advance
+
     # Removing vortices
-    print("Removing vortices of probe mode 1")
-    p1_phase_novort, p1_xres, p1_yres = rmvortices(probe[0], to_ignore=100)
-    print("Removing vortices of probe mode 2")
-    p2_phase_novort, p2_xres, p2_yres = rmvortices(probe[1], to_ignore=100)
-    print("Removing vortices of probe mode 2")
-    p3_phase_novort, p3_xres, p3_yres = rmvortices(probe[2], to_ignore=100)
-    
-    # remove phase ramp again
-    p1_phase_novort2, ramp_obj = rmphaseramp(p1_phase_novort, return_phaseramp=True)
-    p2_phase_novort2, ramp_obj = rmphaseramp(p2_phase_novort, return_phaseramp=True)
-    p3_phase_novort2, ramp_obj = rmphaseramp(p3_phase_novort, return_phaseramp=True)
-    
+    p_phase_novort = np.empty_like(probe)
+    p_xres = []
+    p_yres = []
+    for ii in range(n_probes):
+        strbar = "Removing vortices of probe mode {}".format(ii + 1)
+        p_phase_novort, xres, yres = rmvortices_probe(
+            probe[ii], to_ignore=params["to_ignore"]
+        )
+        p_xres.append(xres)
+        p_yres.append(yres)
+        progbar(ii, n_probes, strbar)
+    p_xres = np.array(p_xres)
+    p_yres = np.array(p_yres)
+
     # feed the new array
     probe_novort = np.empty_like(probe)
-    probe_novort[0] = p1_phase_novort2
-    probe_novort[1] = p2_phase_novort2
-    probe_novort[2] = p3_phase_novort2
-    
-    # display the probes with the residues
-    plt.close("all")
-    fig1 = plt.figure(1)
-    ax1 = fig1.add_subplot(131)
-    # plt.imshow(residues,cmap='jet')
-    ax1.imshow(p1_phase, cmap="bone")
-    ax1.axis("image")
-    ax1.set_title("probe 1")
-    ax1.plot(p1_xres, p1_yres, "or")
-    # plt.show(block=False)
-    
-    # fig2 = plt.figure(1)
-    ax2 = fig1.add_subplot(132)
-    # plt.imshow(residues,cmap='jet')
-    ax2.imshow(p2_phase, cmap="bone")
-    ax2.axis("image")
-    ax2.set_title("probe 2")
-    ax2.plot(p2_xres, p2_yres, "or")
-    # plt.show(block=False)
-    
-    # fig3 = plt.figure(1)
-    ax3 = fig1.add_subplot(133)
-    # plt.imshow(residues,cmap='jet')
-    ax3.imshow(p3_phase, cmap="bone")
-    ax3.axis("image")
-    ax3.set_title("probe 3")
-    ax3.plot(p3_xres, p3_yres, "or")
-    plt.show(block=False)
-    # a =raw_input()
-    
-    # display the probes after vortices removal
-    fig2 = plt.figure(2)
-    ax4 = fig2.add_subplot(131)
-    ax4.imshow(np.angle(p1_phase_novort2), cmap="bone")
-    ax4.axis("image")
-    ax4.set_title("probe 1 with no vortices")
-    
-    ax5 = fig2.add_subplot(132)
-    ax5.imshow(np.angle(p2_phase_novort2), cmap="bone")
-    ax5.axis("image")
-    ax5.set_title("probe 2 with no vortices")
-    
-    ax6 = fig2.add_subplot(133)
-    ax6.imshow(np.angle(p3_phase_novort2), cmap="bone")
-    ax6.axis("image")
-    ax6.set_title("probe 3 with no vortices")
-    plt.show(block=False)
-    
+    for ii in range(n_probes):
+        probe_novort[ii] = p_phase_novort[ii]
+
+    # display the probes with the residues and without vortices
+    if params["show_figures"]:
+        plt.close("all")
+        if n_probes == 1:
+            fig = plt.figure(1)
+            ax1 = fig.add_subplot(121)
+            ax1.imshow(probe_phase[0], cmap="bone")
+            ax1.axis("image")
+            ax1.set_title("pr. {} - with vortices".format(1))
+            ax1.plot(p_xres, p_yres, "or")
+            # display the probes after vortices removal
+            ax2 = fig.add_subplot(122)
+            ax2.imshow(np.angle(probe_novort)[0], cmap="bone")
+            ax2.axis("image")
+            ax2.set_title("pr. {} - no vortices".format(1))
+        else:
+            fig, ax = plt.subplots(2, n_probes, num=1)
+            for ii in range(n_probes):
+                # display the probes with the residues
+                ax[0, ii].imshow(probe_phase[ii], cmap="bone")
+                ax[0, ii].axis("image")
+                ax[0, ii].set_title("pr. {}".format(ii + 1))
+                ax[0, ii].plot(p_xres[ii], p_yres[ii], "or")
+                # display the probes after vortices removal
+                ax[1, ii].imshow(np.angle(probe_novort[ii]), cmap="bone")
+                ax[1, ii].axis("image")
+                ax[1, ii].set_title("pr. {} - no vortice".format(ii + 1))
+
     if params["overwrite_h5"]:
+        # only to keep a copy of the file and prevent overwritting
+        if not os.path.isfile(params["filename"] + ".vort"):
+            shutil.copy(params["filename"], params["filename"] + ".vort")
         print("Overwritting object information in the h5 file")
         with h5py.File(params["filename"], "r+") as fid:
-            probe_new = fid["content/probe/S00G00/data"]
-            probe_new[...] = probe_novort
-    
+            obj_new = fid["content/probe/S00G00/data"]
+            obj_new[...] = probe_novort
