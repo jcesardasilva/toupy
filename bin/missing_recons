@@ -1,15 +1,28 @@
-import numpy as np
-import glob,re
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-num_proj = 1000
-num_subtomos = 4
+# standard packages imports
+import glob
+import re
+import sys
+
+# third party packages
+import numpy as np
+
+if len(sys.argv) != 4:
+    raise ValueError('Usage: missing recons <files_wcard> <num_projections> <num_subtomos>')
+    
+# read the arguments
+wcard = str(sys.argv[1])
+num_proj = eval(sys.argv[2])
+num_subtomos = eval(sys.argv[3])
 
 num_proj_subtomo = int(num_proj/num_subtomos)
 
 #filename = 'recons/bone2_hoptyfluo_nfptomo_subtomo001_0000/bone2_hoptyfluo_nfptomo_subtomo001_0000_ML.ptyr'
 #wcard = 'recons/bone2_hoptyfluo_nfptomo_subtomo001_*/bone2_hoptyfluo_nfptomo_subtomo001_*_ML.ptyr'
 #wcard = 'recons/catalyst_prist_60nm_8px_nfptomo_subtomo{:03.0f}_*/*_ML.ptyr'
-wcard = '../analysis_pynx3/H2int_15000h_inlet_25nm_nfptomo_subtomo{:03.0f}_*.cxi'
+#wcard = '../analysis_pynx3/H2int_15000h_inlet_25nm_nfptomo_subtomo{:03.0f}_*.cxi'
 
 mylist_scans = np.arange(num_proj_subtomo)
 mylist_recons = []
@@ -18,7 +31,6 @@ missing_recons = []
 for ii in range(num_subtomos):
     print('\nMissing projection in subtomo{:03.0f}'.format(ii+1))
     wcard_filelist = wcard.format(ii+1)
-    #print(wcard)
     filelist = sorted(glob.glob(wcard_filelist))
     mylist_recons = []
     for ii in filelist:

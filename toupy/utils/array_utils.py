@@ -9,10 +9,11 @@ from scipy.ndimage import filters
 __all__ = [
     "crop",
     "cropROI",
+    "create_circle",
     "fract_hanning",
     "fract_hanning_pad",
     "mask_borders",
-    "mask_borders",
+    "create_mask_borders",
     "normalize_array",
     "padarray_bothsides",
     "polynomial1d",
@@ -24,6 +25,32 @@ __all__ = [
     "smooth_image",
     "sort_array",
 ]
+
+def create_circle(inputimg):
+    """
+    Create circle with apodized edges
+
+    Parameters
+    ----------
+    inputimg : array_like
+        Input image from which to calculate the circle
+
+    Return
+    ------
+    t : array_like
+        Array containing the circle
+    """
+    bordercrop = 10
+    nr, nc = inputimg.shape
+    Y, X = np.indices((nr, nc))
+    Y -= np.round(nr / 2).astype(int)
+    X -= np.round(nc / 2).astype(int)
+    R = np.sqrt(X ** 2 + Y ** 2)
+    Rmax = np.round(np.max(R.shape) / 2.0)
+    maskout = R < Rmax
+    t = maskout * (1 - np.cos(np.pi * (R - Rmax - 2 * bordercrop) / bordercrop)) / 2.0
+    t[np.where(R < (Rmax - bordercrop))] = 1
+    return t
 
 
 def normalize_array(input_array):
@@ -420,6 +447,32 @@ def mask_borders(imgarray, mask_array, threshold=4e-7):
     gr, gc = np.gradient(imgarray)
     mask_border = np.sqrt(gr ** 2 + gc ** 2) > threshold
     mask_array *= ~mask_border
+    return mask_array
+
+def create_mask_borders(tomogram, mask_array, threshold=4e-7):
+    """
+    Create mask for border of tomographic volume
+
+    Parameters
+    ----------
+    tomogram : array_like
+        Input volume
+    mask : bool array_like
+        Input mask 
+    threshold : float, optional
+        Threshold value. The default value is ``4e-7``.
+
+    Returns
+    -------
+    mask_array : array_like
+        Masked array
+    """
+    nslices, nr, nc = tomogram.shape
+    # mask borders
+    for ii in range(slices):
+        print("Mask {}".format(ii + 1))
+        mask_array[ii] = mask_borders(tomogram[ii], mask_array, threshold)
+    print("Done")
     return mask_array
 
 
