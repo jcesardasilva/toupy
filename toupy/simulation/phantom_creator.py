@@ -29,18 +29,16 @@ __all__ = ["phantom"]
 
 def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
     """
-    phantom(N, phantom_type, ellipses)
-    Create a Shepp-Logan [#shepp-logan]_ or modified Shepp-Logan phantom [#toft]_
-
-    A phantom is a known object (either real or purely mathematical)
-    that is used for testing image reconstruction algorithms. The
-    Shepp-Logan phantom  is a popular mathematical model of a cranial 
-    slice, made up of a set of ellipses. This allows rigorous testing 
-    of computed tomography (CT) algorithms as it can be analytically
-    transformed with the radon transform.
+    Create a Shepp-Logan [#shepp-logan]_ or modified Shepp-Logan 
+    phantom [#toft]_ . A phantom is a known object (either real or 
+    purely mathematical) that is used for testing image reconstruction 
+    algorithms. The Shepp-Logan phantom  is a popular mathematical model
+    of a cranial slice, made up of a set of ellipses. This allows 
+    rigorous testing of computed tomography (CT) algorithms as it can be
+    analytically transformed with the radon transform.
 
     Parameters
-    ------
+    ----------
     N : int
         The edge length of the square image to be produced
 
@@ -50,23 +48,26 @@ def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
         This is overriden if ``ellipses`` is also specified.
 
     ellipses : array like
-        Custom set of ellipses to use. These should be in the
-        form 
-        ``[[I, a, b, x0, y0, phi],
-         [I, a, b, x0, y0, phi],
-         ...]``
-        where each row defines an ellipse and:
-        * ``I`` : Additive intensity of the ellipse.
-        * ``a`` : Length of the major axis.
-        * ``b``: Length of the minor axis.
-        * ``x0`` : Horizontal offset of the centre of the ellipse.
-        * ``y0`` : Vertical offset of the centre of the ellipse. 
-        * ``phi`` : Counterclockwise rotation of the ellipse in degrees,
-            measured as the angle between the horizontal axis and the
-            ellipse major axis.
-        The image bouding box in the algorithm is [-1, -1],[1, 1], so
-        the values of a, b, x0 and y0 should all be specified with respect
-        to this box.
+        Custom set of ellipses to use. 
+        
+    Note
+    ----
+    To use ellipses, these should be in the
+    form ``[[I, a, b, x0, y0, phi], [I, a, b, x0, y0, phi], ...]``
+    where each row defines an ellipse and:
+
+    * ``I`` : Additive intensity of the ellipse.
+    * ``a`` : Length of the major axis.
+    * ``b`` : Length of the minor axis.
+    * ``x0`` : Horizontal offset of the centre of the ellipse.
+    * ``y0`` : Vertical offset of the centre of the ellipse. 
+    * ``phi`` : Counterclockwise rotation of the ellipse in degrees,
+      measured as the angle between the horizontal axis and the
+      ellipse major axis.
+
+    The image bouding box in the algorithm is ``[-1, -1], [1, 1]``, so
+    the values of ``a``, ``b``, ``x0`` and ``y0`` should all be specified
+    with respect to this box.
 
     Returns
     -------

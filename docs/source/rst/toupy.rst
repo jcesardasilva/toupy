@@ -15,5 +15,6 @@ Subpackages
    toupy.registration
    toupy.resolution
    toupy.restoration
+   toupy.simulation
    toupy.tomo
    toupy.utils

@@ -34,6 +34,7 @@ Toupy documentation
    rst/toupy.registration
    rst/toupy.resolution
    rst/toupy.restoration
+   rst/toupy.simulation
    rst/toupy.tomo
    rst/toupy.utils
 
