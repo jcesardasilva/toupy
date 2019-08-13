@@ -1373,6 +1373,12 @@ def estimate_rot_axis(input_array, theta, **params):
     """
     Initial estimate of the rotation axis
     """
+
+    try:
+        params["sinocmap"]
+    except KeyError:
+        params["sinocmap"] = params["colormap"]
+    
     # Ensuring that theta starts at zero
     theta -= theta.min()
 
