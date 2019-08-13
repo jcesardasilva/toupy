@@ -248,6 +248,8 @@ def mod_iradon(
 
 
 B = None
+
+
 def mod_iradonSilx(
     radon_image,
     theta=None,
@@ -323,10 +325,10 @@ def mod_iradonSilx(
         derivatives=derivatives,
         freqcutoff=freqcutoff,
     )
-    #~ if B is None: # creates the object
-    #~ print('Initializing backprojector object...')
+    # ~ if B is None: # creates the object
+    # ~ print('Initializing backprojector object...')
     silx_version = float(version[2:])
-    
+
     if silx_version < 10.0:
         B = Backprojection(radon_image.T.shape, angles=np.pi * (theta) / 180.0)
         # ~ print("Initialized OpenCL backprojector on {}".format(B.device))
@@ -340,7 +342,7 @@ def mod_iradonSilx(
         )
         # from version 0.10.0, silx filtering uses R2C Fourier transforms
         cust_filter2 = cust_filter.ravel()[: B.sino_filter.dwidth_padded // 2 + 1]
-        cust_filter2 = np.ascontiguousarray(cust_filter2 / 2.0)#, dtype=np.complex64)
+        cust_filter2 = np.ascontiguousarray(cust_filter2 / 2.0)  # , dtype=np.complex64)
         B.sino_filter.set_filter(cust_filter2)
 
     if not use_numpy:

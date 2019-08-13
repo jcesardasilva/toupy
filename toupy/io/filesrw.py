@@ -46,6 +46,7 @@ __all__ = [
     "write_tiffmetadata",
 ]
 
+
 def read_recon(filename):
     """
     Wrapper for choosing the function to read recon file
@@ -55,7 +56,7 @@ def read_recon(filename):
         read_reconfile = read_ptyr
     elif fileext == ".cxi":  # PyNX
         read_reconfile = read_cxi
-    elif fileext == ".edf": # edf projections
+    elif fileext == ".edf":  # edf projections
         read_reconfile = read_edf
     else:
         raise IOError(
@@ -64,6 +65,7 @@ def read_recon(filename):
             )
         )
     return read_reconfile(filename)
+
 
 def read_volfile(filename):
     """
@@ -89,11 +91,10 @@ def read_volfile(filename):
     y_size = int(linesff[2].split("=")[1])
     z_size = int(linesff[3].split("=")[1])
     # Now we read indeed the .vol file
-    tomogram = np.fromfile(filename, dtype=np.float32).reshape(
-        (z_size, x_size, y_size)
-    )
+    tomogram = np.fromfile(filename, dtype=np.float32).reshape((z_size, x_size, y_size))
 
     return tomogram
+
 
 def read_tiff_info(tiff_info_file):
     """
@@ -150,6 +151,8 @@ def _reorient_ptyrimg(input_array):
 
 
 metaptyr = dict()
+
+
 def _print_attrs_ptyr(name):
     """
     Auxiliary function to indentify from where the data must be read in
@@ -233,6 +236,8 @@ def _h5py_dataset_iterator(g, prefix=""):
 
 
 metacxi = dict()
+
+
 def _h5pathcxi(filename):
     """
     h5py visititems does not find links
@@ -261,8 +266,8 @@ def _h5pathcxi(filename):
         if "object/y_pixel_size" in ii and ii.endswith("y_pixel_size")
     ][-1]
     metacxi["energy_h5path"] = [
-        ii
-        for ii in sorted(listpath) if "incident_energy" in ii][-1]
+        ii for ii in sorted(listpath) if "incident_energy" in ii
+    ][-1]
 
 
 def read_cxi(pathfilename):
@@ -288,7 +293,7 @@ def read_cxi(pathfilename):
         print("meta is empty")
         _h5pathcxi(pathfilename)
 
-    factorJ2eV=1.602177e-16
+    factorJ2eV = 1.602177e-16
 
     with h5py.File(pathfilename, "r") as fid:
         # get the data from the object
@@ -298,7 +303,7 @@ def read_cxi(pathfilename):
         # get the pixel size
         pixelsizex = fid[metacxi["xpsize_h5path"]][()]
         pixelsizey = fid[metacxi["ypsize_h5path"]][()]
-        energy = round(fid[metacxi["energy_h5path"]][()]/factorJ2eV,2)
+        energy = round(fid[metacxi["energy_h5path"]][()] / factorJ2eV, 2)
     pixelsize = np.array([pixelsizex, pixelsizey]).astype(np.float32)
 
     # reorienting the object
@@ -495,7 +500,8 @@ def read_tiff(imgpath):
     tiff.close()
     return imgout
 
-def write_tiff(input_array,pathfilename):
+
+def write_tiff(input_array, pathfilename):
     """
     Write tiff files using libtiff
 
@@ -507,9 +513,10 @@ def write_tiff(input_array,pathfilename):
         Path and filename to save the file
     """
     # Writing to file
-    tiff = libtiff.TIFF.open(pathfilename,"w")
+    tiff = libtiff.TIFF.open(pathfilename, "w")
     tiff.write_image(input_array)
     tiff.close()
+
 
 def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
     """
@@ -537,7 +544,7 @@ def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
         The tiff type. Options: `8` for 8 bits or `16` for 16 bits.
     """
     try:
-        voxelsize = params["voxelsize"] * 1e9 # in nm
+        voxelsize = params["voxelsize"] * 1e9  # in nm
     except KeyError:
         voxelsize = params["pixelsize"] * 1e9
     filtertype = params["filtertype"]
@@ -545,7 +552,7 @@ def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
     nbits = params["bits"]
 
     # writing
-    fid = open(filename,"w")
+    fid = open(filename, "w")
     fid.write("# Tomo filter = {}\n".format(filtertype))
     fid.write("# Tomo filter cutoff = {}\n".format(freqcutoff))
     fid.write("# low_cutoff = {}\n".format(low_cutoff))
@@ -580,10 +587,11 @@ def convertimageto16bits(input_image, low_cutoff, high_cutoff):
         Array containing the image at 16 bits.
     """
     # Tiff normalization - 16 bits
-    imgtiff = input_image-low_cutoff
+    imgtiff = input_image - low_cutoff
     imgtiff /= high_cutoff - low_cutoff
     imgtiff *= 2 ** 16 - 1  # 16 bits
     return np.uint16(imgtiff)
+
 
 def convertimageto8bits(input_image, low_cutoff, high_cutoff):
     """
@@ -635,6 +643,7 @@ def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
     tiffimage += low_cutoff
 
     return tiffimage
+
 
 def convert8bitstiff(filename, low_cutoff, high_cutoff):
     """

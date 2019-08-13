@@ -129,7 +129,7 @@ def progbar(curr, total, textstr=""):
     """
     termwidth, termheight = shutil.get_terminal_size()
     full_progbar = int(math.ceil(termwidth / 2))
-    #~ full_progbar = termwidth - len(textstr) - 2 # some margin
+    # ~ full_progbar = termwidth - len(textstr) - 2 # some margin
     frac = curr / total
     filled_progbar = round(frac * full_progbar)
     textbar = "#" * filled_progbar + "-" * (full_progbar - filled_progbar)

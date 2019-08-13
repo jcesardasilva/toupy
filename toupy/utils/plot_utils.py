@@ -27,6 +27,7 @@ def interativesession(func):
     """
     Decorator to activate matplotlib interactive
     """
+
     @functools.wraps(func)
     def new_func(*args, **kwargs):
         flagmpl = matplotlib.is_interactive()

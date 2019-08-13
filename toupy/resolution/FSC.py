@@ -21,6 +21,7 @@ from ..utils.funcutils import checkhostname
 
 __all__ = ["FourierShellCorr", "FSCPlot"]
 
+
 class FourierShellCorr:
     """
     Computes the Fourier Shell Correlation [1]_ between image1 and image2,
@@ -66,6 +67,7 @@ class FourierShellCorr:
       Journal of Structural Biology 151, 250-262 (2005)
 
     """
+
     @checkhostname
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
         print("Calling the class FourierShellCorr")
@@ -376,6 +378,7 @@ class FourierShellCorr:
 
         return FSC, T
 
+
 class FSCPlot(FourierShellCorr):
     """
     Upper level object to plot the FSC and threshold curves
@@ -413,7 +416,7 @@ class FSCPlot(FourierShellCorr):
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
         print("calling the class FSCplot")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
-        
+
         self.FSC, self.T = FourierShellCorr.fouriercorr(self)
         self.f, self.fnyquist = FourierShellCorr.nyquist(self)
 
