@@ -65,7 +65,6 @@ napoleon_use_admonition_for_references = False
 napoleon_use_ivar = False
 napoleon_use_param = True
 napoleon_use_rtype = True
-autodoc_mock_imports = ["pyopencl", "libtiff"]
 #numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
@@ -141,7 +140,7 @@ html_show_sourcelink = True
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = [] #['_static']
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -263,6 +262,7 @@ if on_rtd:
 else:
     html_theme = 'sphinx_rtd_theme'
 if on_rtd:
+    autodoc_mock_imports = ["pyopencl", "libtiff"]
     def run_apidoc(_):
         ignore_paths = [
             "../../setup.py"

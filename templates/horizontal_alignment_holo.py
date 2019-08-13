@@ -32,6 +32,7 @@ from toupy.registration import (
     oneslicefordisplay,
     refine_horizontalalignment,
     tomoconsistency_multiple,
+    estimate_rot_axis,
 )
 
 # initializing dictionaries
@@ -73,6 +74,9 @@ if __name__ == "__main__":
 
     # to start at zero
     theta -= theta.min()
+
+    # first estimate of the rotation axis
+    estimate_rot_axis(aligned_diff, theta, **params)
 
     # if you want to sort theta, uncomment line below:
     # aligned_diff, theta = sort_array(aligned_diff, theta)
