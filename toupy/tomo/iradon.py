@@ -8,6 +8,9 @@ from scipy.interpolate import interp1d
 from silx.opencl.backprojection import Backprojection
 from silx import version
 
+# local package
+from toupy.utils import create_circle
+
 __all__ = [
     "create_circle",
     "mod_iradon",
@@ -16,33 +19,6 @@ __all__ = [
     "backprojector",
     "reconsSART",
 ]
-
-
-def create_circle(inputimg):
-    """
-    Create circle with apodized edges
-
-    Parameters
-    ----------
-    inputimg : array_like
-        Input image from which to calculate the circle
-
-    Return
-    ------
-    t : array_like
-        Array containing the circle
-    """
-    bordercrop = 10
-    nr, nc = inputimg.shape
-    Y, X = np.indices((nr, nc))
-    Y -= np.round(nr / 2).astype(int)
-    X -= np.round(nc / 2).astype(int)
-    R = np.sqrt(X ** 2 + Y ** 2)
-    Rmax = np.round(np.max(R.shape) / 2.0)
-    maskout = R < Rmax
-    t = maskout * (1 - np.cos(np.pi * (R - Rmax - 2 * bordercrop) / bordercrop)) / 2.0
-    t[np.where(R < (Rmax - bordercrop))] = 1
-    return t
 
 
 def compute_filter(nbins, filter_type="ram-lak", derivatives=True, freqcutoff=1):
