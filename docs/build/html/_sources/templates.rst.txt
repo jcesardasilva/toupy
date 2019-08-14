@@ -31,12 +31,12 @@ All the files, except Tiff conversion, are saved in HDF5 format.
 For the analysis, it is important to have the latest version of Python
 packages. For people working with data from ID16A and with access to
 beamline computing resources, this can be obtained by using the ID16A
-Python environment, which is activated by typing 'pyvenv_on` on the Linux prompt.
+Python environment, which is activated by typing `py3venv_on` on the Linux prompt.
 
 The python scripts can be run from shell, from ipython or from Jupyter
 notebook. This dependes on the user`s preference. For illustration
 purposes only, the description below supposes you will launch the scripts
-from shell. 
+from shell.
 
 Loading of the projections
 --------------------------
@@ -132,5 +132,3 @@ Edit `tiff_conversion.py`  with proper parameters and run
   python tiff_conversion.py
 
 The instructions of what to do appear on the screen.
-
-

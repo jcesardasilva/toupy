@@ -63,7 +63,7 @@
             
             
               <div class="version">
-                0.1.0
+                0.1
               </div>
             
           
@@ -190,9 +190,15 @@
 <dl class="function">
 <dt id="toupy.utils.plot_utils.autoscale_y">
 <code class="sig-prename descclassname">toupy.utils.plot_utils.</code><code class="sig-name descname">autoscale_y</code><span class="sig-paren">(</span><em class="sig-param">ax</em>, <em class="sig-param">margin=0.1</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/plot_utils.html#autoscale_y"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.plot_utils.autoscale_y" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function rescales the y-axis based on the data that is visible given the current xlim of the axis.
-ax : a matplotlib axes object
-margin : the fraction of the total height of the y-data to pad the upper and lower ylims</p>
+<dd><p>This function rescales the y-axis based on the data that is visible given the current xlim of the axis.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><em>object</em></a>) – A matplotlib axes object</p></li>
+<li><p><strong>margin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – The fraction of the total height of the y-data to pad the upper and lower ylims</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="class">
@@ -262,6 +268,11 @@ margin : the fraction of the total height of the y-data to pad the upper and low
 <code class="sig-prename descclassname">toupy.utils.plot_utils.</code><code class="sig-name descname">plot_checkangles</code><span class="sig-paren">(</span><em class="sig-param">angles</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/plot_utils.html#plot_checkangles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.plot_utils.plot_checkangles" title="Permalink to this definition">¶</a></dt>
 <dd><p>Plot the angles for each projections and the derivatives to check
 for anomalies</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>angles</strong> (<em>array_like</em>) – Array of angles</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="function">
@@ -274,6 +285,22 @@ for anomalies</p>
 <dt id="toupy.utils.plot_utils.iterative_show">
 <code class="sig-prename descclassname">toupy.utils.plot_utils.</code><code class="sig-name descname">iterative_show</code><span class="sig-paren">(</span><em class="sig-param">stack_array</em>, <em class="sig-param">limrow=[]</em>, <em class="sig-param">limcol=[]</em>, <em class="sig-param">airpixel=[]</em>, <em class="sig-param">onlyroi=False</em>, <em class="sig-param">colormap='bone'</em>, <em class="sig-param">vmin=None</em>, <em class="sig-param">vmax=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/plot_utils.html#iterative_show"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.plot_utils.iterative_show" title="Permalink to this definition">¶</a></dt>
 <dd><p>Iterative plot of the images</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stack_array</strong> (<em>ndarray</em>) – Array containing the stack of images to animate. The first index
+corresponds to the image number in the sequence of images.</p></li>
+<li><p><strong>limrow</strong> (<em>list of ints</em>) – Limits of rows in the format [begining, end]</p></li>
+<li><p><strong>limcol</strong> (<em>list of ints</em>) – Limits of cols in the format [begining, end]</p></li>
+<li><p><strong>airpixel</strong> (<em>list of ints</em>) – Position of pixel in the air/vacuum</p></li>
+<li><p><strong>onlyroi</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – If True, it displays only the ROI. If False, it displays the entire
+image.</p></li>
+<li><p><strong>colormap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>, </em><em>optional</em>) – Colormap name. The default value is <code class="docutils literal notranslate"><span class="pre">bone</span></code></p></li>
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.7)"><em>None</em></a><em>, </em><em>optional</em>) – Minimum gray-level. The default value is <code class="docutils literal notranslate"><span class="pre">None</span></code></p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.7)"><em>None</em></a><em>, </em><em>optional</em>) – Maximum gray-level. The default value is <code class="docutils literal notranslate"><span class="pre">None</span></code></p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="function">
@@ -296,6 +323,16 @@ corresponds to the image number in the sequence of images.</p></li>
 <dt id="toupy.utils.plot_utils.display_slice">
 <code class="sig-prename descclassname">toupy.utils.plot_utils.</code><code class="sig-name descname">display_slice</code><span class="sig-paren">(</span><em class="sig-param">recons</em>, <em class="sig-param">colormap='bone'</em>, <em class="sig-param">vmin=None</em>, <em class="sig-param">vmax=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/plot_utils.html#display_slice"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.plot_utils.display_slice" title="Permalink to this definition">¶</a></dt>
 <dd><p>Display tomographic slice</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>recons</strong> (<em>array_like</em>) – Tomographic slice</p></li>
+<li><p><strong>colormap</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>, </em><em>optional</em>) – Colormap name. The default value is <code class="docutils literal notranslate"><span class="pre">bone</span></code></p></li>
+<li><p><strong>vmin</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.7)"><em>None</em></a>) – Minimum gray-level. The default value is <code class="docutils literal notranslate"><span class="pre">None</span></code></p></li>
+<li><p><strong>vmax</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.7)"><em>None</em></a>) – Maximum gray-level. The default value is <code class="docutils literal notranslate"><span class="pre">None</span></code></p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 </div>

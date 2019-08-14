@@ -11,6 +11,5 @@ Submodules
 
 .. toctree::
 
-   toupy.registration.register_translation
    toupy.registration.registration
    toupy.registration.shift

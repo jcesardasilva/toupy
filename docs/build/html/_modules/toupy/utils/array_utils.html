@@ -62,7 +62,7 @@
             
             
               <div class="version">
-                0.1.0
+                0.1
               </div>
             
           
@@ -184,6 +184,8 @@
     <span class="s2">&quot;create_circle&quot;</span><span class="p">,</span>
     <span class="s2">&quot;fract_hanning&quot;</span><span class="p">,</span>
     <span class="s2">&quot;fract_hanning_pad&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;hanning_apodization&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;hanning_apod1D&quot;</span><span class="p">,</span>
     <span class="s2">&quot;mask_borders&quot;</span><span class="p">,</span>
     <span class="s2">&quot;create_mask_borders&quot;</span><span class="p">,</span>
     <span class="s2">&quot;normalize_array&quot;</span><span class="p">,</span>
@@ -595,6 +597,64 @@
         <span class="n">fract_hanning</span><span class="p">(</span><span class="n">filterdim</span><span class="p">,</span> <span class="n">unmodsize</span><span class="p">)</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">out</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="hanning_apod1D"><a class="viewcode-back" href="../../../rst/toupy.utils.array_utils.html#toupy.tomo.iradon.hanning_apod1D">[docs]</a><span class="k">def</span> <span class="nf">hanning_apod1D</span><span class="p">(</span><span class="n">window_size</span><span class="p">,</span> <span class="n">apod_width</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create 1D apodization window using Hanning window</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    window_size : int</span>
+<span class="sd">        Window size</span>
+<span class="sd">    apod_width : int</span>
+<span class="sd">        Apodization width</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    hannwindow1D : array_like</span>
+<span class="sd">        1D Hanning window for the apodization</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nr</span> <span class="o">=</span> <span class="n">window_size</span>
+    <span class="n">Nr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nr</span><span class="p">))</span>
+    <span class="n">window1D</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="mf">1.0</span>
+        <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span>
+            <span class="mi">2</span>
+            <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">Nr</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">((</span><span class="n">nr</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">apod_width</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">apod_width</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+    
+    <span class="n">window1D</span><span class="p">[</span><span class="n">apod_width</span> <span class="p">:</span> <span class="o">-</span><span class="n">apod_width</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    
+    <span class="k">return</span> <span class="n">window1D</span></div>
+
+<div class="viewcode-block" id="hanning_apodization"><a class="viewcode-back" href="../../../rst/toupy.utils.array_utils.html#toupy.tomo.iradon.hanning_apodization">[docs]</a><span class="k">def</span> <span class="nf">hanning_apodization</span><span class="p">(</span><span class="n">window_size</span><span class="p">,</span> <span class="n">apod_width</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create apodization window using Hanning window</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    window_size : tuple</span>
+<span class="sd">        Window size</span>
+<span class="sd">    apod_width : int</span>
+<span class="sd">        Apodization width</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    hannwindow2D : array_like</span>
+<span class="sd">        2D Hanning window for the apodization</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nr</span><span class="p">,</span> <span class="n">nc</span> <span class="o">=</span> <span class="n">window_size</span>
+    
+    <span class="n">window1D1</span> <span class="o">=</span> <span class="n">hanning_apod1D</span><span class="p">(</span><span class="n">nr</span><span class="p">,</span> <span class="n">apod_width</span><span class="p">)</span>
+    <span class="n">window1D2</span> <span class="o">=</span> <span class="n">hanning_apod1D</span><span class="p">(</span><span class="n">nc</span><span class="p">,</span> <span class="n">apod_width</span><span class="p">)</span>
+    
+    <span class="c1"># 2D hanning window</span>
+    <span class="n">hannwindow2D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">window1D1</span><span class="p">,</span> <span class="n">window1D2</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">hannwindow2D</span></div>
 
 
 <div class="viewcode-block" id="mask_borders"><a class="viewcode-back" href="../../../rst/toupy.utils.array_utils.html#toupy.tomo.iradon.mask_borders">[docs]</a><span class="k">def</span> <span class="nf">mask_borders</span><span class="p">(</span><span class="n">imgarray</span><span class="p">,</span> <span class="n">mask_array</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">4e-7</span><span class="p">):</span>
