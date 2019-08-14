@@ -1,0 +1,413 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.restoration.unwraptools module &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="toupy.restoration.vorticestools module" href="toupy.restoration.vorticestools.html" />
+    <link rel="prev" title="toupy.restoration.roipoly module" href="toupy.restoration.roipoly.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="../_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Templates</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../templates.html">Templates</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="toupy.restoration.html">toupy.restoration package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="toupy.restoration.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="toupy.restoration.GUI_tracker.html">toupy.restoration.GUI_tracker module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.restoration.derivativetools.html">toupy.restoration.derivativetools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.restoration.ramptools.html">toupy.restoration.ramptools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.restoration.roipoly.html">toupy.restoration.roipoly module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">toupy.restoration.unwraptools module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.restoration.vorticestools.html">toupy.restoration.vorticestools module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.simulation.html">toupy.simulation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.utils.html">toupy.utils package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="toupy.restoration.html">toupy.restoration package</a> &raquo;</li>
+        
+      <li>toupy.restoration.unwraptools module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/rst/toupy.restoration.unwraptools.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-toupy.restoration.unwraptools">
+<span id="toupy-restoration-unwraptools-module"></span><h1>toupy.restoration.unwraptools module<a class="headerlink" href="#module-toupy.restoration.unwraptools" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.wraptopi">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">wraptopi</code><span class="sig-paren">(</span><em class="sig-param">phase</em>, <em class="sig-param">endpoint=True</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/restoration/unwraptools.html#wraptopi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.wraptopi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrap a scalar value or an entire array to:
+[-pi, pi) if endpoint=False
+(-pi, pi] if endpoint=True (default)</p>
+<p class="rubric">Example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">wraptopi</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span><span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">array([ 3.14159265, -2.0943951 , -1.04719755, -0.        ,  1.04719755,</span>
+<span class="go">    2.0943951 ,  3.14159265])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">wraptopi</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span><span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="go">array([-3.14159265, -2.0943951 , -1.04719755,  0.        ,  1.04719755,</span>
+<span class="go">    2.0943951 , -3.14159265])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.wrap">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">wrap</code><span class="sig-paren">(</span><em class="sig-param">phase</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/restoration/unwraptools.html#wrap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.wrap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrap a scalar value or an entire array to -0.5 &lt;= a &lt; 0.5.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Created by Sebastian Theilenberg, PyMRR, which is available at
+Github repository: <a class="reference external" href="https://github.com/theilen/PyMRR.git">https://github.com/theilen/PyMRR.git</a></p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.distance">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">distance</code><span class="sig-paren">(</span><em class="sig-param">pixel1</em>, <em class="sig-param">pixel2</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/restoration/unwraptools.html#distance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.distance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the Euclidean distance of two pixels.</p>
+<p class="rubric">Example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">distance</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">),</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">11</span><span class="p">))</span>
+<span class="go">3.0</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.get_charge">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">get_charge</code><span class="sig-paren">(</span><em class="sig-param">residues</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/restoration/unwraptools.html#get_charge"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.get_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the residues charges</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>residues</strong> (<em>array_like</em>) – 2D arrays with residues</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>posres</strong> (<em>array_like</em>) – Positions of the residues with positive charge</p></li>
+<li><p><strong>negres</strong> (<em>array_like</em>) – Positions of the residues with negative charge</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.phaseresidues">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">phaseresidues</code><span class="sig-paren">(</span><em class="sig-param">phimage</em>, <em class="sig-param">disp=1</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/restoration/unwraptools.html#phaseresidues"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.phaseresidues" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the phase residues <a class="footnote-reference brackets" href="#id2" id="id1">1</a> for a given wrapped phase image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phimage</strong> (<em>array_like</em>) – Array containing the phase-contrast images with gray-level
+in radians</p></li>
+<li><p><strong>disp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – False gives No feedback
+True gives Text feedback (additional computation)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>residues</strong> – Map of residues (valued +1 or -1)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Note that by convention the positions of the phase residues are
+marked on the top left corner of the 2 by 2 regions as shown below:</p>
+<div class="graphviz"><img src="../_images/graphviz-159ceb6d3062b46de3a0be736c8d09c1e559d8d7.png" alt="graph g {
+    node [shape=plaintext];
+    active -- right [label=&quot;  res4   &quot;];
+    right  -- belowright [label=&quot; res3 &quot;];
+    below  -- belowright [label=&quot; res2 &quot;];
+    below  -- active [label=&quot; res1 &quot;];
+    { rank=same; active right }
+    { rank=same; belowright below }
+}" class="graphviz" /></div>
+<p>Inspired by PhaseResidues.m created by B.S. Spottiswoode on 07/10/2004
+and by find_residues.m created by Manuel Guizar - Sept 27, 2011</p>
+</div>
+<p class="rubric">References</p>
+<dl class="footnote brackets">
+<dt class="label" id="id2"><span class="brackets"><a class="fn-backref" href="#id1">1</a></span></dt>
+<dd><p>R. M. Goldstein, H. A. Zebker and C. L. Werner,
+Radio Science 23, 713-720 (1988).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.chooseregiontounwrap">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">chooseregiontounwrap</code><span class="sig-paren">(</span><em class="sig-param">stack_array</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/restoration/unwraptools.html#chooseregiontounwrap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.chooseregiontounwrap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Choose the region to be unwrapped</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>stack_array</strong> (<em>array_like</em>) – Input stack to be unwrapped</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>rx, ry</strong> (<em>tuples</em>) – Limits of the are to be unwrapped</p></li>
+<li><p><strong>airpix</strong> (<em>tuple</em>) – Position of the pixel which should contains only air/vacuum</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.unwrapping_phase">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">unwrapping_phase</code><span class="sig-paren">(</span><em class="sig-param">stack_phasecorr</em>, <em class="sig-param">rx</em>, <em class="sig-param">ry</em>, <em class="sig-param">airpix</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/restoration/unwraptools.html#unwrapping_phase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.unwrapping_phase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unwrap the phase of the projections in a stack.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stack_phasecorr</strong> (<em>array_like</em>) – Array containing the stack of projection to be unwrapped</p></li>
+<li><p><strong>ry</strong> (<em>rx</em><em>,</em>) – Limits of the are to be unwrapped in x and y</p></li>
+<li><p><strong>airpix</strong> (<em>list of ints</em>) – Position of pixel in the air/vacuum area</p></li>
+<li><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.7)"><em>dict</em></a>) – Dictionary of additional parameters</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;vmin&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.7)"><em>None</em></a>) – Minimum value for the gray level at each display</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;vmin&quot;</strong><strong>]</strong> – Maximum value for the gray level at each display</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>stack_unwrap</strong> – Stack of unwrapped projections</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>It uses the phase unwrapping algorithm by Herraez et al. <a class="footnote-reference brackets" href="#skimage" id="id3">2</a>
+implemented in Scikit-Image (<a class="reference external" href="https://scikit-image.org">https://scikit-image.org</a>).</p>
+</div>
+<p class="rubric">References</p>
+<dl class="footnote brackets">
+<dt class="label" id="skimage"><span class="brackets"><a class="fn-backref" href="#id3">2</a></span></dt>
+<dd><p>Miguel Arevallilo Herraez, David R. Burton, Michael J. Lalor,
+and Munther A. Gdeisat, “Fast two-dimensional phase-unwrapping algorithm
+based on sorting by reliability following a noncontinuous path”,
+Journal Applied Optics, Vol. 41, No. 35, pp. 7437, 2002</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="toupy.restoration.vorticestools.html" class="btn btn-neutral float-right" title="toupy.restoration.vorticestools module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="toupy.restoration.roipoly.html" class="btn btn-neutral float-left" title="toupy.restoration.roipoly module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>

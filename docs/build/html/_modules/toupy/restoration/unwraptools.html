@@ -1,0 +1,684 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.restoration.unwraptools &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="../../../_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Templates</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../templates.html">Templates</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.simulation.html">toupy.simulation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.utils.html">toupy.utils package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>toupy.restoration.unwraptools</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for toupy.restoration.unwraptools</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+
+<span class="c1"># third party packages</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">skimage.restoration</span> <span class="k">import</span> <span class="n">unwrap_phase</span>
+
+<span class="c1"># local packages</span>
+<span class="kn">from</span> <span class="nn">..utils.plot_utils</span> <span class="k">import</span> <span class="n">_plotdelimiters</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="k">import</span> <span class="n">progbar</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;wraptopi&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;wrap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;distance&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;get_charge&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;phaseresidues&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;chooseregiontounwrap&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;unwrapping_phase&quot;</span>
+    <span class="c1"># ~ u&#39;goldstein_unwrap2D&#39;</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="wraptopi"><a class="viewcode-back" href="../../../rst/toupy.restoration.unwraptools.html#toupy.restoration.unwraptools.wraptopi">[docs]</a><span class="k">def</span> <span class="nf">wraptopi</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrap a scalar value or an entire array to:</span>
+<span class="sd">    [-pi, pi) if endpoint=False</span>
+<span class="sd">    (-pi, pi] if endpoint=True (default)</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; wraptopi(np.linspace(-np.pi,np.pi,7),endpoint=True)</span>
+<span class="sd">    array([ 3.14159265, -2.0943951 , -1.04719755, -0.        ,  1.04719755,</span>
+<span class="sd">        2.0943951 ,  3.14159265])</span>
+<span class="sd">    &gt;&gt;&gt; wraptopi(np.linspace(-np.pi,np.pi,7),endpoint=False)</span>
+<span class="sd">    array([-3.14159265, -2.0943951 , -1.04719755,  0.        ,  1.04719755,</span>
+<span class="sd">        2.0943951 , -3.14159265])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">endpoint</span><span class="p">:</span>  <span class="c1"># case [-pi, pi)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">phase</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># case (-pi, pi]</span>
+        <span class="k">return</span> <span class="p">((</span><span class="o">-</span><span class="n">phase</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mf">1.0</span></div>
+
+
+<div class="viewcode-block" id="wrap"><a class="viewcode-back" href="../../../rst/toupy.restoration.unwraptools.html#toupy.restoration.unwraptools.wrap">[docs]</a><span class="k">def</span> <span class="nf">wrap</span><span class="p">(</span><span class="n">phase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrap a scalar value or an entire array to -0.5 &lt;= a &lt; 0.5.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Created by Sebastian Theilenberg, PyMRR, which is available at</span>
+<span class="sd">    Github repository: https://github.com/theilen/PyMRR.git</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">):</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="n">phase</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">phase</span><span class="p">[</span><span class="n">phase</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">]</span> <span class="o">-=</span> <span class="mf">1.0</span>
+        <span class="n">phase</span><span class="p">[</span><span class="n">phase</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">1.0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">phase</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">:</span>
+            <span class="n">phase</span> <span class="o">-=</span> <span class="mf">1.0</span>
+        <span class="k">elif</span> <span class="n">phase</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">:</span>
+            <span class="n">phase</span> <span class="o">+=</span> <span class="mf">1.0</span>
+    <span class="k">return</span> <span class="n">phase</span></div>
+
+
+<div class="viewcode-block" id="distance"><a class="viewcode-back" href="../../../rst/toupy.restoration.unwraptools.html#toupy.restoration.unwraptools.distance">[docs]</a><span class="k">def</span> <span class="nf">distance</span><span class="p">(</span><span class="n">pixel1</span><span class="p">,</span> <span class="n">pixel2</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return the Euclidean distance of two pixels.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    &gt;&gt;&gt; distance(np.arange(1,10),np.arange(2,11))</span>
+<span class="sd">    3.0</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pixel1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pixel2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)):</span>
+        <span class="n">pixel1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pixel1</span><span class="p">)</span>
+        <span class="n">pixel2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pixel2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">pixel1</span> <span class="o">-</span> <span class="n">pixel2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="get_charge"><a class="viewcode-back" href="../../../rst/toupy.restoration.unwraptools.html#toupy.restoration.unwraptools.get_charge">[docs]</a><span class="k">def</span> <span class="nf">get_charge</span><span class="p">(</span><span class="n">residues</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the residues charges</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    residues : array_like</span>
+<span class="sd">        2D arrays with residues</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    posres : array_like</span>
+<span class="sd">        Positions of the residues with positive charge</span>
+<span class="sd">    negres : array_like</span>
+<span class="sd">        Positions of the residues with negative charge</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">posres</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">residues</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">respos</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">posres</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">negres</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">residues</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">resneg</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">negres</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">nres</span> <span class="o">=</span> <span class="n">respos</span> <span class="o">+</span> <span class="n">resneg</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Found </span><span class="si">{:&gt;3.0f}</span><span class="s2"> residues&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">nres</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">posres</span><span class="p">,</span> <span class="n">negres</span></div>
+
+
+<div class="viewcode-block" id="phaseresidues"><a class="viewcode-back" href="../../../rst/toupy.restoration.unwraptools.html#toupy.restoration.unwraptools.phaseresidues">[docs]</a><span class="k">def</span> <span class="nf">phaseresidues</span><span class="p">(</span><span class="n">phimage</span><span class="p">,</span> <span class="n">disp</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the phase residues [1]_ for a given wrapped phase image.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    phimage : array_like</span>
+<span class="sd">        Array containing the phase-contrast images with gray-level</span>
+<span class="sd">        in radians</span>
+<span class="sd">    disp : bool</span>
+<span class="sd">        False gives No feedback</span>
+<span class="sd">        True gives Text feedback (additional computation)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    residues : array_like</span>
+<span class="sd">        Map of residues (valued +1 or -1)</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    -----</span>
+<span class="sd">    Note that by convention the positions of the phase residues are</span>
+<span class="sd">    marked on the top left corner of the 2 by 2 regions as shown below:</span>
+
+<span class="sd">    .. graphviz::</span>
+<span class="sd">    </span>
+<span class="sd">        graph g {</span>
+<span class="sd">            node [shape=plaintext];</span>
+<span class="sd">            active -- right [label=&quot;  res4   &quot;];</span>
+<span class="sd">            right  -- belowright [label=&quot; res3 &quot;];</span>
+<span class="sd">            below  -- belowright [label=&quot; res2 &quot;];</span>
+<span class="sd">            below  -- active [label=&quot; res1 &quot;];</span>
+<span class="sd">            { rank=same; active right }</span>
+<span class="sd">            { rank=same; belowright below }</span>
+<span class="sd">        }</span>
+
+<span class="sd">    Inspired by PhaseResidues.m created by B.S. Spottiswoode on 07/10/2004</span>
+<span class="sd">    and by find_residues.m created by Manuel Guizar - Sept 27, 2011</span>
+
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    .. [1] R. M. Goldstein, H. A. Zebker and C. L. Werner,</span>
+<span class="sd">      Radio Science 23, 713-720 (1988).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">residues</span> <span class="o">=</span> <span class="n">wraptopi</span><span class="p">(</span><span class="n">phimage</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">phimage</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">residues</span> <span class="o">+=</span> <span class="n">wraptopi</span><span class="p">(</span><span class="n">phimage</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">2</span><span class="p">:]</span> <span class="o">-</span> <span class="n">phimage</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">residues</span> <span class="o">+=</span> <span class="n">wraptopi</span><span class="p">(</span><span class="n">phimage</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:]</span> <span class="o">-</span> <span class="n">phimage</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">2</span><span class="p">:])</span>
+    <span class="n">residues</span> <span class="o">+=</span> <span class="n">wraptopi</span><span class="p">(</span><span class="n">phimage</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">phimage</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:])</span>
+    <span class="n">residues</span> <span class="o">/=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+
+    <span class="n">respos</span><span class="p">,</span> <span class="n">resneg</span> <span class="o">=</span> <span class="n">get_charge</span><span class="p">(</span><span class="n">residues</span><span class="p">)</span>
+    <span class="n">residues_charge</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">pos</span><span class="o">=</span><span class="n">respos</span><span class="p">,</span> <span class="n">neg</span><span class="o">=</span><span class="n">resneg</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">residues</span><span class="p">,</span> <span class="n">residues_charge</span></div>
+
+
+<span class="k">def</span> <span class="nf">phaseresiduesStack</span><span class="p">(</span><span class="n">stack_array</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate the map of residues on the stack</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stack_array : array_like</span>
+<span class="sd">        Stack from which to calculate the phase residues</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    resmap : array_like</span>
+<span class="sd">        Phase residue map</span>
+<span class="sd">    posres : tuple</span>
+<span class="sd">        Positions of the residues.</span>
+<span class="sd">        posres = (yres,xres)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resmap</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">stack_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="se">\r</span><span class="s2">Searching for residues in projection </span><span class="si">{:&gt;4.0f}</span><span class="s2"> ... &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">residues</span><span class="p">,</span> <span class="n">residues_charge</span> <span class="o">=</span> <span class="n">phaseresidues</span><span class="p">(</span><span class="n">stack_array</span><span class="p">[</span><span class="n">ii</span><span class="p">])</span>
+        <span class="n">resmap</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">residues</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;. Done&quot;</span><span class="p">)</span>
+    <span class="n">posres</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">resmap</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">resmap</span><span class="p">,</span> <span class="n">posres</span>
+
+
+<div class="viewcode-block" id="chooseregiontounwrap"><a class="viewcode-back" href="../../../rst/toupy.restoration.unwraptools.html#toupy.restoration.unwraptools.chooseregiontounwrap">[docs]</a><span class="k">def</span> <span class="nf">chooseregiontounwrap</span><span class="p">(</span><span class="n">stack_array</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Choose the region to be unwrapped</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stack_array : array_like</span>
+<span class="sd">        Input stack to be unwrapped</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    rx, ry : tuples</span>
+<span class="sd">        Limits of the are to be unwrapped</span>
+<span class="sd">    airpix : tuple</span>
+<span class="sd">        Position of the pixel which should contains only air/vacuum</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">resmap</span><span class="p">,</span> <span class="n">posres</span> <span class="o">=</span> <span class="n">phaseresiduesStack</span><span class="p">(</span><span class="n">stack_array</span><span class="p">)</span>
+    <span class="n">yres</span><span class="p">,</span> <span class="n">xres</span> <span class="o">=</span> <span class="n">posres</span>
+
+    <span class="c1"># display the residues</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">resmap</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;jet&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xres</span><span class="p">,</span> <span class="n">yres</span><span class="p">,</span> <span class="s2">&quot;or&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># choosing the are for the unwrapping</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ion</span><span class="p">()</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
+        <span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span>
+        <span class="n">im1</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">stack_array</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;bone&quot;</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xres</span><span class="p">,</span> <span class="n">yres</span><span class="p">,</span> <span class="s2">&quot;or&quot;</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;The array dimensions are </span><span class="si">{}</span><span class="s2"> x </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">stack_array</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">stack_array</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Please, choose an area for the unwrapping:&quot;</span><span class="p">)</span>
+        <span class="c1"># while loops in each question to avoid mistapying problems</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">deltax</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;From edge of region to edge of image in x: &quot;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">deltax</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">rx</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="n">deltax</span><span class="p">,</span> <span class="n">stack_array</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">deltax</span><span class="p">)</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrong typing. Try it again.&quot;</span><span class="p">)</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">ry</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Range in y (top, bottom): &quot;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ry</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">ry</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="n">ry</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrong typing. Try it again.&quot;</span><span class="p">)</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">airpix</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Pixel in air (x,y) or (col,row): &quot;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">airpix</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="c1"># check if air pixel is inside the image</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">airpix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">rx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="ow">or</span> <span class="n">airpix</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">rx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="ow">or</span> <span class="n">airpix</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">ry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="ow">or</span> <span class="n">airpix</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">ry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="p">):</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pixel of air is outside of region of unwrapping&quot;</span><span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrong typing. Try it again.&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrong typing. Try it again.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># couting residues</span>
+        <span class="n">num_residues</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">resmap</span><span class="p">[</span><span class="n">ry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">ry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">rx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">rx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Chosen region contains </span><span class="si">{}</span><span class="s2"> residues in total&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">num_residues</span><span class="p">))</span>
+
+        <span class="c1"># update images with boudaries</span>
+        <span class="n">ax1</span> <span class="o">=</span> <span class="n">_plotdelimiters</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ry</span><span class="p">,</span> <span class="n">rx</span><span class="p">,</span> <span class="n">airpix</span><span class="p">)</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;First projection with boundaries&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">ans</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Are you happy with the boundaries?([y]/n)&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">ans</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">ans</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+            <span class="k">break</span>
+
+    <span class="k">return</span> <span class="n">rx</span><span class="p">,</span> <span class="n">ry</span><span class="p">,</span> <span class="n">airpix</span></div>
+
+
+<span class="k">def</span> <span class="nf">_unwrapping_phase</span><span class="p">(</span><span class="n">img2unwrap</span><span class="p">,</span> <span class="n">rx</span><span class="o">=</span><span class="p">[],</span> <span class="n">ry</span><span class="o">=</span><span class="p">[],</span> <span class="n">airpix</span><span class="o">=</span><span class="p">[]):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Unwrap the phases of a projection</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    img2unwrap : array_like</span>
+<span class="sd">        Image to be unwrapped</span>
+<span class="sd">    rx, ry : tuples, list of ints</span>
+<span class="sd">        Limits of the are to be unwrapped in x and y</span>
+<span class="sd">    airpix : list of ints</span>
+<span class="sd">        Position of pixel in the air/vacuum area</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    img2unwrap : array_like</span>
+<span class="sd">        Unwrapped image</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">rx</span> <span class="o">==</span> <span class="p">[]</span> <span class="ow">and</span> <span class="n">ry</span> <span class="o">==</span><span class="p">[]:</span>
+        <span class="n">img2unwrap</span> <span class="o">=</span> <span class="n">unwrap_phase</span><span class="p">(</span><span class="n">im2unwrap</span><span class="p">)</span>
+        <span class="n">img2unwrap</span> <span class="o">-=</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">img2unwrap</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># select the region to be unwrapped</span>
+        <span class="n">img2wrap_sel</span> <span class="o">=</span> <span class="n">img2unwrap</span><span class="p">[</span><span class="n">ry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">ry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">rx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">rx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="c1"># unwrap the region using the algorithm from skimage</span>
+        <span class="n">img2unwrap_sel</span> <span class="o">=</span> <span class="n">unwrap_phase</span><span class="p">(</span><span class="n">img2wrap_sel</span><span class="p">)</span>
+        <span class="c1"># update the image in the original array</span>
+        <span class="n">img2unwrap</span><span class="p">[</span><span class="n">ry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">ry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">rx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">rx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">img2unwrap_sel</span>
+        <span class="n">img2unwrap</span><span class="p">[</span><span class="n">ry</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">ry</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">rx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">rx</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">img2unwrap_sel</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span>
+            <span class="n">img2unwrap</span><span class="p">[</span><span class="n">airpix</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">airpix</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+        <span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">img2unwrap</span>
+
+
+<div class="viewcode-block" id="unwrapping_phase"><a class="viewcode-back" href="../../../rst/toupy.restoration.unwraptools.html#toupy.restoration.unwraptools.unwrapping_phase">[docs]</a><span class="k">def</span> <span class="nf">unwrapping_phase</span><span class="p">(</span><span class="n">stack_phasecorr</span><span class="p">,</span> <span class="n">rx</span><span class="p">,</span> <span class="n">ry</span><span class="p">,</span> <span class="n">airpix</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Unwrap the phase of the projections in a stack.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stack_phasecorr : array_like</span>
+<span class="sd">        Array containing the stack of projection to be unwrapped</span>
+<span class="sd">    rx, ry : tuples</span>
+<span class="sd">        Limits of the are to be unwrapped in x and y</span>
+<span class="sd">    airpix : list of ints</span>
+<span class="sd">        Position of pixel in the air/vacuum area</span>
+<span class="sd">    params : dict</span>
+<span class="sd">        Dictionary of additional parameters</span>
+<span class="sd">    params[&quot;vmin&quot;] : float, None</span>
+<span class="sd">        Minimum value for the gray level at each display</span>
+<span class="sd">    params[&quot;vmin&quot;] : float, None</span>
+<span class="sd">        Maximum value for the gray level at each display</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    stack_unwrap : array_like</span>
+<span class="sd">        Stack of unwrapped projections</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    It uses the phase unwrapping algorithm by Herraez et al. [#skimage]_</span>
+<span class="sd">    implemented in Scikit-Image (https://scikit-image.org).</span>
+<span class="sd">    </span>
+<span class="sd">    References</span>
+<span class="sd">    ----------</span>
+<span class="sd">    .. [#skimage] Miguel Arevallilo Herraez, David R. Burton, Michael J. Lalor,</span>
+<span class="sd">      and Munther A. Gdeisat, “Fast two-dimensional phase-unwrapping algorithm </span>
+<span class="sd">      based on sorting by reliability following a noncontinuous path”, </span>
+<span class="sd">      Journal Applied Optics, Vol. 41, No. 35, pp. 7437, 2002</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">stack_unwrap</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">stack_phasecorr</span><span class="p">)</span>
+    <span class="c1"># test on first projection</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Testing unwrapping on the first projection&quot;</span><span class="p">)</span>
+    <span class="n">img0_unwrap</span> <span class="o">=</span> <span class="n">_unwrapping_phase</span><span class="p">(</span><span class="n">stack_phasecorr</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rx</span><span class="p">,</span> <span class="n">ry</span><span class="p">,</span> <span class="n">airpix</span><span class="p">)</span>
+    <span class="c1"># displaying</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ion</span><span class="p">()</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span>
+    <span class="n">im1</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+        <span class="n">stack_phasecorr</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;bone&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmin&quot;</span><span class="p">],</span> <span class="n">vmax</span><span class="o">=</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="c1"># update images with boudaries</span>
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">_plotdelimiters</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ry</span><span class="p">,</span> <span class="n">rx</span><span class="p">,</span> <span class="n">airpix</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Do you want to edit the color scale?([y]/n)&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">color_vmin</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Minimum color scale value: &quot;</span><span class="p">))</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_vmin</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_vmin</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+                    <span class="k">break</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrong typing. Try it again.&quot;</span><span class="p">)</span>
+            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">color_vmax</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Maximum color scale value: &quot;</span><span class="p">))</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_vmax</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_vmax</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+                    <span class="k">break</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Wrong typing. Try it again.&quot;</span><span class="p">)</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmin&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">color_vmin</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">color_vmax</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Using vmin=</span><span class="si">{}</span><span class="s2"> and vmax=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmin&quot;</span><span class="p">],</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]))</span>
+            <span class="c1"># displaying the update images</span>
+            <span class="n">im1</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="n">stack_phasecorr</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">im1</span><span class="o">.</span><span class="n">set_clim</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmin&quot;</span><span class="p">],</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">])</span>
+            <span class="n">ax1</span> <span class="o">=</span> <span class="n">_plotdelimiters</span><span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ry</span><span class="p">,</span> <span class="n">rx</span><span class="p">,</span> <span class="n">airpix</span><span class="p">)</span>
+            <span class="n">ax1</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;Color scale was not changed. Using vmin=</span><span class="si">{}</span><span class="s2"> and vmax=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmin&quot;</span><span class="p">],</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">break</span>
+    <span class="c1"># main loop for the unwrapping</span>
+    <span class="n">nprojs</span> <span class="o">=</span> <span class="n">stack_phasecorr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nprojs</span><span class="p">):</span>
+        <span class="n">strbar</span> <span class="o">=</span> <span class="s2">&quot;Unwrapping projection: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">img_unwrap</span> <span class="o">=</span> <span class="n">_unwrapping_phase</span><span class="p">(</span><span class="n">stack_phasecorr</span><span class="p">[</span><span class="n">ii</span><span class="p">],</span> <span class="n">rx</span><span class="p">,</span> <span class="n">ry</span><span class="p">,</span> <span class="n">airpix</span><span class="p">)</span>
+        <span class="n">stack_unwrap</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_unwrap</span>  <span class="c1"># update the stack</span>
+        <span class="n">progbar</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">nprojs</span><span class="p">,</span> <span class="n">strbar</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">stack_unwrap</span></div>
+
+
+<span class="c1"># TODO: fix function below</span>
+<span class="c1"># ~ def goldstein_unwrap2D(phimage,disp=0):</span>
+<span class="c1"># ~ &quot;&quot;&quot;</span>
+<span class="c1"># ~ Implementation of Goldstein unwrap algorithm based on location of</span>
+<span class="c1"># ~ residues and introduction of branchcuts.</span>
+<span class="c1"># ~ Inputs:</span>
+<span class="c1"># ~ phimage = Wrapped phase image in radians, wrapped between (-pi,pi)</span>
+<span class="c1"># ~ disp (optional) = 1 to show progress (will slow down code)</span>
+<span class="c1"># ~ will also display the branch cuts</span>
+<span class="c1"># ~ Outputs:</span>
+<span class="c1"># ~ unwrap_phase =    Unwrapped phase ( = fase where phase could not be unwrapped)</span>
+<span class="c1"># ~ shadow    = 1 where phase could not be unwrapped</span>
+<span class="c1"># ~</span>
+<span class="c1"># ~ Inpired in the goldstein_unwrap2D.m by Manuel Guizar 31 August, 2010 - Acknowledge if used</span>
+<span class="c1"># ~ Please, cite: R. M. Goldstein, H. A. Zebker and C. L. Werner, Radio Science 23, 713-720 (1988).</span>
+<span class="c1"># ~ &quot;&quot;&quot;</span>
+<span class="c1"># ~</span>
+<span class="c1"># ~ nr,nc = phimage.shape</span>
+<span class="c1"># ~ #position to start unwrapping. Typically faster at the center of the array</span>
+<span class="c1"># ~ #nrstart = np.round(nr/2.)</span>
+<span class="c1"># ~ #ncstart = np.round(nc/2.)</span>
+<span class="c1"># ~</span>
+<span class="c1"># ~ residues,_ = phaseresidues(phimage,disp=1)</span>
+<span class="c1"># ~</span>
+<span class="c1"># ~ ## Find residues</span>
+<span class="c1"># ~ pposr,pposc = np.where(np.round(residues)==1)</span>
+<span class="c1"># ~ respos = [pposr,pposc,np.ones_like(pposr)]</span>
+<span class="c1"># ~ ###respos= len(pposr)</span>
+<span class="c1"># ~ nposr,nposc = np.where(np.round(residues)==-1)</span>
+<span class="c1"># ~ resneg = [nposr,nposc,-np.ones_like(pposr)]</span>
+<span class="c1"># ~ ###resneg = len(nposr)</span>
+<span class="c1"># ~</span>
+<span class="c1"># ~ nres = len(respos[:][0])+len(resneg[:][0])</span>
+<span class="c1"># ~ ###nres = respos+resneg</span>
+<span class="c1"># ~ print(&#39;Found {} residues&#39;.format(nres))</span>
+<span class="c1"># ~</span>
+<span class="c1"># ~ if nres == 0:</span>
+<span class="c1"># ~ print(&#39;No residues found. Unwrapping with standard unwrapping algorithm&#39;)</span>
+<span class="c1"># ~ unwrap_phase = np.unwrap(np.unwrap(phimage))</span>
+<span class="c1"># ~ shadow = np.zeros_like(unwrap_phase)</span>
+<span class="c1"># ~ else:</span>
+<span class="c1"># ~ print(&#39;Unwrapping with Goldstein algorithm&#39;)</span>
+<span class="c1"># ~ return unwrap_phase,shadow</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>

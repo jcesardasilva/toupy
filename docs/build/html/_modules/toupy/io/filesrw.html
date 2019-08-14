@@ -1,0 +1,926 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.io.filesrw &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="../../../_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Templates</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../templates.html">Templates</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.simulation.html">toupy.simulation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.utils.html">toupy.utils package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>toupy.io.filesrw</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for toupy.io.filesrw</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Created on Wed Nov  4 2015</span>
+
+<span class="sd">Updated on Tue Mar 25 2019:</span>
+<span class="sd">    - Fully compatible to Python 3</span>
+<span class="sd">    - No more backcompatibility to Python 2</span>
+
+<span class="sd">@author: jdasilva</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># Standard library imports</span>
+<span class="kn">import</span> <span class="nn">fnmatch</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="k">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="c1"># third party packages</span>
+<span class="kn">import</span> <span class="nn">libtiff</span>
+<span class="kn">import</span> <span class="nn">fabio</span>
+<span class="kn">import</span> <span class="nn">h5py</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">matplotlib.colors</span> <span class="k">import</span> <span class="n">hsv_to_rgb</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;convert8bitstiff&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;convert16bitstiff&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;convertimageto8bits&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;convertimageto16bits&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;create_paramsh5&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;crop_array&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;load_paramsh5&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;read_cxi&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;read_edf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;read_ptyr&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;read_recon&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;read_tiff&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;read_tiff_info&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;read_volfile&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;write_edf&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;write_paramsh5&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;write_tiff&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;write_tiffmetadata&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="read_recon"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.read_recon">[docs]</a><span class="k">def</span> <span class="nf">read_recon</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">correct_orientation</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper for choosing the function to read recon file</span>
+
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pathfilename : str</span>
+<span class="sd">        Path to file</span>
+
+<span class="sd">    correct_orientation : bool, optional</span>
+<span class="sd">        True for correcting the image orientation and False to keep as it is.</span>
+<span class="sd">        The default value is ``False``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    data1 : array_like, complex</span>
+<span class="sd">        Object image</span>
+<span class="sd">    probe1 : array_like, complex</span>
+<span class="sd">        Probe images</span>
+<span class="sd">    pixelsize : float</span>
+<span class="sd">        List with pixelsizes in vertical and horizontal directions</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fileprefix</span><span class="p">,</span> <span class="n">fileext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fileext</span> <span class="o">==</span> <span class="s2">&quot;.ptyr&quot;</span><span class="p">:</span>  <span class="c1"># Ptypy</span>
+        <span class="n">read_reconfile</span> <span class="o">=</span> <span class="n">read_ptyr</span>
+    <span class="k">elif</span> <span class="n">fileext</span> <span class="o">==</span> <span class="s2">&quot;.cxi&quot;</span><span class="p">:</span>  <span class="c1"># PyNX</span>
+        <span class="n">read_reconfile</span> <span class="o">=</span> <span class="n">read_cxi</span>
+    <span class="k">elif</span> <span class="n">fileext</span> <span class="o">==</span> <span class="s2">&quot;.edf&quot;</span><span class="p">:</span>  <span class="c1"># edf projections</span>
+        <span class="n">read_reconfile</span> <span class="o">=</span> <span class="n">read_edf</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span>
+            <span class="s2">&quot;File </span><span class="si">{}</span><span class="s2"> is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">filename</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">read_reconfile</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">correct_orientation</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="read_volfile"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.read_volfile">[docs]</a><span class="k">def</span> <span class="nf">read_volfile</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read tomogram from .vol file</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    filename : str</span>
+<span class="sd">        filename to be read</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    tomogram : array_like</span>
+<span class="sd">        3D array containing the tomogram</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Usually, the file .vol.info contains de size of the volume</span>
+    <span class="n">linesff</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">infofilename</span> <span class="o">=</span> <span class="n">filename</span> <span class="o">+</span> <span class="s2">&quot;.info&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">infofilename</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fid</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">lines</span> <span class="ow">in</span> <span class="n">fid</span><span class="p">:</span>
+            <span class="n">linesff</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">lines</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">))</span>
+    <span class="n">x_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">linesff</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">y_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">linesff</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">z_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">linesff</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="c1"># Now we read indeed the .vol file</span>
+    <span class="n">tomogram</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fromfile</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">z_size</span><span class="p">,</span> <span class="n">x_size</span><span class="p">,</span> <span class="n">y_size</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">tomogram</span></div>
+
+
+<div class="viewcode-block" id="read_tiff_info"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.read_tiff_info">[docs]</a><span class="k">def</span> <span class="nf">read_tiff_info</span><span class="p">(</span><span class="n">tiff_info_file</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read info file from tiff slices of the reconstructed tomographic</span>
+<span class="sd">    volume</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tiff_info_file : str</span>
+<span class="sd">        Info filename</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    low_cutoff : float</span>
+<span class="sd">        Low cutoff of the gray level</span>
+<span class="sd">    high_cutoff : float</span>
+<span class="sd">        High cutoff of the gray level</span>
+<span class="sd">    pixelsize : float</span>
+<span class="sd">        Pixelsize</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># read info file</span>
+    <span class="c1"># with open(tiff_info_beta,&#39;r&#39;) as ff:</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">tiff_info_file</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">ff</span><span class="p">:</span>
+        <span class="n">info_file</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">info_file</span><span class="p">)</span>
+    <span class="c1"># separate the infos</span>
+    <span class="n">low_cutoff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">(</span><span class="n">info_file</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">high_cutoff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">(</span><span class="n">info_file</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">(</span><span class="n">info_file</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="c1"># ~ pixelsize_beta = np.array([np.float(x) for x in (info_beta[3].strip().split(&#39;=&#39;)[1]).strip().lstrip(&#39;[&#39;).rstrip(&#39;]&#39;).split()])</span>
+    <span class="n">pixelsize</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">info_file</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">&quot;[&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">low_cutoff</span><span class="p">,</span> <span class="n">high_cutoff</span><span class="p">,</span> <span class="n">factor</span><span class="p">,</span> <span class="n">pixelsize</span></div>
+
+
+<span class="k">def</span> <span class="nf">_reorient_ptyrimg</span><span class="p">(</span><span class="n">input_array</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    Auxiliary function to corrects the orientation of the image and</span>
+<span class="sd">    probe from the arrays in ptyr file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># reorienting the probe</span>
+    <span class="k">if</span> <span class="n">input_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">output_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">input_array</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">input_array</span><span class="p">)):</span>
+            <span class="n">output_array</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fliplr</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">input_array</span><span class="p">[</span><span class="n">ii</span><span class="p">]))</span>
+    <span class="k">elif</span> <span class="n">input_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">output_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fliplr</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">input_array</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">u</span><span class="s2">&quot;Wrong dimensions for the array&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">output_array</span>
+
+
+<span class="n">metaptyr</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_print_attrs_ptyr</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Auxiliary function to indentify from where the data must be read in</span>
+<span class="sd">    the ptyr files</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">metaptyr</span>
+    <span class="k">if</span> <span class="s2">&quot;obj&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;_psize&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">metaptyr</span><span class="p">[</span><span class="s2">&quot;psize_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">if</span> <span class="s2">&quot;_energy&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">metaptyr</span><span class="p">[</span><span class="s2">&quot;energy_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">if</span> <span class="s2">&quot;data&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">metaptyr</span><span class="p">[</span><span class="s2">&quot;obj_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+    <span class="k">if</span> <span class="s2">&quot;probe&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;data&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">metaptyr</span><span class="p">[</span><span class="s2">&quot;probe_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+
+
+<span class="k">def</span> <span class="nf">_findh5paths</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Auxiliary function to indentify from where the data must be read in</span>
+<span class="sd">    the HDF5 files</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">metaptyr</span>
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fid</span><span class="p">:</span>
+        <span class="n">fid</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">_print_attrs_ptyr</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">metaptyr</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="read_ptyr"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.read_ptyr">[docs]</a><span class="k">def</span> <span class="nf">read_ptyr</span><span class="p">(</span><span class="n">pathfilename</span><span class="p">,</span><span class="n">correct_orientation</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read reconstruction files .ptyr from Ptypy</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pathfilename : str</span>
+<span class="sd">        Path to file</span>
+
+<span class="sd">    correct_orientation : bool, optional</span>
+<span class="sd">        True for correcting the image orientation and False to keep as it is.</span>
+<span class="sd">        The default value is ``True``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    data1 : array_like, complex</span>
+<span class="sd">        Object image</span>
+<span class="sd">    probe1 : array_like, complex</span>
+<span class="sd">        Probe images</span>
+<span class="sd">    pixelsize : float</span>
+<span class="sd">        List with pixelsizes in vertical and horizontal directions</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">metaptyr</span>
+    <span class="k">if</span> <span class="n">metaptyr</span> <span class="o">==</span> <span class="p">{}:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;meta is empty&quot;</span><span class="p">)</span>
+        <span class="n">_findh5paths</span><span class="p">(</span><span class="n">pathfilename</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">pathfilename</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fid</span><span class="p">:</span>
+        <span class="c1"># get the data from the object</span>
+        <span class="n">data0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">fid</span><span class="p">[</span><span class="n">metaptyr</span><span class="p">[</span><span class="s2">&quot;obj_h5path&quot;</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">)</span>
+        <span class="c1"># get the data from the probe</span>
+        <span class="n">probe0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">fid</span><span class="p">[</span><span class="n">metaptyr</span><span class="p">[</span><span class="s2">&quot;probe_h5path&quot;</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">)</span>
+        <span class="c1"># get the pixel size</span>
+        <span class="n">pixelsize</span> <span class="o">=</span> <span class="p">(</span><span class="n">fid</span><span class="p">[</span><span class="n">metaptyr</span><span class="p">[</span><span class="s2">&quot;psize_h5path&quot;</span><span class="p">]][()])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="c1"># get the energy</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="p">(</span><span class="n">fid</span><span class="p">[</span><span class="n">metaptyr</span><span class="p">[</span><span class="s2">&quot;energy_h5path&quot;</span><span class="p">]][()])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="c1"># reorienting the object</span>
+    <span class="k">if</span> <span class="n">correct_orientation</span><span class="p">:</span>
+        <span class="n">data1</span> <span class="o">=</span> <span class="n">_reorient_ptyrimg</span><span class="p">(</span><span class="n">data0</span><span class="p">)</span>
+        <span class="n">probe1</span> <span class="o">=</span> <span class="n">_reorient_ptyrimg</span><span class="p">(</span><span class="n">probe0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">data1</span><span class="p">,</span> <span class="n">probe1</span><span class="p">,</span> <span class="n">pixelsize</span><span class="p">,</span> <span class="n">energy</span></div>
+
+
+<span class="k">def</span> <span class="nf">_h5py_dataset_iterator</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Auxiliary function to iterate over the h5 file datasets</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="n">item</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>  <span class="c1"># test for dataset</span>
+            <span class="k">yield</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">item</span><span class="p">[()])</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>  <span class="c1"># test for group (go down)</span>
+            <span class="k">yield from</span> <span class="n">_h5py_dataset_iterator</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+
+
+<span class="n">metacxi</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">_h5pathcxi</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    h5py visititems does not find links</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">metacxi</span>
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fid</span><span class="p">:</span>
+        <span class="n">listpath</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">path</span>
+            <span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">dset</span> <span class="ow">in</span> <span class="n">_h5py_dataset_iterator</span><span class="p">(</span><span class="n">fid</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;object&quot;</span> <span class="ow">in</span> <span class="n">path</span> <span class="ow">or</span> <span class="s2">&quot;probe&quot;</span> <span class="ow">in</span> <span class="n">path</span> <span class="ow">or</span> <span class="s2">&quot;incident_energy&quot;</span> <span class="ow">in</span> <span class="n">path</span>
+        <span class="p">]</span>
+    <span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;obj_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">listpath</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;object/data&quot;</span> <span class="ow">in</span> <span class="n">ii</span> <span class="ow">and</span> <span class="n">ii</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span>
+    <span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;probe_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">listpath</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;probe/data&quot;</span> <span class="ow">in</span> <span class="n">ii</span> <span class="ow">and</span> <span class="n">ii</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">)</span>
+    <span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;xpsize_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">ii</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">listpath</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;object/x_pixel_size&quot;</span> <span class="ow">in</span> <span class="n">ii</span> <span class="ow">and</span> <span class="n">ii</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;x_pixel_size&quot;</span><span class="p">)</span>
+    <span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;ypsize_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">ii</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">listpath</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;object/y_pixel_size&quot;</span> <span class="ow">in</span> <span class="n">ii</span> <span class="ow">and</span> <span class="n">ii</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;y_pixel_size&quot;</span><span class="p">)</span>
+    <span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;energy_h5path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">ii</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">listpath</span><span class="p">)</span> <span class="k">if</span> <span class="s2">&quot;incident_energy&quot;</span> <span class="ow">in</span> <span class="n">ii</span>
+    <span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="read_cxi"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.read_cxi">[docs]</a><span class="k">def</span> <span class="nf">read_cxi</span><span class="p">(</span><span class="n">pathfilename</span><span class="p">,</span> <span class="n">correct_orientation</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read reconstruction files .cxi from PyNX</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pathfilename : str</span>
+<span class="sd">        Path to file</span>
+<span class="sd">    correct_orientation : bool</span>
+<span class="sd">        True for correcting the image orientation and False to keep as it is.</span>
+<span class="sd">        The default value is ``True``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    data1 : array_like, complex</span>
+<span class="sd">        Object image</span>
+<span class="sd">    probe1 : array_like, complex</span>
+<span class="sd">        Probe images</span>
+<span class="sd">    pixelsize : list of floats</span>
+<span class="sd">        List with pixelsizes in vertical and horizontal directions</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">metacxi</span>
+    <span class="k">if</span> <span class="n">metacxi</span> <span class="o">==</span> <span class="p">{}:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;meta is empty&quot;</span><span class="p">)</span>
+        <span class="n">_h5pathcxi</span><span class="p">(</span><span class="n">pathfilename</span><span class="p">)</span>
+
+    <span class="n">factorJ2eV</span> <span class="o">=</span> <span class="mf">1.602177e-16</span>
+
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">pathfilename</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fid</span><span class="p">:</span>
+        <span class="c1"># get the data from the object</span>
+        <span class="n">data0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">fid</span><span class="p">[</span><span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;obj_h5path&quot;</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">)</span>
+        <span class="c1"># get the data from the probe</span>
+        <span class="n">probe0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">fid</span><span class="p">[</span><span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;probe_h5path&quot;</span><span class="p">]])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">)</span>
+        <span class="c1"># get the pixel size</span>
+        <span class="n">pixelsizex</span> <span class="o">=</span> <span class="n">fid</span><span class="p">[</span><span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;xpsize_h5path&quot;</span><span class="p">]][()]</span>
+        <span class="n">pixelsizey</span> <span class="o">=</span> <span class="n">fid</span><span class="p">[</span><span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;ypsize_h5path&quot;</span><span class="p">]][()]</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">fid</span><span class="p">[</span><span class="n">metacxi</span><span class="p">[</span><span class="s2">&quot;energy_h5path&quot;</span><span class="p">]][()]</span> <span class="o">/</span> <span class="n">factorJ2eV</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">pixelsize</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">pixelsizex</span><span class="p">,</span> <span class="n">pixelsizey</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="c1"># reorienting the object</span>
+    <span class="k">if</span> <span class="n">correct_orientation</span><span class="p">:</span>
+        <span class="n">data1</span> <span class="o">=</span> <span class="n">_reorient_ptyrimg</span><span class="p">(</span><span class="n">data0</span><span class="p">)</span>
+        <span class="n">probe1</span> <span class="o">=</span> <span class="n">_reorient_ptyrimg</span><span class="p">(</span><span class="n">probe0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">data1</span><span class="p">,</span> <span class="n">probe1</span><span class="p">,</span> <span class="n">pixelsize</span><span class="p">,</span> <span class="n">energy</span></div>
+
+
+<div class="viewcode-block" id="crop_array"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.crop_array">[docs]</a><span class="k">def</span> <span class="nf">crop_array</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="n">delcropx</span><span class="p">,</span> <span class="n">delcropy</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Crop borders from 2D arrays</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_array : array_like</span>
+<span class="sd">        Input array to be cropped</span>
+<span class="sd">    delcropx, delcropy : int</span>
+<span class="sd">        Number of pixels to be crop from borders in x and y directions</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    cropped_array : array_like</span>
+<span class="sd">        Cropped array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">delcropx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">delcropy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cropping ROI of data&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Before: &quot;</span> <span class="o">+</span> <span class="n">input_array</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">input_array</span><span class="p">[</span><span class="n">delcropy</span><span class="p">:</span><span class="o">-</span><span class="n">delcropy</span><span class="p">,</span> <span class="n">delcropx</span><span class="p">:</span><span class="o">-</span><span class="n">delcropx</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">input_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">input_array</span><span class="p">[</span><span class="n">delcropy</span><span class="p">:</span><span class="o">-</span><span class="n">delcropy</span><span class="p">,</span> <span class="n">delcropx</span><span class="p">:</span><span class="o">-</span><span class="n">delcropx</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">input_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">input_array</span><span class="p">[:,</span> <span class="n">delcropy</span><span class="p">:</span><span class="o">-</span><span class="n">delcropy</span><span class="p">,</span> <span class="n">delcropx</span><span class="p">:</span><span class="o">-</span><span class="n">delcropx</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;After: &quot;</span> <span class="o">+</span> <span class="n">input_array</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No cropping of data&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">input_array</span></div>
+
+
+<div class="viewcode-block" id="write_edf"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.write_edf">[docs]</a><span class="k">def</span> <span class="nf">write_edf</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">data_array</span><span class="p">,</span> <span class="n">hd</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Write EDF files</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fname : str</span>
+<span class="sd">        File name</span>
+<span class="sd">    data_array : array_like</span>
+<span class="sd">        Data to be saved as edf</span>
+<span class="sd">    hd : dict</span>
+<span class="sd">        Dictionary with header information</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">fabio</span><span class="o">.</span><span class="n">edfimage</span><span class="o">.</span><span class="n">edfimage</span><span class="p">()</span> <span class="k">as</span> <span class="n">fid</span><span class="p">:</span>
+        <span class="n">fid</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data_array</span>
+        <span class="k">if</span> <span class="n">hd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># if header information</span>
+            <span class="n">fid</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="n">hd</span>
+        <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>  <span class="c1"># writing the file</span></div>
+
+
+<div class="viewcode-block" id="read_edf"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.read_edf">[docs]</a><span class="k">def</span> <span class="nf">read_edf</span><span class="p">(</span><span class="n">fname</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    read EDF files</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fname : str</span>
+<span class="sd">        Path to file</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    projs : array_like</span>
+<span class="sd">        Array of projections</span>
+<span class="sd">    pixelsize : list of float</span>
+<span class="sd">        List with pixelsizes in vertical and horizontal directions</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">imgobj</span> <span class="o">=</span> <span class="n">fabio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span>
+    <span class="n">imgdata</span> <span class="o">=</span> <span class="n">imgobj</span><span class="o">.</span><span class="n">data</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">pixelsize</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">imgobj</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s2">&quot;pixel_size&quot;</span><span class="p">])</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">pixelsize</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">imgobj</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s2">&quot;energy&quot;</span><span class="p">])</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Value of energy not found&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">nvue</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">imgobj</span><span class="o">.</span><span class="n">header</span><span class="p">[</span><span class="s2">&quot;nvue&quot;</span><span class="p">])</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Number of projections not found&quot;</span><span class="p">)</span>
+    <span class="n">imgobj</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">imgdata</span><span class="p">,</span> <span class="n">pixelsize</span><span class="p">,</span> <span class="n">energy</span><span class="p">,</span> <span class="n">nvue</span></div>
+
+
+<div class="viewcode-block" id="load_paramsh5"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.load_paramsh5">[docs]</a><span class="k">def</span> <span class="nf">load_paramsh5</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load parameters from HDF5 file of parameters</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># read parameter file</span>
+    <span class="n">paramsh5file</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;samplename&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_params.h5&quot;</span>
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">paramsh5file</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fid</span><span class="p">:</span>
+        <span class="c1"># read the inputkwargs dict</span>
+        <span class="n">out_params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">keys</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">fid</span><span class="p">[</span><span class="s2">&quot;info&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())):</span>
+            <span class="n">out_params</span><span class="p">[</span><span class="n">keys</span><span class="p">]</span> <span class="o">=</span> <span class="n">fid</span><span class="p">[</span><span class="s2">&quot;info/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">keys</span><span class="p">)][()]</span>
+    <span class="n">out_params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>  <span class="c1"># add/update with new values</span>
+    <span class="k">return</span> <span class="n">out_params</span></div>
+
+
+<div class="viewcode-block" id="create_paramsh5"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.create_paramsh5">[docs]</a><span class="k">def</span> <span class="nf">create_paramsh5</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create parameter file in HDF5 format</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    params : dict</span>
+<span class="sd">        Dictionary containing the parameters to be saved</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># create a parameter file</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Creating the h5 parameter file&quot;</span><span class="p">)</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;samplename&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;_params.h5&quot;</span>
+    <span class="c1"># print(pathparamsh5)</span>
+    <span class="c1"># paramsh5file = os.path.join(pathparamsh5,filename)</span>
+    <span class="n">write_paramsh5</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="write_paramsh5"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.write_paramsh5">[docs]</a><span class="k">def</span> <span class="nf">write_paramsh5</span><span class="p">(</span><span class="n">h5filename</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Writes params to HDF5 file</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    h5filename : str</span>
+<span class="sd">        Filename of the params file</span>
+<span class="sd">    params : dict</span>
+<span class="sd">        Dictionary containing the parameters to be saved</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># check if file already exists and overwritte it if so</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">h5filename</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;File </span><span class="si">{}</span><span class="s2"> already exists and will be overwritten&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">h5filename</span><span class="p">))</span>
+    <span class="c1"># writing the file</span>
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">h5filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">ff</span><span class="p">:</span>
+        <span class="n">dt</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">special_dtype</span><span class="p">(</span><span class="n">vlen</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>  <span class="c1"># special type for str for h5py</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+                <span class="n">ff</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;info/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dt</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>  <span class="c1"># string</span>
+                <span class="n">ff</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;info/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dt</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">):</span>  <span class="c1"># boolean</span>
+                <span class="n">ff</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;info/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>  <span class="c1"># float array</span>
+                <span class="n">ff</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;info/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+            <span class="p">):</span>  <span class="c1"># float</span>
+                <span class="n">ff</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;info/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+            <span class="p">):</span>  <span class="c1"># integer</span>
+                <span class="n">ff</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;info/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ff</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;info/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="n">data</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>  <span class="c1"># other</span></div>
+
+
+<div class="viewcode-block" id="read_tiff"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.read_tiff">[docs]</a><span class="k">def</span> <span class="nf">read_tiff</span><span class="p">(</span><span class="n">imgpath</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read tiff files using libtiff</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    imgpath : str</span>
+<span class="sd">        Path to tiff file with extension</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    imgout : array_like</span>
+<span class="sd">        Array containing the image</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; imgpath = &#39;libtiff.tiff&#39;</span>
+<span class="sd">    &gt;&gt;&gt; tiff = read_tiff(imgpath)</span>
+<span class="sd">    &gt;&gt;&gt; ar = tiff.read_image()</span>
+<span class="sd">    &gt;&gt;&gt; tiff.close()</span>
+<span class="sd">    &gt;&gt;&gt; ar.dtype</span>
+<span class="sd">    dtype(&#39;uint16&#39;)</span>
+<span class="sd">    &gt;&gt;&gt; np.max(ar)</span>
+<span class="sd">    65535</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tiff</span> <span class="o">=</span> <span class="n">libtiff</span><span class="o">.</span><span class="n">TIFF</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">imgpath</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+    <span class="n">imgout</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">read_image</span><span class="p">()</span>
+    <span class="n">tiff</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">imgout</span></div>
+
+
+<div class="viewcode-block" id="write_tiff"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.write_tiff">[docs]</a><span class="k">def</span> <span class="nf">write_tiff</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="n">pathfilename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Write tiff files using libtiff</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_array : array_like</span>
+<span class="sd">        Input array to be saved</span>
+<span class="sd">    pathfilename : str</span>
+<span class="sd">        Path and filename to save the file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Writing to file</span>
+    <span class="n">tiff</span> <span class="o">=</span> <span class="n">libtiff</span><span class="o">.</span><span class="n">TIFF</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">pathfilename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+    <span class="n">tiff</span><span class="o">.</span><span class="n">write_image</span><span class="p">(</span><span class="n">input_array</span><span class="p">)</span>
+    <span class="n">tiff</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="write_tiffmetadata"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.write_tiffmetadata">[docs]</a><span class="k">def</span> <span class="nf">write_tiffmetadata</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">low_cutoff</span><span class="p">,</span> <span class="n">high_cutoff</span><span class="p">,</span> <span class="n">factor</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates a txt file with the information about the Tiff normalization</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    filename : str</span>
+<span class="sd">        Filename to save the file.</span>
+<span class="sd">    low_cutoff : float</span>
+<span class="sd">        Low cutoff value for the tiff normalization.</span>
+<span class="sd">    high_cutoff : float</span>
+<span class="sd">        High cutoff value for the tiff normalization.</span>
+<span class="sd">    factor : float</span>
+<span class="sd">        Multiplicative factor in case it is needed.</span>
+<span class="sd">    params : dict</span>
+<span class="sd">        Dictionary of additional parameters.</span>
+<span class="sd">    params[&quot;voxelsize&quot;] : float</span>
+<span class="sd">        Voxel size.</span>
+<span class="sd">    params[&quot;filtertype&quot;] : str</span>
+<span class="sd">        Filter used in the tomographic reconstruction.</span>
+<span class="sd">    params[&quot;freqcutoff&quot;] : float</span>
+<span class="sd">        Frequency cutoff used in the tomographic reconstruction.</span>
+<span class="sd">    params[&quot;bits&quot;] : int</span>
+<span class="sd">        The tiff type. Options: `8` for 8 bits or `16` for 16 bits.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">voxelsize</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;voxelsize&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1e9</span>  <span class="c1"># in nm</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="n">voxelsize</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;pixelsize&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mf">1e9</span>
+    <span class="n">filtertype</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;filtertype&quot;</span><span class="p">]</span>
+    <span class="n">freqcutoff</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;freqcutoff&quot;</span><span class="p">]</span>
+    <span class="n">nbits</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;bits&quot;</span><span class="p">]</span>
+
+    <span class="c1"># writing</span>
+    <span class="n">fid</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# Tomo filter = </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">filtertype</span><span class="p">))</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# Tomo filter cutoff = </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">freqcutoff</span><span class="p">))</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# low_cutoff = </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">low_cutoff</span><span class="p">))</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# high_cutoff = </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">high_cutoff</span><span class="p">))</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# factor = </span><span class="si">{}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">factor</span><span class="p">))</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# voxel size = </span><span class="si">{}</span><span class="s2"> nm</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">voxelsize</span><span class="p">))</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;# to convert back to quantitative values:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+        <span class="s2">&quot;# low_cutoff + [(high_cutoff-low_cutoff)*tiff_image/(2^</span><span class="si">{:d}</span><span class="s2">-1)] </span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">nbits</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">fid</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="convertimageto16bits"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.convertimageto16bits">[docs]</a><span class="k">def</span> <span class="nf">convertimageto16bits</span><span class="p">(</span><span class="n">input_image</span><span class="p">,</span> <span class="n">low_cutoff</span><span class="p">,</span> <span class="n">high_cutoff</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert image gray-level to 16 bits with normalization</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_image : array_like</span>
+<span class="sd">        Input image to be converted.</span>
+<span class="sd">    low_cutoff : float</span>
+<span class="sd">        Low cutoff of the gray level.</span>
+<span class="sd">    high_cutoff : float</span>
+<span class="sd">        High cutoff of the gray level.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tiffimage : array_like</span>
+<span class="sd">        Array containing the image at 16 bits.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Tiff normalization - 16 bits</span>
+    <span class="n">imgtiff</span> <span class="o">=</span> <span class="n">input_image</span> <span class="o">-</span> <span class="n">low_cutoff</span>
+    <span class="n">imgtiff</span> <span class="o">/=</span> <span class="n">high_cutoff</span> <span class="o">-</span> <span class="n">low_cutoff</span>
+    <span class="n">imgtiff</span> <span class="o">*=</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">16</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># 16 bits</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">(</span><span class="n">imgtiff</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="convertimageto8bits"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.convertimageto8bits">[docs]</a><span class="k">def</span> <span class="nf">convertimageto8bits</span><span class="p">(</span><span class="n">input_image</span><span class="p">,</span> <span class="n">low_cutoff</span><span class="p">,</span> <span class="n">high_cutoff</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert image gray-level to 8 bits with normalization.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    input_image : array_like</span>
+<span class="sd">        Input image to be converted.</span>
+<span class="sd">    low_cutoff : float</span>
+<span class="sd">        Low cutoff of the gray level.</span>
+<span class="sd">    high_cutoff : float</span>
+<span class="sd">        High cutoff of the gray level.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tiffimage : array_like</span>
+<span class="sd">        Array containing the image at 8 bits.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Tiff normalization - 8 bits</span>
+    <span class="n">imgtiff</span> <span class="o">=</span> <span class="n">input_image</span> <span class="o">-</span> <span class="n">low_cutoff</span>
+    <span class="n">imgtiff</span> <span class="o">/=</span> <span class="n">high_cutoff</span> <span class="o">-</span> <span class="n">low_cutoff</span>
+    <span class="n">imgtiff</span> <span class="o">*=</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">8</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># 8 bits</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">(</span><span class="n">imgtiff</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="convert16bitstiff"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.convert16bitstiff">[docs]</a><span class="k">def</span> <span class="nf">convert16bitstiff</span><span class="p">(</span><span class="n">tiffimage</span><span class="p">,</span> <span class="n">low_cutoff</span><span class="p">,</span> <span class="n">high_cutoff</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert 16 bits tiff files back to quantitative values.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    imgpath : array_like</span>
+<span class="sd">        Image read from 16 bits tiff file.</span>
+<span class="sd">    low_cutoff : float</span>
+<span class="sd">        Low cutoff of the gray level.</span>
+<span class="sd">    high_cutoff : float</span>
+<span class="sd">        High cutoff of the gray level.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tiffimage : array_like</span>
+<span class="sd">        Array containing the image with quantitative values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tiffimage</span> <span class="o">=</span> <span class="n">tiffimage</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+    <span class="c1"># Convert to 16 bits</span>
+    <span class="n">tiffimage</span> <span class="o">/=</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">16</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">tiffimage</span> <span class="o">*=</span> <span class="n">high_cutoff</span> <span class="o">-</span> <span class="n">low_cutoff</span>
+    <span class="n">tiffimage</span> <span class="o">+=</span> <span class="n">low_cutoff</span>
+
+    <span class="k">return</span> <span class="n">tiffimage</span></div>
+
+
+<div class="viewcode-block" id="convert8bitstiff"><a class="viewcode-back" href="../../../rst/toupy.io.filesrw.html#toupy.io.filesrw.convert8bitstiff">[docs]</a><span class="k">def</span> <span class="nf">convert8bitstiff</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">low_cutoff</span><span class="p">,</span> <span class="n">high_cutoff</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert 8bits tiff files back to quantitative values.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    imgpath : array_like</span>
+<span class="sd">        Image read from 8 bits tiff file.</span>
+<span class="sd">    low_cutoff : float</span>
+<span class="sd">        Low cutoff of the gray level.</span>
+<span class="sd">    high_cutoff : float</span>
+<span class="sd">        High cutoff of the gray level.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    tiffimage : array_like</span>
+<span class="sd">        Array containing the image with quantitative values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">tiffimage</span> <span class="o">=</span> <span class="n">tiffimage</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float</span><span class="p">)</span>
+    <span class="c1"># Convert to 8 bits</span>
+    <span class="n">tiffimage</span> <span class="o">/=</span> <span class="mi">2</span> <span class="o">**</span> <span class="mi">8</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">tiffimage</span> <span class="o">*=</span> <span class="n">high_cutoff</span> <span class="o">-</span> <span class="n">low_cutoff</span>
+    <span class="n">tiffimage</span> <span class="o">+=</span> <span class="n">low_cutoff</span>
+
+    <span class="k">return</span> <span class="n">tiffimage</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>

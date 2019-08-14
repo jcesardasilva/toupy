@@ -1,0 +1,940 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.restoration.GUI_tracker &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="../../../_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Templates</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../templates.html">Templates</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.simulation.html">toupy.simulation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.utils.html">toupy.utils package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>toupy.restoration.GUI_tracker</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for toupy.restoration.GUI_tracker</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+
+<span class="c1"># third party packages</span>
+<span class="kn">import</span> <span class="nn">matplotlib.gridspec</span> <span class="k">as</span> <span class="nn">gridspec</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">matplotlib.widgets</span> <span class="k">import</span> <span class="n">MultiCursor</span>
+<span class="kn">from</span> <span class="nn">matplotlib.widgets</span> <span class="k">import</span> <span class="n">Button</span>  <span class="c1"># , RectangleSelector</span>
+<span class="kn">from</span> <span class="nn">matplotlib.widgets</span> <span class="k">import</span> <span class="n">TextBox</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">numpy.fft</span> <span class="k">import</span> <span class="n">fftfreq</span>
+
+<span class="c1"># from roipoly import RoiPoly, MultiRoi</span>
+<span class="kn">from</span> <span class="nn">skimage.restoration</span> <span class="k">import</span> <span class="n">unwrap_phase</span>
+
+<span class="c1"># local packages</span>
+<span class="kn">from</span> <span class="nn">..io.dataio</span> <span class="k">import</span> <span class="n">LoadData</span><span class="p">,</span> <span class="n">SaveData</span>
+<span class="kn">from</span> <span class="nn">.ramptools</span> <span class="k">import</span> <span class="n">rmphaseramp</span><span class="p">,</span> <span class="n">rmlinearphase</span><span class="p">,</span> <span class="n">rmair</span>
+<span class="kn">from</span> <span class="nn">.roipoly</span> <span class="k">import</span> <span class="n">roipoly</span>
+<span class="kn">from</span> <span class="nn">..utils</span> <span class="k">import</span> <span class="n">progbar</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;gui_plotamp&quot;</span><span class="p">,</span> <span class="s2">&quot;gui_plotphase&quot;</span><span class="p">,</span> <span class="s2">&quot;AmpTracker&quot;</span><span class="p">,</span> <span class="s2">&quot;PhaseTracker&quot;</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">_crop_stack</span><span class="p">(</span><span class="n">stack_images</span><span class="p">,</span> <span class="n">cropreg</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Crop stack of images for the phase ramp removal</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stack_images : array_like</span>
+<span class="sd">        Stack of images</span>
+<span class="sd">    cropreg : sequence of ints</span>
+<span class="sd">        List of number of pixel to cut from border. The order is</span>
+<span class="sd">        [left, bottom, right, top]</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    crop_stack : array_like</span>
+<span class="sd">        Cropped stack</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">stack_objs</span><span class="p">[:,</span> <span class="n">cropreg</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="n">cropreg</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cropreg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span> <span class="o">-</span><span class="n">cropreg</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+
+
+<div class="viewcode-block" id="gui_plotamp"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.gui_plotamp">[docs]</a><span class="k">def</span> <span class="nf">gui_plotamp</span><span class="p">(</span><span class="n">stack_objs</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    GUI for the air removal from amplitude projections</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stack_objs : array_like</span>
+<span class="sd">        Stack of amplitude projections</span>
+<span class="sd">    params : dict</span>
+<span class="sd">        Dictionary of additonal parameters</span>
+<span class="sd">    params[&quot;autosave&quot;] : bool</span>
+<span class="sd">        Save the projections once load without asking</span>
+<span class="sd">    params[&quot;correct_bad&quot;] : bool</span>
+<span class="sd">        If true, it will interpolate bad projections. The numbers of</span>
+<span class="sd">        projections to be corrected is given by `params[&quot;bad_projs&quot;]`.</span>
+<span class="sd">    params[&quot;bad_projs&quot;] : list of ints</span>
+<span class="sd">        List of projections to be interpolated. It starts at 0.</span>
+<span class="sd">    params[&quot;vmin&quot;] : float, None</span>
+<span class="sd">        Minimum value of gray-level to display</span>
+<span class="sd">    params[&quot;vmax&quot;] : float, None</span>
+<span class="sd">        Maximum value of gray-level to display</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    stack_ampcorr : array_like</span>
+<span class="sd">        Stack of corrected amplitude projections</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;crop_reg&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;crop_reg&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="p">[]:</span>
+            <span class="c1"># cropping the image for the phase ramp removal</span>
+            <span class="n">stack_objs</span> <span class="o">=</span> <span class="n">_crop_stack</span><span class="p">(</span><span class="n">stack_objs</span><span class="p">,</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;crop_reg&quot;</span><span class="p">])</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">gs</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span>
+        <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">width_ratios</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">height_ratios</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]</span>  <span class="c1"># figure=4,</span>
+    <span class="p">)</span>
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">ax2</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+    <span class="n">tracker</span> <span class="o">=</span> <span class="n">AmpTracker</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">stack_objs</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+    <span class="c1"># Button draw mask</span>
+    <span class="n">axdraw</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.82</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bdraw</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axdraw</span><span class="p">,</span> <span class="s2">&quot;draw mask&quot;</span><span class="p">)</span>
+    <span class="n">bdraw</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">draw_mask</span><span class="p">)</span>
+    <span class="c1"># Button Close figure</span>
+    <span class="n">axclose</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.82</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bclose</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axclose</span><span class="p">,</span> <span class="s2">&quot;close figure&quot;</span><span class="p">)</span>
+    <span class="n">bclose</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">onclose</span><span class="p">)</span>
+    <span class="c1"># Button add mask</span>
+    <span class="n">axadd</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.72</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">badd</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axadd</span><span class="p">,</span> <span class="s2">&quot;add mask&quot;</span><span class="p">)</span>
+    <span class="n">badd</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">add_mask</span><span class="p">)</span>
+    <span class="c1"># Button Apply mask</span>
+    <span class="n">axapply</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.72</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bapply</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axapply</span><span class="p">,</span> <span class="s2">&quot;apply mask&quot;</span><span class="p">)</span>
+    <span class="n">bapply</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">apply_mask</span><span class="p">)</span>
+    <span class="c1"># Button mask to all</span>
+    <span class="n">axmaskall</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.62</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bmaskall</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axmaskall</span><span class="p">,</span> <span class="s2">&quot;mask all&quot;</span><span class="p">)</span>
+    <span class="n">bmaskall</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">mask_all</span><span class="p">)</span>
+    <span class="c1"># Button Apply all mask</span>
+    <span class="n">axapplyall</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.62</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bapplyall</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axapplyall</span><span class="p">,</span> <span class="s2">&quot;apply all masks&quot;</span><span class="p">)</span>
+    <span class="n">bapplyall</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">apply_all_masks</span><span class="p">)</span>
+    <span class="c1"># Button remove mask</span>
+    <span class="n">axremove</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.52</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bremove</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axremove</span><span class="p">,</span> <span class="s2">&quot;remove mask&quot;</span><span class="p">)</span>
+    <span class="n">bremove</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">remove_mask</span><span class="p">)</span>
+    <span class="c1"># Button remove all mask</span>
+    <span class="n">axremoveall</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.42</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bremoveall</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axremoveall</span><span class="p">,</span> <span class="s2">&quot;remove all mask&quot;</span><span class="p">)</span>
+    <span class="n">bremoveall</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">remove_all_mask</span><span class="p">)</span>
+    <span class="c1"># Button Save masks</span>
+    <span class="n">axsave</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.32</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bsave</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axsave</span><span class="p">,</span> <span class="s2">&quot;save masks&quot;</span><span class="p">)</span>
+    <span class="n">bsave</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">save_masks</span><span class="p">)</span>
+    <span class="c1"># Button load mask from file</span>
+    <span class="n">axload</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.22</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bload</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axload</span><span class="p">,</span> <span class="s2">&quot;load masks&quot;</span><span class="p">)</span>
+    <span class="n">bload</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">load_masks</span><span class="p">)</span>
+    <span class="c1"># text boxes</span>
+    <span class="n">axboxprojn</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.125</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">text_box</span> <span class="o">=</span> <span class="n">TextBox</span><span class="p">(</span><span class="n">axboxprojn</span><span class="p">,</span> <span class="s2">&quot;Goto #&quot;</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="s2">&quot;1&quot;</span><span class="p">)</span>
+    <span class="n">text_box</span><span class="o">.</span><span class="n">on_submit</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">submit</span><span class="p">)</span>
+    <span class="c1"># ~ text_box.on_text_change(tracker.updateval)</span>
+
+    <span class="c1"># Colormap boxes</span>
+    <span class="n">axboxvmin</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.67</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">textboxvmin</span> <span class="o">=</span> <span class="n">TextBox</span><span class="p">(</span><span class="n">axboxvmin</span><span class="p">,</span> <span class="s2">&quot;vmin&quot;</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="s2">&quot;None&quot;</span><span class="p">)</span>
+    <span class="n">textboxvmin</span><span class="o">.</span><span class="n">on_submit</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">cmvmin</span><span class="p">)</span>
+    <span class="n">axboxvmax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.87</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">textboxvmax</span> <span class="o">=</span> <span class="n">TextBox</span><span class="p">(</span><span class="n">axboxvmax</span><span class="p">,</span> <span class="s2">&quot;vmax&quot;</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="s2">&quot;None&quot;</span><span class="p">)</span>
+    <span class="n">textboxvmax</span><span class="o">.</span><span class="n">on_submit</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">cmvmax</span><span class="p">)</span>
+    <span class="c1"># give the name for colormap boxes</span>
+    <span class="n">cmap_title</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.72</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">cmap_title</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+    <span class="n">cmap_title</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Colormap&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+    <span class="c1"># axboxvmin.set_title(&#39;Colormap&#39;)</span>
+
+    <span class="c1"># Buttons Prev/Next</span>
+    <span class="n">axprev</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.28</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">axnext</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bnext</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axnext</span><span class="p">,</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">)</span>
+    <span class="n">bnext</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">up</span><span class="p">)</span>
+    <span class="n">bprev</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axprev</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">)</span>
+    <span class="n">bprev</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">down</span><span class="p">)</span>
+    <span class="c1"># Button Play</span>
+    <span class="n">axplay</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.445</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bplay</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axplay</span><span class="p">,</span> <span class="s2">&quot;play&quot;</span><span class="p">)</span>
+    <span class="n">bplay</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">play</span><span class="p">)</span>
+    <span class="c1"># Connect scroll and key_press events</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s2">&quot;scroll_event&quot;</span><span class="p">,</span> <span class="n">tracker</span><span class="o">.</span><span class="n">onscroll</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s2">&quot;key_press_event&quot;</span><span class="p">,</span> <span class="n">tracker</span><span class="o">.</span><span class="n">key_event</span><span class="p">)</span>
+    <span class="n">multi</span> <span class="o">=</span> <span class="n">MultiCursor</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Press Enter to finish</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="c1"># output of the linear phase removal</span>
+    <span class="n">stack_ampcorr</span> <span class="o">=</span> <span class="n">tracker</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c1"># tracker.X1 is where the data is stored</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">stack_ampcorr</span></div>
+
+
+<div class="viewcode-block" id="gui_plotphase"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.gui_plotphase">[docs]</a><span class="k">def</span> <span class="nf">gui_plotphase</span><span class="p">(</span><span class="n">stack_objs</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    GUI for the phase ramp removal from phase projections</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stack_objs : array_like</span>
+<span class="sd">        Stack of phase projections</span>
+<span class="sd">    params : dict</span>
+<span class="sd">        Dictionary of additonal parameters</span>
+<span class="sd">    params[&quot;autosave&quot;] : bool</span>
+<span class="sd">        Save the projections once load without asking</span>
+<span class="sd">    params[&quot;correct_bad&quot;] : bool</span>
+<span class="sd">        If true, it will interpolate bad projections. The numbers of</span>
+<span class="sd">        projections to be corrected is given by `params[&quot;bad_projs&quot;]`.</span>
+<span class="sd">    params[&quot;bad_projs&quot;] : list of ints</span>
+<span class="sd">        List of projections to be interpolated. It starts at 0.</span>
+<span class="sd">    params[&quot;vmin&quot;] : float, None</span>
+<span class="sd">        Minimum value of gray-level to display</span>
+<span class="sd">    params[&quot;vmax&quot;] : float, None</span>
+<span class="sd">        Maximum value of gray-level to display</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    stack_phasecorr : array_like</span>
+<span class="sd">        Stack of corrected phase projections</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;crop_reg&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;crop_reg&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="p">[]:</span>
+            <span class="c1"># cropping the image for the phase ramp removal</span>
+            <span class="n">stack_objs</span> <span class="o">=</span> <span class="n">_crop_stack</span><span class="p">(</span><span class="n">stack_objs</span><span class="p">,</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;crop_reg&quot;</span><span class="p">])</span>
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">gs</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span>
+        <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">width_ratios</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">height_ratios</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]</span>  <span class="c1"># figure=4,</span>
+    <span class="p">)</span>
+    <span class="n">ax1</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">ax2</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+    <span class="n">tracker</span> <span class="o">=</span> <span class="n">PhaseTracker</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">stack_objs</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+    <span class="c1"># Button draw mask</span>
+    <span class="n">axdraw</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.82</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bdraw</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axdraw</span><span class="p">,</span> <span class="s2">&quot;draw mask&quot;</span><span class="p">)</span>
+    <span class="n">bdraw</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">draw_mask</span><span class="p">)</span>
+    <span class="c1"># Button Close figure</span>
+    <span class="n">axclose</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.82</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bclose</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axclose</span><span class="p">,</span> <span class="s2">&quot;close figure&quot;</span><span class="p">)</span>
+    <span class="n">bclose</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">onclose</span><span class="p">)</span>
+    <span class="c1"># Button add mask</span>
+    <span class="n">axadd</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.72</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">badd</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axadd</span><span class="p">,</span> <span class="s2">&quot;add mask&quot;</span><span class="p">)</span>
+    <span class="n">badd</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">add_mask</span><span class="p">)</span>
+    <span class="c1"># Button Apply mask</span>
+    <span class="n">axapply</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.72</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bapply</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axapply</span><span class="p">,</span> <span class="s2">&quot;apply mask&quot;</span><span class="p">)</span>
+    <span class="n">bapply</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">apply_mask</span><span class="p">)</span>
+    <span class="c1"># Button mask to all</span>
+    <span class="n">axmaskall</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.62</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bmaskall</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axmaskall</span><span class="p">,</span> <span class="s2">&quot;mask all&quot;</span><span class="p">)</span>
+    <span class="n">bmaskall</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">mask_all</span><span class="p">)</span>
+    <span class="c1"># Button Apply all mask</span>
+    <span class="n">axapplyall</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.62</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bapplyall</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axapplyall</span><span class="p">,</span> <span class="s2">&quot;apply all masks&quot;</span><span class="p">)</span>
+    <span class="n">bapplyall</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">apply_all_masks</span><span class="p">)</span>
+    <span class="c1"># Button remove mask</span>
+    <span class="n">axremove</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.52</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bremove</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axremove</span><span class="p">,</span> <span class="s2">&quot;remove mask&quot;</span><span class="p">)</span>
+    <span class="n">bremove</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">remove_mask</span><span class="p">)</span>
+    <span class="c1"># Button remove phase ramp</span>
+    <span class="n">axrmramp</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.52</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">brmramp</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axrmramp</span><span class="p">,</span> <span class="s2">&quot;remove ramp&quot;</span><span class="p">)</span>
+    <span class="n">brmramp</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">remove_ramp</span><span class="p">)</span>
+    <span class="c1"># Button remove all mask</span>
+    <span class="n">axremoveall</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.42</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bremoveall</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axremoveall</span><span class="p">,</span> <span class="s2">&quot;remove all mask&quot;</span><span class="p">)</span>
+    <span class="n">bremoveall</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">remove_all_mask</span><span class="p">)</span>
+    <span class="c1"># Button remove all phase ramp</span>
+    <span class="n">axrmrampall</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.42</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">brmrampall</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axrmrampall</span><span class="p">,</span> <span class="s2">&quot;remove all ramp&quot;</span><span class="p">)</span>
+    <span class="n">brmrampall</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">remove_rampall</span><span class="p">)</span>
+    <span class="c1"># Button Save masks</span>
+    <span class="n">axsave</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.32</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bsave</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axsave</span><span class="p">,</span> <span class="s2">&quot;save masks&quot;</span><span class="p">)</span>
+    <span class="n">bsave</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">save_masks</span><span class="p">)</span>
+    <span class="c1"># Button unwrap</span>
+    <span class="n">axunwrap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.32</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bunwrap</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axunwrap</span><span class="p">,</span> <span class="s2">&quot;unwrap&quot;</span><span class="p">)</span>
+    <span class="n">bunwrap</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">unwrapping_phase</span><span class="p">)</span>
+    <span class="c1"># Button load mask from file</span>
+    <span class="n">axload</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.58</span><span class="p">,</span> <span class="mf">0.22</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bload</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axload</span><span class="p">,</span> <span class="s2">&quot;load masks&quot;</span><span class="p">)</span>
+    <span class="n">bload</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">load_masks</span><span class="p">)</span>
+    <span class="c1"># Button unwrap all</span>
+    <span class="n">axunwrapall</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.78</span><span class="p">,</span> <span class="mf">0.22</span><span class="p">,</span> <span class="mf">0.19</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bunwrapall</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axunwrapall</span><span class="p">,</span> <span class="s2">&quot;unwrap all&quot;</span><span class="p">)</span>
+    <span class="n">bunwrapall</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">unwrapping_all</span><span class="p">)</span>
+    <span class="c1"># text boxes</span>
+    <span class="n">axboxprojn</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.125</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">text_box</span> <span class="o">=</span> <span class="n">TextBox</span><span class="p">(</span><span class="n">axboxprojn</span><span class="p">,</span> <span class="s2">&quot;Goto #&quot;</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="s2">&quot;1&quot;</span><span class="p">)</span>
+    <span class="n">text_box</span><span class="o">.</span><span class="n">on_submit</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">submit</span><span class="p">)</span>
+
+    <span class="c1"># Colormap boxes</span>
+    <span class="n">axboxvmin</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.67</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">textboxvmin</span> <span class="o">=</span> <span class="n">TextBox</span><span class="p">(</span><span class="n">axboxvmin</span><span class="p">,</span> <span class="s2">&quot;vmin&quot;</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="s2">&quot;None&quot;</span><span class="p">)</span>
+    <span class="n">textboxvmin</span><span class="o">.</span><span class="n">on_submit</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">cmvmin</span><span class="p">)</span>
+    <span class="n">axboxvmax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.87</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">textboxvmax</span> <span class="o">=</span> <span class="n">TextBox</span><span class="p">(</span><span class="n">axboxvmax</span><span class="p">,</span> <span class="s2">&quot;vmax&quot;</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="s2">&quot;None&quot;</span><span class="p">)</span>
+    <span class="n">textboxvmax</span><span class="o">.</span><span class="n">on_submit</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">cmvmax</span><span class="p">)</span>
+    <span class="c1"># give the name for colormap boxes</span>
+    <span class="n">cmap_title</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.72</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">cmap_title</span><span class="o">.</span><span class="n">set_axis_off</span><span class="p">()</span>
+    <span class="n">cmap_title</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Colormap&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+    <span class="c1"># axboxvmin.set_title(&#39;Colormap&#39;)</span>
+
+    <span class="c1"># Buttons Prev/Next</span>
+    <span class="n">axprev</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.28</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">axnext</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bnext</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axnext</span><span class="p">,</span> <span class="s2">&quot;&gt;&quot;</span><span class="p">)</span>
+    <span class="n">bnext</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">up</span><span class="p">)</span>
+    <span class="n">bprev</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axprev</span><span class="p">,</span> <span class="s2">&quot;&lt;&quot;</span><span class="p">)</span>
+    <span class="n">bprev</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">down</span><span class="p">)</span>
+    <span class="c1"># Button Play</span>
+    <span class="n">axplay</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">([</span><span class="mf">0.445</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.06</span><span class="p">])</span>
+    <span class="n">bplay</span> <span class="o">=</span> <span class="n">Button</span><span class="p">(</span><span class="n">axplay</span><span class="p">,</span> <span class="s2">&quot;play&quot;</span><span class="p">)</span>
+    <span class="n">bplay</span><span class="o">.</span><span class="n">on_clicked</span><span class="p">(</span><span class="n">tracker</span><span class="o">.</span><span class="n">play</span><span class="p">)</span>
+    <span class="c1"># Connect scroll and key_press events</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s2">&quot;scroll_event&quot;</span><span class="p">,</span> <span class="n">tracker</span><span class="o">.</span><span class="n">onscroll</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">mpl_connect</span><span class="p">(</span><span class="s2">&quot;key_press_event&quot;</span><span class="p">,</span> <span class="n">tracker</span><span class="o">.</span><span class="n">key_event</span><span class="p">)</span>
+    <span class="n">multi</span> <span class="o">=</span> <span class="n">MultiCursor</span><span class="p">(</span><span class="n">fig</span><span class="o">.</span><span class="n">canvas</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">(</span><span class="n">block</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="s2">&quot;Press Enter to finish</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="c1"># output of the linear phase removal</span>
+    <span class="n">stack_phasecorr</span> <span class="o">=</span> <span class="n">tracker</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  <span class="c1"># tracker.X1 is where the data is stored</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">stack_phasecorr</span></div>
+
+
+<div class="viewcode-block" id="PhaseTracker"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker">[docs]</a><span class="k">class</span> <span class="nc">PhaseTracker</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Widgets for the phase ramp removal</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">X1</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fig</span> <span class="o">=</span> <span class="n">fig</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span> <span class="o">=</span> <span class="n">ax1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span> <span class="o">=</span> <span class="n">ax2</span>
+        <span class="n">ax1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Use scroll wheel or </span><span class="se">\n</span><span class="s2"> left/right arrows to navigate images&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">X1</span> <span class="o">=</span> <span class="n">X1</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">iscomplexobj</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The array is complex&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">X2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">X1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="n">X1</span><span class="o">.</span><span class="n">shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vmin</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmin&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vmax</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;vmax&quot;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">im1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;bone&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">vmax</span>
+        <span class="p">)</span>
+        <span class="c1"># ~ self.vmin,self.vmax = self.im1.get_clim() # get colormap limits</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">im2</span><span class="p">,</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pmin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span>  <span class="c1"># get plot limits</span>
+        <span class="c1"># ax2.axis(&#39;tight&#39;)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">vmin</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">vmax</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="n">cols</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done. When finished, close figure and press &lt;Enter&gt; to exit&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PhaseTracker.cmvmin"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.cmvmin">[docs]</a>    <span class="k">def</span> <span class="nf">cmvmin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the vmin equals to ``val`` on colormap</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">eval</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vmax</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;vmin is equal or larger than vmax. Choose smaller value&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vmin</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>  <span class="c1"># np.clip(eval(val), 0, self.vmax - 1)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pmin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vmin</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.cmvmax"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.cmvmax">[docs]</a>    <span class="k">def</span> <span class="nf">cmvmax</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the vmax equals to ``val`` on colormap</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">eval</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vmin</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;vmax is equal or smaller than vmin. Choose larger value&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vmax</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pmax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vmax</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.onscroll"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.onscroll">[docs]</a>    <span class="k">def</span> <span class="nf">onscroll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Move projection number up/down using the mouse scroll wheel</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">button</span> <span class="o">==</span> <span class="s2">&quot;up&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">:</span>  <span class="c1"># X1.shape[0]:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;You reached the maximum number of projections&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2"> - projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">event</span><span class="o">.</span><span class="n">button</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;You reached the first projection&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> </span><span class="si">{}</span><span class="s2"> - projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">event</span><span class="o">.</span><span class="n">button</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.key_event"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.key_event">[docs]</a>    <span class="k">def</span> <span class="nf">key_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Move projection number up/down using right/left arrows in the keyboard</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;right&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">:</span>  <span class="c1"># self.X1.shape[0]:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;You reached the maximum number of projections&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> - projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="o">.</span><span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;left&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;You reached the first projection&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2"> - projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.down"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.down">[docs]</a>    <span class="k">def</span> <span class="nf">down</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Move projection number down using button Prev</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.up"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.up">[docs]</a>    <span class="k">def</span> <span class="nf">up</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Move projection number up using button Next</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.draw_mask"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.draw_mask">[docs]</a>    <span class="k">def</span> <span class="nf">draw_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Draw the mask using roipoly</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Drawing the poly&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">img_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+        <span class="c1"># create another fig in order to close later</span>
+        <span class="n">fig_mask</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+        <span class="n">ax_mask</span> <span class="o">=</span> <span class="n">fig_mask</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span>
+        <span class="n">ax_mask</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img_mask</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;bone&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ROI_draw</span> <span class="o">=</span> <span class="n">roipoly</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax_mask</span><span class="p">)</span></div>
+        <span class="c1"># ~ self.ROI_draw = RoiPoly(color=&#39;b&#39;, fig = fig_mask, close_fig=True) # has to close to validate</span>
+        <span class="c1"># ~ self.ROI_draw = MultiRoi_mod(fig=fig_mask,ax=ax_mask)#(color=&#39;b&#39;, fig = self.fig)</span>
+        <span class="c1"># ~ print(self.ROI_draw.rois.items())</span>
+        <span class="c1"># ~ print(&#39;Done&#39;)</span>
+
+<div class="viewcode-block" id="PhaseTracker.add_mask"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.add_mask">[docs]</a>    <span class="k">def</span> <span class="nf">add_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add the mask to the plot</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Adding mask&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">|=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ROI_draw</span><span class="o">.</span><span class="n">getMask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img_mask</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ROI_draw</span><span class="o">.</span><span class="n">displayROI</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.mask_all"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.mask_all">[docs]</a>    <span class="k">def</span> <span class="nf">mask_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Use the same mask for all projections</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Repeating the same mask for all projections&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Please wait...&quot;</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ROI_draw</span><span class="o">.</span><span class="n">getMask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img_mask</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">|=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">mask</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">)])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.remove_mask"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.remove_mask">[docs]</a>    <span class="k">def</span> <span class="nf">remove_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Remove the current selected area from the mask</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Removing mask&quot;</span><span class="p">)</span>
+        <span class="c1"># self.mask[self.mask_ind,:,:] &amp;= ~self.ROI_draw.getMask(self.img_mask)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="bp">self</span><span class="o">.</span><span class="n">ROI_draw</span><span class="o">.</span><span class="n">getMask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img_mask</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.remove_all_mask"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.remove_all_mask">[docs]</a>    <span class="k">def</span> <span class="nf">remove_all_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Remove all the masks</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Removing all mask&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Please wait...&quot;</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ROI_draw</span><span class="o">.</span><span class="n">getMask</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">img_mask</span><span class="p">)</span>
+        <span class="c1"># self.mask[self.mask_ind,:,:] &amp;= ~self.ROI_draw.getMask(self.img_mask)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">mask</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">)])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.apply_mask"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.apply_mask">[docs]</a>    <span class="k">def</span> <span class="nf">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the linear phase correction using current mask</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Apply the linear phase correction using current mask&quot;</span><span class="p">)</span>
+        <span class="n">imgin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="c1"># ~ self.X1[self.ind,:,:]=np.angle(remove_linearphase(imgin,mask,100)).copy()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">rmlinearphase</span><span class="p">(</span><span class="n">imgin</span><span class="p">,</span> <span class="n">mask</span><span class="p">))</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.apply_all_masks"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.apply_all_masks">[docs]</a>    <span class="k">def</span> <span class="nf">apply_all_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the linear phase correction using current mask to all projections</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Apply the linear phase correction using current mask to all projections&quot;</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">ii</span>
+            <span class="n">strbar</span> <span class="o">=</span> <span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2"> out of </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">)</span>
+            <span class="n">imgin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="c1"># ~ self.X1[ii,:,:]=np.angle(remove_linearphase(imgin,mask,100)).copy()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">rmlinearphase</span><span class="p">(</span><span class="n">imgin</span><span class="p">,</span> <span class="n">mask</span><span class="p">))</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+            <span class="n">progbar</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">,</span> <span class="n">strbar</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.remove_ramp"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.remove_ramp">[docs]</a>    <span class="k">def</span> <span class="nf">remove_ramp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Remove linear phase ramp</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Remove linear ramp&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span>
+            <span class="n">rmphaseramp</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]),</span>
+                <span class="n">weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">return_phaseramp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="c1"># mask = self.mask[self.ind,:,:]*self.X1[self.ind,:,:]</span>
+        <span class="c1"># self.X1[self.ind,:,:] -= mask.astype(np.float).mean()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.remove_rampall"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.remove_rampall">[docs]</a>    <span class="k">def</span> <span class="nf">remove_rampall</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Remove linear phase ramp of all</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Remove linear phase ramp of all projections&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">ii</span>
+            <span class="n">strbar</span> <span class="o">=</span> <span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2"> out of </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span>
+                <span class="n">rmphaseramp</span><span class="p">(</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]),</span>
+                    <span class="n">weight</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                    <span class="n">return_phaseramp</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="c1"># mask = self.mask[self.ind,:,:]*self.X1[self.ind,:,:]</span>
+            <span class="c1"># self.X1[self.ind,:,:] -= mask.astype(np.float).mean()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+            <span class="n">progbar</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">,</span> <span class="n">strbar</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.unwrapping_phase"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.unwrapping_phase">[docs]</a>    <span class="k">def</span> <span class="nf">unwrapping_phase</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Unwrap phase</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Unwrapping phase&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">unwrap_phase</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">==</span> <span class="kc">True</span><span class="p">):</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:][</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">==</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">vals</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:</span>
+        <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.unwrapping_all"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.unwrapping_all">[docs]</a>    <span class="k">def</span> <span class="nf">unwrapping_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Unwrap phase of all projections</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Remove linear phase ramp of all projections&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">ii</span>
+            <span class="n">strbar</span> <span class="o">=</span> <span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2"> out of </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">unwrap_phase</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">==</span> <span class="kc">True</span><span class="p">):</span>
+                <span class="n">vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:][</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">==</span> <span class="kc">True</span><span class="p">)</span>
+                <span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">vals</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+            <span class="n">progbar</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">,</span> <span class="n">strbar</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.load_masks"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.load_masks">[docs]</a>    <span class="k">def</span> <span class="nf">load_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load masks from file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Load masks from file&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mask</span> <span class="o">=</span> <span class="n">LoadData</span><span class="o">.</span><span class="n">loadmasks</span><span class="p">(</span><span class="s2">&quot;masks.h5&quot;</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.save_masks"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.save_masks">[docs]</a>    <span class="k">def</span> <span class="nf">save_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Save mask to file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Save masks to file&quot;</span><span class="p">)</span>
+        <span class="n">SaveData</span><span class="o">.</span><span class="n">savemasks</span><span class="p">(</span><span class="s2">&quot;masks.h5&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.submit"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.submit">[docs]</a>    <span class="k">def</span> <span class="nf">submit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Textbox submit</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="nb">eval</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.play"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.play">[docs]</a>    <span class="k">def</span> <span class="nf">play</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Plot one project after the other (play)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">ii</span>  <span class="c1"># np.clip(self.ind + ii, 0, self.slices - ii)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="PhaseTracker.update"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Update the plot canvas</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">im1</span><span class="o">.</span><span class="n">set_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">im1</span><span class="o">.</span><span class="n">set_clim</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vmin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vmax</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">im2</span><span class="o">.</span><span class="n">set_ydata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">im2</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">pmin</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pmax</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax1</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ax2</span><span class="o">.</span><span class="n">axes</span><span class="o">.</span><span class="n">figure</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span></div>
+        <span class="c1"># self.im1.axes.figure.canvas.draw()</span>
+        <span class="c1"># self.im2.axes.figure.canvas.draw()</span>
+
+<div class="viewcode-block" id="PhaseTracker.onclose"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.PhaseTracker.onclose">[docs]</a>    <span class="k">def</span> <span class="nf">onclose</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Close the figure</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Image closed. Press Enter to exit and save projections&quot;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">canvas</span><span class="o">.</span><span class="n">figure</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="AmpTracker"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.AmpTracker">[docs]</a><span class="k">class</span> <span class="nc">AmpTracker</span><span class="p">(</span><span class="n">PhaseTracker</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Widgets for the phase ramp removal</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    It inherits most of the functionality of :py:class:`PhaseTracker`, except</span>
+<span class="sd">    the ones related to amplitude projections rather than to phase projections.</span>
+<span class="sd">    Please, refert to the docstring of :py:class:`PhaseTracker` for further description.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">X1</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">,</span> <span class="n">X1</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># flag to keep the already corrected projections</span>
+
+<div class="viewcode-block" id="AmpTracker.apply_mask"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.AmpTracker.apply_mask">[docs]</a>    <span class="k">def</span> <span class="nf">apply_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the air correction using current mask and apply the log</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Apply the air correctioncorrection using current mask and the logarithm&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2"> was already corrected&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">imgin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span>
+                <span class="n">rmair</span><span class="p">(</span><span class="n">imgin</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+            <span class="p">)</span>  <span class="c1"># remove air and apply log</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vmin</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">vmax</span> <span class="o">=</span> <span class="mf">0.1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="AmpTracker.apply_all_masks"><a class="viewcode-back" href="../../../rst/toupy.restoration.GUI_tracker.html#toupy.restoration.GUI_tracker.AmpTracker.apply_all_masks">[docs]</a>    <span class="k">def</span> <span class="nf">apply_all_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the linear air correction using current mask and log to all projections</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Apply the air correction using current mask and the logarithm to all projections&quot;</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">=</span> <span class="n">ii</span>
+            <span class="n">strbar</span> <span class="o">=</span> <span class="s2">&quot;Projection </span><span class="si">{}</span><span class="s2"> out of </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="se">\r</span><span class="s2">Projection </span><span class="si">{}</span><span class="s2"> was already corrected&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># np.exp(1j*self.X1[ii,:,:]).copy()</span>
+                <span class="n">imgin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="c1"># remove air and apply log</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">rmair</span><span class="p">(</span><span class="n">imgin</span><span class="p">,</span> <span class="n">mask</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">X2</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">X1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">),</span> <span class="p">:]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ind</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+            <span class="n">progbar</span><span class="p">(</span><span class="n">ii</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">slices</span><span class="p">,</span> <span class="n">strbar</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Done&quot;</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>
