@@ -64,7 +64,7 @@
             
             
               <div class="version">
-                0.1.0
+                0.1
               </div>
             
           
@@ -286,6 +286,46 @@ edges, the array of ones will have DC in upper left corner.</p>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Square array containing a fractional separable Hanning window with
 DC in upper left corner.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.hanning_apodization">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">hanning_apodization</code><span class="sig-paren">(</span><em class="sig-param">window_size</em>, <em class="sig-param">apod_width</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#hanning_apodization"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.hanning_apodization" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create apodization window using Hanning window</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>window_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.7)"><em>tuple</em></a>) – Window size</p></li>
+<li><p><strong>apod_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Apodization width</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>hannwindow2D</strong> – 2D Hanning window for the apodization</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.hanning_apod1D">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">hanning_apod1D</code><span class="sig-paren">(</span><em class="sig-param">window_size</em>, <em class="sig-param">apod_width</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#hanning_apod1D"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.hanning_apod1D" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create 1D apodization window using Hanning window</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>window_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Window size</p></li>
+<li><p><strong>apod_width</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Apodization width</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>hannwindow1D</strong> – 1D Hanning window for the apodization</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>array_like</p>
