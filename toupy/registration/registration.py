@@ -26,7 +26,7 @@ from ..utils import (
     replace_bad,
     display_slice,
     create_circle,
-    hanning_apodization,
+    hanning_apod1D,
 )
 
 __all__ = [
@@ -796,12 +796,9 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     N,M = sinogram.shape
 
     # applying a filter to the sinogram #TODO: improve this part
-    filteraux = hanning_apodization(sinogram.shape,np.int(0.5 * N * (params["freqcutoff"])))
-    # filteraux = fract_hanning_pad(
-    #    N, N, np.round(N * (1 - params["freqcutoff"]))
-    #)  # 1- at the beginning
-    #filteraux = np.tile(np.fft.fftshift(filteraux[0, :]), (len(theta), 1))
-    sino_orig = np.real(np.fft.ifft(np.fft.fft(sinogram) * filteraux.T))
+    filteraux = hanning_apod1D(N,np.int(0.5 * N * (params["freqcutoff"])))
+    filteraux = np.tile(filteraux, (len(theta), 1)).T
+    sino_orig = np.real(np.fft.ifft(np.fft.fft(sinogram) * filteraux))
 
     # Shifting projection according to the initial shiftslice
     if not np.all(shiftslice == 0):
