@@ -10,16 +10,14 @@ import numpy as np
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy.ndimage.fourier import fourier_shift
-
+from skimage.feature import register_translation
 
 # local packages
-from .register_translation import register_translation
 from ..restoration import derivatives, derivatives_sino
 from .shift import ShiftFunc
 from ..tomo import projector, tomo_recons
 from ..utils import (
     deprecated,
-    #fract_hanning_pad,
     projectpoly1d,
     progbar,
     RegisterPlot,

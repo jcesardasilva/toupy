@@ -8,7 +8,6 @@ import time
 import numpy as np
 
 # local packages
-from ..registration.register_translation import register_translation
 from ..utils.funcutils import deprecated
 
 __all__ = ["rmphaseramp", "rmlinearphase", "rmair"]
@@ -111,55 +110,9 @@ def rmlinearphase(image, mask):
 
     # applying to the image
     im_output = np.abs(image) * ph_corr
-    ph_err = (mask * np.angle(ph_corr) ** 2).sum() / nrm
+    # ph_err = (mask * np.angle(ph_corr) ** 2).sum() / nrm
 
     return im_output  # , ph_err
-
-
-@deprecated
-def remove_linearphase_old(image, mask, upsamp):
-    """
-    Removes linear phase from object considering only pixels where mask is
-    unity, arrays have center on center of array
-
-    Parameters
-    ----------
-    image : array_like
-        Image
-    mask : bool, array_like 
-        Binary array with ones where the linear phase should be 
-        computed from
-    upsamp : int
-        Linear phase will be removed within 2*pi/upsamp peak to valley
-        in radians
-
-    Note
-    -----
-    Inspired by remove_linearphase.m created by Manuel Guizar-Sicairos in Aug 19th, 2010.
-    Please, cite: Manuel Guizar-Sicairos, Ana Diaz, Mirko Holler, Miriam S. Lucas,
-    Andreas Menzel, Roger A. Wepf, and Oliver Bunk, "Phase tomography from x-ray
-    coherent diffractive imaging projections," Opt. Express 19, 21345-21357 (2011)
-    """
-    p0 = time.time()
-    shift, error, diffphase = register_translation(
-        np.fft.ifftshift(mask * np.abs(image)), np.fft.ifftshift(mask * image), upsamp
-    )
-    # shift, error, diffphase = register_translation(mask*np.abs(image),mask*image,upsamp)
-    if shift[0] != 0 or shift[1] != 0:
-        nr, nc = image.shape
-        ar = np.arange(-np.floor(nr / 2), np.ceil(nr / 2))
-        ac = np.arange(-np.floor(nc / 2), np.ceil(nc / 2))
-        # ~ Nr,Nc = fftfreq(nr),fftfreq(nc)
-        # Nr,Nc = np.fft.ifftshift(fftfreq(nr)),np.fft.ifftshift(fftfreq(nc))
-        # ~ Nc,Nr = np.meshgrid(Nc,Nr)
-        Nc, Nr = np.meshgrid(ac, ar)  # FFT frequencies
-        image *= np.exp(1j * 2 * np.pi * (-shift[0] * Nr / nr - shift[1] * Nc / nc))
-
-    image *= np.exp(1j * diffphase)
-    print("shifts: [{} , {}]".format(shift[0], shift[1]))
-    print("Phase difference: {}".format(diffphase))
-    print("Time elapsed: {} s".format(time.time() - p0))
-    return image  # *np.exp(1j*diffphase)
 
 
 def rmair(image, mask):
