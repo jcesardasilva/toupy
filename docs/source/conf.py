@@ -25,7 +25,7 @@ copyright = '2019, Julio C. da Silva'
 author = 'Julio C. da Silva, ESRF and Institut Néel, CNRS'
 
 # The short X.Y version
-version = '0.1.0'
+version = '0.1'
 # The full version, including alpha/beta/rc tags
 release = '0.1.0'
 
@@ -215,8 +215,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'Toupy', u'Toupy Documentation',
-     author, 'Toupy', 'One line description of project.',
+    (master_doc, 'Toupy', 'Toupy Documentation',
+     author, 'Toupy', 'Tomographic Utilites for Python',
      'Miscellaneous'),
 ]
 
