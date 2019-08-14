@@ -947,7 +947,7 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
         else:
             print("You should answer 'y' or 'n or accept default answer.")
 
-    return shiftstack
+    return shiftstack, params
 
 
 def oneslicefordisplay(sinogram, theta, **params):
