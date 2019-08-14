@@ -1,0 +1,537 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.registration.registration module &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="toupy.registration.shift module" href="toupy.registration.shift.html" />
+    <link rel="prev" title="toupy.registration.register_translation module" href="toupy.registration.register_translation.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="../_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Templates</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../templates.html">Templates</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="toupy.registration.html">toupy.registration package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="toupy.registration.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="toupy.registration.register_translation.html">toupy.registration.register_translation module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">toupy.registration.registration module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.registration.shift.html">toupy.registration.shift module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.simulation.html">toupy.simulation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.utils.html">toupy.utils package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="toupy.registration.html">toupy.registration package</a> &raquo;</li>
+        
+      <li>toupy.registration.registration module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/rst/toupy.registration.registration.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-toupy.registration.registration">
+<span id="toupy-registration-registration-module"></span><h1>toupy.registration.registration module<a class="headerlink" href="#module-toupy.registration.registration" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="toupy.registration.registration.alignprojections_vertical">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">alignprojections_vertical</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">shiftstack</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#alignprojections_vertical"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.alignprojections_vertical" title="Permalink to this definition">¶</a></dt>
+<dd><p>Vertical alignment of projections using mass fluctuation approach.
+It relies on having air on both sides of the sample (non local tomography).
+It performs a local search in y, so convergence issues can be addressed by
+giving an approximate initial guess for a possible drift via shiftstack</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_stack</strong> (<em>array_like</em>) – Stack of projections</p></li>
+<li><p><strong>limrow</strong> (<em>list of ints</em>) – Limits of window of interest in y</p></li>
+<li><p><strong>limcol</strong> (<em>list of ints</em>) – Limits of window of interest in x</p></li>
+<li><p><strong>shiftstack</strong> (<em>array_like</em>) – Array of initial estimates for object motion (2,n)</p></li>
+<li><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.7)"><em>dict</em></a>) – Container with parameters for the registration</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>'pixtol'</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Tolerance for alignment, which is also used as a search step</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>'polyorder'</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Specify the polynomial order of bias removal.
+For example: polyorder = 1 -&gt; mean, polyorder = 2 -&gt; linear).</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>'alignx'</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – True or False to activate align x using center of mass
+(default= False, which means align y only)</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>'shiftmeth'</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – Shift images with fourier method  (default). The options are
+<cite>linear</cite> -&gt;  Shift images with linear interpolation (default);
+<cite>fourier</cite> -&gt; Fourier shift or <cite>spline</cite> -&gt; Shift images with spline
+interpolation.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>shiftstack</strong> (<em>array_like</em>) – Corrected bject positions</p></li>
+<li><p><strong>input_stack</strong> (<em>array_like</em>) – Aligned stack of the projections</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.alignprojections_horizontal">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">alignprojections_horizontal</code><span class="sig-paren">(</span><em class="sig-param">sinogram</em>, <em class="sig-param">theta</em>, <em class="sig-param">shiftstack</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#alignprojections_horizontal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.alignprojections_horizontal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to align projections. It relies on having already aligned the
+vertical direction. The code aligns using the consistency before and
+after tomographic combination of projections.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sinogram</strong> (<em>array_like</em>) – Sinogram derivative, the second index should be the angle</p></li>
+<li><p><strong>theta</strong> (<em>array_like</em>) – Reconstruction angles (in degrees). Default: m angles evenly spaced
+between 0 and 180 (if the shape of <cite>radon_image</cite> is (N, M)).</p></li>
+<li><p><strong>shiftstack</strong> (<em>array_like</em>) – Array with initial estimates of positions</p></li>
+<li><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.7)"><em>dict</em></a>) – Container with parameters for the registration</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;pixtol&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Tolerance for alignment, which is also used as a search step</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;alignx&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – True or False to activate align x using center of mass
+(default= False, which means align y only)</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;shiftmeth&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – Shift images with fourier method (default). The options are
+<cite>linear</cite> -&gt;  Shift images with linear interpolation (default);
+<cite>fourier</cite> -&gt; Fourier shift or <cite>spline</cite> -&gt; Shift images with spline
+interpolation.</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;circle&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – Use a circular mask to eliminate corners of the tomogram</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;filtertype&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – Filter to use for FBP</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;freqcutoff&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Frequency cutoff for tomography filter (between 0 and 1)</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;cliplow&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Minimum value in tomogram</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;cliphigh&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Maximum value in tomogram</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>shiftstack</strong> (<em>array_like</em>) – Corrected object positions</p></li>
+<li><p><strong>alinedsinogram</strong> (<em>array_like</em>) – Array containting the aligned sinogram</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.cc_align">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">cc_align</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">limrow</em>, <em class="sig-param">limcol</em>, <em class="sig-param">params</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#cc_align"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.cc_align" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cross-correlation alignment (DEPRECATED)
+FIXME: IT IS NOT WORKING PROPERLY</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.center_of_mass_stack">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">center_of_mass_stack</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">lims</em>, <em class="sig-param">shiftstack</em>, <em class="sig-param">shift_method='fourier'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#center_of_mass_stack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.center_of_mass_stack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the center of the mass for each projection in the stack and
+returns a stack of centers of mass (row, col) i.e., returns shiftstack[1]
+If the array is zero, it return the center of mass at 0.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.compute_aligned_stack">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">compute_aligned_stack</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">shiftstack</em>, <em class="sig-param">shift_method='linear'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#compute_aligned_stack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.compute_aligned_stack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the aligned stack given the correction for object positions</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Stack of images to be shifted</p></li>
+<li><p><strong>shiftstack</strong> (<em>array_like</em>) – Array of initial estimates for object motion (2,n)</p></li>
+<li><p><strong>shift_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em> (</em><em>default linear</em><em>)</em>) – Name of the shift method. Options: ‘linear’, ‘fourier’, ‘spline’</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>output_stack</strong> – 2D function containing the stack of aligned images</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.compute_aligned_sino">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">compute_aligned_sino</code><span class="sig-paren">(</span><em class="sig-param">input_sino</em>, <em class="sig-param">shiftslice</em>, <em class="sig-param">shift_method='linear'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#compute_aligned_sino"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.compute_aligned_sino" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the aligned sinogram given the correction for object positions</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_sino</strong> (<em>array_like</em>) – Input sinogram to be shifted</p></li>
+<li><p><strong>shiftslice</strong> (<em>array_like</em>) – Array of estimates for object motion (1,n)</p></li>
+<li><p><strong>shift_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em> (</em><em>default linear</em><em>)</em>) – Name of the shift method. Options: ‘linear’, ‘fourier’, ‘spline’</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>output_sino</strong> – 2D function containing the aligned sinogram</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.compute_aligned_horizontal">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">compute_aligned_horizontal</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">shiftstack</em>, <em class="sig-param">shift_method='linear'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#compute_aligned_horizontal"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.compute_aligned_horizontal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the alignment of the stack on at the horizontal direction</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Stack of images to be shifted</p></li>
+<li><p><strong>shiftstack</strong> (<em>array_like</em>) – Array of initial estimates for object motion (2,n)
+The estimates for vertical movement will be changed to 0</p></li>
+<li><p><strong>shift_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em> (</em><em>default linear</em><em>)</em>) – Name of the shift method. Options: ‘linear’, ‘fourier’, ‘spline’</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>output_stack</strong> – 2D function containing the stack of aligned images</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.estimate_rot_axis">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">estimate_rot_axis</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">theta</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#estimate_rot_axis"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.estimate_rot_axis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initial estimate of the rotation axis</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.oneslicefordisplay">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">oneslicefordisplay</code><span class="sig-paren">(</span><em class="sig-param">sinogram</em>, <em class="sig-param">theta</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#oneslicefordisplay"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.oneslicefordisplay" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate one slice for display.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sinogram</strong> (<em>array_like</em>) – Sinogram derivative, the second index should be the angle</p></li>
+<li><p><strong>theta</strong> (<em>array_like</em>) – Reconstruction angles (in degrees). Default: m angles evenly spaced
+between 0 and 180 (if the shape of <cite>radon_image</cite> is (N, M)).</p></li>
+<li><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.7)"><em>dict</em></a>) – Container with parameters for the registration.</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;filtertype&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – Filter to use for FBP</p></li>
+<li><p><strong>params</strong><strong>[</strong><strong>&quot;freqcutoff&quot;</strong><strong>]</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Frequency cutoff for tomography filter (between 0 and 1)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.refine_horizontalalignment">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">refine_horizontalalignment</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">theta</em>, <em class="sig-param">shiftstack</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#refine_horizontalalignment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.refine_horizontalalignment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Refine horizontal alignment. Please, see the description of each
+parameter in <a class="reference internal" href="#toupy.registration.registration.alignprojections_horizontal" title="toupy.registration.registration.alignprojections_horizontal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">alignprojections_horizontal()</span></code></a>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.register_2Darrays">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">register_2Darrays</code><span class="sig-paren">(</span><em class="sig-param">image1</em>, <em class="sig-param">image2</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#register_2Darrays"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.register_2Darrays" title="Permalink to this definition">¶</a></dt>
+<dd><p>Image registration. Register two images using phase cross correlations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image1</strong> (<em>array_like</em>) – Image of reference</p></li>
+<li><p><strong>image2</strong> (<em>array_like</em>) – Image to be shifted relative to image1</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>shift</strong> (<em>list of floats</em>) – List of shifts applied, with the row shift in the 1st dimension
+and the column shift in the 2nd dimension.</p></li>
+<li><p><strong>diffphase</strong> (<em>float</em>) – Difference of phase between the two images</p></li>
+<li><p><strong>offset_image2</strong> (<em>array_like</em>) – Shifted image2 relative to image1</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.tomoconsistency_multiple">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">tomoconsistency_multiple</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">theta</em>, <em class="sig-param">shiftstack</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#tomoconsistency_multiple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.tomoconsistency_multiple" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply tomographic consistency alignement on multiple slices. By
+default is implemented over 10 slices.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Input_stack</strong> (<em>array_like</em>) – Stack of projections</p></li>
+<li><p><strong>theta</strong> (<em>array_like</em>) – Reconstruction angles (in degrees). Default: m angles evenly spaced
+between 0 and 180 (if the shape of <cite>radon_image</cite> is (N, M)).</p></li>
+<li><p><strong>shiftstack</strong> (<em>array_like</em>) – Array with initial estimates of positions</p></li>
+<li><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.7)"><em>dict</em></a>) – Dictionary with additional parameters for the alignment. Please,
+see the description of each parameter in
+<a class="reference internal" href="#toupy.registration.registration.alignprojections_horizontal" title="toupy.registration.registration.alignprojections_horizontal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">alignprojections_horizontal()</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>shiftstack</strong> – Average of the object shifts over 10 slices</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.vertical_fluctuations">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">vertical_fluctuations</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">lims</em>, <em class="sig-param">shiftstack</em>, <em class="sig-param">shift_method='fourier'</em>, <em class="sig-param">polyorder=2</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#vertical_fluctuations"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.vertical_fluctuations" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the vertical fluctuation functions of a stack</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Stack of images to be shifted</p></li>
+<li><p><strong>lims</strong> (<em>list of ints</em>) – Limits of rows and columns to be considered. lims=[limrow,limcol]</p></li>
+<li><p><strong>shiftstack</strong> (<em>array_like</em>) – Array of initial estimates for object motion (2,n)</p></li>
+<li><p><strong>shift_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>, </em><em>optional</em>) – Name of the shift method. Options: ‘linear’, ‘fourier’, ‘spline’.
+The default method is ‘linear’.</p></li>
+<li><p><strong>polyorder</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – Order of the polynomial to remove bias from the mass fluctuation
+function. The default value is 2.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>vert_fluct</strong> – 2D function containing the mass fluctuation after shift and bias
+removal for the stack of images</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.registration.registration.vertical_shift">
+<code class="sig-prename descclassname">toupy.registration.registration.</code><code class="sig-name descname">vertical_shift</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">lims</em>, <em class="sig-param">vstep</em>, <em class="sig-param">maxshift</em>, <em class="sig-param">shift_method='linear'</em>, <em class="sig-param">polyorder=2</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/registration/registration.html#vertical_shift"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.registration.registration.vertical_shift" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the vertical shift of an array</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Image to be shifted</p></li>
+<li><p><strong>lims</strong> (<em>list of ints</em>) – Limits of rows and columns to be considered. lims=[limrow,limcol]</p></li>
+<li><p><strong>vstep</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Amount to shift the input_array vertically</p></li>
+<li><p><strong>maxshift</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Maximum value of the shifts in order to avoid border problems</p></li>
+<li><p><strong>shift_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>, </em><em>optional</em>) – Name of the shift method. Options: ‘linear’, ‘fourier’, ‘spline’.
+The default method is ‘linear’.</p></li>
+<li><p><strong>polyorder</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – Order of the polynomial to remove bias from the mass fluctuation
+function. The default value is 2.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>shift_cal</strong> – 1D function containing the mass fluctuation after shift and bias
+removal</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="toupy.registration.shift.html" class="btn btn-neutral float-right" title="toupy.registration.shift module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="toupy.registration.register_translation.html" class="btn btn-neutral float-left" title="toupy.registration.register_translation module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>

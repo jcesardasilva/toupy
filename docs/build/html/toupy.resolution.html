@@ -1,0 +1,425 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.resolution package &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="toupy.restoration package" href="toupy.restoration.html" />
+    <link rel="prev" title="toupy.registration package" href="toupy.registration.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="toupy.html">toupy package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="toupy.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">toupy.resolution package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-toupy.resolution.FSC">Submodules</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.html">toupy.utils package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">toupy.resolution package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-toupy.resolution.FSC">Submodules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.utils.html">toupy.utils package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="toupy.html">toupy package</a> &raquo;</li>
+        
+      <li>toupy.resolution package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/toupy.resolution.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-toupy.resolution">
+<span id="toupy-resolution-package"></span><h1>toupy.resolution package<a class="headerlink" href="#module-toupy.resolution" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-toupy.resolution.FSC">
+<span id="submodules"></span><h2>Submodules<a class="headerlink" href="#module-toupy.resolution.FSC" title="Permalink to this headline">¶</a></h2>
+<p>FOURIER SHELL CORRELATION</p>
+<dl class="function">
+<dt id="toupy.resolution.FSC.load_data_FSC">
+<code class="sig-prename descclassname">toupy.resolution.FSC.</code><code class="sig-name descname">load_data_FSC</code><span class="sig-paren">(</span><em class="sig-param">h5name</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#load_data_FSC"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.load_data_FSC" title="Permalink to this definition">¶</a></dt>
+<dd><p>### TODO: check the functions in io.dataio #####
+Load the projections for the FSC calculations
+&#64;author: Julio C. da Silva (<a class="reference external" href="mailto:jdasilva&#37;&#52;&#48;esrf&#46;fr">jdasilva<span>&#64;</span>esrf<span>&#46;</span>fr</a>)</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="toupy.resolution.FSC.FourierShellCorr">
+<em class="property">class </em><code class="sig-prename descclassname">toupy.resolution.FSC.</code><code class="sig-name descname">FourierShellCorr</code><span class="sig-paren">(</span><em class="sig-param">img1</em>, <em class="sig-param">img2</em>, <em class="sig-param">threshold='halfbit'</em>, <em class="sig-param">ring_thick=1</em>, <em class="sig-param">apod_width=20</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FourierShellCorr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FourierShellCorr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>FOURIER SHELL CORRELATION</p>
+<p>Computes the Fourier Shell Correlation between image1 and image2,
+and estimate the resolution based on the threshold funcion T of 1 or 1/2 bit.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img1</strong> (<em>image 1</em>) – </p></li>
+<li><p><strong>img2</strong> (<em>image 2</em>) – </p></li>
+<li><p><strong>HINT</strong> (<em>if 3D images</em><em>, </em><em>the first axis is the number of slices</em><em>, </em><em>ie.</em><em>, </em><em>[</em><em>slices</em><em>, </em><em>rows</em><em>, </em><em>cols</em><em>]</em>) – </p></li>
+<li><p><strong>= threshold computation. Options</strong> (<em>threshold</em>) – onebit: 1 bit threshold -&gt; SNRt = 0.5 (for two independent measurements)
+halfbit: 1/2 bit threshold -&gt; SNRt = 0.2071 (for split tomogram)</p></li>
+<li><p><strong>(</strong><strong>default 1</strong><strong>) </strong><strong>= thickness of the frequency rings.</strong> (<em>ring_thick</em>) – Normally the pixels get assined to the closest integer pixel ring
+in Fourier Domain. With ring_thick, each ring gets more pixels and
+more statistics.</p></li>
+<li><p><strong>(</strong><strong>default 20</strong><strong>)</strong> (<em>apod_width</em>) – It applies a Hanning window of the size of the data to the data before the
+Fourier transform calculations to attenuate the border effects.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>FSC</strong> (<em>Fourier Shell correlation curve</em>)</p></li>
+<li><p><strong>T</strong> (<em>Threshold curve</em>)</p></li>
+<li><p><em>Reference</em></p></li>
+<li><p><em>———</em></p></li>
+<li><p><em>M. van Heel, M. Schatzb, “Fourier shell correlation threshold</em></p></li>
+<li><p><em>criteria,” Journal of Structural Biology 151, 250-262 (2005)</em></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="toupy.resolution.FSC.FourierShellCorr.apodization">
+<code class="sig-name descname">apodization</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FourierShellCorr.apodization"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FourierShellCorr.apodization" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Hanning window of the size of the data for the apodization
+NOTE: It does not depend on the parameter apod_width</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.resolution.FSC.FourierShellCorr.circle">
+<code class="sig-name descname">circle</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FourierShellCorr.circle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FourierShellCorr.circle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create circle with apodized edges</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.resolution.FSC.FourierShellCorr.fouriercorr">
+<code class="sig-name descname">fouriercorr</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FourierShellCorr.fouriercorr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FourierShellCorr.fouriercorr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute FSC and threshold</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.resolution.FSC.FourierShellCorr.nyquist">
+<code class="sig-name descname">nyquist</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FourierShellCorr.nyquist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FourierShellCorr.nyquist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Evaluate the Nyquist Frequency</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.resolution.FSC.FourierShellCorr.ringthickness">
+<code class="sig-name descname">ringthickness</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FourierShellCorr.ringthickness"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FourierShellCorr.ringthickness" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define indexes for ring_thick</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.resolution.FSC.FourierShellCorr.transverse_apodization">
+<code class="sig-name descname">transverse_apodization</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FourierShellCorr.transverse_apodization"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FourierShellCorr.transverse_apodization" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute a tapered Hanning-like window of the size of the data
+for the apodization</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="toupy.resolution.FSC.FSCPlot">
+<em class="property">class </em><code class="sig-prename descclassname">toupy.resolution.FSC.</code><code class="sig-name descname">FSCPlot</code><span class="sig-paren">(</span><em class="sig-param">img1</em>, <em class="sig-param">img2</em>, <em class="sig-param">threshold='halfbit'</em>, <em class="sig-param">ring_thick=1</em>, <em class="sig-param">apod_width=20</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FSCPlot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FSCPlot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#toupy.resolution.FSC.FourierShellCorr" title="toupy.resolution.FSC.FourierShellCorr"><code class="xref py py-class docutils literal notranslate"><span class="pre">toupy.resolution.FSC.FourierShellCorr</span></code></a></p>
+<p>Upper level object to plot the FSC and threshold curves</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img1</strong> (<em>image 1</em>) – </p></li>
+<li><p><strong>img2</strong> (<em>image 2</em>) – </p></li>
+<li><p><strong>HINT</strong> (<em>if 3D images</em><em>, </em><em>the first axis is the number of slices</em><em>, </em><em>ie.</em><em>, </em><em>[</em><em>slices</em><em>, </em><em>rows</em><em>, </em><em>cols</em><em>]</em>) – </p></li>
+<li><p><strong>= threshold computation. Options</strong> (<em>threshold</em>) – onebit: 1 bit threshold -&gt; SNRt = 0.5 (for two independent measurements)
+halfbit: 1/2 bit threshold -&gt; SNRt = 0.2071 (for split tomogram)</p></li>
+<li><p><strong>(</strong><strong>default 1</strong><strong>) </strong><strong>= thickness of the frequency rings.</strong> (<em>ring_thick</em>) – Normally the pixels get assined to the closest integer pixel ring
+in Fourier Domain. With ring_thick, each ring gets more pixels and
+more statistics.</p></li>
+<li><p><strong>(</strong><strong>default 20</strong><strong>)</strong> (<em>apod_width</em>) – It applies a Hanning window of the size of the data to the data before the
+Fourier transform calculations to attenuate the border effects.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>fn</strong> (<em>frequencies normalized by the Nyquist frequency</em>)</p></li>
+<li><p><strong>FSC</strong> (<em>Fourier Shell correlation curve</em>)</p></li>
+<li><p><strong>T</strong> (<em>Threshold curve</em>)</p></li>
+<li><p><em>Reference</em></p></li>
+<li><p><em>———</em></p></li>
+<li><p><em>M. van Heel, M. Schatzb, “Fourier shell correlation threshold</em></p></li>
+<li><p><em>criteria,” Journal of Structural Biology 151, 250-262 (2005)</em></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="toupy.resolution.FSC.FSCPlot.plot">
+<code class="sig-name descname">plot</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/FSC.html#FSCPlot.plot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.FSC.FSCPlot.plot" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<span class="target" id="module-toupy.resolution.resolution_edge_estimate"></span><dl class="function">
+<dt id="toupy.resolution.resolution_edge_estimate.model1">
+<code class="sig-prename descclassname">toupy.resolution.resolution_edge_estimate.</code><code class="sig-name descname">model1</code><span class="sig-paren">(</span><em class="sig-param">t</em>, <em class="sig-param">*coeffs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/resolution_edge_estimate.html#model1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.resolution_edge_estimate.model1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Model for the erf fitting</p>
+<p>P0 + P1*t + (P2/2)*(1-erf(sqrt(2)*(x-P3)/(P4)))
+where:
+coeffs[0] is P0 (noise)
+coeffs[1] is P1 (linear term)
+coeffs[2] is P2 (Maximum amplitude)
+coeffs[3] is P3 (center)
+coeffs[4] is P4 (width)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.resolution.resolution_edge_estimate.model2">
+<code class="sig-prename descclassname">toupy.resolution.resolution_edge_estimate.</code><code class="sig-name descname">model2</code><span class="sig-paren">(</span><em class="sig-param">t</em>, <em class="sig-param">*coeffs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/resolution_edge_estimate.html#model2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.resolution_edge_estimate.model2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Model for the erf fitting</p>
+<p>P0 + P1*t + (P2/2)*(1-tanh(sqrt(2)*(x-P3)/P4))
+where:
+coeffs[0] is P0 (noise)
+coeffs[1] is P1 (linear term)
+coeffs[2] is P2 (Maximum amplitude)
+coeffs[3] is P3 (center)
+coeffs[4] is P4 (width)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.resolution.resolution_edge_estimate.residuals1">
+<code class="sig-prename descclassname">toupy.resolution.resolution_edge_estimate.</code><code class="sig-name descname">residuals1</code><span class="sig-paren">(</span><em class="sig-param">coeffs</em>, <em class="sig-param">y</em>, <em class="sig-param">t</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/resolution_edge_estimate.html#residuals1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.resolution_edge_estimate.residuals1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Residuals for the least-squares optimization
+coeffs as the ones for the function models
+y = the data
+t = coordinates</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.resolution.resolution_edge_estimate.residuals2">
+<code class="sig-prename descclassname">toupy.resolution.resolution_edge_estimate.</code><code class="sig-name descname">residuals2</code><span class="sig-paren">(</span><em class="sig-param">coeffs</em>, <em class="sig-param">y</em>, <em class="sig-param">t</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/resolution/resolution_edge_estimate.html#residuals2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.resolution.resolution_edge_estimate.residuals2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Residuals for the least-squares optimization
+coeffs as the ones for the function models
+y = the data
+t = coordinates</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="toupy.restoration.html" class="btn btn-neutral float-right" title="toupy.restoration package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="toupy.registration.html" class="btn btn-neutral float-left" title="toupy.registration package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>

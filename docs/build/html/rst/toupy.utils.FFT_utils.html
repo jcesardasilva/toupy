@@ -1,0 +1,344 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.utils.FFT_utils module &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="toupy.utils.array_utils module" href="toupy.utils.array_utils.html" />
+    <link rel="prev" title="toupy.utils package" href="toupy.utils.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="../_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Templates</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../templates.html">Templates</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.simulation.html">toupy.simulation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="toupy.utils.html">toupy.utils package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="toupy.utils.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">toupy.utils.FFT_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.array_utils.html">toupy.utils.array_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.converter_utils.html">toupy.utils.converter_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.fit_utils.html">toupy.utils.fit_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.funcutils.html">toupy.utils.funcutils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.plot_utils.html">toupy.utils.plot_utils module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="toupy.utils.html">toupy.utils package</a> &raquo;</li>
+        
+      <li>toupy.utils.FFT_utils module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/rst/toupy.utils.FFT_utils.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-toupy.utils.FFT_utils">
+<span id="toupy-utils-fft-utils-module"></span><h1>toupy.utils.FFT_utils module<a class="headerlink" href="#module-toupy.utils.FFT_utils" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="toupy.utils.FFT_utils.is_power2">
+<code class="sig-prename descclassname">toupy.utils.FFT_utils.</code><code class="sig-name descname">is_power2</code><span class="sig-paren">(</span><em class="sig-param">num</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/FFT_utils.html#is_power2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.FFT_utils.is_power2" title="Permalink to this definition">¶</a></dt>
+<dd><p>States if a number <code class="docutils literal notranslate"><span class="pre">num</span></code> is a power of two</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.FFT_utils.nextpoweroftwo">
+<code class="sig-prename descclassname">toupy.utils.FFT_utils.</code><code class="sig-name descname">nextpoweroftwo</code><span class="sig-paren">(</span><em class="sig-param">number</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/FFT_utils.html#nextpoweroftwo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.FFT_utils.nextpoweroftwo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns next power of two following <code class="docutils literal notranslate"><span class="pre">number</span></code></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.FFT_utils.nextpow2">
+<code class="sig-prename descclassname">toupy.utils.FFT_utils.</code><code class="sig-name descname">nextpow2</code><span class="sig-paren">(</span><em class="sig-param">number</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/FFT_utils.html#nextpow2"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.FFT_utils.nextpow2" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find the next power 2 of <code class="docutils literal notranslate"><span class="pre">number</span></code> for FFT</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.FFT_utils.padwidthbothsides">
+<code class="sig-prename descclassname">toupy.utils.FFT_utils.</code><code class="sig-name descname">padwidthbothsides</code><span class="sig-paren">(</span><em class="sig-param">nbins</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/FFT_utils.html#padwidthbothsides"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.FFT_utils.padwidthbothsides" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns pad_width for padding both sides given a value of <code class="docutils literal notranslate"><span class="pre">nbins</span></code></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.FFT_utils.padrightside">
+<code class="sig-prename descclassname">toupy.utils.FFT_utils.</code><code class="sig-name descname">padrightside</code><span class="sig-paren">(</span><em class="sig-param">nbins</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/FFT_utils.html#padrightside"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.FFT_utils.padrightside" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns pad_width for padding both sides given a value of <code class="docutils literal notranslate"><span class="pre">nbins</span></code></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.FFT_utils.fastfftn">
+<code class="sig-prename descclassname">toupy.utils.FFT_utils.</code><code class="sig-name descname">fastfftn</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/FFT_utils.html#fastfftn"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.FFT_utils.fastfftn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Auxiliary function to use pyFFTW. It does the align, planning and
+apply FFTW transform</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_array</strong> (<em>array_like</em>) – Array to be FFTWed</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>fftw_array</strong> – Fourier transformed array</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.FFT_utils.fastifftn">
+<code class="sig-prename descclassname">toupy.utils.FFT_utils.</code><code class="sig-name descname">fastifftn</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/FFT_utils.html#fastifftn"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.FFT_utils.fastifftn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Auxiliary function to use pyFFTW. It does the align, planning and
+apply inverse FFTW transform</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>input_array</strong> (<em>array_like</em>) – Array to be FFTWed</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>ifftw_array</strong> – Inverse Fourier transformed array</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.FFT_utils.padfft">
+<code class="sig-prename descclassname">toupy.utils.FFT_utils.</code><code class="sig-name descname">padfft</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">pad_mode='reflect'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/FFT_utils.html#padfft"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.FFT_utils.padfft" title="Permalink to this definition">¶</a></dt>
+<dd><p>Auxiliary function to pad arrays for Fourier transforms. It accepts
+1D and 2D arrays.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Array to be padded</p></li>
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – Padding mode to treat the array borders. See <code class="xref py py-mod docutils literal notranslate"><span class="pre">numpy.pad</span></code>
+for modes. The default value is <cite>reflect</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>array_pad</strong> (<em>array_like</em>) – Padded array</p></li>
+<li><p><strong>N_pad</strong> (<em>array_like</em>) – padded frequency coordinates</p></li>
+<li><p><strong>padw</strong> (<em>int, list of ints</em>) – pad width</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="toupy.utils.array_utils.html" class="btn btn-neutral float-right" title="toupy.utils.array_utils module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="toupy.utils.html" class="btn btn-neutral float-left" title="toupy.utils package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>

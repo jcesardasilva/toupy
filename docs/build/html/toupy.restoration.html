@@ -1,0 +1,763 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.restoration package &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="toupy.tomo package" href="toupy.tomo.html" />
+    <link rel="prev" title="toupy.resolution package" href="toupy.resolution.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="toupy.html">toupy package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="toupy.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">toupy.restoration package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#module-toupy.restoration.GUI_tracker">Submodules</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.html">toupy.utils package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">toupy.restoration package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-toupy.restoration.GUI_tracker">Submodules</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.utils.html">toupy.utils package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="toupy.html">toupy package</a> &raquo;</li>
+        
+      <li>toupy.restoration package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/toupy.restoration.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-toupy.restoration">
+<span id="toupy-restoration-package"></span><h1>toupy.restoration package<a class="headerlink" href="#module-toupy.restoration" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-toupy.restoration.GUI_tracker">
+<span id="submodules"></span><h2>Submodules<a class="headerlink" href="#module-toupy.restoration.GUI_tracker" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="toupy.restoration.GUI_tracker.gui_plotamp">
+<code class="sig-prename descclassname">toupy.restoration.GUI_tracker.</code><code class="sig-name descname">gui_plotamp</code><span class="sig-paren">(</span><em class="sig-param">stack_objs</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#gui_plotamp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.gui_plotamp" title="Permalink to this definition">¶</a></dt>
+<dd><p>GUI for the air removal from amplitude projections</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.GUI_tracker.gui_plotphase">
+<code class="sig-prename descclassname">toupy.restoration.GUI_tracker.</code><code class="sig-name descname">gui_plotphase</code><span class="sig-paren">(</span><em class="sig-param">stack_objs</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#gui_plotphase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.gui_plotphase" title="Permalink to this definition">¶</a></dt>
+<dd><p>GUI for the phase ramp removal from phase projections</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="toupy.restoration.GUI_tracker.AmpTracker">
+<em class="property">class </em><code class="sig-prename descclassname">toupy.restoration.GUI_tracker.</code><code class="sig-name descname">AmpTracker</code><span class="sig-paren">(</span><em class="sig-param">ax1</em>, <em class="sig-param">ax2</em>, <em class="sig-param">X1</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#AmpTracker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.AmpTracker" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#toupy.restoration.GUI_tracker.PhaseTracker" title="toupy.restoration.GUI_tracker.PhaseTracker"><code class="xref py py-class docutils literal notranslate"><span class="pre">toupy.restoration.GUI_tracker.PhaseTracker</span></code></a></p>
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.AmpTracker.apply_all_masks">
+<code class="sig-name descname">apply_all_masks</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#AmpTracker.apply_all_masks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.AmpTracker.apply_all_masks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply the linear air correction using current mask and log to all projections</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.AmpTracker.apply_mask">
+<code class="sig-name descname">apply_mask</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#AmpTracker.apply_mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.AmpTracker.apply_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply the air correction using current mask and apply the log</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker">
+<em class="property">class </em><code class="sig-prename descclassname">toupy.restoration.GUI_tracker.</code><code class="sig-name descname">PhaseTracker</code><span class="sig-paren">(</span><em class="sig-param">fig</em>, <em class="sig-param">ax1</em>, <em class="sig-param">ax2</em>, <em class="sig-param">X1</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.add_mask">
+<code class="sig-name descname">add_mask</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.add_mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.add_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add the mask to the plot</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.apply_all_masks">
+<code class="sig-name descname">apply_all_masks</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.apply_all_masks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.apply_all_masks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply the linear phase correction using current mask to all projections</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.apply_mask">
+<code class="sig-name descname">apply_mask</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.apply_mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.apply_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply the linear phase correction using current mask</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.cmvmax">
+<code class="sig-name descname">cmvmax</code><span class="sig-paren">(</span><em class="sig-param">val</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.cmvmax"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.cmvmax" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the vmax on colormap</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.cmvmin">
+<code class="sig-name descname">cmvmin</code><span class="sig-paren">(</span><em class="sig-param">val</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.cmvmin"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.cmvmin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the vmin on colormap</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.down">
+<code class="sig-name descname">down</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.down"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.down" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move projection number down using button Prev</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.draw_mask">
+<code class="sig-name descname">draw_mask</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.draw_mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.draw_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Draw the mask using roipoly</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.key_event">
+<code class="sig-name descname">key_event</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.key_event"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.key_event" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move projection number up/down using right/left arrows in the keyboard</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.load_masks">
+<code class="sig-name descname">load_masks</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.load_masks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.load_masks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load masks from file</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.mask_all">
+<code class="sig-name descname">mask_all</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.mask_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.mask_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use the same mask for all projections</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.onclose">
+<code class="sig-name descname">onclose</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.onclose"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.onclose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close the figure</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.onscroll">
+<code class="sig-name descname">onscroll</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.onscroll"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.onscroll" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move projection number up/down using the mouse scroll wheel</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.play">
+<code class="sig-name descname">play</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.play"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.play" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plot one project after the other (play)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.remove_all_mask">
+<code class="sig-name descname">remove_all_mask</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.remove_all_mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.remove_all_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove all the masks</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.remove_mask">
+<code class="sig-name descname">remove_mask</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.remove_mask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.remove_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove the current selected area from the mask</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.remove_ramp">
+<code class="sig-name descname">remove_ramp</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.remove_ramp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.remove_ramp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove linear phase ramp</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.remove_rampall">
+<code class="sig-name descname">remove_rampall</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.remove_rampall"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.remove_rampall" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove linear phase ramp of all</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.save_masks">
+<code class="sig-name descname">save_masks</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.save_masks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.save_masks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save mask to file</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.submit">
+<code class="sig-name descname">submit</code><span class="sig-paren">(</span><em class="sig-param">text</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.submit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.submit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Textbox submit</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.unwrapping_all">
+<code class="sig-name descname">unwrapping_all</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.unwrapping_all"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.unwrapping_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unwrap phase of all projections</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.unwrapping_phase">
+<code class="sig-name descname">unwrapping_phase</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.unwrapping_phase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.unwrapping_phase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unwrap phase</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.up">
+<code class="sig-name descname">up</code><span class="sig-paren">(</span><em class="sig-param">event</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.up"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.up" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move projection number up using button Next</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.GUI_tracker.PhaseTracker.update">
+<code class="sig-name descname">update</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/GUI_tracker.html#PhaseTracker.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.GUI_tracker.PhaseTracker.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the plot canvas</p>
+</dd></dl>
+
+</dd></dl>
+
+<span class="target" id="module-toupy.restoration.derivativetools"></span><dl class="function">
+<dt id="toupy.restoration.derivativetools.calculate_derivatives">
+<code class="sig-prename descclassname">toupy.restoration.derivativetools.</code><code class="sig-name descname">calculate_derivatives</code><span class="sig-paren">(</span><em class="sig-param">stack_array</em>, <em class="sig-param">roiy</em>, <em class="sig-param">roix</em>, <em class="sig-param">shift_method='fourier'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/derivativetools.html#calculate_derivatives"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.derivativetools.calculate_derivatives" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute projection derivatives</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.derivativetools.chooseregiontoderivatives">
+<code class="sig-prename descclassname">toupy.restoration.derivativetools.</code><code class="sig-name descname">chooseregiontoderivatives</code><span class="sig-paren">(</span><em class="sig-param">stack_array</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/derivativetools.html#chooseregiontoderivatives"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.derivativetools.chooseregiontoderivatives" title="Permalink to this definition">¶</a></dt>
+<dd><p>Choose the region to be unwrapped</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.derivativetools.derivatives">
+<code class="sig-prename descclassname">toupy.restoration.derivativetools.</code><code class="sig-name descname">derivatives</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">shift_method='fourier'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/derivativetools.html#derivatives"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.derivativetools.derivatives" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the derivative of an image</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>ndarray</em>) – Input image to calculate the derivatives</p></li>
+<li><p><strong>shift_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – Name of the shift method to use. Available options:
+‘sinc’, ‘linear’</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>diffimg</strong> – Derivatives of the images along the row direction</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.derivativetools.derivatives_sino">
+<code class="sig-prename descclassname">toupy.restoration.derivativetools.</code><code class="sig-name descname">derivatives_sino</code><span class="sig-paren">(</span><em class="sig-param">input_sino</em>, <em class="sig-param">shift_method='fourier'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/derivativetools.html#derivatives_sino"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.derivativetools.derivatives_sino" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the derivative of the sinogram</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>ndarray</em>) – Input sinogram to calculate the derivatives</p></li>
+<li><p><strong>shift_method</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – Name of the shift method to use. Available options:
+‘fourier’, ‘linear’, ‘spline’</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>diffsino</strong> – Derivatives of the sinogram along the radial direction</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.derivativetools.gradient_axis">
+<code class="sig-prename descclassname">toupy.restoration.derivativetools.</code><code class="sig-name descname">gradient_axis</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">axis=-1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/derivativetools.html#gradient_axis"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.derivativetools.gradient_axis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the gradient (keeping dimensions) along one dimension only.
+By default, the axis is -1 (diff along columns).</p>
+</dd></dl>
+
+<span class="target" id="module-toupy.restoration.ramptools"></span><p>Created on Wed Nov  4 16:22:54 2015</p>
+<p>&#64;author: jdasilva</p>
+<dl class="function">
+<dt id="toupy.restoration.ramptools.rmphaseramp">
+<code class="sig-prename descclassname">toupy.restoration.ramptools.</code><code class="sig-name descname">rmphaseramp</code><span class="sig-paren">(</span><em class="sig-param">a</em>, <em class="sig-param">weight=None</em>, <em class="sig-param">return_phaseramp=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/ramptools.html#rmphaseramp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.ramptools.rmphaseramp" title="Permalink to this definition">¶</a></dt>
+<dd><p>Auxiliary functions to attempt to remove the phase ramp in a
+two-dimensional complex array <code class="docutils literal notranslate"><span class="pre">a</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<em>ndarray</em>) – Input image as complex 2D-array.</p></li>
+<li><p><strong>weight</strong> (<em>ndarray</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a><em>, </em><em>optional</em>) – Pass weighting array or use <code class="docutils literal notranslate"><span class="pre">'abs'</span></code> for a modulus-weighted
+phaseramp and <code class="docutils literal notranslate"><span class="pre">Non</span></code> for no weights.</p></li>
+<li><p><strong>return_phaseramp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a><em>, </em><em>optional</em>) – Use True to get also the phaseramp array <code class="docutils literal notranslate"><span class="pre">p</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>out</strong> (<em>ndarray</em>) – Modified 2D-array, <code class="docutils literal notranslate"><span class="pre">out=a*p</span></code></p></li>
+<li><p><strong>p</strong> (<em>ndarray, optional</em>) – Phaseramp if <code class="docutils literal notranslate"><span class="pre">return_phaseramp</span> <span class="pre">=</span> <span class="pre">True</span></code>, otherwise omitted</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Function forked from Ptypy.plot_utils (<a class="reference external" href="https://github.com/ptycho/ptypy">https://github.com/ptycho/ptypy</a>)
+and ported to Python 3.</p>
+</div>
+<p class="rubric">Examples</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">rmphaseramp</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">rmphaseramp</span><span class="p">(</span><span class="n">image</span> <span class="p">,</span> <span class="n">return_phaseramp</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.ramptools.rmlinearphase">
+<code class="sig-prename descclassname">toupy.restoration.ramptools.</code><code class="sig-name descname">rmlinearphase</code><span class="sig-paren">(</span><em class="sig-param">image</em>, <em class="sig-param">mask</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/ramptools.html#rmlinearphase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.ramptools.rmlinearphase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes linear phase from object</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<em>ndarray</em>) – Input image</p></li>
+<li><p><strong>mask</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – <dl class="simple">
+<dt>Boolean array with ones where the linear phase should be</dt><dd><p>computed from</p>
+</dd>
+</dl>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>im_output</strong> – Linear ramp corrected image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.ramptools.rmair">
+<code class="sig-prename descclassname">toupy.restoration.ramptools.</code><code class="sig-name descname">rmair</code><span class="sig-paren">(</span><em class="sig-param">image</em>, <em class="sig-param">mask</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/ramptools.html#rmair"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.ramptools.rmair" title="Permalink to this definition">¶</a></dt>
+<dd><p>Correcting amplitude factor using the mask from the phase ramp
+removal considering only pixels where mask is  unity, arrays have
+center on center of array</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<em>ndarray</em>) – Amplitude-contrast image</p></li>
+<li><p><strong>mask</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – Boolean array with indicating the locations from where the air
+value should be obtained</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>normalizedimage</strong> – Image normalized by the air values</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<span class="target" id="module-toupy.restoration.roipoly"></span><p>Created on Wed Nov  4 15:38:33 2015</p>
+<p>&#64;author: jdasilva</p>
+<dl class="class">
+<dt id="toupy.restoration.roipoly.roipoly">
+<em class="property">class </em><code class="sig-prename descclassname">toupy.restoration.roipoly.</code><code class="sig-name descname">roipoly</code><span class="sig-paren">(</span><em class="sig-param">fig=[]</em>, <em class="sig-param">ax=[]</em>, <em class="sig-param">roicolor='b'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/roipoly.html#roipoly"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.roipoly.roipoly" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="method">
+<dt id="toupy.restoration.roipoly.roipoly.displayMean">
+<code class="sig-name descname">displayMean</code><span class="sig-paren">(</span><em class="sig-param">currentImage</em>, <em class="sig-param">**textkwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/roipoly.html#roipoly.displayMean"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.roipoly.roipoly.displayMean" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.roipoly.roipoly.displayROI">
+<code class="sig-name descname">displayROI</code><span class="sig-paren">(</span><em class="sig-param">**linekwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/roipoly.html#roipoly.displayROI"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.roipoly.roipoly.displayROI" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="toupy.restoration.roipoly.roipoly.getMask">
+<code class="sig-name descname">getMask</code><span class="sig-paren">(</span><em class="sig-param">currentImage</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/roipoly.html#roipoly.getMask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.roipoly.roipoly.getMask" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<span class="target" id="module-toupy.restoration.unwraptools"></span><dl class="function">
+<dt id="toupy.restoration.unwraptools.wraptopi">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">wraptopi</code><span class="sig-paren">(</span><em class="sig-param">phase</em>, <em class="sig-param">endpoint=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/unwraptools.html#wraptopi"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.wraptopi" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrap a scalar value or an entire array to:
+[-pi, pi) if endpoint=False
+(-pi, pi] if endpoint=True (default)</p>
+<p class="rubric">Example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">wraptopi</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span><span class="n">endpoint</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">array([ 3.14159265, -2.0943951 , -1.04719755, -0.        ,  1.04719755,</span>
+<span class="go">    2.0943951 ,  3.14159265])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">wraptopi</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span><span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="go">array([-3.14159265, -2.0943951 , -1.04719755,  0.        ,  1.04719755,</span>
+<span class="go">    2.0943951 , -3.14159265])</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.wrap">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">wrap</code><span class="sig-paren">(</span><em class="sig-param">phase</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/unwraptools.html#wrap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.wrap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrap a scalar value or an entire array to -0.5 &lt;= a &lt; 0.5.
+Created by Sebastian Theilenberg, PyMRR
+Github repository: <a class="reference external" href="https://github.com/theilen/PyMRR.git">https://github.com/theilen/PyMRR.git</a></p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.distance">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">distance</code><span class="sig-paren">(</span><em class="sig-param">pixel1</em>, <em class="sig-param">pixel2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/unwraptools.html#distance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.distance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the Euclidean distance of two pixels.</p>
+<p class="rubric">Example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">distance</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">),</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">11</span><span class="p">))</span>
+<span class="go">3.0</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.get_charge">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">get_charge</code><span class="sig-paren">(</span><em class="sig-param">residues</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/unwraptools.html#get_charge"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.get_charge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the residues charges</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>residues</strong> (<em>ndarray</em>) – 2D arrays with residues</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>posres</strong> (<em>ndarray</em>) – Positions of the residues with positive charge</p></li>
+<li><p><strong>negres</strong> (<em>ndarray</em>) – Positions of the residues with negative charge</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.phaseresidues">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">phaseresidues</code><span class="sig-paren">(</span><em class="sig-param">phimage</em>, <em class="sig-param">disp=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/unwraptools.html#phaseresidues"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.phaseresidues" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the phase residues for a given wrapped phase image.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>phimage</strong> (<em>ndarray</em>) – Array containing the phase-contrast images with gray-level
+in radians</p></li>
+<li><p><strong>disp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – False gives No feedback
+True gives Text feedback (additional computation)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>residues</strong> – Map of residues (valued +1 or -1)</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Note that by convention the positions of the phase residues are
+marked on the top left corner of the 2 by 2 regions.</p>
+<dl>
+<dt>active—res4—right</dt><dd><blockquote>
+<div><div class="line-block">
+<div class="line"><a href="#id1"><span class="problematic" id="id2">|</span></a></div>
+</div>
+</div></blockquote>
+<dl>
+<dt>res1           res3</dt><dd><div class="line-block">
+<div class="line"><a href="#id3"><span class="problematic" id="id4">|</span></a></div>
+</div>
+</dd>
+</dl>
+</dd>
+</dl>
+<p>below—res2—belowright</p>
+<p>Inspired by PhaseResidues.m created by B.S. Spottiswoode on 07/10/2004
+and by find_residues.m created by Manuel Guizar - Sept 27, 2011
+Relevant literature: R. M. Goldstein, H. A. Zebker and C. L. Werner,
+Radio Science 23, 713-720(1988).</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.chooseregiontounwrap">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">chooseregiontounwrap</code><span class="sig-paren">(</span><em class="sig-param">stack_array</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/unwraptools.html#chooseregiontounwrap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.chooseregiontounwrap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Choose the region to be unwrapped</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>stack_array</strong> (<em>ndarray</em>) – Input stack to be unwrapped</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>rx, ry</strong> (<em>tuples</em>) – Limits of the are to be unwrapped</p></li>
+<li><p><strong>airpix</strong> (<em>tuple</em>) – Position of the pixel which should contains only air/vacuum</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.unwraptools.unwrapping_phase">
+<code class="sig-prename descclassname">toupy.restoration.unwraptools.</code><code class="sig-name descname">unwrapping_phase</code><span class="sig-paren">(</span><em class="sig-param">stack_phasecorr</em>, <em class="sig-param">rx</em>, <em class="sig-param">ry</em>, <em class="sig-param">airpix</em>, <em class="sig-param">**params</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/unwraptools.html#unwrapping_phase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.unwraptools.unwrapping_phase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unwrap the phase of the projections in a stack</p>
+</dd></dl>
+
+<span class="target" id="module-toupy.restoration.vorticestools"></span><dl class="function">
+<dt id="toupy.restoration.vorticestools.cart2pol">
+<code class="sig-prename descclassname">toupy.restoration.vorticestools.</code><code class="sig-name descname">cart2pol</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">y</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/vorticestools.html#cart2pol"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.vorticestools.cart2pol" title="Permalink to this definition">¶</a></dt>
+<dd><p>Change from cartesian to polar coordinates</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>y</strong> (<em>x</em><em>,</em>) – Values in cartesian coordinates</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>rho, phi</strong> – Values in polar coordinates</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ndarrays</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.vorticestools.pol2cart">
+<code class="sig-prename descclassname">toupy.restoration.vorticestools.</code><code class="sig-name descname">pol2cart</code><span class="sig-paren">(</span><em class="sig-param">rho</em>, <em class="sig-param">phi</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/vorticestools.html#pol2cart"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.vorticestools.pol2cart" title="Permalink to this definition">¶</a></dt>
+<dd><p>Change from polar to cartesian coordinates</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>phi</strong> (<em>rho</em><em>,</em>) – Values in polar coordinates</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>x, y</strong> – Values in cartesian coordinates</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>ndarrays</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.restoration.vorticestools.rmvortices">
+<code class="sig-prename descclassname">toupy.restoration.vorticestools.</code><code class="sig-name descname">rmvortices</code><span class="sig-paren">(</span><em class="sig-param">img_in</em>, <em class="sig-param">to_ignore=100</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/toupy/restoration/vorticestools.html#rmvortices"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.restoration.vorticestools.rmvortices" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="toupy.tomo.html" class="btn btn-neutral float-right" title="toupy.tomo package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="toupy.resolution.html" class="btn btn-neutral float-left" title="toupy.resolution package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>

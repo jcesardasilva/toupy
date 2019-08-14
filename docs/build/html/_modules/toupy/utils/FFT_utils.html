@@ -1,0 +1,426 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.utils.FFT_utils &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="../../../_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Templates</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../templates.html">Templates</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.simulation.html">toupy.simulation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../rst/toupy.utils.html">toupy.utils package</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>toupy.utils.FFT_utils</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for toupy.utils.FFT_utils</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+
+<span class="c1"># standard libraries imports</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span>
+
+<span class="c1"># third party packages</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">numpy.fft</span> <span class="k">import</span> <span class="n">fftfreq</span>
+<span class="kn">import</span> <span class="nn">pyfftw</span>  <span class="c1"># has to be imported first to avoid ImportError: dlopen: cannot load any more object with static TLS</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="k">import</span> <span class="n">fftpack</span>
+
+<span class="c1"># enable cache for pyfftw</span>
+<span class="n">pyfftw</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
+<span class="n">pyfftw</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">set_keepalive_time</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;is_power2&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;nextpoweroftwo&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;nextpow2&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;padwidthbothsides&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;padrightside&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;fastfftn&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;fastifftn&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;padfft&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="is_power2"><a class="viewcode-back" href="../../../rst/toupy.utils.FFT_utils.html#toupy.utils.FFT_utils.is_power2">[docs]</a><span class="k">def</span> <span class="nf">is_power2</span><span class="p">(</span><span class="n">num</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    States if a number ``num`` is a power of two</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">num</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">((</span><span class="n">num</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">num</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="nextpoweroftwo"><a class="viewcode-back" href="../../../rst/toupy.utils.FFT_utils.html#toupy.utils.FFT_utils.nextpoweroftwo">[docs]</a><span class="k">def</span> <span class="nf">nextpoweroftwo</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns next power of two following ``number``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">number</span><span class="p">)))</span></div>
+
+
+<span class="k">def</span> <span class="nf">_nextpoweroftwo_print</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return next power of two following ``number``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nextPower</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">number</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">nextPower</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="nextpow2"><a class="viewcode-back" href="../../../rst/toupy.utils.FFT_utils.html#toupy.utils.FFT_utils.nextpow2">[docs]</a><span class="k">def</span> <span class="nf">nextpow2</span><span class="p">(</span><span class="n">number</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find the next power 2 of ``number`` for FFT</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">while</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="n">number</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">*=</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">n</span></div>
+
+
+<div class="viewcode-block" id="padwidthbothsides"><a class="viewcode-back" href="../../../rst/toupy.utils.FFT_utils.html#toupy.utils.FFT_utils.padwidthbothsides">[docs]</a><span class="k">def</span> <span class="nf">padwidthbothsides</span><span class="p">(</span><span class="n">nbins</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns pad_width for padding both sides given a value of ``nbins``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># ~ nextPower = nextpoweroftwo(nbins)</span>
+    <span class="n">deficit</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nextpow2</span><span class="p">(</span><span class="n">nbins</span><span class="p">)</span> <span class="o">-</span> <span class="n">nbins</span><span class="p">)</span>
+    <span class="c1"># ~ deficit = int(np.power(2, nextPower) - nbins)</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">deficit</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="padrightside"><a class="viewcode-back" href="../../../rst/toupy.utils.FFT_utils.html#toupy.utils.FFT_utils.padrightside">[docs]</a><span class="k">def</span> <span class="nf">padrightside</span><span class="p">(</span><span class="n">nbins</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns pad_width for padding both sides given a value of ``nbins``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># ~ nextPower = nextpoweroftwo(nbins)</span>
+    <span class="c1"># ~ nextPower = nextpow2(nbins)</span>
+    <span class="c1"># ~ nextPower = fftpack.next_fast_len(nbins)</span>
+    <span class="n">nextPower</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">next_fast_len</span><span class="p">(</span><span class="n">nbins</span><span class="p">)</span>
+    <span class="n">deficit</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">nextPower</span> <span class="o">-</span> <span class="n">nbins</span><span class="p">)</span>
+    <span class="c1"># ~ deficit = int(np.power(2, nextPower) - nbins)</span>
+    <span class="k">return</span> <span class="n">deficit</span></div>
+
+
+<span class="k">def</span> <span class="nf">metafftw</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="n">input_array</span><span class="p">):</span>
+        <span class="c1"># checking number of cores available</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ncores&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+        <span class="c1"># stating the precision.</span>
+        <span class="c1"># np.complex64: single precision; and np.complex128: double precision</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;cprecision&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;planner_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;FFTW_MEASURE&quot;</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span>
+
+
+<div class="viewcode-block" id="fastfftn"><a class="viewcode-back" href="../../../rst/toupy.utils.FFT_utils.html#toupy.utils.FFT_utils.fastfftn">[docs]</a><span class="nd">@metafftw</span>
+<span class="k">def</span> <span class="nf">fastfftn</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Auxiliary function to use pyFFTW. It does the align, planning and</span>
+<span class="sd">    apply FFTW transform</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    input_array : array_like</span>
+<span class="sd">        Array to be FFTWed</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fftw_array : array_like</span>
+<span class="sd">        Fourier transformed array</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># number of cores available</span>
+    <span class="n">ncores</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ncores&quot;</span><span class="p">]</span>  <span class="c1"># multiprocessing.cpu_count()</span>
+    <span class="c1"># stating the precision.</span>
+    <span class="n">cprecision</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;cprecision&quot;</span><span class="p">]</span>  <span class="c1"># np.complex64 # single precision</span>
+    <span class="n">planner_type</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;planner_type&quot;</span><span class="p">]</span>  <span class="c1"># &#39;FFTW_MEASURE&#39;</span>
+    <span class="c1"># align array</span>
+    <span class="n">fftw_array</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">byte_align</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cprecision</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+    <span class="c1"># will need to plan once</span>
+    <span class="n">fftw_array</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">numpy_fft</span><span class="o">.</span><span class="n">fftn</span><span class="p">(</span>
+        <span class="n">fftw_array</span><span class="p">,</span> <span class="n">overwrite_input</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">planner_effort</span><span class="o">=</span><span class="n">planner_type</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="n">ncores</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">fftw_array</span></div>
+
+
+<div class="viewcode-block" id="fastifftn"><a class="viewcode-back" href="../../../rst/toupy.utils.FFT_utils.html#toupy.utils.FFT_utils.fastifftn">[docs]</a><span class="nd">@metafftw</span>
+<span class="k">def</span> <span class="nf">fastifftn</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Auxiliary function to use pyFFTW. It does the align, planning and</span>
+<span class="sd">    apply inverse FFTW transform</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    input_array : array_like</span>
+<span class="sd">        Array to be FFTWed</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ifftw_array : array_like</span>
+<span class="sd">        Inverse Fourier transformed array</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># number of cores available</span>
+    <span class="n">ncores</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;ncores&quot;</span><span class="p">]</span>  <span class="c1"># multiprocessing.cpu_count()</span>
+    <span class="c1"># stating the precision.</span>
+    <span class="n">cprecision</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;cprecision&quot;</span><span class="p">]</span>  <span class="c1"># np.complex64 # single precision</span>
+    <span class="n">planner_type</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;planner_type&quot;</span><span class="p">]</span>  <span class="c1"># &#39;FFTW_MEASURE&#39;</span>
+    <span class="c1"># align array</span>
+    <span class="n">ifftw_array</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">byte_align</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cprecision</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+    <span class="n">ifftw_array</span> <span class="o">=</span> <span class="n">pyfftw</span><span class="o">.</span><span class="n">interfaces</span><span class="o">.</span><span class="n">numpy_fft</span><span class="o">.</span><span class="n">ifftn</span><span class="p">(</span>
+        <span class="n">ifftw_array</span><span class="p">,</span> <span class="n">overwrite_input</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">planner_effort</span><span class="o">=</span><span class="n">planner_type</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="n">ncores</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ifftw_array</span></div>
+
+
+<div class="viewcode-block" id="padfft"><a class="viewcode-back" href="../../../rst/toupy.utils.FFT_utils.html#toupy.utils.FFT_utils.padfft">[docs]</a><span class="k">def</span> <span class="nf">padfft</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="n">pad_mode</span><span class="o">=</span><span class="s2">&quot;reflect&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Auxiliary function to pad arrays for Fourier transforms. It accepts</span>
+<span class="sd">    1D and 2D arrays.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ---------</span>
+<span class="sd">    input_array : array_like</span>
+<span class="sd">        Array to be padded</span>
+<span class="sd">    mode : str</span>
+<span class="sd">        Padding mode to treat the array borders. See :py:mod:`numpy.pad` </span>
+<span class="sd">        for modes. The default value is `reflect`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array_pad : array_like</span>
+<span class="sd">        Padded array</span>
+<span class="sd">    N_pad : array_like</span>
+<span class="sd">        padded frequency coordinates</span>
+<span class="sd">    padw : int, list of ints</span>
+<span class="sd">        pad width</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># padding to reduce artifacts with FFTs</span>
+    <span class="k">if</span> <span class="n">input_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">nr</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_array</span><span class="p">)</span>
+        <span class="n">padw</span> <span class="o">=</span> <span class="n">padrightside</span><span class="p">(</span><span class="n">nr</span><span class="p">)</span>  <span class="c1"># next power of 2</span>
+        <span class="c1"># ~ padw = padwidthbothsides(nr) # next power of 2</span>
+        <span class="c1"># ~ array_pad = np.pad(input_array,(padw,padw),mode=pad_mode)</span>
+        <span class="n">array_pad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">padw</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="n">pad_mode</span><span class="p">)</span>
+        <span class="n">N_pad</span> <span class="o">=</span> <span class="n">fftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">array_pad</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">input_array</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">nr</span><span class="p">,</span> <span class="n">nc</span> <span class="o">=</span> <span class="n">input_array</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">padw</span> <span class="o">=</span> <span class="p">[</span><span class="n">padrightside</span><span class="p">(</span><span class="n">nr</span><span class="p">),</span> <span class="n">padrightside</span><span class="p">(</span><span class="n">nc</span><span class="p">)]</span>
+        <span class="c1"># ~ padw = [padwidthbothsides(nr), padwidthbothsides(nc)]</span>
+        <span class="c1"># ~ array_pad = np.pad(input_array,((padw[0],padw[0]),(padw[1],padw[1])),mode=pad_mode)</span>
+        <span class="n">array_pad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">input_array</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">padw</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">padw</span><span class="p">[</span><span class="mi">1</span><span class="p">])),</span> <span class="n">mode</span><span class="o">=</span><span class="n">pad_mode</span><span class="p">)</span>
+        <span class="n">n_pad</span> <span class="o">=</span> <span class="p">[</span><span class="n">fftfreq</span><span class="p">(</span><span class="n">array_pad</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">fftfreq</span><span class="p">(</span><span class="n">array_pad</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span>
+        <span class="c1"># reverted order to be compatible with meshgrid output</span>
+        <span class="n">N_pad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">n_pad</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">n_pad</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">array_pad</span><span class="p">,</span> <span class="n">N_pad</span><span class="p">,</span> <span class="n">padw</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>

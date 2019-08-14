@@ -1,0 +1,7 @@
+templates.resolution\_edge\_estimate module
+===========================================
+
+.. automodule:: templates.resolution_edge_estimate
+   :members:
+   :undoc-members:
+   :show-inheritance:

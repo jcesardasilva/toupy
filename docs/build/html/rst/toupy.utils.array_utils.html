@@ -1,0 +1,571 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>toupy.utils.array_utils module &mdash; Toupy - Tomographic Utilities for Python 0.1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="toupy.utils.converter_utils module" href="toupy.utils.converter_utils.html" />
+    <link rel="prev" title="toupy.utils.FFT_utils module" href="toupy.utils.FFT_utils.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../content.html" class="icon icon-home"> Toupy - Tomographic Utilities for Python
+          
+
+          
+            
+            <img src="../_static/toupy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Introduction</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Welcome to toupy documentation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Quicklinks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installing.html">Installation</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Templates</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../templates.html">Templates</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Package and modules</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="toupy.io.html">toupy.io package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.registration.html">toupy.registration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.resolution.html">toupy.resolution package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.restoration.html">toupy.restoration package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.simulation.html">toupy.simulation package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="toupy.tomo.html">toupy.tomo package</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="toupy.utils.html">toupy.utils package</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="toupy.utils.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.FFT_utils.html">toupy.utils.FFT_utils module</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">toupy.utils.array_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.converter_utils.html">toupy.utils.converter_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.fit_utils.html">toupy.utils.fit_utils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.funcutils.html">toupy.utils.funcutils module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="toupy.utils.plot_utils.html">toupy.utils.plot_utils module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../content.html">Toupy - Tomographic Utilities for Python</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../content.html">Docs</a> &raquo;</li>
+        
+          <li><a href="toupy.utils.html">toupy.utils package</a> &raquo;</li>
+        
+      <li>toupy.utils.array_utils module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/rst/toupy.utils.array_utils.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-toupy.utils.array_utils">
+<span id="toupy-utils-array-utils-module"></span><h1>toupy.utils.array_utils module<a class="headerlink" href="#module-toupy.utils.array_utils" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="toupy.utils.array_utils.crop">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">crop</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">delcropx</em>, <em class="sig-param">delcropy</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#crop"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.crop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Crop images</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Input image to be cropped</p></li>
+<li><p><strong>delcropx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – amount of pixel to be cropped in x</p></li>
+<li><p><strong>delcropy</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – amount of pixel to be cropped in y</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Cropped image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.cropROI">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">cropROI</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">roi=[]</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#cropROI"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.cropROI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Crop ROI</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Input image to be cropped</p></li>
+<li><p><strong>roi</strong> (<em>list of int</em>) – ROI of interest. roi should be [top, bottom, left, right]</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Cropped image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.create_circle">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">create_circle</code><span class="sig-paren">(</span><em class="sig-param">inputimg</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#create_circle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.create_circle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create circle with apodized edges</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>inputimg</strong> (<em>array_like</em>) – Input image from which to calculate the circle</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>t</strong> – Array containing the circle</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.fract_hanning">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">fract_hanning</code><span class="sig-paren">(</span><em class="sig-param">outputdim</em>, <em class="sig-param">unmodsize</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#fract_hanning"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.fract_hanning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a square hanning window if unmodsize = 0 (or ommited), otherwise the output array
+will contain an array of ones in the center and cosine modulation on the
+edges, the array of ones will have DC in upper left corner.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>outputdim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Size of the output array</p></li>
+<li><p><strong>unmodsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Size of the central array containing no modulation.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Square array containing a fractional separable Hanning window with
+DC in upper left corner.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.fract_hanning_pad">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">fract_hanning_pad</code><span class="sig-paren">(</span><em class="sig-param">outputdim</em>, <em class="sig-param">filterdim</em>, <em class="sig-param">unmodsize</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#fract_hanning_pad"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.fract_hanning_pad" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a square hanning window if unmodsize = 0 (or ommited), otherwise the output array
+will contain an array of ones in the center and cosine modulation on the
+edges, the array of ones will have DC in upper left corner.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>outputdim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Size of the output array</p></li>
+<li><p><strong>filterdim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Size of filter (it will zero pad if filterdim &lt; outputdim)</p></li>
+<li><p><strong>unmodsize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Size of the central array containing no modulation.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Square array containing a fractional separable Hanning window with
+DC in upper left corner.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.mask_borders">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">mask_borders</code><span class="sig-paren">(</span><em class="sig-param">imgarray</em>, <em class="sig-param">mask_array</em>, <em class="sig-param">threshold=4e-07</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#mask_borders"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.mask_borders" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mask borders using the gradient</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>imgarray</strong> (<em>array_like</em>) – Input image</p></li>
+<li><p><strong>mask_array</strong> (<em>bool array_like</em>) – Input mask</p></li>
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>, </em><em>optional</em>) – Threshold value. The default value is <code class="docutils literal notranslate"><span class="pre">4e-7</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>mask_array</strong> – Masked array</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.create_mask_borders">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">create_mask_borders</code><span class="sig-paren">(</span><em class="sig-param">tomogram</em>, <em class="sig-param">mask_array</em>, <em class="sig-param">threshold=4e-07</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#create_mask_borders"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.create_mask_borders" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create mask for border of tomographic volume</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tomogram</strong> (<em>array_like</em>) – Input volume</p></li>
+<li><p><strong>mask</strong> (<em>bool array_like</em>) – Input mask</p></li>
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>, </em><em>optional</em>) – Threshold value. The default value is <code class="docutils literal notranslate"><span class="pre">4e-7</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>mask_array</strong> – Masked array</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.normalize_array">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">normalize_array</code><span class="sig-paren">(</span><em class="sig-param">input_array</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#normalize_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.normalize_array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Normalize the input array</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.padarray_bothsides">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">padarray_bothsides</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">newshape</em>, <em class="sig-param">padmode='edge'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#padarray_bothsides"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.padarray_bothsides" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pad array in both sides</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Input array</p></li>
+<li><p><strong>newshape</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.7)"><em>tuple</em></a>) – New shape of the array to be padded</p></li>
+<li><p><strong>padmode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.7)"><em>str</em></a>) – Padding mode. The default is <code class="docutils literal notranslate"><span class="pre">edge</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Padded array</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.polynomial1d">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">polynomial1d</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">order=1</em>, <em class="sig-param">w=1</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#polynomial1d"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.polynomial1d" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates a 1D orthonormal polynomial base.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>array_like</em>) – Array containing the values of <code class="docutils literal notranslate"><span class="pre">x</span></code> for the polynomial</p></li>
+<li><p><strong>order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – Order of the polynomial. The defaul value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><strong>w</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – Weights of the coefficients. The defaul value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>polyseries</strong> – Orthonormal polymonial up to order</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Inspired by legendrepoly1D_2.m created by Manuel Guizar in March 10,2009</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.projectpoly1d">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">projectpoly1d</code><span class="sig-paren">(</span><em class="sig-param">func1d</em>, <em class="sig-param">order=1</em>, <em class="sig-param">w=1</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#projectpoly1d"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.projectpoly1d" title="Permalink to this definition">¶</a></dt>
+<dd><p>Projects a 1D function onto orthonormalized base</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>func1d</strong> (<em>array_like</em>) – Array containing the values of the 1D function</p></li>
+<li><p><strong>order</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – Order of the polynomial. The defaul value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+<li><p><strong>w</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>, </em><em>optional</em>) – Weights of the coefficients. The defaul value is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>projfunc1d</strong> – Projected 1D funtion on orthonormal base</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Inspired by projectleg1D_2.m created by Manuel Guizar in March 10,2009</p>
+</div>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.radtap">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">radtap</code><span class="sig-paren">(</span><em class="sig-param">X</em>, <em class="sig-param">Y</em>, <em class="sig-param">tappix</em>, <em class="sig-param">zerorad</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#radtap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.radtap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a central cosine tapering for beam.
+It receives the X and Y coordinates, tappix is the extent of
+tapering, zerorad is the radius with no data (zeros).</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.replace_bad">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">replace_bad</code><span class="sig-paren">(</span><em class="sig-param">input_stack</em>, <em class="sig-param">list_bad=[]</em>, <em class="sig-param">temporary=False</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#replace_bad"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.replace_bad" title="Permalink to this definition">¶</a></dt>
+<dd><p>correcting bad projections before unwrapping</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_stack</strong> (<em>array_like</em>) – Stack of projections</p></li>
+<li><p><strong>list_bad</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.7)"><em>list</em></a>) – List of bad projections</p></li>
+<li><p><strong>temporary</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.7)"><em>bool</em></a>) – If <cite>False</cite>, the projection will be interpolated with the previous and
+after projections. If <cite>True</cite>, the projection will be replaced by the
+previous projection.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.round_to_even">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">round_to_even</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#round_to_even"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.round_to_even" title="Permalink to this definition">¶</a></dt>
+<dd><p>Round number <code class="docutils literal notranslate"><span class="pre">x</span></code> to next even number</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.sharpening_image">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">sharpening_image</code><span class="sig-paren">(</span><em class="sig-param">input_image</em>, <em class="sig-param">filter_size=3</em>, <em class="sig-param">alpha=30</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#sharpening_image"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.sharpening_image" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sharpen image with a median filter</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_image</strong> (<em>array_like</em>) – Image to be sharpened</p></li>
+<li><p><strong>filter_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Size of the filter</p></li>
+<li><p><strong>alpha</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – Strength of the sharpening</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Sharpened image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.smooth_image">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">smooth_image</code><span class="sig-paren">(</span><em class="sig-param">input_image</em>, <em class="sig-param">filter_size=3</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#smooth_image"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.smooth_image" title="Permalink to this definition">¶</a></dt>
+<dd><p>Smooth image with a median filter</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_image</strong> (<em>array_like</em>) – Image to be smoothed</p></li>
+<li><p><strong>filter_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a>) – Size of the filter</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Smoothed image</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array_like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="toupy.utils.array_utils.sort_array">
+<code class="sig-prename descclassname">toupy.utils.array_utils.</code><code class="sig-name descname">sort_array</code><span class="sig-paren">(</span><em class="sig-param">input_array</em>, <em class="sig-param">ref_array</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/toupy/utils/array_utils.html#sort_array"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#toupy.utils.array_utils.sort_array" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sort array based on another array</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>input_array</strong> (<em>array_like</em>) – Array to be sorted</p></li>
+<li><p><strong>ref_array</strong> (<em>array_like</em>) – Array on which the sorting will be based</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>sorted_input_array</strong> (<em>array_like</em>) – Sorted input array</p></li>
+<li><p><strong>sorted_ref_array</strong> (<em>array_like</em>) – Sorted reference array</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="toupy.utils.converter_utils.html" class="btn btn-neutral float-right" title="toupy.utils.converter_utils module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="toupy.utils.FFT_utils.html" class="btn btn-neutral float-left" title="toupy.utils.FFT_utils module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Julio C. da Silva
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+    <!-- Theme Analytics -->
+    <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-XXXXXXX-1', 'auto');
+    ga('send', 'pageview');
+    </script>
+
+    
+   
+
+</body>
+</html>
