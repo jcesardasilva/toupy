@@ -16,7 +16,6 @@ toupy/io/dataio.py
 toupy/io/filesrw.py
 toupy/io/h5chunk_shape_3D.py
 toupy/registration/__init__.py
-toupy/registration/register_translation.py
 toupy/registration/registration.py
 toupy/registration/shift.py
 toupy/resolution/FSC.py
