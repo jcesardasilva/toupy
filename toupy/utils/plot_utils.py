@@ -821,8 +821,8 @@ def display_slice(recons, colormap="bone", vmin=None, vmax=None):
     if vmax == "none":
         vmax = None
 
-    plt.close("all")
-    fig = plt.figure(num=1)
+    #plt.close("all")
+    fig = plt.figure()
     plt.clf()
     ax1 = fig.add_subplot(111)
     ax1.imshow(recons, cmap=colormap, vmin=vmin, vmax=vmax)
