@@ -31,11 +31,11 @@ def cart2pol(x, y):
 
     Parameters
     ----------
-    x, y : ndarrays
+    x, y : array_like
         Values in cartesian coordinates
     Returns
     -------
-    rho, phi: ndarrays
+    rho, phi : array_like
         Values in polar coordinates
     """
     rho = np.sqrt(x ** 2 + y ** 2)
@@ -49,12 +49,12 @@ def pol2cart(rho, phi):
 
     Parameters
     ----------
-    rho, phi: ndarrays
+    rho, phi : array_like
         Values in polar coordinates
 
     Returns
     -------
-    x, y : ndarrays
+    x, y : array_like
         Values in cartesian coordinates
     """
     x = rho * np.cos(phi)
