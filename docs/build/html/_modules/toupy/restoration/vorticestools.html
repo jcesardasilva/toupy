@@ -62,7 +62,7 @@
             
             
               <div class="version">
-                0.1.0
+                0.1
               </div>
             
           
@@ -203,11 +203,11 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    x, y : ndarrays</span>
+<span class="sd">    x, y : array_like</span>
 <span class="sd">        Values in cartesian coordinates</span>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    rho, phi: ndarrays</span>
+<span class="sd">    rho, phi : array_like</span>
 <span class="sd">        Values in polar coordinates</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">y</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
@@ -221,12 +221,12 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    rho, phi: ndarrays</span>
+<span class="sd">    rho, phi : array_like</span>
 <span class="sd">        Values in polar coordinates</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    x, y : ndarrays</span>
+<span class="sd">    x, y : array_like</span>
 <span class="sd">        Values in cartesian coordinates</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>

@@ -62,7 +62,7 @@
             
             
               <div class="version">
-                0.1.0
+                0.1
               </div>
             
           
@@ -182,22 +182,21 @@
 <span class="kn">from</span> <span class="nn">scipy.ndimage</span> <span class="k">import</span> <span class="n">center_of_mass</span><span class="p">,</span> <span class="n">interpolation</span>
 <span class="kn">from</span> <span class="nn">scipy.ndimage.filters</span> <span class="k">import</span> <span class="n">gaussian_filter</span><span class="p">,</span> <span class="n">gaussian_filter1d</span>
 <span class="kn">from</span> <span class="nn">scipy.ndimage.fourier</span> <span class="k">import</span> <span class="n">fourier_shift</span>
-
+<span class="kn">from</span> <span class="nn">skimage.feature</span> <span class="k">import</span> <span class="n">register_translation</span>
 
 <span class="c1"># local packages</span>
-<span class="kn">from</span> <span class="nn">.register_translation</span> <span class="k">import</span> <span class="n">register_translation</span>
 <span class="kn">from</span> <span class="nn">..restoration</span> <span class="k">import</span> <span class="n">derivatives</span><span class="p">,</span> <span class="n">derivatives_sino</span>
 <span class="kn">from</span> <span class="nn">.shift</span> <span class="k">import</span> <span class="n">ShiftFunc</span>
 <span class="kn">from</span> <span class="nn">..tomo</span> <span class="k">import</span> <span class="n">projector</span><span class="p">,</span> <span class="n">tomo_recons</span>
 <span class="kn">from</span> <span class="nn">..utils</span> <span class="k">import</span> <span class="p">(</span>
     <span class="n">deprecated</span><span class="p">,</span>
-    <span class="n">fract_hanning_pad</span><span class="p">,</span>
     <span class="n">projectpoly1d</span><span class="p">,</span>
     <span class="n">progbar</span><span class="p">,</span>
     <span class="n">RegisterPlot</span><span class="p">,</span>
     <span class="n">replace_bad</span><span class="p">,</span>
     <span class="n">display_slice</span><span class="p">,</span>
-    <span class="n">create_circle</span>
+    <span class="n">create_circle</span><span class="p">,</span>
+    <span class="n">hanning_apod1D</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
@@ -845,6 +844,7 @@
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Elapsed time in the iteration= </span><span class="si">{:0.02f}</span><span class="s2"> s&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">it0</span><span class="p">))</span>
 
         <span class="c1"># update figures</span>
+        <span class="n">sinogram</span> <span class="o">=</span> <span class="n">_filter_sino</span><span class="p">(</span><span class="n">sinogram</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
         <span class="n">RP</span><span class="o">.</span><span class="n">plotshorizontal</span><span class="p">(</span>
             <span class="n">recons</span><span class="p">,</span> <span class="n">sino_orig</span><span class="p">,</span> <span class="n">sinogram</span><span class="p">,</span> <span class="n">sinogramcomp</span><span class="p">,</span> <span class="n">shiftslice</span><span class="p">,</span> <span class="n">metric_error</span><span class="p">,</span> <span class="n">count</span>
         <span class="p">)</span>
@@ -866,6 +866,16 @@
             <span class="k">break</span>
 
     <span class="k">return</span> <span class="n">shiftslice</span><span class="p">,</span> <span class="n">metric_error</span>
+
+<span class="k">def</span> <span class="nf">_filter_sino</span><span class="p">(</span><span class="n">sinogram</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Filter to the sinogram</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">N</span><span class="p">,</span><span class="n">M</span> <span class="o">=</span> <span class="n">sinogram</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">apod_width</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">N</span> <span class="o">*</span> <span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="s2">&quot;freqcutoff&quot;</span><span class="p">]))</span>
+    <span class="n">filteraux</span> <span class="o">=</span> <span class="n">hanning_apod1D</span><span class="p">(</span><span class="n">N</span><span class="p">,</span><span class="n">apod_width</span><span class="p">)</span>
+    <span class="n">filteraux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">filteraux</span><span class="p">,</span> <span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">sinogram</span><span class="p">)</span> <span class="o">*</span> <span class="n">filteraux</span><span class="p">))</span>
 
 
 <div class="viewcode-block" id="alignprojections_horizontal"><a class="viewcode-back" href="../../../rst/toupy.registration.registration.html#toupy.registration.registration.alignprojections_horizontal">[docs]</a><span class="k">def</span> <span class="nf">alignprojections_horizontal</span><span class="p">(</span><span class="n">sinogram</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">shiftstack</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
@@ -964,14 +974,10 @@
     <span class="n">sinogram</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span>
         <span class="n">sinogram</span><span class="p">,</span> <span class="p">((</span><span class="n">padval</span><span class="p">,</span> <span class="n">padval</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">constant_values</span><span class="o">=</span><span class="mi">0</span>
     <span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="n">N</span> <span class="o">=</span> <span class="n">sinogram</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">N</span><span class="p">,</span><span class="n">M</span> <span class="o">=</span> <span class="n">sinogram</span><span class="o">.</span><span class="n">shape</span>
 
-    <span class="c1"># applying a filter to the sinogram #TODO: improve this part</span>
-    <span class="n">filteraux</span> <span class="o">=</span> <span class="n">fract_hanning_pad</span><span class="p">(</span>
-        <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">N</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;freqcutoff&quot;</span><span class="p">]))</span>
-    <span class="p">)</span>  <span class="c1"># 1- at the beginning</span>
-    <span class="n">filteraux</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftshift</span><span class="p">(</span><span class="n">filteraux</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]),</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="mi">1</span><span class="p">))</span>
-    <span class="n">sino_orig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">sinogram</span><span class="p">)</span> <span class="o">*</span> <span class="n">filteraux</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+    <span class="c1"># applying a filter to the sinogram</span>
+    <span class="n">sino_orig</span> <span class="o">=</span> <span class="n">_filter_sino</span><span class="p">(</span><span class="n">sinogram</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
 
     <span class="c1"># Shifting projection according to the initial shiftslice</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">shiftslice</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
@@ -1018,6 +1024,7 @@
 
     <span class="c1"># initializing display canvas for the figures</span>
     <span class="n">plt</span><span class="o">.</span><span class="n">ion</span><span class="p">()</span>
+    <span class="n">sinogram</span> <span class="o">=</span> <span class="n">_filter_sino</span><span class="p">(</span><span class="n">sinogram</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
     <span class="n">RP</span> <span class="o">=</span> <span class="n">RegisterPlot</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span>
     <span class="n">RP</span><span class="o">.</span><span class="n">plotshorizontal</span><span class="p">(</span>
         <span class="n">recons</span><span class="p">,</span> <span class="n">sino_orig</span><span class="p">,</span> <span class="n">sinogram</span><span class="p">,</span> <span class="n">sinogramcomp</span><span class="p">,</span> <span class="n">shiftslice</span><span class="p">,</span> <span class="n">metric_error</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">0</span>
@@ -1112,7 +1119,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;You should answer &#39;y&#39; or &#39;n or accept default answer.&quot;</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">shiftstack</span></div>
+    <span class="k">return</span> <span class="n">shiftstack</span><span class="p">,</span> <span class="n">params</span></div>
 
 
 <div class="viewcode-block" id="oneslicefordisplay"><a class="viewcode-back" href="../../../rst/toupy.registration.registration.html#toupy.registration.registration.oneslicefordisplay">[docs]</a><span class="k">def</span> <span class="nf">oneslicefordisplay</span><span class="p">(</span><span class="n">sinogram</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
