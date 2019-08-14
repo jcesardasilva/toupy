@@ -41,7 +41,7 @@ params = dict()
 # Edit section
 # =========================
 params["samplename"] = "H2int_15000h_outlet"
-params["slicenum"] = 750  # Choose the slice
+params["slicenum"] = 1024  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
 params["freqcutoff"] = 0.2  # Frequency cutoff (between 0 and 1)
 params["circle"] = True
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     theta -= theta.min()
 
     # first estimate of the rotation axis
-    estimate_rot_axis(aligned_diff, theta, **params)
+    params["rot_axis_offset"] = estimate_rot_axis(aligned_diff, theta, **params)
 
     # if you want to sort theta, uncomment line below:
     # aligned_diff, theta = sort_array(aligned_diff, theta)
