@@ -672,7 +672,7 @@ def _alignprojections_horizontal(
         print("Elapsed time in the iteration= {:0.02f} s".format(time.time() - it0))
 
         # update figures
-        sinogram = _filter_sino(sinogram, **params)
+        #sinogram = _filter_sino(sinogram, **params)
         RP.plotshorizontal(
             recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count
         )
@@ -852,7 +852,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     # initializing display canvas for the figures
     plt.ion()
-    sinogram = _filter_sino(sinogram, **params)
+    #sinogram = _filter_sino(sinogram, **params)
     RP = RegisterPlot(**params)
     RP.plotshorizontal(
         recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0
