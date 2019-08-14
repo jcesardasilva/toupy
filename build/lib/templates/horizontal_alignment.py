@@ -1,15 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-Template for the horizontal alignment of the projections based on the
-tomographic consistency conditions.
-
-You will first align for one slice and we repeat the alignment at
-multiple slices and average the shift function. If the average is
-satisfactory, you can proceed and save the data. 
-"""
-
 # standard libraries imports
 import re
 import socket
@@ -32,7 +23,6 @@ from toupy.registration import (
     oneslicefordisplay,
     refine_horizontalalignment,
     tomoconsistency_multiple,
-    estimate_rot_axis,
 )
 
 # initializing dictionaries
@@ -40,27 +30,27 @@ params = dict()
 
 # Edit section
 # =========================
-params["samplename"] = "H2int_15000h_outlet"
-params["slicenum"] = 750  # Choose the slice
+params["samplename"] = "v97_v_nfptomo2_15nm"
+params["phaseonly"] = True
+params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
-params["freqcutoff"] = 0.2  # Frequency cutoff (between 0 and 1)
+params["filtertomo"] = 0.2  # Frequency cutoff (between 0 and 1)
 params["circle"] = True
-params["algorithm"] = "FBP"
 # initial guess of the offset of the axis of rotation
-params["rot_axis_offset"] = -40
+params["rot_axis_offset"] = 0
 params["pixtol"] = 0.01  # Tolerance of registration in pixels
 params["shiftmeth"] = "fourier"  # 'sinc' or 'linear' better for noise
-params["maxit"] = 100  # max of iterations
+params["maxit"] = 20  # max of iterations
 params["cliplow"] = None  # clip air threshold
 params["cliphigh"] = -1e-4  # clip on sample threshold
-params["colormap"] = "bone"
 params["sinohigh"] = None
 params["sinolow"] = None
 params["derivatives"] = True
-params["calc_derivatives"] = True # Calculate derivatives if not done
 params["opencl"] = True
 params["autosave"] = False
 params["load_previous_shiftstack"] = False
+params["correct_bad"] = True
+params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
 # =========================
 
 # =============================================================================#
@@ -69,21 +59,18 @@ params["load_previous_shiftstack"] = False
 if __name__ == "__main__":
     # loading the data
     aligned_diff, theta, shiftstack, params = LoadData.load(
-        "vertical_alignment.h5", **params
+        "aligned_derivatives.h5", **params
     )
 
     # to start at zero
     theta -= theta.min()
-
-    # first estimate of the rotation axis
-    estimate_rot_axis(aligned_diff, theta, **params)
 
     # if you want to sort theta, uncomment line below:
     # aligned_diff, theta = sort_array(aligned_diff, theta)
 
     # If you want to initialize shiftstack with previous alignment values
     if params["load_previous_shiftstack"]:
-        shiftstack = LoadData.loadshiftstack("aligned_projections.h5", **params)
+        shiftstack = LoadData.loadshiftstack("aligned_projections.h5", **inputparams)
         print("Using previous estimate of shiftstack")
     else:
         # initializing shiftstack with zero plus rot_axis_offset
@@ -96,7 +83,7 @@ if __name__ == "__main__":
     shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params)
 
     # alignment refinement with different parameters if necessary
-    shiftstack, params = refine_horizontalalignment(aligned_diff, theta, shiftstack, **params)
+    shiftstack = refine_horizontalalignment(aligned_diff, theta, shiftstack, **params)
 
     # tomographic consistency on multiples slices
     a = input(
@@ -113,11 +100,16 @@ if __name__ == "__main__":
     aligned_projections = compute_aligned_horizontal(
         aligned_diff, shiftstack, shift_method=params["shiftmeth"]
     )
+    # correcting bad projections after the alignment if needed
+    if params["correct_bad"]:
+        aligned_projections = replace_bad(
+            aligned_projections, list_bad=params["bad_projs"], temporary=False
+        )
 
     a = input("Do you want to display the aligned projections? (y/[n]) :").lower()
     if str(a) == "y":
         iterative_show(
-            aligned_projections, vmin=None, vmax=None
+            aligned_projections, vmin=-0.2, vmax=0.2
         )  # Show aligned projections derivatives
 
     # calculate one slice for display
@@ -128,10 +120,6 @@ if __name__ == "__main__":
     SaveData.save(
         "aligned_projections.h5", aligned_projections, theta, shiftstack, **params
     )
-
-    # save the shifts
-    print("Saving the shifts to file correct_consistency.txt")
-    np.savetxt('correct_consistency.txt',np.flip(shiftstack,0).T, fmt='%4.8e')
     # next step
     print('You should run "tomographic_reconstruction.py" now')
     # =============================================================================#

@@ -1,0 +1,51 @@
+#!/mntdirect/_data_id16a_inhouse1/sware/pyvenvid16a/py3id16a/bin/python3
+# -*- coding: utf-8 -*-
+
+# standard packages imports
+import glob
+import pprint
+import os
+import re
+
+# third party parckages imports
+import tkinter
+import tkinter.filedialog as tkFileDialog
+
+# open GUI to choose file
+root = tkinter.Tk()
+root.withdraw()
+print('%%%%%% Load the reconstruction file %%%%%%')
+foldername = tkFileDialog.askopenfilename(
+    parent=root, initialdir=".", title='Please select the file')
+if filename == ():  # check if file exist
+    raise IOError(u'File not loaded')
+
+# get the file extension
+body, ext = os.path.splitext(foldername)
+# create the wildcard
+file_wcard = re.sub('\d{3}_\d{4}', '*', foldername)
+# create a sorted list of files
+reconlist = sorted(glob.glob(file_wcard))
+
+if ext == '.ptyr':
+    folderlist = [re.sub('_ML', '', os.path.splitext(
+        os.path.basename(ii))[0]) for ii in reconlist]
+    ptydfile_wcard = re.sub('\d{3}_\d{4}_ML.ptyr',
+                            '*.ptyd', os.path.basename(foldername))
+elif ext == '.cxi':
+    folderlist = [os.path.basename(ii) for ii in reconlist]
+    #folderlist = [os.path.splitext(os.path.basename(ii))[0] for ii in reconlist]
+    ptydfile_wcard = '../' + \
+        re.sub('\d{3}_\d{4}.cxi', '*.ptyd', os.path.basename(foldername))
+else:
+    raise IOError('Not implemented for {} files'.format(ext))
+
+# sorted list of prepared data
+ptydfiles = sorted(glob.glob(ptydfile_wcard))
+ptydlist = [os.path.splitext(os.path.basename(ii))[0] for ii in ptydfiles]
+
+# compare folderlist and ptydlist
+diff_list = sorted([ii for ii in (set(folderlist) ^ set(ptydlist))])
+
+print('There are {} missing reconstructions'.format(len(diff_list)))
+pprint.pprint(diff_list)
