@@ -62,7 +62,7 @@
             
             
               <div class="version">
-                0.1.0
+                0.1
               </div>
             
           
@@ -180,7 +180,6 @@
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="c1"># local packages</span>
-<span class="kn">from</span> <span class="nn">..registration.register_translation</span> <span class="k">import</span> <span class="n">register_translation</span>
 <span class="kn">from</span> <span class="nn">..utils.funcutils</span> <span class="k">import</span> <span class="n">deprecated</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;rmphaseramp&quot;</span><span class="p">,</span> <span class="s2">&quot;rmlinearphase&quot;</span><span class="p">,</span> <span class="s2">&quot;rmair&quot;</span><span class="p">]</span>
@@ -283,55 +282,9 @@
 
     <span class="c1"># applying to the image</span>
     <span class="n">im_output</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">image</span><span class="p">)</span> <span class="o">*</span> <span class="n">ph_corr</span>
-    <span class="n">ph_err</span> <span class="o">=</span> <span class="p">(</span><span class="n">mask</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="n">ph_corr</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">nrm</span>
+    <span class="c1"># ph_err = (mask * np.angle(ph_corr) ** 2).sum() / nrm</span>
 
     <span class="k">return</span> <span class="n">im_output</span>  <span class="c1"># , ph_err</span></div>
-
-
-<span class="nd">@deprecated</span>
-<span class="k">def</span> <span class="nf">remove_linearphase_old</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">upsamp</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Removes linear phase from object considering only pixels where mask is</span>
-<span class="sd">    unity, arrays have center on center of array</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    image : array_like</span>
-<span class="sd">        Image</span>
-<span class="sd">    mask : bool, array_like </span>
-<span class="sd">        Binary array with ones where the linear phase should be </span>
-<span class="sd">        computed from</span>
-<span class="sd">    upsamp : int</span>
-<span class="sd">        Linear phase will be removed within 2*pi/upsamp peak to valley</span>
-<span class="sd">        in radians</span>
-
-<span class="sd">    Note</span>
-<span class="sd">    -----</span>
-<span class="sd">    Inspired by remove_linearphase.m created by Manuel Guizar-Sicairos in Aug 19th, 2010.</span>
-<span class="sd">    Please, cite: Manuel Guizar-Sicairos, Ana Diaz, Mirko Holler, Miriam S. Lucas,</span>
-<span class="sd">    Andreas Menzel, Roger A. Wepf, and Oliver Bunk, &quot;Phase tomography from x-ray</span>
-<span class="sd">    coherent diffractive imaging projections,&quot; Opt. Express 19, 21345-21357 (2011)</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">p0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-    <span class="n">shift</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">diffphase</span> <span class="o">=</span> <span class="n">register_translation</span><span class="p">(</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">mask</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">image</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifftshift</span><span class="p">(</span><span class="n">mask</span> <span class="o">*</span> <span class="n">image</span><span class="p">),</span> <span class="n">upsamp</span>
-    <span class="p">)</span>
-    <span class="c1"># shift, error, diffphase = register_translation(mask*np.abs(image),mask*image,upsamp)</span>
-    <span class="k">if</span> <span class="n">shift</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">shift</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">nr</span><span class="p">,</span> <span class="n">nc</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span>
-        <span class="n">ar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">nr</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">nr</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span>
-        <span class="n">ac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">nc</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">nc</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span>
-        <span class="c1"># ~ Nr,Nc = fftfreq(nr),fftfreq(nc)</span>
-        <span class="c1"># Nr,Nc = np.fft.ifftshift(fftfreq(nr)),np.fft.ifftshift(fftfreq(nc))</span>
-        <span class="c1"># ~ Nc,Nr = np.meshgrid(Nc,Nr)</span>
-        <span class="n">Nc</span><span class="p">,</span> <span class="n">Nr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">ac</span><span class="p">,</span> <span class="n">ar</span><span class="p">)</span>  <span class="c1"># FFT frequencies</span>
-        <span class="n">image</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">shift</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Nr</span> <span class="o">/</span> <span class="n">nr</span> <span class="o">-</span> <span class="n">shift</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">Nc</span> <span class="o">/</span> <span class="n">nc</span><span class="p">))</span>
-
-    <span class="n">image</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">diffphase</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;shifts: [</span><span class="si">{}</span><span class="s2"> , </span><span class="si">{}</span><span class="s2">]&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">shift</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">shift</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Phase difference: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">diffphase</span><span class="p">))</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Time elapsed: </span><span class="si">{}</span><span class="s2"> s&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">p0</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">image</span>  <span class="c1"># *np.exp(1j*diffphase)</span>
 
 
 <div class="viewcode-block" id="rmair"><a class="viewcode-back" href="../../../rst/toupy.restoration.ramptools.html#toupy.restoration.ramptools.rmair">[docs]</a><span class="k">def</span> <span class="nf">rmair</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">mask</span><span class="p">):</span>

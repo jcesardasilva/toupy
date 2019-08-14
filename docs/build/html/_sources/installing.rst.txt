@@ -34,5 +34,5 @@ You can also install it using pip:
 
 .. code-block:: shell
 
-    pip install -e git+https://github.com/jcesardasilva/toupy.git
+    pip install git+https://github.com/jcesardasilva/toupy.git
 
