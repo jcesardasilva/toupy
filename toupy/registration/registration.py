@@ -674,6 +674,7 @@ def _alignprojections_horizontal(
         print("Elapsed time in the iteration= {:0.02f} s".format(time.time() - it0))
 
         # update figures
+        sinogram = _filter_sino(sinogram, **params)
         RP.plotshorizontal(
             recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count
         )
@@ -695,6 +696,16 @@ def _alignprojections_horizontal(
             break
 
     return shiftslice, metric_error
+
+def _filter_sino(sinogram, **params):
+    """
+    Filter to the sinogram
+    """
+    N,M = sinogram.shape
+    apod_width = np.int(0.5 * N * (params["freqcutoff"]))
+    filteraux = hanning_apod1D(N,apod_width)
+    filteraux = np.tile(filteraux, (M, 1)).T
+    return np.real(np.fft.ifft(np.fft.fft(sinogram) * filteraux))
 
 
 def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
@@ -795,10 +806,8 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     ).copy()
     N,M = sinogram.shape
 
-    # applying a filter to the sinogram #TODO: improve this part
-    filteraux = hanning_apod1D(N,np.int(0.5 * N * (params["freqcutoff"])))
-    filteraux = np.tile(filteraux, (len(theta), 1)).T
-    sino_orig = np.real(np.fft.ifft(np.fft.fft(sinogram) * filteraux))
+    # applying a filter to the sinogram
+    sino_orig = _filter_sino(sinogram, **params)
 
     # Shifting projection according to the initial shiftslice
     if not np.all(shiftslice == 0):
@@ -845,6 +854,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     # initializing display canvas for the figures
     plt.ion()
+    sinogram = _filter_sino(sinogram, **params)
     RP = RegisterPlot(**params)
     RP.plotshorizontal(
         recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0

@@ -132,6 +132,7 @@ def full_tomo_recons(input_stack, theta, **params):
     print("Calculation done. Time elapsed: {:.02f} s".format(time.time() - t0))
 
     # display one slice
+    plt.close("all")
     display_slice(
         tomogram0,
         colormap=params["colormap"],
