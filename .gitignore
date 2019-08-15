@@ -1,4 +1,7 @@
 __pycache__
 *.pyc
 *.old
+dist
+build
+*.egg-info
 files.txt

@@ -15,7 +15,19 @@ installation of Toupy, you should run:
 Via Python Package
 ==================
 
-Installation should be as simple as:
+Clone it first from git:
+
+.. code-block:: shell
+
+    git clone https://github.com/jcesardasilva/toupy.git
+	
+change into toupy directory:
+
+.. code-block:: shell
+
+	cd toupy
+
+The installation should be as simple as:
 
 .. code-block:: shell
 
@@ -27,12 +39,4 @@ or, for local installation, using the flag --user:
 
     python3 setup.py install --user
 
-Via pip and/or Git
-==================
-
-You can also install it using pip:
-
-.. code-block:: shell
-
-    pip install git+https://github.com/jcesardasilva/toupy.git
 
