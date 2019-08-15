@@ -271,7 +271,7 @@ if on_rtd:
         argv = [
             "-f", #Overwrite existing files
             #"-T", #Create table of contents
-            "-e", #Give modules their own pages
+            #"-e", #Give modules their own pages
             #"-E", #user docstring headers
             "-M", #Modules first
             "-o", #Output the files to:
