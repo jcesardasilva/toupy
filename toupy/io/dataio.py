@@ -652,17 +652,17 @@ class SaveData(PathName, Variables):
         Parameters
         ----------
         args: positional arguments
-            args[0] : str
-                H5 file name
-            args[1] : array_like
-                Array containing the stack of projections
-            args[2] : array_like
-                Values of theta
-            args[3] : array_like
-                Array containing the shifts for each projection in the
-                stack. If not provided, it will be initialized with zeros
-            args[4] : array_like or None
-                Array containing the projection masks
+        args[0] : str
+            H5 file name
+        args[1] : array_like
+            Array containing the stack of projections
+        args[2] : array_like
+            Values of theta
+        args[3] : array_like
+            Array containing the shifts for each projection in the
+            stack. If not provided, it will be initialized with zeros
+        args[4] : array_like or None
+            Array containing the projection masks
         """
         return cls(**params)._save_data(*args)
 
@@ -674,22 +674,22 @@ class SaveData(PathName, Variables):
         Parameters
         ----------
         args: positional arguments
-            args[0] : str
-                H5 file name
-            args[1] : array_like
-                Normalized frequencies
-            args[2] : array_like
-                Value of the threshold for each frequency
-            args[3] : array_like
-                The FSC curve
-            args[4] : array_like
-                The first tomogram
-            args[5] : array_like
-                The second tomogram
-            args[6] : array_like
-                The array of theta values
-            args[7] : float
-                Pixel size
+        args[0] : str
+            H5 file name
+        args[1] : array_like
+            Normalized frequencies
+        args[2] : array_like
+            Value of the threshold for each frequency
+        args[3] : array_like
+            The FSC curve
+        args[4] : array_like
+            The first tomogram
+        args[5] : array_like
+            The second tomogram
+        args[6] : array_like
+            The array of theta values
+        args[7] : float
+            Pixel size
         """
         return cls(**params)._save_FSC(*args)
 
@@ -746,17 +746,17 @@ class SaveData(PathName, Variables):
         Parameters
         ----------
         args: positional arguments
-            args[0] : str
-                H5 file name
-            args[1] : array_like
-                Array containing the stack of projections
-            args[2] : array_like
-                Values of theta
-            args[3] : array_like
-                Array containing the shifts for each projection in the
-                stack. If not provided, it will be initialized with zeros
-            args[4] : array_like or None
-                Array containing the projection masks
+        args[0] : str
+            H5 file name
+        args[1] : array_like
+            Array containing the stack of projections
+        args[2] : array_like
+            Values of theta
+        args[3] : array_like
+            Array containing the shifts for each projection in the
+            stack. If not provided, it will be initialized with zeros
+        args[4] : array_like or None
+            Array containing the projection masks
         """
         h5name = args[0]
         stack_projs = args[1]
@@ -823,22 +823,22 @@ class SaveData(PathName, Variables):
         Parameters
         ----------
         args: positional arguments
-            args[0] : str
-                H5 file name
-            args[1] : array_like
-                Normalized frequencies
-            args[2] : array_like
-                Value of the threshold for each frequency
-            args[3] : array_like
-                The FSC curve
-            args[4] : array_like
-                The first tomogram
-            args[5] : array_like
-                The second tomogram
-            args[6] : array_like
-                The array of theta values
-            args[7] : float
-                Pixel size
+        args[0] : str
+            H5 file name
+        args[1] : array_like
+            Normalized frequencies
+        args[2] : array_like
+            Value of the threshold for each frequency
+        args[3] : array_like
+            The FSC curve
+        args[4] : array_like
+            The first tomogram
+        args[5] : array_like
+            The second tomogram
+        args[6] : array_like
+            The array of theta values
+        args[7] : float
+            Pixel size
         """
         h5name = args[0]
         normfreqs = args[1]
@@ -1348,14 +1348,14 @@ class SaveTomogram(SaveData):
         Parameters
         ----------
         args: positional arguments
-            args[0] : str
-                H5 file name
-            args[1] : array_like
-                Array containing the stack of slices (tomogram)
-            args[2] : array_like
-                Values of theta
-            args[3] : array_like
-                Array containing the shifts for each projection in the stack
+        args[0] : str
+            H5 file name
+        args[1] : array_like
+            Array containing the stack of slices (tomogram)
+        args[2] : array_like
+            Values of theta
+        args[3] : array_like
+            Array containing the shifts for each projection in the stack
         """
         return cls(**params)._save_tomogram(*args)
 
@@ -1367,14 +1367,14 @@ class SaveTomogram(SaveData):
         Parameters
         ----------
         args: positional arguments
-            args[0] : str
-                H5 file name
-            args[1] : array_like
-                Array containing the stack of slices (tomogram)
-            args[2] : array_like
-                Values of theta
-            args[3] : array_like
-                Array containing the shifts for each projection in the stack
+        args[0] : str
+            H5 file name
+        args[1] : array_like
+            Array containing the stack of slices (tomogram)
+        args[2] : array_like
+            Values of theta
+        args[3] : array_like
+            Array containing the shifts for each projection in the stack
         """
         return cls(**params)._convert_to_tiff(*args)
 
@@ -1384,14 +1384,14 @@ class SaveTomogram(SaveData):
         Parameters
         ----------
         args: positional arguments
-            args[0] : str
-                H5 file name
-            args[1] : array_like
-                Array containing the stack of slices (tomogram)
-            args[2] : array_like
-                Values of theta
-            args[3] : array_like
-                Array containing the shifts for each projection in the stack
+        args[0] : str
+            H5 file name
+        args[1] : array_like
+            Array containing the stack of slices (tomogram)
+        args[2] : array_like
+            Values of theta
+        args[3] : array_like
+            Array containing the shifts for each projection in the stack
         """
         h5name = args[0]
         tomogram = args[1]
@@ -1473,15 +1473,15 @@ class SaveTomogram(SaveData):
         Parameter
         ---------
         args: positional arguments
-            args[0] : str
-                H5 file name
-            args[1] : array_like
-                Array containing the stack of slices (tomogram)
-            args[2] : array_like
-                Values of theta
-            args[3] : array_like
-                Array containing the shifts for each projection in the stack
-        """
+        args[0] : str
+            H5 file name
+        args[1] : array_like
+            Array containing the stack of slices (tomogram)
+        args[2] : array_like
+            Values of theta
+        args[3] : array_like
+            Array containing the shifts for each projection in the stack
+    """
         tomogram = args[0]
         nslices, nr, nc = tomogram.shape
 
