@@ -1,9 +1,5 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Jun 15 12:20:36 2015
-
-@author: Julio Cesar da Silva (mailto: jdasilva@esrf.fr)
-"""
 
 import tkinter as Tkinter
 import tkinter.filedialog as tkFileDialog

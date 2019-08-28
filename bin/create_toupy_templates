@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# ----------------------------------------------------------------------------
+# Adapted from this StackOverflow thread: https://stackoverflow.com/a/49181193
+# ----------------------------------------------------------------------------
+
 if [ ! $# == 1 ]; then {
     echo "Usage: $0 <foldername[HoloTomo, NFPTomo, FFPTomo]>"
     echo "Example: $0 HoloTomo"
