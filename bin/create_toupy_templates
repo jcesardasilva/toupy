@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ ! $# == 1 ]; then {
+    echo "Usage: $0 <foldername[HoloTomo, NFPTomo, FFPTomo]>"
+    echo "Example: $0 HoloTomo"
+    exit 
+} fi
+
+localRepo=$1
+remoteRepo=https://github.com/jcesardasilva/toupy.git
+
+if [ ! $1 == "HoloTomo" ]; then {
+    subDir=templates
+} else {
+    subDir=templates/$1
+} fi
+
+
+# Create local repository for subdirectory checkout, make it hidden to avoid having to drill down to the subfolder
+if [ ! -d ./.$localRepo ]; then
+  mkdir ./.$localRepo
+fi
+cd ./.$localRepo
+git init
+git remote add -f origin $remoteRepo
+git config core.sparseCheckout true
+
+# Add the subdirectory of interest to the sparse checkout.
+echo $subDir >> .git/info/sparse-checkout
+
+git pull origin master
+
+# Change name of the subdirectory of interest
+cd ..
+mv ./.$localRepo/$subDir $localRepo
