@@ -86,6 +86,21 @@ class PathName:
     """
 
     def __init__(self, **params):
+        """
+        Parameters
+        ----------
+        **params
+            Dictionary of parameters
+        params["pathfilename"] : str
+            Path to first file and filename
+        params["account"] : str
+            User account number
+        params["samplename"] : str
+            Samplename
+        params["regime"] : str
+            Regime of imaging
+        
+        """
         self.pathfilename = os.path.abspath(params["pathfilename"])
         self.useraccount = params["account"]
         self.samplename = params["samplename"]
@@ -279,7 +294,7 @@ class LoadProjections(PathName, Variables):
 
         Parameters
         ----------
-        params : dict
+        **params
             Container with parameters to load the files.
         params["account"] : str
             User experiment number at ESRF.
@@ -336,7 +351,7 @@ class LoadProjections(PathName, Variables):
 
         Parameters
         ----------
-        params : dict
+        **params
             Container with parameters to load the files.
         params["account"] : str
             User experiment number at ESRF.
@@ -651,7 +666,8 @@ class SaveData(PathName, Variables):
 
         Parameters
         ----------
-        args: positional arguments
+        *args
+            positional arguments
         args[0] : str
             H5 file name
         args[1] : array_like
@@ -673,7 +689,8 @@ class SaveData(PathName, Variables):
 
         Parameters
         ----------
-        args: positional arguments
+        *args
+            positional arguments
         args[0] : str
             H5 file name
         args[1] : array_like
@@ -745,7 +762,8 @@ class SaveData(PathName, Variables):
 
         Parameters
         ----------
-        args: positional arguments
+        *args
+            positional arguments
         args[0] : str
             H5 file name
         args[1] : array_like
@@ -822,7 +840,8 @@ class SaveData(PathName, Variables):
 
         Parameters
         ----------
-        args: positional arguments
+        *args
+            positional arguments
         args[0] : str
             H5 file name
         args[1] : array_like
@@ -942,7 +961,7 @@ class LoadData(PathName, Variables):
         ----------
         h5name: str
             File name from which data is loaded
-        params : dict
+        **params
             Dictionary of additonal parameters
         params["autosave"] : bool
             Save the projections once load without asking
@@ -1001,7 +1020,7 @@ class LoadData(PathName, Variables):
         ----------
         h5name: str
             File name from which data is loaded
-        params : dict
+        **params
             Dictionary of additonal parameters
         params["autosave"] : bool
             Save the projections once load without asking
@@ -1347,7 +1366,8 @@ class SaveTomogram(SaveData):
         """
         Parameters
         ----------
-        args: positional arguments
+        *args
+            positional arguments
         args[0] : str
             H5 file name
         args[1] : array_like
@@ -1383,7 +1403,8 @@ class SaveTomogram(SaveData):
         """
         Parameters
         ----------
-        args: positional arguments
+        *args
+            positional arguments
         args[0] : str
             H5 file name
         args[1] : array_like
@@ -1472,7 +1493,8 @@ class SaveTomogram(SaveData):
 
         Parameter
         ---------
-        args: positional arguments
+        *args
+            positional arguments
         args[0] : str
             H5 file name
         args[1] : array_like

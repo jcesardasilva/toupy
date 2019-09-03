@@ -12,10 +12,9 @@ from silx import version
 from ..utils import create_circle
 
 __all__ = [
-    "create_circle",
+    "compute_filter",
     "mod_iradon",
     "mod_iradonSilx",
-    "compute_filter",
     "backprojector",
     "reconsSART",
 ]
