@@ -9,7 +9,7 @@ from silx.opencl.backprojection import Backprojection
 from silx import version
 
 # local package
-from toupy.utils import create_circle
+from ..utils import create_circle
 
 __all__ = [
     "create_circle",
