@@ -51,7 +51,6 @@ setuptools.setup(
         "roipoly>=0.5.0",
         "scikit-image>=0.15.0",
         "silx==0.9.0",
-        "pyopencl>=2019.1",
         "sphinx>=2.1.2",
     ],
 )
