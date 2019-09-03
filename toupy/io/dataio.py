@@ -1386,7 +1386,8 @@ class SaveTomogram(SaveData):
 
         Parameters
         ----------
-        args: positional arguments
+        *args
+            positional arguments
         args[0] : str
             H5 file name
         args[1] : array_like
