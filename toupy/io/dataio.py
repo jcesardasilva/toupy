@@ -1366,7 +1366,7 @@ class SaveTomogram(SaveData):
         """
         Parameters
         ----------
-        *args
+        *args 
             positional arguments
         args[0] : str
             H5 file name
