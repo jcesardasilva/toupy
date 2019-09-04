@@ -18,7 +18,7 @@ Quicklinks
 ----------
 * Get started quickly with the examples in the :doc:`templates <templates>` directory.
 
-* The complete :ref:`documentation <contents>`.
+* The complete :ref:`documentation <contents_toupy>`.
 
 * The source code can be obtained via `Github repo of toupy <https://github.com/jcesardasilva/toupy>`_ .
 
