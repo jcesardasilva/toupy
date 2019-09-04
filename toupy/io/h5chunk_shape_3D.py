@@ -8,6 +8,9 @@ import operator
 
 __all__ = ["binlist", "numVals", "perturbShape", "chunk_shape_3D"]
 
+"""
+"""
+
 
 def binlist(n, width=0):
     """
@@ -53,7 +56,7 @@ def perturbShape(shape, onbits):
 
 def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
     """
-    Return a 'good shape' for a 3D variable, assuming balanced 1D/(n-1)D access
+    Return a 'good shape' for a 3D variable, assuming balanced 1D/(n-1)D access [#site]_
 
     Parameters
     ----------
@@ -64,17 +67,27 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
     valSize : int, optional
         size of each data value, in bytes (default 4)
 
+    Returns
+    -------
+    tuple 
+        Returns integer chunk lengths of a chunk shape that provides
+        balanced access of 1D subsets and 2D subsets of a netCDF or HDF5
+        variable var with shape (T, X, Y), where the 1D subsets are of the
+        form var[:,x,y] and the 2D slices are of the form var[t,:,:],
+        typically 1D time series and 2D spatial slices. 
+
     Notes
     -----
-    Returns integer chunk lengths of a chunk shape that provides
-    balanced access of 1D subsets and 2D subsets of a netCDF or HDF5
-    variable var with shape (T, X, Y), where the 1D subsets are of the
-    form var[:,x,y] and the 2D slices are of the form var[t,:,:],
-    typically 1D time series and 2D spatial slices.  'Good shape' for
-    chunks means that the number of chunks accessed to read either
+    'Good shape' for chunks means that the number of chunks accessed to read either
     kind of 1D or 2D subset is approximately equal, and the size of
     each chunk (uncompressed) is no more than chunkSize, which is
-    often a disk block size.
+    often a disk block size. Code fetched from [#code1]_ and [#code2]_.
+    
+    References
+    ----------
+    .. [#site] https://www.unidata.ucar.edu/blogs/developer/en/entry/chunking_data_choosing_shapes
+    .. [#code1] https://www.unidata.ucar.edu/blog_content/data/2013/chunk_shape_3D.py
+    .. [#code2] https://github.com/HDFGroup/datacontainer/blob/master/lib/chunking.py
     """
 
     rank = 3
