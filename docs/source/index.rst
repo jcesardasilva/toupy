@@ -3,10 +3,44 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Index
-=====
+.. _contents:
+
+Toupy documentation
+===================
 
 .. toctree::
-   :caption: Toupy documentation
+   :caption: Introduction
+   :maxdepth: 2
 
-   rst/modules.rst
+   introduction
+
+.. toctree::
+   :caption: Quicklinks
+   :maxdepth: 2
+
+   installing
+
+.. toctree::
+   :caption: Templates
+   :maxdepth: 2
+
+   templates
+
+.. toctree::
+   :caption: Package and modules
+   :maxdepth: 2
+
+   rst/toupy.io
+   rst/toupy.registration
+   rst/toupy.resolution
+   rst/toupy.restoration
+   rst/toupy.simulation
+   rst/toupy.tomo
+   rst/toupy.utils
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
