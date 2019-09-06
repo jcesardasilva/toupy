@@ -5,20 +5,14 @@
 # ----------------------------------------------------------------------------
 
 if [ ! $# == 1 ]; then {
-    echo "Usage: $0 <foldername[HoloTomo, NFPTomo, FFPTomo]>"
+    echo "Usage: $0 <foldername[HoloTomo, PXCT]>"
     echo "Example: $0 HoloTomo"
     exit 
 } fi
 
-localRepo=$1
-remoteRepo=https://github.com/jcesardasilva/toupy.git
-
-if [ ! $1 == "HoloTomo" ]; then {
-    subDir=templates
-} else {
-    subDir=templates/$1
-} fi
-
+localRepo=$1 # Holtomo or PXCT
+remoteRepo=https://github.com/jcesardasilva/toupy.git # github repo
+subDir=templates/$1 # subdirectory
 
 # Create local repository for subdirectory checkout, make it hidden to avoid having to drill down to the subfolder
 if [ ! -d ./.$localRepo ]; then
