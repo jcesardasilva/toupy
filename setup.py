@@ -21,7 +21,7 @@ if __name__=='__main__':
 
 setuptools.setup(
     name="toupy",
-    version="0.1.0",
+    version="0.1.2",
     author="Julio Cesar da Silva",
     author_email="jdasilva@esrf.fr",
     package_dir={"toupy": "toupy"},
@@ -48,9 +48,8 @@ setuptools.setup(
         "numexpr>=2.6.9",
         "scipy>=1.3.0",
         "PyFFTW>=0.11.1",
-        "roipoly>=0.5.0",
         "scikit-image>=0.15.0",
-        "silx==0.9.0",
+        "silx>=0.9.0",
         "sphinx>=2.1.2",
     ],
 )

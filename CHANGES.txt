@@ -1,1 +1,11 @@
 Log of changes with each release
+
+Version 0.1.2
+-------------
+
+* Remove dependencies: roipoly
+* Update dependencies: Silx now can be >=0.9.0
+* Create better templates for holotomo
+* Improvements on the documentation
+
+
