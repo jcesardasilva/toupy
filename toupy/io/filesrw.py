@@ -197,7 +197,7 @@ def _findh5paths(filename):
     print(metaptyr)
 
 
-def read_ptyr(pathfilename,correct_orientation=True):
+def read_ptyr(pathfilename, correct_orientation=True):
     """
     Read reconstruction files .ptyr from Ptypy
 

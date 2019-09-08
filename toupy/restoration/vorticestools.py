@@ -182,7 +182,7 @@ def get_object_novort(img_phase, residues):
         expr = ne.evaluate("exp(1j*T*rr)")
         img_phase_novort = ne.evaluate("img_phase * expr")
         print("Time elapsed = {} s".format(time.time() - s0))
-        
+
     return img_phase_novort, xres, yres
 
 

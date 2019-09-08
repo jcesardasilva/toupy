@@ -466,7 +466,8 @@ def _alignprojections_vertical(
 
 def alignprojections_vertical(input_stack, shiftstack, **params):
     """
-    Vertical alignment of projections using mass fluctuation approach.
+    Vertical alignment of projections using mass fluctuation approach [#massfluct]_,
+    [#tomoalgosv]_.
     It relies on having air on both sides of the sample (non local tomography).
     It performs a local search in y, so convergence issues can be addressed by
     giving an approximate initial guess for a possible drift via shiftstack
@@ -503,6 +504,17 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
         Corrected bject positions
     input_stack : array_like
         Aligned stack of the projections
+    
+    References
+    ----------
+    
+    .. [#massfluct] Guizar-Sicairos, M., et al. , "Phase tomography 
+      from x-ray coherent diffractive imaging projections," 
+      Opt. Express 19, 21345-21357 (2011).
+    
+    .. [#tomoalgosv] da Silva, J. C., et al. "High energy near-and 
+      far-field ptychographic tomography at the ESRF,"
+      Proc. SPIE 10391, Developments in X-Ray Tomography XI, 1039106 (2017)
     """
     if not isinstance(params["maxit"], int):
         params["maxit"] = 10
@@ -672,7 +684,7 @@ def _alignprojections_horizontal(
         print("Elapsed time in the iteration= {:0.02f} s".format(time.time() - it0))
 
         # update figures
-        #sinogram = _filter_sino(sinogram, **params)
+        # sinogram = _filter_sino(sinogram, **params)
         RP.plotshorizontal(
             recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count
         )
@@ -695,20 +707,22 @@ def _alignprojections_horizontal(
 
     return shiftslice, metric_error
 
+
 def _filter_sino(sinogram, **params):
     """
     Filter to the sinogram
     """
-    N,M = sinogram.shape
+    N, M = sinogram.shape
     apod_width = np.int(0.5 * N * (params["freqcutoff"]))
-    filteraux = hanning_apod1D(N,apod_width)
+    filteraux = hanning_apod1D(N, apod_width)
     filteraux = np.tile(filteraux, (M, 1)).T
     return np.real(np.fft.ifft(np.fft.fft(sinogram) * filteraux))
 
 
 def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     """
-    Function to align projections. It relies on having already aligned the
+    Function to align projections by tomographic consistency [#tomoconsist]_,
+    [#tomoalgosh]_. It relies on having already aligned the
     vertical direction. The code aligns using the consistency before and
     after tomographic combination of projections.
 
@@ -750,6 +764,16 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         Corrected object positions
     alinedsinogram : array_like
         Array containting the aligned sinogram
+    
+    References
+    ----------
+    .. [#tomoconsist] Guizar-Sicairos, M., et al., "Quantitative interior 
+      x-ray nanotomography by a hybrid imaging technique," 
+      Optica 2, 259-266 (2015).
+    
+    .. [#tomoalgosh] da Silva, J. C., et al., "High energy near-and 
+      far-field ptychographic tomography at the ESRF,"
+      Proc. SPIE 10391, Developments in X-Ray Tomography XI, 1039106 (2017).
     """
     # parsing of the parameters
     try:
@@ -802,7 +826,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     sinogram = np.pad(
         sinogram, ((padval, padval), (0, 0)), "constant", constant_values=0
     ).copy()
-    N,M = sinogram.shape
+    N, M = sinogram.shape
 
     # applying a filter to the sinogram
     sino_orig = _filter_sino(sinogram, **params)
@@ -852,7 +876,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     # initializing display canvas for the figures
     plt.ion()
-    #sinogram = _filter_sino(sinogram, **params)
+    # sinogram = _filter_sino(sinogram, **params)
     RP = RegisterPlot(**params)
     RP.plotshorizontal(
         recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0
@@ -1385,7 +1409,7 @@ def estimate_rot_axis(input_array, theta, **params):
         params["sinocmap"]
     except KeyError:
         params["sinocmap"] = params["colormap"]
-    
+
     # Ensuring that theta starts at zero
     theta -= theta.min()
 

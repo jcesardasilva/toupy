@@ -29,25 +29,25 @@ class FourierShellCorr:
 
     Parameters
     ----------
-    img1 : array_like
-        Image 1
-    img2 : array_like
-        Image 2
-    threshold : str
+    img1 : ndarray
+        A 2-dimensional array containing the first image
+    img2 : ndarray
+        A 2-dimensional array containing the second image
+    threshold : str, optional
         The option `onebit` means 1 bit threshold with ``SNRt = 0.5``, which
         should be used for two independent measurements. The option `halfbit`
         means 1/2 bit threshold with ``SNRt = 0.2071``, which should be
-        use for split tomogram.
-    ring_thick : int
+        use for split tomogram. The default option is ``half-bit``.
+    ring_thick : int, optional
         Thickness of the frequency rings. Normally the pixels get
         assined to the closest integer pixel ring in Fourier Domain.
         With ring_thick, each ring gets more pixels and more statistics.
-        The default value is 1.
-    apod_width : int
+        The default value is ``1``.
+    apod_width : int, optional
         Width in pixel of the edges apodization. It applies a Hanning
         window of the size of the data to the data before the Fourier
         transform calculations to attenuate the border effects. The
-        default value is 20.
+        default value is ``20``.
 
     Returns
     -------
@@ -154,7 +154,10 @@ class FourierShellCorr:
     def apodization(self):
         """
         Compute the Hanning window of the size of the data for the apodization
-        NOTE: It does not depend on the parameter apod_width
+        
+        Note
+        ----
+        This method does not depend on the parameter ``apod_width`` from the class
         """
         if self.ndim == 2:
             window = np.outer(np.hanning(self.nr), np.hanning(self.nc))
@@ -266,7 +269,7 @@ class FourierShellCorr:
 
     def fouriercorr(self):
         """
-        Compute FSC and threshold
+        Method to compute FSC and threshold
         """
         # Apodization
         print("Performing the apodization")
@@ -386,31 +389,34 @@ class FSCPlot(FourierShellCorr):
     Parameters
     ----------
     img1 : ndarray
-        Image 1
+        A 2-dimensional array containing the first image
     img2 : ndarray
-        Image 2
-
-    threshold : str
-        Threshold options:
-        - onebit: 1 bit threshold -> SNRt = 0.5 (for two independent measurements)
-        - halfbit: 1/2 bit threshold -> SNRt = 0.2071 (for split tomogram)
-    ring_thick : int (default 1)
+        A 2-dimensional array containing the second image
+    threshold : str, optional
+        The option `onebit` means 1 bit threshold with ``SNRt = 0.5``, which
+        should be used for two independent measurements. The option `halfbit`
+        means 1/2 bit threshold with ``SNRt = 0.2071``, which should be
+        use for split tomogram. The default option is ``half-bit``.
+    ring_thick : int, optional
         Thickness of the frequency rings. Normally the pixels get
         assined to the closest integer pixel ring in Fourier Domain.
         With ring_thick, each ring gets more pixels and more statistics.
-    apod_width : int (default 20)
+        The default value is ``1``.
+    apod_width : int, optional
         Width in pixel of the edges apodization. It applies a Hanning
         window of the size of the data to the data before the Fourier
-        transform calculations to attenuate the border effects.
+        transform calculations to attenuate the border effects. The
+        default value is ``20``.
 
     Returns
     -------
     fn : ndarray
-        Frequencies normalized by the Nyquist frequency
+        A 1-dimensional array containing the frequencies normalized by 
+        the Nyquist frequency
     FSC : ndarray
-        Fourier Shell correlation curve
+        A 1-dimensional array containing the Fourier Shell correlation curve
     T : ndarray
-        Threshold curve
+        A 1-dimensional array containing the threshold curve
     """
 
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):

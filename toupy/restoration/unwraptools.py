@@ -24,9 +24,21 @@ __all__ = [
 
 def wraptopi(phase, endpoint=True):
     """
-    Wrap a scalar value or an entire array to:
-    [-pi, pi) if endpoint=False
-    (-pi, pi] if endpoint=True (default)
+    Wrap a scalar value or an entire array
+    
+    Parameters
+    ----------
+    phase : float or array_like
+        The value or signal to wrapped.
+    endpoint : bool, optional 
+        If ``endpoint=False``, the scalar value or array is wrapped 
+        to [-pi, pi), whereas if ``endpoint=True``, it is wrapped to (-pi, pi].
+        The default value is ``endpoint=True``
+    
+    Returns
+    -------
+    float or array
+        Wrapped value or array        
 
     Example
     -------
@@ -46,7 +58,17 @@ def wraptopi(phase, endpoint=True):
 
 def wrap(phase):
     """
-    Wrap a scalar value or an entire array to -0.5 <= a < 0.5.
+    Wrap a scalar value or an entire array to [-0.5, 0.5).
+    
+    Parameters
+    ----------
+    phase : float or array_like
+        The value or signal to wrapped.
+    
+    Returns
+    -------
+    float or array
+        Wrapped value or array
 
     Note
     ----
@@ -86,8 +108,8 @@ def get_charge(residues):
 
     Parameters
     ----------
-    residues : array_like
-        2D arrays with residues
+    residues : ndarray
+        A 2-dimensional array containing the with residues
 
     Returns
     -------
@@ -107,23 +129,20 @@ def get_charge(residues):
     return posres, negres
 
 
-def phaseresidues(phimage, disp=1):
+def phaseresidues(phimage):
     """
     Calculates the phase residues [1]_ for a given wrapped phase image.
 
     Parameters
     ----------
-    phimage : array_like
-        Array containing the phase-contrast images with gray-level
+    phimage : ndarray
+        A 2-dimensional array containing the phase-contrast images with gray-level
         in radians
-    disp : bool
-        False gives No feedback
-        True gives Text feedback (additional computation)
 
     Returns
     -------
-    residues : array_like
-        Map of residues (valued +1 or -1)
+    residues : ndarray
+        A 2-dimensional array containing the map of residues (valued +1 or -1)
 
     Note
     -----
@@ -168,16 +187,16 @@ def phaseresiduesStack(stack_array):
 
     Parameters
     ----------
-    stack_array : array_like
-        Stack from which to calculate the phase residues
+    stack_array : ndarray
+        A 3-dimensional array containing the stack of projections
+        from which to calculate the phase residues.
 
     Returns
     -------
     resmap : array_like
         Phase residue map
     posres : tuple
-        Positions of the residues.
-        posres = (yres,xres)
+        Positions of the residues in the format ``posres = (yres,xres)``
     """
     resmap = 0
     for ii in range(stack_array.shape[0]):
@@ -198,12 +217,13 @@ def chooseregiontounwrap(stack_array):
 
     Parameters
     ----------
-    stack_array : array_like
-        Input stack to be unwrapped
+    stack_array : ndarray
+        A 3-dimensional array containing the stack of projections
+        to be unwrapped.
 
     Returns
     -------
-    rx, ry : tuples
+    rx, ry : tuple
         Limits of the are to be unwrapped
     airpix : tuple
         Position of the pixel which should contains only air/vacuum
@@ -289,11 +309,11 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
 
     Parameters
     ----------
-    img2unwrap : array_like
-        Image to be unwrapped
-    rx, ry : tuples, list of ints
+    img2unwrap : ndarray
+        A 2-dimensional array containing the image to be unwrapped
+    rx, ry : tuple or list of ints
         Limits of the are to be unwrapped in x and y
-    airpix : list of ints
+    airpix : tuple or list of ints
         Position of pixel in the air/vacuum area
 
     Returns
@@ -301,9 +321,9 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
     img2unwrap : array_like
         Unwrapped image
     """
-    if rx == [] and ry ==[]:
+    if rx == [] and ry == []:
         img2unwrap = unwrap_phase(im2unwrap)
-        img2unwrap -= - 2 * np.pi * np.round(img2unwrap / (2 * np.pi))
+        img2unwrap -= -2 * np.pi * np.round(img2unwrap / (2 * np.pi))
     else:
         # select the region to be unwrapped
         img2wrap_sel = img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]]
@@ -311,10 +331,11 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
         img2unwrap_sel = unwrap_phase(img2wrap_sel)
         # update the image in the original array
         img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel
-        img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel - 2 * np.pi * np.round(
-            img2unwrap[airpix[1], airpix[0]] / (2 * np.pi)
+        img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = (
+            img2unwrap_sel
+            - 2 * np.pi * np.round(img2unwrap[airpix[1], airpix[0]] / (2 * np.pi))
         )
-    
+
     return img2unwrap
 
 
@@ -324,11 +345,11 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
 
     Parameters
     ----------
-    stack_phasecorr : array_like
-        Array containing the stack of projection to be unwrapped
-    rx, ry : tuples
+    stack_phasecorr : ndarray
+        A 3-dimensional array containing the stack of projections to be unwrapped
+    rx, ry : tuple or list of ints
         Limits of the are to be unwrapped in x and y
-    airpix : list of ints
+    airpix : tuple or list of ints
         Position of pixel in the air/vacuum area
     params : dict
         Dictionary of additional parameters
@@ -339,8 +360,8 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
 
     Returns
     -------
-    stack_unwrap : array_like
-        Stack of unwrapped projections
+    stack_unwrap : ndarray
+        A 3-dimensional array containing the stack of unwrapped projections
 
     Note
     ----

@@ -28,6 +28,7 @@ __all__ = [
     "sort_array",
 ]
 
+
 def create_circle(inputimg):
     """
     Create circle with apodized edges
@@ -426,6 +427,7 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
     )
     return np.fft.fftshift(out)
 
+
 def hanning_apod1D(window_size, apod_width):
     """
     Create 1D apodization window using Hanning window
@@ -453,10 +455,11 @@ def hanning_apod1D(window_size, apod_width):
             / (1 + 2 * apod_width)
         )
     ) / 2.0
-    
-    window1D[apod_width : -apod_width] = 1
-    
+
+    window1D[apod_width:-apod_width] = 1
+
     return window1D
+
 
 def hanning_apodization(window_size, apod_width):
     """
@@ -475,13 +478,13 @@ def hanning_apodization(window_size, apod_width):
         2D Hanning window for the apodization
     """
     nr, nc = window_size
-    
+
     window1D1 = hanning_apod1D(nr, apod_width)
     window1D2 = hanning_apod1D(nc, apod_width)
-    
+
     # 2D hanning window
     hannwindow2D = np.outer(window1D1, window1D2)
-    
+
     return hannwindow2D
 
 
@@ -508,6 +511,7 @@ def mask_borders(imgarray, mask_array, threshold=4e-7):
     mask_border = np.sqrt(gr ** 2 + gc ** 2) > threshold
     mask_array *= ~mask_border
     return mask_array
+
 
 def create_mask_borders(tomogram, mask_array, threshold=4e-7):
     """
