@@ -71,8 +71,8 @@ def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
 
     Returns
     -------
-    P : array_like
-        A phantom image.
+    P : ndarray
+        A 2-dimensional array containing th Shepp-Logan phantom image.
 
     Examples
     --------

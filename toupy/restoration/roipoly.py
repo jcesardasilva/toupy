@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Nov  4 15:38:33 2015
 
-@author: jdasilva
 """
-"""Draw polygon regions of interest (ROIs) in matplotlib images,
+Draw polygon regions of interest (ROIs) in matplotlib images,
 similar to Matlab's roipoly function.
 See the file example.py for an application. 
 Created by Joerg Doepfert 2014 based on code posted by Daniel

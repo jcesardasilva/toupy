@@ -22,10 +22,10 @@ def tomo_recons(sinogram, theta, **params):
     
     Parameters
     ----------
-    sinogram : array_like
-        Array containing the sinogram
-    theta : array_like
-        Array containing the theta
+    sinogram : ndarray
+        A 2-dimensional array containing the sinogram
+    theta : ndarray
+        A 1-dimensional array of thetas
     params : dict
         Dictionary containing additional parameters
     params["algorithm"] : str
@@ -58,8 +58,8 @@ def tomo_recons(sinogram, theta, **params):
 
     Return
     ------
-    recons : array_like
-        Reconstructed slice
+    recons : ndarray
+        A 2-dimensional array containing the reconstructed slice
     """
     if params["algorithm"] == "FBP":
         if params["calc_derivatives"]:
@@ -79,10 +79,11 @@ def full_tomo_recons(input_stack, theta, **params):
 
     Parameters
     ----------
-    input_stack : array_like
-        Stack of projections
-    theta : array_like
-        Array containing the theta
+    input_stack : ndarray
+        A 3-dimensional array containing the stack of projections.
+        The order should be ``[projection_num, row, column]``
+    theta : ndarray
+        A 1-dimensional array of thetas
     params : dict
         Dictionary containing additional parameters
     params["algorithm"] : str
@@ -116,8 +117,8 @@ def full_tomo_recons(input_stack, theta, **params):
 
     Return
     ------
-    Tomogram : array_like
-        Full reconstructed tomogram
+    Tomogram : ndarray
+        A 3-dimensional array containing the full reconstructed tomogram
     """
 
     print("Calculating a slice for display")

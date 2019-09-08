@@ -26,7 +26,12 @@ setuptools.setup(
     author_email="jdasilva@esrf.fr",
     package_dir={"toupy": "toupy"},
     packages=packages_list,
-    scripts=["bin/file_comp", "bin/missing_recons"],
+    scripts=[
+        "bin/file_comp",
+        "bin/missing_recons",
+        "bin/create_toupy_templates",
+        "bin/plot_plojections",
+    ],
     license="LICENCE",
     description="Tomographic Utilities for Python",
     #long_description=long_description_toupy,

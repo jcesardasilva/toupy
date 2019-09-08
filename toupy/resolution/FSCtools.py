@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-FOURIER SHELL CORRELATION tools
+FOURIER SHELL CORRELATION
 """
 
 # standar packages
@@ -24,6 +24,24 @@ __all__ = ["compute_2tomograms", "split_dataset"]
 def split_dataset(sinogram, theta):
     """
     Split the tomographic dataset in 2 datasets
+    
+    Parameters
+    ----------
+    sinogram : ndarray
+        A 2-dimensional array containing the sinogram
+    theta : ndarray
+        A 1-dimensional array of thetas
+    
+    Returns
+    -------
+    sinogram1 : ndarray
+        A 2-dimensional array containing the 1st sinogram
+    sinogram2
+        A 2-dimensional array containing the 2nd sinogram
+    theta1 : ndarray
+        A 1-dimensional array containing the 1st set of thetas
+    theta2 : ndarray
+        A 1-dimensional array containing the 2nd set of thetas
     """
     # split of the data into two datasets
     print("Spliting in 2 datasets")
@@ -38,6 +56,20 @@ def split_dataset(sinogram, theta):
 def compute_2tomograms(sinogram, theta, **params):
     """
     Compute 2 tomograms from splitted tomographic dataset
+    
+    Parameters
+    ----------
+    sinogram : ndarray
+        A 2-dimensional array containing the sinogram
+    theta : ndarray
+        A 1-dimensional array of thetas
+    
+    Returns
+    -------
+    recon1 : ndarray
+        A 2-dimensional array containing the 1st reconstruction
+    recon2
+        A 2-dimensional array containing the 2nd reconstruction
     """
     sino1, sino2, theta1, theta2 = split_dataset(sinogram, theta)
 

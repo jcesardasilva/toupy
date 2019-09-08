@@ -17,15 +17,15 @@ def radonSilx(recons, theta):
 
     Parameters
     ----------
-    recons : array_like
-        Array containing the tomographic slice
-    theta : array_like
-        Array of thetas
+    recons : ndarray
+        A 2-dimensional array containing the tomographic slice
+    theta : ndarry
+        A 1-dimensional array of thetas
 
     Return
     ------
-    sinogramcomp : array_like
-        Reprojected sinogram
+    sinogramcomp : ndarray
+        A 2-dimensional array containing the reprojected sinogram
     """
     global P
     # using Silx Projector
@@ -43,10 +43,10 @@ def projector(recons, theta, **params):
 
     Parameters
     ----------
-    recons : array_like
-        Array containing the tomographic slice
-    theta : array_like
-        Array of thetas
+    recons : ndarray
+        A 2-dimensional array containing the tomographic slice
+    theta : ndarry
+        A 1-dimensional array of thetas
     params : dict
         Dictionary of parameters to be used
     params["opencl"] : bool
@@ -55,8 +55,8 @@ def projector(recons, theta, **params):
 
     Return
     ------
-    sinogramcomp : array_like
-        Reprojected sinogram
+    sinogramcomp : ndarray
+        A 2-dimensional array containing the reprojected sinogram
     """
     # array shape
     N = recons.shape[0]

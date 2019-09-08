@@ -28,19 +28,21 @@ def compute_filter(nbins, filter_type="ram-lak", derivatives=True, freqcutoff=1)
     ----------
     nbins : int
         Size of the filter to be calculated
-    filter_type: str
+    filter_type: str, optional
         Name of the filter to be applied. The options are: `ram-lak`, 
         `shepp-logan`, `cosine`, `hamming`, `hann`. The default is `ram-lak`.
-    derivatives : bool
+    derivatives : bool, optional
         If True, it will use a Hilbert filter used for derivative projections.
-        The default is True.
-    freqcutoff : float
-        default: 1.0
+        The default is ``True```.
+    freqcutoff : float, optional
+        Normalized frequency cutoff of the filter. The default value is ``1``
+        which means no cutoff.
 
     Return
     ------
-    fourier_filter : array_like
-        Filter to be used in the FBP reconstruction
+    fourier_filter : ndarray
+        A 2-Dimnesional array containing the filter to be used in the FBP 
+        reconstruction
     """
 
     # resize image to next power of two (but no less than 64) for
@@ -104,40 +106,41 @@ def mod_iradon(
 
     Parameters
     ----------
-    radon_image : array_like, dtype=float
-        Image containing radon transform (sinogram). Each column of
+    radon_image : ndarray
+        A 2-dimensional array containing radon transform (sinogram). Each column of
         the image corresponds to a projection along a different angle. The
         tomography rotation axis should lie at the pixel index
         ``radon_image.shape[0] // 2`` along the 0th dimension of
         ``radon_image``.
-    theta : array_like, dtype=float, optional
+    theta : ndarray, optional
         Reconstruction angles (in degrees). Default: m angles evenly spaced
         between 0 and 180 (if the shape of `radon_image` is (N, M)).
     output_size : int
         Number of rows and columns in the reconstruction.
     filter : str, optional
-        Filter used in frequency domain filtering. Ram-Lak filter used by default.
-        Filters available: ram-lak, shepp-logan, cosine, hamming, hann.
-        Assign None to use no filter.
-    derivative : bool
-        If True, assumes that the radon_image contains the derivates of the
-        projections. The default is True
+        Name of the filter to be applied in frequency domain filtering.
+        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`, 
+        `hann`. The default is `ram-lak`. Assign None to use no filter.
+    derivative : bool, optional
+        If ``True``, assumes that the radon_image contains the derivates of the
+        projections. The default is ``True``
     interpolation : str, optional
         Interpolation method used in reconstruction. Methods available:
-        'linear', 'nearest', and 'cubic' ('cubic' is slow). The default
-        is 'linear'
+        `linear`, `nearest`, and `cubic` (`cubic` is slow). The default
+        is `linear`
     circle : bool, optional
         Assume the reconstructed image is zero outside the inscribed circle.
         Also changes the default output_size to match the behaviour of
         ``radon`` called with ``circle=True``.
-    freqcutoff : int
-        Normalized frequency cutoff of the filter. 1 means no cutoff
+    freqcutoff : int, optional
+       Normalized frequency cutoff of the filter. The default value is ``1``
+       which means no cutoff.
 
     Returns
     -------
-    reconstructed : array_like
-        Reconstructed image. The rotation axis will be located in the pixel
-        with indices
+    reconstructed : ndarray
+        A 2-dimensional array containing the reconstructed image. 
+        The rotation axis will be located in the pixel with indices
         ``(reconstructed.shape[0] // 2, reconstructed.shape[1] // 2)``.
 
     Notes
@@ -244,39 +247,41 @@ def mod_iradonSilx(
 
     Parameters
     ----------
-    radon_image : array_like, dtype=float
-        Image containing radon transform (sinogram). Each column of
+    radon_image : ndarray
+        A 2-dimensional array containing radon transform (sinogram). Each column of
         the image corresponds to a projection along a different angle. The
         tomography rotation axis should lie at the pixel index
         ``radon_image.shape[0] // 2`` along the 0th dimension of
         ``radon_image``.
-    theta : array_like, dtype=float, optional
+    theta : ndarray, optional
         Reconstruction angles (in degrees). Default: m angles evenly spaced
         between 0 and 180 (if the shape of `radon_image` is (N, M)).
     output_size : int
         Number of rows and columns in the reconstruction.
-    filter : str, optional (default ramp)
-        Filter used in frequency domain filtering. Ram-Lak filter used by default.
-        Filters available: ram-lak, shepp-logan, cosine, hamming, hann.
-        Assign None to use no filter.
-    derivatives : boolean (default True)
-        If True, assumes that the radon_image contains the derivates of the
-        projections.
-    interpolation : str, optional (default 'linear')
+    filter : str, optional
+        Name of the filter to be applied in frequency domain filtering.
+        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`, 
+        `hann`. The default is `ram-lak`. Assign None to use no filter.
+    derivatives : bool, optional
+        If ``True``, assumes that the radon_image contains the derivates of the
+        projections. The default is ``True``
+    interpolation : str, optional
         Interpolation method used in reconstruction. Methods available:
-        'linear', 'nearest', and 'cubic' ('cubic' is slow).
+        `linear`, `nearest`, and `cubic` (`cubic` is slow). The default
+        is `linear`
     circle : boolean, optional
         Assume the reconstructed image is zero outside the inscribed circle.
         Also changes the default output_size to match the behaviour of
         ``radon`` called with ``circle=True``.
-    freqcutoff : int (normalized to 1)
-        Frequency cutoff of the filter. 1 means no cutoff
+    freqcutoff : int, optional
+        Normalized frequency cutoff of the filter. The default value is ``1``
+        which means no cutoff.
 
     Returns
     -------
-    reconstructed : array_like
-        Reconstructed image. The rotation axis will be located in the pixel
-        with indices
+    reconstructed : ndarray
+        A 2-dimensional array containing the reconstructed image. 
+        The rotation axis will be located in the pixel with indices
         ``(reconstructed.shape[0] // 2, reconstructed.shape[1] // 2)``.
 
     Notes
@@ -341,19 +346,19 @@ def backprojector(sinogram, theta, **params):
     
     Parameters
     ----------
-    sinogram : array_like
-        Array containing the sinogram
-    theta : array_like
-        Array of thetas
+    sinogram : ndarray
+        A 2-dimensional array containing the sinogram
+    theta : ndarray
+        A 1-dimensional array of thetas
     params : dict
         Dictionary containing the parameters to be used in the reconstruction. 
         See :py:meth:`mod_iradonSilx` and :py:meth:`mod_iradon` for the 
         list of parameters
 
-    Return
-    ------
-    recons : array_like
-        Reconstructed sliced by the choosen method
+    Returns
+    -------
+    recons : ndarray
+        A 2-dimensional array containing the reconstructed sliced by the choosen method
     """
     if params["opencl"]:
         # using Silx backprojector
@@ -381,6 +386,25 @@ def reconsSART(
 ):
     """
     Reconstruction with SART algorithm
+
+    Parameters
+    ----------
+    sinogram : ndarray
+        A 2-dimensional array containing the sinogram
+    theta : ndarray
+        A 1-dimensional array of thetas
+    num_iter : int, optional
+        Number of iterations of the SART algorithm. The default is ``2``.
+    FBPinitial_guess : bool, optional
+        If the results of FBP reconstruction should be used as initial guess.
+        The default value is ``True``
+    relaxation_params : float, optional
+        Relaxation parameter of SART. The default value is ``0.15``.
+
+    Returns
+    -------
+    recons : ndarray
+        A 2-dimensional array containing the reconstructed sliced by SART        
     """
     theta = np.float64(theta)
     sinogram = np.float64(sinogram)
