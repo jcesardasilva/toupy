@@ -30,7 +30,7 @@ setuptools.setup(
         "bin/file_comp",
         "bin/missing_recons",
         "bin/create_toupy_templates",
-        "bin/plot_plojections",
+        "bin/plot_projections",
     ],
     license="LICENCE",
     description="Tomographic Utilities for Python",
