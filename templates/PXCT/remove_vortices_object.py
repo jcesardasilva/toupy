@@ -46,11 +46,6 @@ if __name__ == "__main__":
         objimg[0], to_ignore=params["to_ignore"]
     )
 
-    # feed the new array
-    probe_novort = np.empty_like(probe)
-    for ii in range(n_probes):
-        probe_novort[ii] = p_phase_novort[ii]
-
     # display the object with the residues and without vortices
     if params["show_figures"]:
         plt.close("all")
