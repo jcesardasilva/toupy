@@ -29,9 +29,9 @@ setuptools.setup(
     scripts=[
         "bin/file_comp",
         "bin/missing_recons",
-        "bin/create_toupy_templates",
         "bin/plot_projections",
     ],
+    console_scripts=["bin/create_toupy_templates"],
     license="LICENCE",
     description="Tomographic Utilities for Python",
     #long_description=long_description_toupy,
