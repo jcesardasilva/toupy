@@ -95,6 +95,16 @@ def read_volfile(filename):
     ------
     tomogram : array_like
         3D array containing the tomogram
+
+    Examples
+    --------
+    >>> volpath = 'volfilename.vol'
+    >>> tomogram = read_cxi(volpath)
+
+    Note
+    ----
+    The volume info file containing the metadata of the volume should be 
+    in the same folder as the volume file.
     """
     # Usually, the file .vol.info contains de size of the volume
     linesff = []
@@ -129,6 +139,12 @@ def read_tiff_info(tiff_info_file):
         High cutoff of the gray level
     pixelsize : float
         Pixelsize
+
+    Note
+    ----
+    The info file here is the file that is save when the volume is
+    exported to Tiff files. It is not the info file saved by the volume
+    reconstruction when saving the file in .vol.
     """
     # read info file
     # with open(tiff_info_beta,'r') as ff:
@@ -216,8 +232,15 @@ def read_ptyr(pathfilename, correct_orientation=True):
         Object image
     probe1 : array_like, complex
         Probe images
-    pixelsize : float
+    pixelsize : list of floats
         List with pixelsizes in vertical and horizontal directions
+    energy : float
+        Energy of the incident photons
+
+    Examples
+    --------
+    >>> imgpath = 'filename.ptyr'
+    >>> objdata, probedata, pixel, energy = read_cxi(imgpath)
     """
     global metaptyr
     if metaptyr == {}:
@@ -310,6 +333,13 @@ def read_cxi(pathfilename, correct_orientation=True):
         Probe images
     pixelsize : list of floats
         List with pixelsizes in vertical and horizontal directions
+    energy : float
+        Energy of the incident photons
+
+    Examples
+    --------
+    >>> imgpath = 'filename.cxi'
+    >>> objdata, probedata, pixel, energy = read_cxi(imgpath)
     """
     global metacxi
     if metacxi == {}:
@@ -389,7 +419,7 @@ def write_edf(fname, data_array, hd=None):
 
 def read_edf(fname):
     """
-    read EDF files
+    Read EDF files of tomographic datasets
 
     Parameters
     ----------
@@ -400,8 +430,12 @@ def read_edf(fname):
     -------
     projs : array_like
         Array of projections
-    pixelsize : list of float
+    pixelsize : list of floats
         List with pixelsizes in vertical and horizontal directions
+    energy : float
+        Energy of the incident photons
+    nvue : int
+        Number of projections
     """
     imgobj = fabio.open(fname)
     imgdata = imgobj.data
