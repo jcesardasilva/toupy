@@ -30,7 +30,7 @@ from ..utils import (
 __all__ = [
     "alignprojections_vertical",
     "alignprojections_horizontal",
-    "cc_align",
+    # "cc_align", #FIXME: not working
     "center_of_mass_stack",
     "compute_aligned_stack",
     "compute_aligned_sino",
@@ -48,7 +48,7 @@ __all__ = [
 def register_2Darrays(image1, image2):
     """
     Image registration. Register two images using phase cross correlations.
-    
+
     Parameters
     ----------
     image1 : array_like
@@ -504,15 +504,15 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
         Corrected bject positions
     input_stack : array_like
         Aligned stack of the projections
-    
+
     References
     ----------
-    
-    .. [#massfluct] Guizar-Sicairos, M., et al. , "Phase tomography 
-      from x-ray coherent diffractive imaging projections," 
+
+    .. [#massfluct] Guizar-Sicairos, M., et al. , "Phase tomography
+      from x-ray coherent diffractive imaging projections,"
       Opt. Express 19, 21345-21357 (2011).
-    
-    .. [#tomoalgosv] da Silva, J. C., et al. "High energy near-and 
+
+    .. [#tomoalgosv] da Silva, J. C., et al. "High energy near-and
       far-field ptychographic tomography at the ESRF,"
       Proc. SPIE 10391, Developments in X-Ray Tomography XI, 1039106 (2017)
     """
@@ -764,14 +764,14 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         Corrected object positions
     alinedsinogram : array_like
         Array containting the aligned sinogram
-    
+
     References
     ----------
-    .. [#tomoconsist] Guizar-Sicairos, M., et al., "Quantitative interior 
-      x-ray nanotomography by a hybrid imaging technique," 
+    .. [#tomoconsist] Guizar-Sicairos, M., et al., "Quantitative interior
+      x-ray nanotomography by a hybrid imaging technique,"
       Optica 2, 259-266 (2015).
-    
-    .. [#tomoalgosh] da Silva, J. C., et al., "High energy near-and 
+
+    .. [#tomoalgosh] da Silva, J. C., et al., "High energy near-and
       far-field ptychographic tomography at the ESRF,"
       Proc. SPIE 10391, Developments in X-Ray Tomography XI, 1039106 (2017).
     """
@@ -917,7 +917,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
 def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
     """
-    Refine horizontal alignment. Please, see the description of each 
+    Refine horizontal alignment. Please, see the description of each
     parameter in :py:meth:`alignprojections_horizontal`.
     """
     try:
@@ -977,7 +977,7 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
 def oneslicefordisplay(sinogram, theta, **params):
     """
     Calculate one slice for display.
-    
+
     Parameters
     ----------
     sinogram : array_like
@@ -990,7 +990,7 @@ def oneslicefordisplay(sinogram, theta, **params):
     params["filtertype"] : str
         Filter to use for FBP
     params["freqcutoff"] : float
-        Frequency cutoff for tomography filter (between 0 and 1)        
+        Frequency cutoff for tomography filter (between 0 and 1)
     """
     a = input(
         "Do you want to reconstruct the slice with different parameters? ([y]/n) :"
@@ -1043,9 +1043,9 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
         between 0 and 180 (if the shape of `radon_image` is (N, M)).
     shiftstack : array_like
         Array with initial estimates of positions
-    params : dict 
+    params : dict
         Dictionary with additional parameters for the alignment. Please,
-        see the description of each parameter in 
+        see the description of each parameter in
         :py:meth:`alignprojections_horizontal`.
 
     Return
@@ -1465,121 +1465,121 @@ def estimate_rot_axis(input_array, theta, **params):
     return rot_axis_offset
 
 
-@deprecated
-def cc_align(input_stack, limrow, limcol, params):
-    """
-    Cross-correlation alignment (DEPRECATED)
-    FIXME: IT IS NOT WORKING PROPERLY
-    """
-    shift_values = np.empty((len(input_stack), 2))
-    # The cross-correlation compares to the first projections, which does not move
-    shift_values[0] = np.array([0, 0])
+# ~ @deprecated
+# ~ def cc_align(input_stack, limrow, limcol, params):
+# ~ """
+# ~ Cross-correlation alignment (DEPRECATED)
+# ~ FIXME: IT IS NOT WORKING PROPERLY
+# ~ """
+# ~ shift_values = np.empty((len(input_stack), 2))
+# ~ # The cross-correlation compares to the first projections, which does not move
+# ~ shift_values[0] = np.array([0, 0])
 
-    for ii in range(1, len(input_stack)):
-        print("\nCalculating the subpixel image registration...")
-        print("Projection: {}".format(ii - 1))
-        image1 = input_stack[ii - 1, limrow[0] : limrow[-1], limcol[0] : limcol[-1]]
-        print("Projection: {}".format(ii))
-        image2 = input_stack[ii, limrow[0] : limrow[-1], limcol[0] : limcol[-1]]
-        start = time.time()
-        if params["gaussian_filter"]:
-            image1 = gaussian_filter(image1, params["gaussian_sigma"])
-            image2 = gaussian_filter(image2, params["gaussian_sigma"])
-        shift, error, diffphase = register_translation(image1, image2, 100)
-        shift_values[ii] = shift
-        print(diffphase)
-        end = time.time()
-        print("Time elapsed: {} s".format(end - start))
-        print("Detected subpixel offset [y,x]: [{}, {}]".format(shift[0], shift[1]))
+# ~ for ii in range(1, len(input_stack)):
+# ~ print("\nCalculating the subpixel image registration...")
+# ~ print("Projection: {}".format(ii - 1))
+# ~ image1 = input_stack[ii - 1, limrow[0] : limrow[-1], limcol[0] : limcol[-1]]
+# ~ print("Projection: {}".format(ii))
+# ~ image2 = input_stack[ii, limrow[0] : limrow[-1], limcol[0] : limcol[-1]]
+# ~ start = time.time()
+# ~ if params["gaussian_filter"]:
+# ~ image1 = gaussian_filter(image1, params["gaussian_sigma"])
+# ~ image2 = gaussian_filter(image2, params["gaussian_sigma"])
+# ~ shift, error, diffphase = register_translation(image1, image2, 100)
+# ~ shift_values[ii] = shift
+# ~ print(diffphase)
+# ~ end = time.time()
+# ~ print("Time elapsed: {} s".format(end - start))
+# ~ print("Detected subpixel offset [y,x]: [{}, {}]".format(shift[0], shift[1]))
 
-    shift_vert_aux = np.array(shift_values)[:, 0]
-    shift_hor_aux = np.array(shift_values)[:, 1]
-    # Cumulative sum of the shifts minus the average
-    shift_vert = np.cumsum(shift_vert_aux - shift_vert_aux.mean())
-    shift_hor = np.cumsum(shift_hor_aux - shift_hor_aux.mean())
+# ~ shift_vert_aux = np.array(shift_values)[:, 0]
+# ~ shift_hor_aux = np.array(shift_values)[:, 1]
+# ~ # Cumulative sum of the shifts minus the average
+# ~ shift_vert = np.cumsum(shift_vert_aux - shift_vert_aux.mean())
+# ~ shift_hor = np.cumsum(shift_hor_aux - shift_hor_aux.mean())
 
-    # smoothing the shifts is needed
-    if params["smooth_shifts"] is not None:
-        shift_vert = snf.gaussian_filter1d(shift_vert, params["smooth_shifts"])
-        shift_hor = snf.gaussian_filter1d(shift_hor, params["smooth_shifts"])
+# ~ # smoothing the shifts is needed
+# ~ if params["smooth_shifts"] is not None:
+# ~ shift_vert = snf.gaussian_filter1d(shift_vert, params["smooth_shifts"])
+# ~ shift_hor = snf.gaussian_filter1d(shift_hor, params["smooth_shifts"])
 
-    # display shifts
-    plt.close("all")
-    fig1 = plt.figure(1)
-    ax1 = fig1.add_subplot(211)
-    ax1.plot(np.array(shift_vert), "ro-")
-    ax1.set_title("Vertical shifts")
-    ax2 = fig1.add_subplot(212)
-    ax2.plot(np.array(shift_hor), "ro-")
-    ax2.set_title("Horizontal shifts")
-    plt.show()
+# ~ # display shifts
+# ~ plt.close("all")
+# ~ fig1 = plt.figure(1)
+# ~ ax1 = fig1.add_subplot(211)
+# ~ ax1.plot(np.array(shift_vert), "ro-")
+# ~ ax1.set_title("Vertical shifts")
+# ~ ax2 = fig1.add_subplot(212)
+# ~ ax2.plot(np.array(shift_hor), "ro-")
+# ~ ax2.set_title("Horizontal shifts")
+# ~ plt.show()
 
-    # updating the shiftstack
-    shiftstack = np.zeros((2, input_stack.shape[0]))
-    shiftstack[0] = shift_vert
-    shiftstack[1] = shift_hor
+# ~ # updating the shiftstack
+# ~ shiftstack = np.zeros((2, input_stack.shape[0]))
+# ~ shiftstack[0] = shift_vert
+# ~ shiftstack[1] = shift_hor
 
-    # Compute the shifted images
-    # print('Computing aligned images')
-    # if not params['expshift']:
-    # output_stack = compute_aligned_stack(input_stack,shiftstack.copy(),params)
-    # else:
-    # print('Computing aligned images in phase space')
-    # output_stack = np.angle(compute_aligned_stack(np.exp(1j*input_stack),shiftstack.copy(),params))
+# ~ # Compute the shifted images
+# ~ # print('Computing aligned images')
+# ~ # if not params['expshift']:
+# ~ # output_stack = compute_aligned_stack(input_stack,shiftstack.copy(),params)
+# ~ # else:
+# ~ # print('Computing aligned images in phase space')
+# ~ # output_stack = np.angle(compute_aligned_stack(np.exp(1j*input_stack),shiftstack.copy(),params))
 
-    # return shiftstack,output_stack
+# ~ # return shiftstack,output_stack
 
-    plt.close("all")
-    fig1 = plt.figure(1)
-    ax1 = fig1.add_subplot(111)  # (ncols=1, figsize=(14, 6))
-    im1 = ax1.imshow(
-        stack_unwrap[1, limrow[0] : limrow[-1], limcol[0] : limcol[-1]],
-        interpolation="none",
-        cmap="bone",
-    )
-    ax1.set_axis_off()
-    ax1.set_title("Offset corrected image2")
+# ~ plt.close("all")
+# ~ fig1 = plt.figure(1)
+# ~ ax1 = fig1.add_subplot(111)  # (ncols=1, figsize=(14, 6))
+# ~ im1 = ax1.imshow(
+# ~ stack_unwrap[1, limrow[0] : limrow[-1], limcol[0] : limcol[-1]],
+# ~ interpolation="none",
+# ~ cmap="bone",
+# ~ )
+# ~ ax1.set_axis_off()
+# ~ ax1.set_title("Offset corrected image2")
 
-    # offset_stack_unwrap = np.empty_like(stack_unwrap[:,80:-80,80:-80])
-    # aligned = np.empty_like(stack_unwrap[:,80:-80,80:-80])
-    aligned = compute_aligned_stack(
-        input_stack, shiftstack.copy(), shift_method=params["shiftmeth"]
-    )
-    plt.ion()
-    for ii in range(0, len(stack_unwrap)):
-        # img = stack_unwrap[ii,80:-80,80:-80]
-        shift = np.array([shift_vert[ii], shift_hor[ii]])
-        print(shift)
-        print(
-            "\nCorrecting the shift of projection {} by using subpixel precision.".format(
-                ii
-            )
-        )
-        # offset_stack_unwrap[ii] = np.fft.ifftn(fourier_shift(np.fft.fftn(img),shift))#
-        # aligned[ii] = np.fft.ifftn(fourier_shift(np.fft.fftn(img),shift))#
-        # im1.set_data(offset_stack_unwrap[ii])
-        im1.set_data(aligned[ii])
-        ax1.set_title(u"Projection {}".format(ii))
-        fig1.canvas.draw()
-        plt.pause(0.001)
-    plt.ioff()
+# ~ # offset_stack_unwrap = np.empty_like(stack_unwrap[:,80:-80,80:-80])
+# ~ # aligned = np.empty_like(stack_unwrap[:,80:-80,80:-80])
+# ~ aligned = compute_aligned_stack(
+# ~ input_stack, shiftstack.copy(), shift_method=params["shiftmeth"]
+# ~ )
+# ~ plt.ion()
+# ~ for ii in range(0, len(stack_unwrap)):
+# ~ # img = stack_unwrap[ii,80:-80,80:-80]
+# ~ shift = np.array([shift_vert[ii], shift_hor[ii]])
+# ~ print(shift)
+# ~ print(
+# ~ "\nCorrecting the shift of projection {} by using subpixel precision.".format(
+# ~ ii
+# ~ )
+# ~ )
+# ~ # offset_stack_unwrap[ii] = np.fft.ifftn(fourier_shift(np.fft.fftn(img),shift))#
+# ~ # aligned[ii] = np.fft.ifftn(fourier_shift(np.fft.fftn(img),shift))#
+# ~ # im1.set_data(offset_stack_unwrap[ii])
+# ~ im1.set_data(aligned[ii])
+# ~ ax1.set_title(u"Projection {}".format(ii))
+# ~ fig1.canvas.draw()
+# ~ plt.pause(0.001)
+# ~ plt.ioff()
 
-    # Display the images
-    fig, (ax1, ax2, ax3) = plt.subplots(num=3, ncols=3, figsize=(14, 6))
-    ax1.imshow(image1, interpolation="none", cmap="bone")
-    ax1.set_axis_off()
-    ax1.set_title("Image 1 (ref.)")
-    ax2.imshow(image2, interpolation="none", cmap="bone")
-    ax2.set_axis_off()
-    ax2.set_title("Image 2")
+# ~ # Display the images
+# ~ fig, (ax1, ax2, ax3) = plt.subplots(num=3, ncols=3, figsize=(14, 6))
+# ~ ax1.imshow(image1, interpolation="none", cmap="bone")
+# ~ ax1.set_axis_off()
+# ~ ax1.set_title("Image 1 (ref.)")
+# ~ ax2.imshow(image2, interpolation="none", cmap="bone")
+# ~ ax2.set_axis_off()
+# ~ ax2.set_title("Image 2")
 
-    # View the output of a cross-correlation to show what the algorithm is
-    # doing behind the scenes
-    image_product = np.fft.fft2(image1) * np.fft.fft2(image2).conj()
-    cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
-    ax3.imshow(cc_image.real)
-    # ax3.set_axis_off()
-    ax3.set_title("Cross-correlation")
+# ~ # View the output of a cross-correlation to show what the algorithm is
+# ~ # doing behind the scenes
+# ~ image_product = np.fft.fft2(image1) * np.fft.fft2(image2).conj()
+# ~ cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
+# ~ ax3.imshow(cc_image.real)
+# ~ # ax3.set_axis_off()
+# ~ ax3.set_title("Cross-correlation")
 
-    plt.show(block=False)
-    return shiftstack, aligned
+# ~ plt.show(block=False)
+# ~ return shiftstack, aligned

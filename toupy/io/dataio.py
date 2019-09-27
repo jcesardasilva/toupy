@@ -54,10 +54,10 @@ def remove_extraprojs(stack_projs, theta):
 
     Returns
     -------
-        stack_projs : array_like
-            Stack of projections after the removal
-        theta : array_like
-            Array of theta values after the removal
+    stack_projs : array_like
+        Stack of projections after the removal
+    theta : array_like
+        Array of theta values after the removal
     """
 
     print(theta[-5:])
