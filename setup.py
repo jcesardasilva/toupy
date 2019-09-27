@@ -30,6 +30,7 @@ setuptools.setup(
         "bin/file_comp",
         "bin/missing_recons",
         "bin/plot_projections",
+        "bin/create_toupy_templates",
     ],
     console_scripts=["bin/create_toupy_templates"],
     license="LICENCE",
