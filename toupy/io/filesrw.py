@@ -63,8 +63,15 @@ def read_recon(filename, correct_orientation=False):
         Object image
     probe1 : array_like, complex
         Probe images
-    pixelsize : float
+    pixelsize : list of floats
         List with pixelsizes in vertical and horizontal directions
+    energy : float
+        Energy of the incident photons
+
+    Examples
+    --------
+    >>> imgpath = 'filename.ptyr'
+    >>> objdata, probedata, pixel, energy = read_recon(imgpath)
     """
     fileprefix, fileext = os.path.splitext(filename)
     if fileext == ".ptyr":  # Ptypy
@@ -240,7 +247,7 @@ def read_ptyr(pathfilename, correct_orientation=True):
     Examples
     --------
     >>> imgpath = 'filename.ptyr'
-    >>> objdata, probedata, pixel, energy = read_cxi(imgpath)
+    >>> objdata, probedata, pixel, energy = read_ptyr(imgpath)
     """
     global metaptyr
     if metaptyr == {}:
