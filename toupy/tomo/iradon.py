@@ -93,7 +93,7 @@ def mod_iradon(
     theta=None,
     output_size=None,
     filter_type="ram-lak",
-    derivative=True,
+    derivatives=True,
     interpolation="linear",
     circle=False,
     freqcutoff=1,
@@ -179,7 +179,7 @@ def mod_iradon(
     fourier_filter = compute_filter(
         radon_image.shape[0],
         filter_type=filter_type,
-        derivative=derivative,
+        derivatives=derivatives,
         freqcutoff=freqcutoff,
     )
 
