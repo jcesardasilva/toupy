@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 
-def compute_filter(nbins, filter_type="ram-lak", derivatives=True, freqcutoff=1):
+def compute_filter(nbins, filter_type="ram-lak", derivatives=False, freqcutoff=1):
     """
     Compute the filter for the FBP tomographic reconstruction
 
@@ -93,7 +93,7 @@ def mod_iradon(
     theta=None,
     output_size=None,
     filter_type="ram-lak",
-    derivatives=True,
+    derivatives=False,
     interpolation="linear",
     circle=False,
     freqcutoff=1,
@@ -121,7 +121,7 @@ def mod_iradon(
         Name of the filter to be applied in frequency domain filtering.
         The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`, 
         `hann`. The default is `ram-lak`. Assign None to use no filter.
-    derivative : bool, optional
+    derivatives : bool, optional
         If ``True``, assumes that the radon_image contains the derivates of the
         projections. The default is ``True``
     interpolation : str, optional
@@ -233,7 +233,7 @@ def mod_iradonSilx(
     theta=None,
     output_size=None,
     filter_type="ram-lak",
-    derivatives=True,
+    derivatives=False,
     interpolation="linear",
     circle=False,
     freqcutoff=1,
