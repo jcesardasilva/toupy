@@ -584,6 +584,10 @@ class LoadProjections(PathName, Variables):
         This is adapted for the phase-contrast imaging generating
         projections as edf files
         """
+        ## to be tested
+        #notuseful = sorted(glob.glob(self.samplename+'*_[0-4].edf'))
+        #self.proj_files = [ii for ii in self.proj_files if ii not in notuseful]
+
         # remove the last projection, which is 180 degrees
         self.proj_files = self.proj_files[:-1]
 

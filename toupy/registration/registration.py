@@ -524,7 +524,7 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
 
     print("\n============================================")
     print("Vertical Mass fluctuation pixel alignment")
-    print("Number of iteration: 10".format(params["maxit"]))
+    print("Number of iterations: {}".format(params["maxit"]))
 
     # horizontal alignement with center of mass if requested
     if params["alignx"] and count == 0:
@@ -811,7 +811,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     print("\nStarting the horizontal alignment")
     print("=====================================")
-    print("Number of iteration: {}".format(params["maxit"]))
+    print("Number of iterations: {}".format(params["maxit"]))
     print("Using a frequency cutoff of {}".format(params["freqcutoff"]))
     print("Low limit for tomo values = {}".format(params["cliplow"]))
     print("High limit for tomo values = {}".format(params["cliphigh"]))
