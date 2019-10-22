@@ -2,6 +2,7 @@
 
 TOUPY - Tomographic Utilities for Python
 ========================================
+DOI: [![DOI](https://zenodo.org/badge/196718112.svg)](https://zenodo.org/badge/latestdoi/196718112)
 
 Introduction
 ------------
