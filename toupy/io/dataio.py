@@ -153,7 +153,7 @@ class PathName:
         else:
             raise IOError(
                 "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
-                    filename
+                    self.filename
                 )
             )
         return metafile_wcard
@@ -166,10 +166,21 @@ class PathName:
         print("First projection file: {}".format(self.filename))
         if self.fileext == ".edf":
             scan_wcard = re.sub(r"_\d{4}.edf", "*.edf", self.pathfilename)
-        else:
+        elif self.fileext == ".ptyr":  # Ptypy
             scan_wcard = os.path.join(
                 re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
                 self.metadatafilewcard() + "_ML" + self.fileext,
+            )
+        elif self.fileext == ".cxi":  # PyNX
+            scan_wcard = os.path.join(
+                re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
+                self.metadatafilewcard() + self.fileext,
+            )
+        else:
+            raise IOError(
+                "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
+                    self.filename
+                )
             )
         return scan_wcard
 
