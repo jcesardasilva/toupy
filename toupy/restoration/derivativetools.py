@@ -67,7 +67,7 @@ def chooseregiontoderivatives(stack_array, **params):
                     stack_array[0].shape[0], stack_array[0].shape[1]
                 )
             )
-            print(aligned.shape)
+            print(stack_array.shape)
             while True:
                 roiy = eval(input("Enter new range in y (top, bottom): "))
                 if isinstance(roiy, tuple):
