@@ -52,6 +52,7 @@ params["shiftmeth"] = "fourier"  # 'sinc' or 'linear' better for noise
 params["maxit"] = 20  # max of iterations
 params["cliplow"] = None  # clip air threshold
 params["cliphigh"] = -1e-4  # clip on sample threshold
+params["colormap"] = "bone"
 params["sinohigh"] = None
 params["sinolow"] = None
 params["derivatives"] = True
@@ -93,7 +94,7 @@ if __name__ == "__main__":
     shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params)
 
     # alignment refinement with different parameters if necessary
-    shiftstack = refine_horizontalalignment(aligned_diff, theta, shiftstack, **params)
+    shiftstack, params = refine_horizontalalignment(aligned_diff, theta, shiftstack, **params)
 
     # tomographic consistency on multiples slices
     a = input(
