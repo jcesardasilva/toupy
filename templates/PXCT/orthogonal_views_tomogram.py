@@ -88,7 +88,7 @@ if __name__ == "__main__":
     scale_bar_color = params["scale_bar_color"]
 
     if params["save_figures"]:
-        if not os.path.isdir('screenshots'):
+        if not os.path.isdir("screenshots"):
             os.makedir("screenshots")
         print("Saving pngs to folder screenshots")
 
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     textstr = r"{} $\mu$m".format(scale_bar_size)
 
     # sagital slice
-    slicesag = np.s_[:,np.round(nr / 2).astype("int"),:]
+    slicesag = np.s_[:, np.round(nr / 2).astype("int"), :]
     sagital_slice = tomogram[slicesag]
     # coronal slice
     slicecor = np.s_[:, :, np.round(nc / 2).astype("int")]
@@ -147,7 +147,9 @@ if __name__ == "__main__":
     axsag.set_axis_off()
     if params["save_figures"]:
         plt.savefig(
-            "screenshots/sagital_{}.png".format(params["tomo_type"]), bbox_inches="tight", dpi=200
+            "screenshots/sagital_{}.png".format(params["tomo_type"]),
+            bbox_inches="tight",
+            dpi=200,
         )
 
     # fig.colorbar(imsag)
@@ -182,7 +184,9 @@ if __name__ == "__main__":
     plt.tight_layout()
     if params["save_figures"]:
         plt.savefig(
-            "screenshots/coronal_{}.png".format(params["tomo_type"]), bbox_inches="tight", dpi=200
+            "screenshots/coronal_{}.png".format(params["tomo_type"]),
+            bbox_inches="tight",
+            dpi=200,
         )
 
     # Axial slice
@@ -195,9 +199,7 @@ if __name__ == "__main__":
         vmin=vmin_plot,
         vmax=vmax_plot,
     )
-    axaxial.set_title(
-        "Axial slice {} - {} ".format(slice_num + 1, params["tomo_type"])
-    )
+    axaxial.set_title("Axial slice {} - {} ".format(slice_num + 1, params["tomo_type"]))
     axaxial.text(
         bar_axial[0] - 10,
         bar_axial[1] - 5,
@@ -216,9 +218,10 @@ if __name__ == "__main__":
     axaxial.set_axis_off()
     if params["save_figures"]:
         plt.savefig(
-            "screenshots/axial_slice{}_{}.png".format(slice_num + 1, params["tomo_type"]),
+            "screenshots/axial_slice{}_{}.png".format(
+                slice_num + 1, params["tomo_type"]
+            ),
             bbox_inches="tight",
             dpi=200,
         )
     plt.show(block=False)
-

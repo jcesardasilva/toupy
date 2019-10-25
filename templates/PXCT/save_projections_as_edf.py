@@ -48,12 +48,10 @@ if __name__ == "__main__":
         pathfile = foldername + "/{}_amp_{:04d}.edf"
 
     # load the projections before alignment and derivatives
-    output_stack, theta, shiftstack, params = LoadData.load(
-        load_file, **params
-    )
-    
+    output_stack, theta, shiftstack, params = LoadData.load(load_file, **params)
+
     # size of the array
-    nprojs,nr,nc = output_stack.shape
+    nprojs, nr, nc = output_stack.shape
     if nprojs != len(theta):
         raise ValueError(
             "The number of projections is different from the number of angles"
@@ -67,11 +65,13 @@ if __name__ == "__main__":
         print("The shiftstack length is {}".format(shiftstack.shape[1]))
         if shiftstack.shape[1] != output_stack.shape[0]:
             raise ValueError(
-            "The array with shifts is not compatible with the number of projections"
+                "The array with shifts is not compatible with the number of projections"
             )
         print("Computing aligned images")
-        output_stack = compute_aligned_stack(output_stack, shiftstack, shift_method=params["shiftmeth"])
-    
+        output_stack = compute_aligned_stack(
+            output_stack, shiftstack, shift_method=params["shiftmeth"]
+        )
+
     # correcting bad projections after the alignment if needed
     if params["correct_bad"]:
         output_stack = replace_bad(

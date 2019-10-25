@@ -32,7 +32,9 @@ from toupy.utils import (
 params["slice_numbers"] = [150, 950]  # [50,700]#[50,200]#[0,299]
 params["bins"] = 256  # number of bins of the histogram
 params["histo_scale"] = "lin"  # 'lin', 'log', lin seems to be better
-params["pathfilename"] = "/data/id16a/inhouse4/visitor/ma4351/id16a/analysis/recons/v97_v_nfptomo2_15nm_nfpxct"
+params[
+    "pathfilename"
+] = "/data/id16a/inhouse4/visitor/ma4351/id16a/analysis/recons/v97_v_nfptomo2_15nm_nfpxct"
 params["histtype"] = "delta_beta"  # 'rhoe_mu' # 'delta_beta'
 params["bits"] = 16
 params["apply_circle"] = True

@@ -19,7 +19,7 @@ params = dict()
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["deltax"] = 2  # From edge of region to edge of image in x
-params["limsy"] = (1,2329)  # (top, bottom)
+params["limsy"] = (1, 2329)  # (top, bottom)
 params["shift_method"] = "fourier"
 params["correct_bad"] = True
 params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
@@ -74,10 +74,14 @@ if __name__ == "__main__":
         iterative_show(
             aligned_amp_projections, vmin=None, vmax=None
         )  # Show aligned projections derivatives
-        
+
     # save horizontally aligned_projections
     SaveData.save(
-        "aligned_amp_projections.h5", aligned_amp_projections, theta, shiftstack, **params
+        "aligned_amp_projections.h5",
+        aligned_amp_projections,
+        theta,
+        shiftstack,
+        **params
     )
     # next step
     print('You should run "tomographic_reconstruction_amp.py" now')

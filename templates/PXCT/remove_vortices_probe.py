@@ -21,7 +21,9 @@ params = dict()
 
 # remove vortices from the probe
 # =========================
-params["filename"] = "/data/visitor/ma3495/id16a/analysis/recons/O2_LSCF_CGO_25nm_subtomo001_0000/O2_LSCF_CGO_25nm_subtomo001_0000_ML.ptyr"
+params[
+    "filename"
+] = "/data/visitor/ma3495/id16a/analysis/recons/O2_LSCF_CGO_25nm_subtomo001_0000/O2_LSCF_CGO_25nm_subtomo001_0000_ML.ptyr"
 params["overwrite_h5"] = True  # True or False
 params["to_ignore"] = 100
 params["show_figures"] = True
