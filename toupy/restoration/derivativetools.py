@@ -80,8 +80,8 @@ def chooseregiontoderivatives(stack_array, **params):
                     input("Enter new value from edge of region to edge of image in x: ")
                 )
                 if isinstance(deltax, int):
-                    roix = range(deltax, stack_array.shape[2] - deltax) # update roix
-                    #roix = range(valx, aligned.shape[2] - valx)  # update roix
+                    roix = range(deltax, stack_array.shape[2] - deltax)  # update roix
+                    # roix = range(valx, aligned.shape[2] - valx)  # update roix
                     break
                 else:
                     print("Wrong typing. Try it again.")

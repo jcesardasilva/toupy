@@ -57,7 +57,7 @@ params["colormap"] = "bone"
 params["sinohigh"] = None
 params["sinolow"] = None
 params["derivatives"] = True
-params["calc_derivatives"] = True # Calculate derivatives if not done
+params["calc_derivatives"] = True  # Calculate derivatives if not done
 params["opencl"] = True
 params["autosave"] = False
 params["load_previous_shiftstack"] = False
@@ -96,7 +96,9 @@ if __name__ == "__main__":
     shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params)
 
     # alignment refinement with different parameters if necessary
-    shiftstack, params = refine_horizontalalignment(aligned_diff, theta, shiftstack, **params)
+    shiftstack, params = refine_horizontalalignment(
+        aligned_diff, theta, shiftstack, **params
+    )
 
     # tomographic consistency on multiples slices
     a = input(
@@ -131,7 +133,7 @@ if __name__ == "__main__":
 
     # save the shifts
     print("Saving the shifts to file correct_consistency.txt")
-    np.savetxt('correct_consistency.txt',np.flip(shiftstack,0).T, fmt='%4.8e')
+    np.savetxt("correct_consistency.txt", np.flip(shiftstack, 0).T, fmt="%4.8e")
     # next step
     print('You should run "tomographic_reconstruction.py" now')
     # =============================================================================#

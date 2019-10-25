@@ -29,7 +29,7 @@ params = dict()
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["phaseonly"] = True
 params["deltax"] = 2  # From edge of region to edge of image in x
-params["limsy"] = (1,2329)  # (top, bottom)
+params["limsy"] = (1, 2329)  # (top, bottom)
 params["shift_method"] = "fourier"
 params["autosave"] = True
 # =========================

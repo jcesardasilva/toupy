@@ -18,7 +18,9 @@ params = dict()
 # =========================
 params["account"] = "ma3495"
 params["samplename"] = "H2int_15000h_outlet"
-params["pathfilename"] = "/data/id16a/inhouse5/visitor/ma3495/id16a/H2int_15000h_outlet/H2int_15000h_outlet_25nm_holo_/H2int_15000h_outlet_25nm_holo_rec_0000.edf"
+params[
+    "pathfilename"
+] = "/data/id16a/inhouse5/visitor/ma3495/id16a/H2int_15000h_outlet/H2int_15000h_outlet_25nm_holo_/H2int_15000h_outlet_25nm_holo_rec_0000.edf"
 params["regime"] = "holoct"
 params["showrecons"] = False
 params["autosave"] = True

@@ -71,7 +71,8 @@ def padwidthbothsides(nbins):
 
 def padrightside(nbins):
     """
-    Returns pad_width for padding both sides given a value of ``nbins``
+    Returns pad_width for padding at the right side given a value of ``nbins``
+    The pad_width is calculated with ``next_fast_len`` function from `PyFFTW` package
     """
     # ~ nextPower = nextpoweroftwo(nbins)
     # ~ nextPower = nextpow2(nbins)
@@ -125,6 +126,7 @@ def fastfftn(input_array, **kwargs):
     fftw_array = pyfftw.interfaces.numpy_fft.fftn(
         fftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
     )
+
     return fftw_array
 
 
@@ -155,6 +157,7 @@ def fastifftn(input_array, **kwargs):
     ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(
         ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
     )
+
     return ifftw_array
 
 

@@ -5,15 +5,17 @@ The script for building/installing packages
 
 import setuptools
 
+
 def readreadme(filename):
     with open(filename, "r") as fid:
         long_description = fid.read()
     return long_description
 
+
 long_description_toupy = "**Toupy** - Tomographic Utilites for Python"
 packages_list = setuptools.find_packages()
 
-if __name__=='__main__':
+if __name__ == "__main__":
     packages_list = setuptools.find_packages()
     long_description_toupy = readreadme("./README.md")
     if packages_list is None:
@@ -35,9 +37,9 @@ setuptools.setup(
     console_scripts=["bin/create_toupy_templates"],
     license="LICENCE",
     description="Tomographic Utilities for Python",
-    #long_description=long_description_toupy,
+    # long_description=long_description_toupy,
     long_description=readreadme("./README.md"),
-    #long_description_content_type="text/markdown",
+    # long_description_content_type="text/markdown",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GPLv3 License",

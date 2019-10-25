@@ -94,7 +94,9 @@ if __name__ == "__main__":
     shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params)
 
     # alignment refinement with different parameters if necessary
-    shiftstack, params = refine_horizontalalignment(aligned_diff, theta, shiftstack, **params)
+    shiftstack, params = refine_horizontalalignment(
+        aligned_diff, theta, shiftstack, **params
+    )
 
     # tomographic consistency on multiples slices
     a = input(
