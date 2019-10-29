@@ -169,7 +169,7 @@ def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"
         strbar = "Image {} of {}".format(ii + 1, nstack)
         progbar(ii + 1, nstack, strbar)
     print("\r")
-    return output_stack
+    return input_stack
 
 def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="linear"):
     """
