@@ -7,7 +7,7 @@ tomographic consistency conditions.
 
 You will first align for one slice and we repeat the alignment at
 multiple slices and average the shift function. If the average is
-satisfactory, you can proceed and save the data. 
+satisfactory, you can proceed and save the data.
 """
 
 # standard libraries imports
@@ -57,7 +57,7 @@ params["colormap"] = "bone"
 params["sinohigh"] = None
 params["sinolow"] = None
 params["derivatives"] = True
-params["calc_derivatives"] = True  # Calculate derivatives if not done
+params["calc_derivatives"] = True # Calculate derivatives if not done
 params["opencl"] = True
 params["autosave"] = False
 params["load_previous_shiftstack"] = False
@@ -75,9 +75,6 @@ if __name__ == "__main__":
     # to start at zero
     theta -= theta.min()
 
-    # first estimate of the rotation axis
-    params["rot_axis_offset"] = estimate_rot_axis(aligned_diff, theta, **params)
-
     # if you want to sort theta, uncomment line below:
     # aligned_diff, theta = sort_array(aligned_diff, theta)
 
@@ -86,6 +83,8 @@ if __name__ == "__main__":
         shiftstack = LoadData.loadshiftstack("aligned_projections.h5", **params)
         print("Using previous estimate of shiftstack")
     else:
+        # first estimate of the rotation axis
+        params["rot_axis_offset"] = estimate_rot_axis(aligned_diff, theta, **params)
         # initializing shiftstack with zero plus rot_axis_offset
         shiftstack[1] = np.zeros(aligned_diff.shape[0]) + params["rot_axis_offset"]
 
