@@ -137,6 +137,66 @@ def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
     print("\r")
     return output_stack
 
+def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"):
+    """
+    Compute the aligned stack given the correction for object positions
+
+    Parameters
+    ----------
+    input_array : array_like
+        Stack of images to be shifted
+    shiftstack : array_like
+        Array of initial estimates for object motion (2,n)
+    shift_method : str (default linear)
+        Name of the shift method. Options: 'linear', 'fourier', 'spline'
+
+    Return
+    ------
+    output_stack : array_like
+        2D function containing the stack of aligned images
+    """
+    # Initialize shift class
+    S = ShiftFunc(shiftmeth=shift_method)
+    # array shape
+    nstack = input_stack.shape[0]
+    print(
+        "Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__)
+    )
+    #output_stack = np.empty_like(input_stack)
+    for ii in range(nstack):
+        deltashift = (shiftstack[0, ii], shiftstack[1, ii])
+        input_stack[ii] = S(input_stack[ii], deltashift)
+        strbar = "Image {} of {}".format(ii + 1, nstack)
+        progbar(ii + 1, nstack, strbar)
+    print("\r")
+    return output_stack
+
+def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="linear"):
+    """
+    Compute the alignment of the stack on at the horizontal direction
+
+    Parameters
+    ----------
+    input_array : array_like
+        Stack of images to be shifted
+    shiftstack : array_like
+        Array of initial estimates for object motion (2,n)
+        The estimates for vertical movement will be changed to 0
+    shift_method : str (default linear)
+        Name of the shift method. Options: 'linear', 'fourier', 'spline'
+
+    Return
+    ------
+    output_stack : array_like
+        2D function containing the stack of aligned images
+    """
+    deltashift = np.zeros_like(shiftstack)
+    deltashift[1] = shiftstack[1].copy()
+    output_stack = compute_aligned_stack_special(
+        input_stack, shiftstack, shift_method=shift_method
+    )
+    return output_stack
+
 
 def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
     """
