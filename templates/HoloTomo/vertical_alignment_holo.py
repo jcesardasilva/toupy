@@ -11,7 +11,7 @@ import numpy as np
 
 # local packages
 from toupy.io import LoadData, SaveData
-from toupy.registration import alignprojections_vertical
+from toupy.registration import alignprojections_vertical, compute_aligned_stack
 from toupy.utils import iterative_show, replace_bad
 
 # initializing dictionaries
@@ -50,13 +50,17 @@ if __name__ == "__main__":
         shiftstack[0] = np.zeros(stack_unwrap.shape[0])
 
     # Vertical alignment
-    shiftstack, aligned = alignprojections_vertical(stack_unwrap, shiftstack, **params)
+    shiftstack = alignprojections_vertical(stack_unwrap, shiftstack, **params)
 
     a = input("Do you want to refine further the alignment? (y/[n]): ").lower()
     if str(a) == "y":
-        shiftstack, aligned = alignprojections_vertical(
-            stack_unwrap, shiftstack, **params
-        )
+        shiftstack = alignprojections_vertical(stack_unwrap, shiftstack, **params)
+
+    # computing the aligned images (separate to avoid memory issues)
+    print("Computing aligned images")
+    aligned = compute_aligned_stack(
+        stack_unwrap, shiftstack, shift_method=params["shiftmeth"]
+    )
 
     a = input("Do you want to display the aligned projections? (y/[n]) :").lower()
     if str(a) == "y":
