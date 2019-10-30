@@ -659,15 +659,12 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
     )
 
     # Compute the shifted images
-    if params["regime"] != "holoct":
-        print("Computing aligned images")
-        output_stack = compute_aligned_stack(
-            input_stack, shiftstack.copy(), shift_method=params["shiftmeth"]
-        )
+    print("Computing aligned images")
+    output_stack = compute_aligned_stack(
+        input_stack, shiftstack.copy(), shift_method=params["shiftmeth"]
+    )
 
-        return shiftstack, output_stack
-    else:
-        return shiftstack
+    return shiftstack, output_stack
 
 
 def _alignprojections_horizontal(

@@ -50,17 +50,13 @@ if __name__ == "__main__":
         shiftstack[0] = np.zeros(stack_unwrap.shape[0])
 
     # Vertical alignment
-    shiftstack = alignprojections_vertical(stack_unwrap, shiftstack, **params)
+    shiftstack, aligned = alignprojections_vertical(stack_unwrap, shiftstack, **params)
 
     a = input("Do you want to refine further the alignment? (y/[n]): ").lower()
     if str(a) == "y":
-        shiftstack = alignprojections_vertical(stack_unwrap, shiftstack, **params)
-
-    # computing the aligned images (separate to avoid memory issues)
-    print("Computing aligned images")
-    aligned = compute_aligned_stack(
-        stack_unwrap, shiftstack, shift_method=params["shiftmeth"]
-    )
+        shiftstack, aligned = alignprojections_vertical(
+            stack_unwrap, shiftstack, **params
+        )
 
     a = input("Do you want to display the aligned projections? (y/[n]) :").lower()
     if str(a) == "y":
