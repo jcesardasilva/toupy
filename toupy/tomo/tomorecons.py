@@ -38,6 +38,15 @@ def tomo_recons(sinogram, theta, **params):
         Frequency cutoff (between 0 and 1)
     params["circle"] : bool
         Multiply the reconstructed slice by a circle to remove borders
+    params["weight_angles"] : bool
+        If `True`, weights each projection with a factor proportional 
+        to the angular distance between the neighboring
+        projections.
+
+        .. math::
+            \Delta \phi_0 \longmapsto \Delta \phi_j =
+                \frac{\phi_{j+1} - \phi_{j-1}}{2}
+    
     params["derivatives"] : bool
         If the projections are derivatives. Only for FBP.
     params["calc_derivatives"] : bool
