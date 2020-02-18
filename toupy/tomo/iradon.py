@@ -409,8 +409,8 @@ def backprojector(sinogram, theta, **params):
         iradon = mod_iradon
     if params["weight_angles"]:
         # weight the angles prior to the reconstruction
-        weights = compute_angle_weights(theta)
-        sinogram = sinogram * np.expand_dims(weights,1)
+        weights = compute_angle_weights(theta).reshape(1,-1)
+        sinogram = sinogram * weights
     # reconstructing
     recons = iradon(
         sinogram,
@@ -462,8 +462,8 @@ def reconsSART(
         
         if params["weight_angles"]:
             # weight the angles prior to the reconstruction
-            weights = compute_angle_weights(theta)
-            sinogram = weights * sinogram
+            weights = compute_angle_weights(theta).reshape(1,-1)
+            sinogram = sinogram * weights
 
         # with initial guess
         reconsSART = iradon_sart(
@@ -472,8 +472,8 @@ def reconsSART(
     else:
         if params["weight_angles"]:
             # weight the angles prior to the reconstruction
-            weights = compute_angle_weights(theta)
-            sinogram = sinogram * np.expand_dims(weights,1)
+            weights = compute_angle_weights(theta).reshape(1,-1)
+            sinogram = sinogram * weights
         # without initial guess
         reconsSART = iradon_sart(sinogram, theta=theta, relaxation=relaxation_params)
     print("Starting iterative reconstruction:")
