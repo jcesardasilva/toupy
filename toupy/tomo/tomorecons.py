@@ -44,8 +44,7 @@ def tomo_recons(sinogram, theta, **params):
         projections.
 
         .. math::
-            \Delta \phi_0 \longmapsto \Delta \phi_j =
-                \frac{\phi_{j+1} - \phi_{j-1}}{2}
+            \Delta \phi_0 \longmapsto \Delta \phi_j = \frac{\phi_{j+1} - \phi_{j-1}}{2}
     
     params["derivatives"] : bool
         If the projections are derivatives. Only for FBP.
