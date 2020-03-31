@@ -145,7 +145,7 @@ def read_tiff_info(tiff_info_file):
     high_cutoff : float
         High cutoff of the gray level
     pixelsize : float
-        Pixelsize
+        Pixelsize in nanometers
 
     Note
     ----
@@ -163,9 +163,9 @@ def read_tiff_info(tiff_info_file):
     high_cutoff = np.float(info_file[1].strip().split("=")[1])
     factor = np.float(info_file[2].strip().split("=")[1])
     # ~ pixelsize_beta = np.array([np.float(x) for x in (info_beta[3].strip().split('=')[1]).strip().lstrip('[').rstrip(']').split()])
-    pixelsize = (
+    pixelsize = np.float(
         (info_file[3].strip().split("=")[1]).strip().lstrip("[").rstrip("]").split()[0]
-    )
+    )*1e-9
 
     return low_cutoff, high_cutoff, factor, pixelsize
 
