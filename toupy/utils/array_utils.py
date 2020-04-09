@@ -533,7 +533,7 @@ def create_mask_borders(tomogram, mask_array, threshold=4e-7):
     """
     nslices, nr, nc = tomogram.shape
     # mask borders
-    for ii in range(slices):
+    for ii in range(nslices):
         print("Mask {}".format(ii + 1))
         mask_array[ii] = mask_borders(tomogram[ii], mask_array, threshold)
     print("Done")
