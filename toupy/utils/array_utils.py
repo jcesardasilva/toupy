@@ -292,7 +292,7 @@ def cropROI(input_array, roi=[]):
         return input_array
     else:
         print("Cropping ROI of data")
-        print("Before: " + input_array.shape)
+        print("Before: {}".format(input_array.shape))
         if input_array.ndim == 2:
             return input_array[roi[0] : roi[1], roi[2] : roi[3]]
         elif input_array.ndim == 3:
