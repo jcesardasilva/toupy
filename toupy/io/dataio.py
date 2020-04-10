@@ -925,8 +925,9 @@ class SaveData(PathName, Variables):
                     dtype=np.float32,
                     chunks=chunk_size,
                 )
+                nslices,nr,nc = tomogram1.shape
                 for ii in range(nslices):
-                    print(" Slice: {} out of {}".format(ii + 1, nprojs), end="\r")
+                    print(" Slice: {} out of {}".format(ii + 1, nslices), end="\r")
                     dset1[ii, :, :] = tomogram1[ii]
                     dset2[ii, :, :] = tomogram2[ii]
                     progbar(ii + 1, nslices)

@@ -136,7 +136,7 @@ if __name__ == "__main__":
         tomogram2 = np.empty((nslices, nr, nc))
         for idx, ii in enumerate(range(limsyFSC[0], limsyFSC[-1])):
             print("Slice: {}".format(ii))
-            sinogram_align = np.transpose(aligned_projections[:, ii, :])
+            sinogram = np.transpose(aligned_projections[:, ii, :])
             # dividing the data into two datasets
             print("Calculating first slice...")
             tomogram1[idx], tomogram2[idx] = compute_2tomograms(
