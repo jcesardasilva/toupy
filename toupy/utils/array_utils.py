@@ -259,13 +259,13 @@ def crop(input_array, delcropx, delcropy):
     """
     if delcropx is not None or delcropy is not None:
         print("Cropping ROI of data")
-        print("Before: " + input_array.shape)
+        print("Before: {}".format(input_array.shape))
         print(input_array[delcropy:-delcropy, delcropx:-delcropx].shape)
         if input_array.ndim == 2:
             return input_array[delcropy:-delcropy, delcropx:-delcropx]
         elif input_array.ndim == 3:
             return input_array[:, delcropy:-delcropy, delcropx:-delcropx]
-        print("After: " + input_array.shape)
+        print("After: {}".format(input_array.shape))
     else:
         print("No cropping of data")
         return input_array
@@ -297,7 +297,7 @@ def cropROI(input_array, roi=[]):
             return input_array[roi[0] : roi[1], roi[2] : roi[3]]
         elif input_array.ndim == 3:
             return input_array[:, roi[0] : roi[1], roi[2] : roi[3]]
-        print("After: " + input_array.shape)
+        print("After: {}".format(input_array.shape))
 
 
 def radtap(X, Y, tappix, zerorad):
