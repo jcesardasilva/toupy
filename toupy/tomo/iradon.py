@@ -20,6 +20,7 @@ __all__ = [
     "reconsSART",
 ]
 
+
 def compute_angle_weights(theta):
     """
     Compute the corresponding weight for each angle according to the distance between
@@ -39,23 +40,23 @@ def compute_angle_weights(theta):
     ----
     The weights are computed assuming a angular distribution between 0 and 180 degrees.
     Forked from odtbrain.util.compute_angle_weights_1d (https://github.com/RI-imaging/ODTbrain/)
-    """ 
+    """
     # subtract the mininum value
-    theta = (theta.flatten() - theta.min())
-    
+    theta = theta.flatten() - theta.min()
+
     # sort the angles
     sortargs = np.argsort(theta)
     sorttheta = theta[sortargs]
-    
+
     # compute the weights for sorted theta
     # it takes care of the initial and final theta values
-    diff_theta = (np.roll(sorttheta,-1) - np.roll(sorttheta,1)) % 180
-    weights = diff_theta/np.sum(diff_theta)*diff_theta.size
-    
+    diff_theta = (np.roll(sorttheta, -1) - np.roll(sorttheta, 1)) % 180
+    weights = diff_theta / np.sum(diff_theta) * diff_theta.size
+
     # revert the sorting to be compatible with input theta order
     unsortweights = np.zeros_like(weights)
     unsortweights[sortargs] = weights
-    
+
     return unsortweights
 
 
@@ -409,7 +410,7 @@ def backprojector(sinogram, theta, **params):
         iradon = mod_iradon
     if params["weight_angles"]:
         # weight the angles prior to the reconstruction
-        weights = compute_angle_weights(theta).reshape(1,-1)
+        weights = compute_angle_weights(theta).reshape(1, -1)
         sinogram = sinogram * weights
     # reconstructing
     recons = iradon(
@@ -459,10 +460,10 @@ def reconsSART(
         reconsFBP = backprojector(sinogram, theta, **params)
         reconsFBP = np.float64(reconsFBP)
         print("Done. Starting SART")
-        
+
         if params["weight_angles"]:
             # weight the angles prior to the reconstruction
-            weights = compute_angle_weights(theta).reshape(1,-1)
+            weights = compute_angle_weights(theta).reshape(1, -1)
             sinogram = sinogram * weights
 
         # with initial guess
@@ -472,7 +473,7 @@ def reconsSART(
     else:
         if params["weight_angles"]:
             # weight the angles prior to the reconstruction
-            weights = compute_angle_weights(theta).reshape(1,-1)
+            weights = compute_angle_weights(theta).reshape(1, -1)
             sinogram = sinogram * weights
         # without initial guess
         reconsSART = iradon_sart(sinogram, theta=theta, relaxation=relaxation_params)

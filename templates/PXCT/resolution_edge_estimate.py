@@ -45,10 +45,10 @@ plt.close("all")
 fig1 = plt.figure(1)
 ax1 = fig1.add_subplot(111)
 # motorscan-factor1,counterscan,'ro',mfc='none',mec='red',mew=2)
-linescan1, = ax1.plot(
+(linescan1,) = ax1.plot(
     values[:, 0] - x1_1[3], values[:, 1], "ro-", mfc="none", mec="red", mew=2
 )
-fitlinescan1, = ax1.plot(
+(fitlinescan1,) = ax1.plot(
     values[:, 0] - x1_1[3], model_erf(values[:, 0], *x1_1), "b--", linewidth=3
 )
 ax1.legend(["Data", "Fit (erf)"], loc="best")
@@ -88,10 +88,10 @@ FWHMtanh_back = np.arccosh(1 / np.sqrt(1 / 2.0)) * 2 * np.abs(x1_2[4])
 fig2 = plt.figure(2)
 ax2 = fig2.add_subplot(111)
 # motorscan-factor1,counterscan,'ro',mfc='none',mec='red',mew=2)
-linescan2, = ax2.plot(
+(linescan2,) = ax2.plot(
     values[:, 0] - x1_2[3], values[:, 1], "ro-", mfc="none", mec="red", mew=2
 )
-fitlinescan2, = ax2.plot(
+(fitlinescan2,) = ax2.plot(
     values[:, 0] - x1_2[3], model_tanh(values[:, 0], *x1_2), "b--", linewidth=3
 )
 ax2.legend(["Data", "Fit (tanh)"], loc="best")
