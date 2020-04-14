@@ -61,6 +61,7 @@ if __name__ == "__main__":
     # sorting theta
     print("Sorting theta...")
     aligned_projections, theta = sort_array(aligned_projections, theta)
+    ntheta = theta.shape[0]
 
     # convinient change of variables
     voxelsize = params["pixelsize"]  # from now on, voxelsize is pixelsize.
@@ -134,13 +135,20 @@ if __name__ == "__main__":
         # initializing variables
         tomogram1 = np.empty((nslices, nr, nc))
         tomogram2 = np.empty((nslices, nr, nc))
+        sinogram = np.empty((nslices, nc, ntheta))
+        
+        # initializing sinograms
+        for idx, ii in enumerate(range(limsyFSC[0], limsyFSC[-1])):
+            print("Sinogram for slice: {}".format(ii))
+            sinogram[idx] = np.transpose(aligned_projections[:, ii, :])
+        
+        # calculating the tomograms
         for idx, ii in enumerate(range(limsyFSC[0], limsyFSC[-1])):
             print("Slice: {}".format(ii))
-            sinogram = np.transpose(aligned_projections[:, ii, :])
-            # dividing the data into two datasets
+            # dividing the data into two datasets and computing tomograms
             print("Calculating first slice...")
             tomogram1[idx], tomogram2[idx] = compute_2tomograms(
-                sinogram, theta, **params
+                sinogram[idx], theta, **params
             )
 
         # cropping
