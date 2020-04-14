@@ -328,7 +328,7 @@ class PhaseTracker(object):
         )
         # ~ self.vmin,self.vmax = self.im1.get_clim() # get colormap limits
         self.ax1.axis("tight")
-        self.im2, = self.ax2.plot(self.X2[self.ind, :])
+        (self.im2,) = self.ax2.plot(self.X2[self.ind, :])
         self.ax2.plot([0, self.X1.shape[2]], [0, 0])
         self.pmin, self.pmax = self.ax2.get_ylim()  # get plot limits
         # ax2.axis('tight')

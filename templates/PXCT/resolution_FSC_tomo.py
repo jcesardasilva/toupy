@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # import of local packages
-from toupy.resolution import FSCPlot, compute_2tomograms
+from toupy.resolution import FSCPlot, compute_2tomograms_splitted, split_dataset
 from toupy.io import LoadData, SaveData
 from toupy.utils import sort_array, cropROI
 from toupy.tomo import tomo_recons
@@ -74,10 +74,15 @@ if __name__ == "__main__":
     # =========================
 
     # calculate the sinogram
-    sinogram_align = np.transpose(aligned_projections[:, slice_num, :])
+    sinogram = np.transpose(aligned_projections[:, slice_num, :])
+    sinogram1, sinogram2, theta1, theta2 = split_dataset(sinogram, theta)
+    sino1nr, sino1nc = sinogram1.shape
+    sino2nr, sino2nc = sinogram2.shape
 
     # tomographic reconstruction
-    tomogram1, tomogram2 = compute_2tomograms(sinogram, theta, **params)
+    tomogram1, tomogram2 = compute_2tomograms_splitted(
+        sinogram1, sinogram2, theta1, theta2, **params
+    )
 
     # keep tomogram shape for later use
     nr, nc = tomogram1.shape
@@ -135,20 +140,24 @@ if __name__ == "__main__":
         # initializing variables
         tomogram1 = np.empty((nslices, nr, nc))
         tomogram2 = np.empty((nslices, nr, nc))
-        sinogram = np.empty((nslices, nc, ntheta))
-        
+        sinogram1 = np.empty((nslices, sino1nr, sino1nc))
+        sinogram2 = np.empty((nslices, sino2nr, sino2nc))
+
         # initializing sinograms
         for idx, ii in enumerate(range(limsyFSC[0], limsyFSC[-1])):
             print("Sinogram for slice: {}".format(ii))
-            sinogram[idx] = np.transpose(aligned_projections[:, ii, :])
-        
+            sinogram = np.transpose(aligned_projections[:, ii, :])
+            sinogram1[idx], sinogram2[idx], theta1, theta2 = split_dataset(
+                sinogram, theta
+            )
+
         # calculating the tomograms
         for idx, ii in enumerate(range(limsyFSC[0], limsyFSC[-1])):
             print("Slice: {}".format(ii))
             # dividing the data into two datasets and computing tomograms
             print("Calculating first slice...")
-            tomogram1[idx], tomogram2[idx] = compute_2tomograms(
-                sinogram[idx], theta, **params
+            tomogram1[idx], tomogram2[idx] = compute_2tomograms_splitted(
+                sinogram1[idx], sinogram2[idx], theta1, theta2 ** params
             )
 
         # cropping

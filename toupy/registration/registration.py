@@ -137,6 +137,7 @@ def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
     print("\r")
     return output_stack
 
+
 def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"):
     """
     Compute the aligned stack given the correction for object positions
@@ -162,7 +163,7 @@ def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"
     print(
         "Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__)
     )
-    #output_stack = np.empty_like(input_stack)
+    # output_stack = np.empty_like(input_stack)
     for ii in range(nstack):
         deltashift = (shiftstack[0, ii], shiftstack[1, ii])
         input_stack[ii] = S(input_stack[ii], deltashift)
@@ -170,6 +171,7 @@ def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"
         progbar(ii + 1, nstack, strbar)
     print("\r")
     return input_stack
+
 
 def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="linear"):
     """
@@ -1271,9 +1273,7 @@ def _search_vshift_direction(
                 dir_shift["current"] = nexterror
                 shift += dir_inc
             else:
-                shift -= (
-                    dir_inc
-                )  # subtract once dir_inc in case of no sucess in the previous iteraction
+                shift -= dir_inc  # subtract once dir_inc in case of no sucess in the previous iteraction
                 break
     else:
         shifted_stack = shifts["current"]
@@ -1357,9 +1357,7 @@ def _search_hshift_direction(
                 dir_shift["current"] = nexterror
                 shift += dir_inc  # shift the sino once more in the same direction
             else:
-                shift -= (
-                    dir_inc
-                )  # subtract once dir_inc in case of no sucess in the previous iteraction
+                shift -= dir_inc  # subtract once dir_inc in case of no sucess in the previous iteraction
                 # errorxreg[ii] = dir_shift['current'].copy()#currenterror
                 break
     else:

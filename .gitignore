@@ -5,4 +5,4 @@ dist
 build
 *.egg-info
 files.txt
-./toupy/tomo/backprop2d.py
+toupy/tomo/backprop2d.py

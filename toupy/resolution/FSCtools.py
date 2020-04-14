@@ -18,7 +18,7 @@ from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
 from ..tomo import tomo_recons
 
-__all__ = ["compute_2tomograms", "split_dataset"]
+__all__ = ["compute_2tomograms", "compute_2tomograms_splitted", "split_dataset"]
 
 
 def split_dataset(sinogram, theta):
@@ -55,7 +55,8 @@ def split_dataset(sinogram, theta):
 
 def compute_2tomograms(sinogram, theta, **params):
     """
-    Compute 2 tomograms from splitted tomographic dataset
+    Split the tomographic dataset in 2 datasets and 
+    compute 2 tomograms from them.
     
     Parameters
     ----------
@@ -82,6 +83,43 @@ def compute_2tomograms(sinogram, theta, **params):
     print("Calculating a slice 2...")
     t0 = time.time()
     recon2 = tomo_recons(sino2, theta2, **params)
+    print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
+
+    return recon1, recon2
+
+
+def compute_2tomograms_splitted(sinogram1, sinogram2, theta1, theta2, **params):
+    """
+    Compute 2 tomograms from already splitted tomographic dataset
+    
+    Parameters
+    ----------
+    sinogram1 : ndarray
+        A 2-dimensional array containing the sinogram 1
+    sinogram2 : ndarray
+        A 2-dimensional array containing the sinogram 2
+    theta1 : ndarray
+        A 1-dimensional array of thetas for sinogram1
+    theta2 : ndarray
+        A 1-dimensional array of thetas for sinogram2
+    
+    Returns
+    -------
+    recon1 : ndarray
+        A 2-dimensional array containing the 1st reconstruction
+    recon2
+        A 2-dimensional array containing the 2nd reconstruction
+    """
+
+    # tomographic reconstruction
+    print("Calculating a slice 1...")
+    t0 = time.time()
+    recon1 = tomo_recons(sinogram1, theta1, **params)
+    print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
+
+    print("Calculating a slice 2...")
+    t0 = time.time()
+    recon2 = tomo_recons(sinogram2, theta2, **params)
     print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
 
     return recon1, recon2
