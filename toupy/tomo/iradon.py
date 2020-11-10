@@ -5,8 +5,14 @@
 import numpy as np
 from scipy.fftpack import fft, ifft, fftfreq
 from scipy.interpolate import interp1d
-from silx.opencl.backprojection import Backprojection
 from silx import version
+
+try:
+    from silx.opencl.backprojection import Backprojection
+except ModuleNotFoundError:
+    print('Not using pyopencl for the reconstruction')
+    print('The reconstruction will be slow.')
+    nosilx=True
 
 # local package
 from ..utils import create_circle
@@ -400,6 +406,10 @@ def backprojector(sinogram, theta, **params):
     recons : ndarray
         A 2-dimensional array containing the reconstructed sliced by the choosen method
     """
+    if not nosilx:
+        print("Forcing param['opencl']=False")
+        params["opencl"]=False
+        
     if params["opencl"]:
         # using Silx backprojector
         # print("Using OpenCL")

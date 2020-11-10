@@ -3,8 +3,15 @@
 
 # third party packages
 import numpy as np
-from silx.opencl.projection import Projection
 from skimage.transform import radon
+
+try:
+    from silx.opencl.projection import Projection
+except ModuleNotFoundError:
+    print('Not using pyopencl for the projection')
+    print('The projector will be slow.')
+    nosilx=True
+
 
 __all__ = ["radonSilx", "projector"]
 
@@ -61,6 +68,9 @@ def projector(recons, theta, **params):
     # array shape
     N = recons.shape[0]
     center = int(N / 2)
+    if not nosilx:
+        print("Forcing param['opencl']=False")
+        params["opencl"]=False
     if params["opencl"]:
         # using Silx Projector
         # print("Using OpenCL")

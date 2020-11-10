@@ -266,7 +266,8 @@ if on_rtd:
 else:
     html_theme = "sphinx_rtd_theme"
 if on_rtd:
-    autodoc_mock_imports = ["pyopencl", "libtiff"]
+    #autodoc_mock_imports = ["pyopencl", "libtiff"]
+    autodoc_mock_imports = ["pyopencl"]
 
     def run_apidoc(_):
         ignore_paths = ["../../setup.py"]  # files to be ignored

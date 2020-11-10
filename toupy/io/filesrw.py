@@ -14,12 +14,14 @@ import re
 import time
 
 # third party packages
-import libtiff
+# import libtiff <- found problem with this library
+####                needs to install libtiff4-dev, but I cannot
 import fabio
 import h5py
 import matplotlib.pyplot as plt
 from matplotlib.colors import hsv_to_rgb
 import numpy as np
+from skimage import io
 
 __all__ = [
     "convert8bitstiff",
@@ -544,7 +546,7 @@ def write_paramsh5(h5filename, **params):
 
 def read_tiff(imgpath):
     """
-    Read tiff files using libtiff
+    Read tiff files using skimage.io.imread
 
     Parameters
     ----------
@@ -558,24 +560,23 @@ def read_tiff(imgpath):
 
     Examples
     --------
-    >>> imgpath = 'libtiff.tiff'
-    >>> tiff = read_tiff(imgpath)
-    >>> ar = tiff.read_image()
-    >>> tiff.close()
+    >>> imgpath = 'image.tiff'
+    >>> ar = read_tiff(imgpath)
     >>> ar.dtype
     dtype('uint16')
     >>> np.max(ar)
     65535
     """
-    tiff = libtiff.TIFF.open(imgpath, mode="r")
-    imgout = tiff.read_image()
-    tiff.close()
+    #tiff = libtiff.TIFF.open(imgpath, mode="r")
+    #imgout = tiff.read_image()
+    #tiff.close()
+    imgout = io.imread(imgpath)
     return imgout
 
 
-def write_tiff(input_array, pathfilename):
+def write_tiff(input_array, pathfilename,plugin='tifffile'):
     """
-    Write tiff files using libtiff
+    Write tiff files using skimag.io.imsave
 
     Parameters
     ----------
@@ -585,9 +586,10 @@ def write_tiff(input_array, pathfilename):
         Path and filename to save the file
     """
     # Writing to file
-    tiff = libtiff.TIFF.open(pathfilename, "w")
-    tiff.write_image(input_array)
-    tiff.close()
+    #tiff = libtiff.TIFF.open(pathfilename, "w")
+    #tiff.write_image(input_array)
+    #tiff.close()
+    io.imsave(pathfilename,input_array,plugin=plugin)
 
 
 def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
