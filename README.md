@@ -52,7 +52,6 @@ Toupy depends on the following python packages:
 * pyfftw
 * fabio
 * h5py
-* libtiff
 * scikit-image
 * silx
 

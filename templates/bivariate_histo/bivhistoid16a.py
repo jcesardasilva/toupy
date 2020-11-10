@@ -8,7 +8,7 @@ import os
 import time
 
 # third party packages
-import libtiff
+#import libtiff
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 from matplotlib.colors import LogNorm
