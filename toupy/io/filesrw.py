@@ -482,6 +482,10 @@ def load_paramsh5(**params):
         out_params = dict()
         for keys in sorted(list(fid["info"].keys())):
             out_params[keys] = fid["info/{}".format(keys)][()]
+	    #TODO: this is a quick fix to convert bytes to str
+	    # have to find a better and more elegant way to do this
+            if isinstance(out_params[keys],bytes):
+                out_params[keys] = str(out_params[keys],'utf-8')
     out_params.update(params)  # add/update with new values
     return out_params
 

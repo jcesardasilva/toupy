@@ -104,6 +104,7 @@ class PathName:
         self.pathfilename = os.path.abspath(params["pathfilename"])
         self.useraccount = params["account"]
         self.samplename = params["samplename"]
+        self.scanprefix = params["scanprefix"]
         self.regime = params["regime"]
         self.filename = os.path.basename(self.pathfilename)  # data filename
         self.dirname = os.path.dirname(self.pathfilename)  # data filename
@@ -112,9 +113,9 @@ class PathName:
         )  # filename and extension
         # metadata filename
         if self.fileext == ".edf":  # edf
-            self.rootpath = str(Path(self.pathfilename).parents[2])
+            self.rootpath = Path(self.pathfilename).parents[2]
         else:
-            self.rootpath = str(Path(self.pathfilename).parents[3])
+            self.rootpath = Path(self.pathfilename).parents[4]
         self.icath5file = "{}-id16a.h5".format(self.useraccount)
         self.icath5path = os.path.join(
             self.rootpath, self.icath5file
@@ -167,9 +168,14 @@ class PathName:
         if self.fileext == ".edf":
             scan_wcard = re.sub(r"_\d{4}.edf", "*.edf", self.pathfilename)
         elif self.fileext == ".ptyr":  # Ptypy
+	    # TODO: correct the path name if the calculations are done in cuda or not
+            # ~ scan_wcard = os.path.join(
+                # ~ re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
+                # ~ self.metadatafilewcard() + "_ML" + self.fileext,
+            # ~ )
             scan_wcard = os.path.join(
-                re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
-                self.metadatafilewcard() + "_ML" + self.fileext,
+                re.sub(self.scanprefix + r"_\w*", self.scanprefix + "_*", self.dirname),
+                self.metadatafilewcard() + "_ML_pycuda" + self.fileext,
             )
         elif self.fileext == ".cxi":  # PyNX
             scan_wcard = os.path.join(
