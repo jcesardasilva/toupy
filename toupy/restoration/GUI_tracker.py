@@ -660,8 +660,8 @@ class AmpTracker(PhaseTracker):
     Please, refert to the docstring of :py:class:`PhaseTracker` for further description.
     """
 
-    def __init__(self, ax1, ax2, X1, **params):
-        super().__init__(self, ax1, ax2, X1, **params)
+    def __init__(self, fig, ax1, ax2, X1, **params):
+        super().__init__(fig, ax1, ax2, X1, **params)
         self.done = []  # flag to keep the already corrected projections
 
     def apply_mask(self, event):

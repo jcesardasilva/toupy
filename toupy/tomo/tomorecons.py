@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# standar packages
+# standard packages
 import time
 
 # third party package

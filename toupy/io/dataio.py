@@ -26,6 +26,7 @@ from ..utils import (
     progbar,
     ShowProjections,
     plot_checkangles,
+    replace_bad,
 )
 
 __all__ = [
@@ -1272,6 +1273,11 @@ class LoadData(PathName, Variables):
             print("\rTaking only phases...", end="")
             stack_projs = np.angle(stack_projs)
             print("\b\b Done")
+        if self.params["correct_bad"]:
+            stack_projs = replace_bad(stack_projs,
+                list_bad = self.params["bad_projs"],
+                temporary=True
+                )
         print("Projections loaded from file {}".format(h5name))
         print("Time elapsed = {:.03f} s".format(time.time() - it0))
         return stack_projs, theta, shiftstack, datakwargs
