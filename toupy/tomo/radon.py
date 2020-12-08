@@ -4,7 +4,7 @@
 # third party packages
 import numpy as np
 from skimage.transform import radon
-
+nosilx = False
 try:
     from silx.opencl.projection import Projection
 except ModuleNotFoundError:
@@ -68,12 +68,12 @@ def projector(recons, theta, **params):
     # array shape
     N = recons.shape[0]
     center = int(N / 2)
-    if not nosilx:
-        print("Forcing param['opencl']=False")
-        params["opencl"]=False
+    #~ if not nosilx:
+        #~ print("Forcing param['opencl']=False")
+        #~ params["opencl"]=False
     if params["opencl"]:
         # using Silx Projector
-        # print("Using OpenCL")
+        print("Using OpenCL")
         sinogramcomp = radonSilx(recons, theta)
     else:
         # Not using Silx Projector (very slow)
