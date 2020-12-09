@@ -1584,7 +1584,7 @@ class SaveTomogram(SaveData):
                 imgtiff = convertimageto16bits(tomogram[ii], low_cutoff, high_cutoff)
             elif self.params["bits"] == 8:
                 imgtiff = convertimageto8bits(tomogram[ii], low_cutoff, high_cutoff)
-            filename = "tomo_{}_filter_{}_cutoff_{:0.2f}_{:04d}.tif".format(
+            filename = "tomo_{:s}_filter_{:s}_cutoff_{:0.2f}_{:04d}.tif".format(
                 self.params["tomo_type"],
                 self.params["filtertype"],
                 self.params["freqcutoff"],

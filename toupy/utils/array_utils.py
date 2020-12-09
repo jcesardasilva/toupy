@@ -147,12 +147,13 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
     if list_bad == []:
         raise ValueError("List of bad projections is empty")
     else:
+        list_bad = [int(ii) for ii in list_bad] # to garantee each element is int
         for ii in list_bad:
-            print("\rTemporary replacement of bad projection: {}".format(ii), end="")
+            print("\rTemporary replacement of bad projection: {}".format(int(ii)), end="")
             if temporary:
-                input_stack[ii] = input_stack[ii - 1]
+                input_stack[int(ii)] = input_stack[int(ii) - 1]
             else:
-                input_stack[ii] = (input_stack[ii - 1] + input_stack[ii + 1]) / 2
+                input_stack[int(ii)] = (input_stack[int(ii) - 1] + input_stack[int(ii) + 1]) / 2
         print("\r")
     return input_stack
 
