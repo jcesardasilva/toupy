@@ -26,7 +26,7 @@ def convert_to_mu(input_img, wavelen):
 
 def convert_to_rhoe(input_img, wavelen):
     """
-    Converts the image gray-levels from phase shifts to electron density
+    Converts the image gray-levels from delta to electron density
     """
     # classical electron radius
     r0 = consts.physical_constants["classical electron radius"][0]
@@ -49,7 +49,7 @@ def convert_to_rhom(input_img, wavelen, A, Z):
 
 def _converter_factor(input_img, energy, voxelsize):
     """
-    Yields the factor to convert image gray-levels to quantitative valuess
+    Yields the factor to convert image gray-levels to quantitative values
     """
     if isinstance(voxelsize, list) or isinstance(voxelsize, np.ndarray):
         if len(voxelsize) >= 1:

@@ -529,11 +529,13 @@ def write_paramsh5(h5filename, **params):
                 v = "none"
                 ff.create_dataset("info/{}".format(k), data=v, dtype=dt)
             elif isinstance(v, str):  # string
-                ff.create_dataset("info/{}".format(k), data=v, dtype=dt)
+                ff.create_dataset("info/{}".format(k), data=v.decode('utf-8'), dtype=dt)
             elif isinstance(v, bool) or isinstance(v, np.bool_):  # boolean
                 ff.create_dataset("info/{}".format(k), data=v, dtype=bool)
             elif isinstance(v, np.ndarray):  # float array
                 ff.create_dataset("info/{}".format(k), data=v, dtype=np.float32)
+	    elif isinstance(v, list):  # float array
+                ff.create_dataset("info/{}".format(k), data=np.array(v), dtype=np.float16)
             elif (
                 isinstance(v, np.float32)
                 or isinstance(v, float)
@@ -543,7 +545,9 @@ def write_paramsh5(h5filename, **params):
             elif (
                 isinstance(v, np.int32) or isinstance(v, np.int) or isinstance(v, int)
             ):  # integer
-                ff.create_dataset("info/{}".format(k), data=v, dtype=np.int32)
+                ff.create_dataset("info/{}".format(k), data=v, dtype=np.int16)
+            elif isinstance(v,bytes):
+                ff.create_dataset("info/{}".format(k), data=v.decode('utf-8'), dtype=dt)
             else:
                 ff.create_dataset("info/{}".format(k), data=v)  # other
 
