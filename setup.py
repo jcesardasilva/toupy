@@ -55,7 +55,7 @@ setuptools.setup(
         "numexpr>=2.6.9",
         "scipy>=1.5.4",
         "PyFFTW>=0.11.1",
-        "scikit-image>=0.18.1",
+        "scikit-image>=0.17.2",
         "silx>=0.9.0",
         "sphinx>=2.1.2",
     ],
