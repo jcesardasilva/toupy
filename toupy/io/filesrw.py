@@ -128,6 +128,44 @@ def read_volfile(filename):
     tomogram = np.fromfile(filename, dtype=np.float32).reshape((z_size, x_size, y_size))
 
     return tomogram
+    
+def memmap_volfile(filename):
+    """
+    Memory map the tomogram from .vol file
+
+    Parameters
+    ----------
+    filename : str
+        filename to be read
+
+    Return
+    ------
+    tomogram : array_like
+        3D array containing the tomogram
+
+    Examples
+    --------
+    >>> volpath = 'volfilename.vol'
+    >>> tomogram = read_cxi(volpath)
+
+    Note
+    ----
+    The volume info file containing the metadata of the volume should be 
+    in the same folder as the volume file.
+    """
+    # Usually, the file .vol.info contains de size of the volume
+    linesff = []
+    infofilename = filename + ".info"
+    with open(infofilename, "r") as fid:
+        for lines in fid:
+            linesff.append(lines.strip("\n"))
+    x_size = int(linesff[1].split("=")[1])
+    y_size = int(linesff[2].split("=")[1])
+    z_size = int(linesff[3].split("=")[1])
+    # Now we read indeed the .vol file
+    tomogram = np.memmap(filename, dtype=np.float32,mode="r", shape=(z_size, x_size, y_size))
+
+    return tomogram
 
 
 def read_tiff_info(tiff_info_file):
