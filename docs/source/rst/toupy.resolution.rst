@@ -24,4 +24,3 @@ toupy.resolution.FSCtools module
    :members:
    :undoc-members:
    :show-inheritance:
-

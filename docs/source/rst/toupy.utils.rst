@@ -56,4 +56,3 @@ toupy.utils.plot\_utils module
    :members:
    :undoc-members:
    :show-inheritance:
-

@@ -56,4 +56,3 @@ toupy.restoration.vorticestools module
    :members:
    :undoc-members:
    :show-inheritance:
-

@@ -24,4 +24,3 @@ toupy.registration.shift module
    :members:
    :undoc-members:
    :show-inheritance:
-

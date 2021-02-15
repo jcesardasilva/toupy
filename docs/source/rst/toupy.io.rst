@@ -32,4 +32,3 @@ toupy.io.h5chunk\_shape\_3D module
    :members:
    :undoc-members:
    :show-inheritance:
-
