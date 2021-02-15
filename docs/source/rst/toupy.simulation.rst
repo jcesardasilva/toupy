@@ -16,4 +16,3 @@ toupy.simulation.phantom\_creator module
    :members:
    :undoc-members:
    :show-inheritance:
-
