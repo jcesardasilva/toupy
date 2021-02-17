@@ -575,15 +575,10 @@ def write_paramsh5(h5filename, **params):
                 ff.create_dataset("info/{}".format(k), data=v, dtype=bool)
             elif isinstance(v, np.ndarray):  # float array
                 ff.create_dataset("info/{}".format(k), data=v, dtype=np.float32)
-<<<<<<< HEAD
-	    elif isinstance(v, list):  # list to float array
-                ff.create_dataset("info/{}".format(k), data=np.array(v), dtype=np.float16)
-=======
             elif isinstance(v, list):  # list to float array
                 ff.create_dataset(
                     "info/{}".format(k), data=np.array(v), dtype=np.float16
                 )
->>>>>>> 78e1670b94ebdc4660469374189b54fc50016210
             elif (
                 isinstance(v, np.float32)
                 or isinstance(v, float)
