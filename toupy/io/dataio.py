@@ -100,7 +100,7 @@ class PathName:
             Samplename
         params["regime"] : str
             Regime of imaging
-        
+
         """
         self.pathfilename = os.path.abspath(params["pathfilename"])
         self.useraccount = params["account"]
@@ -169,10 +169,10 @@ class PathName:
         if self.fileext == ".edf":
             scan_wcard = re.sub(r"_\d{4}.edf", "*.edf", self.pathfilename)
         elif self.fileext == ".ptyr":  # Ptypy
-	    # TODO: correct the path name if the calculations are done in cuda or not
+            # TODO: correct the path name if the calculations are done in cuda or not
             # ~ scan_wcard = os.path.join(
-                # ~ re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
-                # ~ self.metadatafilewcard() + "_ML" + self.fileext,
+            # ~ re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
+            # ~ self.metadatafilewcard() + "_ML" + self.fileext,
             # ~ )
             scan_wcard = os.path.join(
                 re.sub(self.scanprefix + r"_\w*", self.scanprefix + "_*", self.dirname),
@@ -1037,7 +1037,7 @@ class LoadData(PathName, Variables):
     @classmethod
     def load_olddata(cls, *args, **params):
         """
-        Load old data from h5 file. It should disappear soon. 
+        Load old data from h5 file. It should disappear soon.
 
         Parameters
         ----------
@@ -1274,10 +1274,9 @@ class LoadData(PathName, Variables):
             stack_projs = np.angle(stack_projs)
             print("\b\b Done")
         if self.params["correct_bad"]:
-            stack_projs = replace_bad(stack_projs,
-                list_bad = self.params["bad_projs"],
-                temporary=True
-                )
+            stack_projs = replace_bad(
+                stack_projs, list_bad=self.params["bad_projs"], temporary=True
+            )
         print("Projections loaded from file {}".format(h5name))
         print("Time elapsed = {:.03f} s".format(time.time() - it0))
         return stack_projs, theta, shiftstack, datakwargs
@@ -1394,7 +1393,7 @@ class SaveTomogram(SaveData):
         """
         Parameters
         ----------
-        *args 
+        *args
             positional arguments
         args[0] : str
             H5 file name
@@ -1532,7 +1531,7 @@ class SaveTomogram(SaveData):
             Values of theta
         args[3] : array_like
             Array containing the shifts for each projection in the stack
-    """
+        """
         tomogram = args[0]
         nslices, nr, nc = tomogram.shape
 

@@ -69,12 +69,12 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
 
     Returns
     -------
-    tuple 
+    tuple
         Returns integer chunk lengths of a chunk shape that provides
         balanced access of 1D subsets and 2D subsets of a netCDF or HDF5
         variable var with shape (T, X, Y), where the 1D subsets are of the
         form var[:,x,y] and the 2D slices are of the form var[t,:,:],
-        typically 1D time series and 2D spatial slices. 
+        typically 1D time series and 2D spatial slices.
 
     Notes
     -----
@@ -82,7 +82,7 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
     kind of 1D or 2D subset is approximately equal, and the size of
     each chunk (uncompressed) is no more than chunkSize, which is
     often a disk block size. Code fetched from [#code1]_ and [#code2]_.
-    
+
     References
     ----------
     .. [#site] https://www.unidata.ucar.edu/blogs/developer/en/entry/chunking_data_choosing_shapes
