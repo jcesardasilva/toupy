@@ -49,7 +49,7 @@ def read_recon(filename, correct_orientation=False):
     """
     Wrapper for choosing the function to read recon file
 
-    
+
     Parameters
     ----------
     pathfilename : str
@@ -112,7 +112,7 @@ def read_volfile(filename):
 
     Note
     ----
-    The volume info file containing the metadata of the volume should be 
+    The volume info file containing the metadata of the volume should be
     in the same folder as the volume file.
     """
     # Usually, the file .vol.info contains de size of the volume
@@ -128,7 +128,8 @@ def read_volfile(filename):
     tomogram = np.fromfile(filename, dtype=np.float32).reshape((z_size, x_size, y_size))
 
     return tomogram
-    
+
+
 def memmap_volfile(filename):
     """
     Memory map the tomogram from .vol file
@@ -150,7 +151,7 @@ def memmap_volfile(filename):
 
     Note
     ----
-    The volume info file containing the metadata of the volume should be 
+    The volume info file containing the metadata of the volume should be
     in the same folder as the volume file.
     """
     # Usually, the file .vol.info contains de size of the volume
@@ -163,7 +164,9 @@ def memmap_volfile(filename):
     y_size = int(linesff[2].split("=")[1])
     z_size = int(linesff[3].split("=")[1])
     # Now we read indeed the .vol file
-    tomogram = np.memmap(filename, dtype=np.float32,mode="r", shape=(z_size, x_size, y_size))
+    tomogram = np.memmap(
+        filename, dtype=np.float32, mode="r", shape=(z_size, x_size, y_size)
+    )
 
     return tomogram
 
@@ -520,10 +523,10 @@ def load_paramsh5(**params):
         out_params = dict()
         for keys in sorted(list(fid["info"].keys())):
             out_params[keys] = fid["info/{}".format(keys)][()]
-	    #TODO: this is a quick fix to convert bytes to str
-	    # have to find a better and more elegant way to do this
-            if isinstance(out_params[keys],bytes):
-                out_params[keys] = str(out_params[keys],'utf-8')
+            # TODO: this is a quick fix to convert bytes to str
+            # have to find a better and more elegant way to do this
+            if isinstance(out_params[keys], bytes):
+                out_params[keys] = str(out_params[keys], "utf-8")
     out_params.update(params)  # add/update with new values
     return out_params
 
@@ -567,13 +570,15 @@ def write_paramsh5(h5filename, **params):
                 v = "none"
                 ff.create_dataset("info/{}".format(k), data=v, dtype=dt)
             elif isinstance(v, str):  # string
-                ff.create_dataset("info/{}".format(k), data=v.decode('utf-8'), dtype=dt)
+                ff.create_dataset("info/{}".format(k), data=v.decode("utf-8"), dtype=dt)
             elif isinstance(v, bool) or isinstance(v, np.bool_):  # boolean
                 ff.create_dataset("info/{}".format(k), data=v, dtype=bool)
             elif isinstance(v, np.ndarray):  # float array
                 ff.create_dataset("info/{}".format(k), data=v, dtype=np.float32)
-	        elif isinstance(v, list):  # list to float array
-                ff.create_dataset("info/{}".format(k), data=np.array(v), dtype=np.float16)
+            elif isinstance(v, list):  # list to float array
+                ff.create_dataset(
+                    "info/{}".format(k), data=np.array(v), dtype=np.float16
+                )
             elif (
                 isinstance(v, np.float32)
                 or isinstance(v, float)
@@ -584,8 +589,8 @@ def write_paramsh5(h5filename, **params):
                 isinstance(v, np.int32) or isinstance(v, np.int) or isinstance(v, int)
             ):  # integer
                 ff.create_dataset("info/{}".format(k), data=v, dtype=np.int16)
-            elif isinstance(v,bytes):
-                ff.create_dataset("info/{}".format(k), data=v.decode('utf-8'), dtype=dt)
+            elif isinstance(v, bytes):
+                ff.create_dataset("info/{}".format(k), data=v.decode("utf-8"), dtype=dt)
             else:
                 ff.create_dataset("info/{}".format(k), data=v)  # other
 
@@ -613,14 +618,14 @@ def read_tiff(imgpath):
     >>> np.max(ar)
     65535
     """
-    #tiff = libtiff.TIFF.open(imgpath, mode="r")
-    #imgout = tiff.read_image()
-    #tiff.close()
+    # tiff = libtiff.TIFF.open(imgpath, mode="r")
+    # imgout = tiff.read_image()
+    # tiff.close()
     imgout = io.imread(imgpath)
     return imgout
 
 
-def write_tiff(input_array, pathfilename,plugin='tifffile'):
+def write_tiff(input_array, pathfilename, plugin="tifffile"):
     """
     Write tiff files using skimag.io.imsave
 
@@ -632,10 +637,10 @@ def write_tiff(input_array, pathfilename,plugin='tifffile'):
         Path and filename to save the file
     """
     # Writing to file
-    #tiff = libtiff.TIFF.open(pathfilename, "w")
-    #tiff.write_image(input_array)
-    #tiff.close()
-    io.imsave(pathfilename,input_array,plugin=plugin)
+    # tiff = libtiff.TIFF.open(pathfilename, "w")
+    # tiff.write_image(input_array)
+    # tiff.close()
+    io.imsave(pathfilename, input_array, plugin=plugin)
 
 
 def write_tiffmetadata(filename, low_cutoff, high_cutoff, factor, **params):
