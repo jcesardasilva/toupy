@@ -256,7 +256,7 @@ def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear"):
     deltashift = np.zeros_like(shiftstack)
     deltashift[1] = shiftstack[1].copy()
     output_stack = compute_aligned_stack(
-        input_stack, shiftstack, shift_method=shift_method
+        input_stack, deltashift, shift_method=shift_method
     )
     return output_stack
 
@@ -581,6 +581,9 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
     if not isinstance(params["maxit"], int):
         params["maxit"] = 10
 
+    try: params['alignx']
+    except: params['alignx']=False
+
     limrow, limcol = _selectROI(input_stack.shape, **params)
     lims = (limrow, limcol)
 
@@ -650,15 +653,16 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
         input_stack, lims, shiftstack, metric_error, vert_fluct_init, RP, **params
     )
 
-    # Subpixel precision
-    print("\n================================================")
-    print("Registration of projections with subpixel precision")
-    print("================================================")
+    if not isinstance(params["pixtol"], int) or np.mod(params["pixtol"],1)!=0:
+        # Subpixel precision
+        print("\n================================================")
+        print("Registration of projections with subpixel precision")
+        print("================================================")
 
-    params["subpixel"] = True
-    shiftstack, metric_error = _alignprojections_vertical(
-        input_stack, lims, shiftstack, metric_error, vert_fluct_init, RP, **params
-    )
+        params["subpixel"] = True
+        shiftstack, metric_error = _alignprojections_vertical(
+            input_stack, lims, shiftstack, metric_error, vert_fluct_init, RP, **params
+        )
 
     # Compute the shifted images
     print("Computing aligned images")

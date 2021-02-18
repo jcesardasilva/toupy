@@ -102,9 +102,9 @@ def distance(pixel1, pixel2):
     return np.sqrt(np.sum((pixel1 - pixel2) ** 2))
 
 
-def get_charge(residues):
+def _get_charge(residues):
     """
-    Get the residues charges
+    Auxiliary function to get the residues charges
 
     Parameters
     ----------
@@ -122,8 +122,30 @@ def get_charge(residues):
     respos = len(posres[0])
     negres = np.where(np.round(residues) == -1)
     resneg = len(negres[0])
+    
+    nres = respos+resneg
+    
+    return posres, negres, nres
 
-    nres = respos + resneg
+
+def get_charge(residues):
+    """
+    Get the residues charges
+
+    Parameters
+    ----------
+    residues : ndarray
+        A 2-dimensional array containing the with residues
+
+    Returns
+    -------
+    posres : array_like
+        Positions of the residues with positive charge
+    negres : array_like
+        Positions of the residues with negative charge
+    """
+    posres, negres, nres = _get_charge(residues)
+
     print("Found {:>3.0f} residues".format(nres), end="")
 
     return posres, negres
@@ -175,10 +197,10 @@ def phaseresidues(phimage):
     residues += wraptopi(phimage[1:-1, 1:-1] - phimage[1:-1, 2:])
     residues /= 2 * np.pi
 
-    respos, resneg = get_charge(residues)
+    respos, resneg, nres = _get_charge(residues)
     residues_charge = dict(pos=respos, neg=resneg)
 
-    return residues, residues_charge
+    return residues, residues_charge, nres
 
 
 def phaseresiduesStack(stack_array):
@@ -199,16 +221,19 @@ def phaseresiduesStack(stack_array):
         Positions of the residues in the format ``posres = (yres,xres)``
     """
     resmap = 0
-    for ii in range(stack_array.shape[0]):
-        print(
-            "\rSearching for residues in projection {:>4.0f} ... ".format(ii + 1),
-            end="",
-        )
-        residues, residues_charge = phaseresidues(stack_array[ii])
+    nproj = stack_array.shape[0]
+    for ii in range(nproj):
+        # print(
+        #     "\rSearching for residues in projection {:>4.0f} ... ".format(ii + 1),
+        #     end="",
+        # )
+        strbar = "Searching for residues in projection {} out of {}".format(ii + 1, nproj)
+        residues, residues_charge, nres = phaseresidues(stack_array[ii])
         resmap += np.abs(residues)
+        progbar(ii+1,nproj,strbar+" ({} residues)".format(nres))
     print(". Done")
     posres = np.where(resmap >= 1.0)
-    return resmap, posres
+    return resmap, posres, nres
 
 
 def chooseregiontounwrap(stack_array):
@@ -228,27 +253,28 @@ def chooseregiontounwrap(stack_array):
     airpix : tuple
         Position of the pixel which should contains only air/vacuum
     """
-    resmap, posres = phaseresiduesStack(stack_array)
+    resmap, posres, nres = phaseresiduesStack(stack_array)
     yres, xres = posres
 
     # display the residues
     plt.close("all")
     plt.figure(1)
-    plt.imshow(resmap, cmap="jet")
+    plt.imshow(stack_array[0], cmap="bone")
+    #plt.imshow(resmap, cmap="jet")
     plt.axis("tight")
     plt.plot(xres, yres, "or")
     plt.show(block=False)
 
     # choosing the are for the unwrapping
     while True:
-        plt.ion()
-        fig = plt.figure(2)
-        plt.clf()
-        ax1 = fig.add_subplot(111)
-        im1 = ax1.imshow(stack_array[0], cmap="bone")
-        ax1.plot(xres, yres, "or")
-        ax1.axis("tight")
-        plt.show(block=False)
+        # plt.ion()
+        # fig = plt.figure(2)
+        # plt.clf()
+        # ax1 = fig.add_subplot(111)
+        # im1 = ax1.imshow(stack_array[0], cmap="bone")
+        # ax1.plot(xres, yres, "or")
+        # ax1.axis("tight")
+        # plt.show(block=False)
         print(
             "The array dimensions are {} x {}".format(
                 stack_array[0].shape[0], stack_array[0].shape[1]
@@ -292,7 +318,22 @@ def chooseregiontounwrap(stack_array):
         print("Chosen region contains {} residues in total".format(num_residues))
 
         # update images with boudaries
-        ax1 = _plotdelimiters(ax1, ry, rx, airpix)
+        #ax1 = _plotdelimiters(ax1, ry, rx, airpix) # TODO: fixme
+        
+        plt.ion()
+        fig = plt.figure(2)
+        plt.clf()
+        ax1 = fig.add_subplot(111)
+        im1 = ax1.imshow(stack_array[0], cmap="bone")
+        ax1.plot(xres, yres, "or")
+        ax1.axis("tight")
+        #plt.show(block=False)
+        ax1.plot([rx[0], rx[-1]], [ry[0], ry[0]], "b")
+        ax1.plot([rx[0], rx[-1]], [ry[-1], ry[-1]], "b-")
+        ax1.plot([rx[0], rx[0]], [ry[0], ry[-1]], "b-")
+        ax1.plot([rx[-1], rx[-1]], [ry[0], ry[-1]], "b-")
+        if airpix != []:
+            ax1.plot(airpix[0], airpix[1], "ob")
         ax1.set_title("First projection with boundaries")
         plt.show(block=False)
 

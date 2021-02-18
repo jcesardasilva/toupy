@@ -51,8 +51,11 @@ def _converter_factor(input_img, energy, voxelsize):
     """
     Yields the factor to convert image gray-levels to quantitative values
     """
-    if isinstance(voxelsize, list) or isinstance(voxelsize, np.ndarray):
+    if isinstance(voxelsize, list):
         if len(voxelsize) >= 1:
+            voxelsize = voxelsize[0]
+    elif isinstance(voxelsize, np.ndarray):
+        if voxelsize.ndim !=0:
             voxelsize = voxelsize[0]
 
     wavelen = (12.4 / energy) * 1e-10  # in meters
