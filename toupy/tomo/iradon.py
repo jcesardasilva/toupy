@@ -411,6 +411,11 @@ def backprojector(sinogram, theta, **params):
     #~ if not nosilx:
         #~ print("Forcing param['opencl']=False")
         #~ params["opencl"]=False
+    try: params["weight_angles"]
+    except: params["weight_angles"] = False
+    
+    try: params["opencl"]
+    except: params["opencl"] = False
         
     if params["opencl"]:
         # using Silx backprojector

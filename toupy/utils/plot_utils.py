@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 __all__ = [
+    "isnotebook",
     "autoscale_y",
     "RegisterPlot",
     "ShowProjections",
@@ -22,6 +23,21 @@ __all__ = [
     "display_slice",
 ]
 
+def isnotebook():
+    """
+    Check if code is executed in the IPython notebook.
+    This is important because jupyter notebook does not support iterative plots
+    """
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False
 
 def interativesession(func):
     """
@@ -41,12 +57,12 @@ def interativesession(func):
 def autoscale_y(ax, margin=0.1):
     """
     This function rescales the y-axis based on the data that is visible given the current xlim of the axis.
-    
+
     Parameters
     ----------
     ax : object
         A matplotlib axes object
-    margin : float 
+    margin : float
         The fraction of the total height of the y-data to pad the upper and lower ylims
     """
 
@@ -110,7 +126,8 @@ def _createcanvashorizontal(
     cmin = params["sinolow"]
 
     # Display one reconstructed slice
-    fig1 = plt.figure(num=1)
+    if isnotebook(): fig1 = plt.figure(num=1,figsize=(12,5))
+    else: fig1 = plt.figure(num=1)
     plt.clf()
     ax11 = fig1.add_subplot(111)
     im11 = ax11.imshow(recons, cmap="jet")
@@ -213,7 +230,7 @@ def _createcanvasvertical(
     fig2.show()
 
     # display vertical fluctuations as plots
-    fig3 = plt.figure(num=3, figsize=figsize)
+    fig3 = plt.figure(num=3)#, figsize=figsize)
     plt.clf()
     ax31 = fig3.add_subplot(211)
     im31 = ax31.plot(vertfluctinit)
@@ -287,14 +304,14 @@ class RegisterPlot:
         self.metric_error = metric_error
         self.count = count
 
-        # figures display
-        nr, nc = self.vertfluctinit.shape  # for the image display
-        if nc > nr:
-            figsize = (np.round(6 * nc / nr), 6)
-        else:
-            figsize = (6, np.round(6 * nr / nc))
+        # # figures display
+        # nr, nc = self.vertfluctinit.shape  # for the image display
+        # if nc > nr:
+        #     figsize = (np.round(6 * nc / nr), 6)
+        # else:
+        #     figsize = (6, np.round(6 * nr / nc))
 
-        if self.count == 0:
+        if self.count == 0 and not isnotebook():
             # Preparing the canvas for the figures
             fig_array, im_array, ax_array = _createcanvasvertical(
                 self.proj,
@@ -330,6 +347,36 @@ class RegisterPlot:
             self.ax41 = ax_array[5]  # ax41
             self.ax42 = ax_array[6]  # ax51
             self.updatevertical()
+        elif self.count == 0 and isnotebook():
+            # display one projection with limits
+            limrow, limcol = lims
+            fig1 = plt.figure(num=1)
+            plt.clf()
+            ax11 = fig1.add_subplot(111)
+            im11 = ax11.imshow(proj, cmap="bone")
+            ax11.set_title("Projection")
+            ax11.axis("image")
+            ax11 = _plotdelimiters(ax11, limrow, limcol)
+            fig1.tight_layout()
+            fig1.show()
+
+            # display vertical fluctuations as 2D images
+            fig2 = plt.figure(num=2)
+            plt.clf()
+            ax21 = fig2.add_subplot(211)
+            im21 = ax21.imshow(vertfluctinit, cmap="jet", interpolation="none")
+            ax21.axis("tight")
+            ax21.set_title("Initial Integral in x")
+            ax21.set_xlabel("Projection")
+            ax21.set_ylabel("y [pixels]")
+            ax22 = fig2.add_subplot(212)
+            im22 = ax22.imshow(vertfluctcurr, cmap="jet", interpolation="none")
+            ax22.axis("tight")
+            ax22.set_title("Current Integral in x")
+            ax22.set_xlabel("Projection")
+            ax22.set_ylabel("y [pixels]")
+            fig2.tight_layout()
+            fig2.show()
         else:
             self.updatevertical()
 
@@ -338,11 +385,33 @@ class RegisterPlot:
         """
         Update the plot canvas during vertical registration
         """
-        self.im21.set_data(self.vertfluctinit)
-        self.im22.set_data(self.vertfluctcurr)
+        # checking if code runs in notebook
+        # notebooks don't support iterative plots
+        if isnotebook():
+            # display vertical fluctuations as 2D images
+            fig2 = plt.figure(num=2)
+            plt.clf()
+            ax21 = fig2.add_subplot(211)
+            im21 = ax21.imshow(self.vertfluctinit, cmap="jet", interpolation="none")
+            ax21.axis("tight")
+            ax21.set_title("Initial Integral in x")
+            ax21.set_xlabel("Projection")
+            ax21.set_ylabel("y [pixels]")
+            ax22 = fig2.add_subplot(212)
+            im22 = ax22.imshow(self.vertfluctcurr, cmap="jet", interpolation="none")
+            ax22.axis("tight")
+            ax22.set_title("Current Integral in x")
+            ax22.set_xlabel("Projection")
+            ax22.set_ylabel("y [pixels]")
+            fig2.tight_layout()
+            fig2.show()
+        else:
+            self.im21.set_data(self.vertfluctinit)
+            self.im22.set_data(self.vertfluctcurr)
 
-        self.ax21.axes.figure.canvas.draw()
-        self.ax22.axes.figure.canvas.draw()
+            self.ax21.axes.figure.canvas.draw()
+            self.ax22.axes.figure.canvas.draw()
+
 
         # display vertical fluctuations as plots
         fig3 = plt.figure(num=3)
@@ -759,7 +828,7 @@ def plot_checkangles(angles):
     """
     Plot the angles for each projections and the derivatives to check
     for anomalies
-    
+
     Parameters
     ----------
     angles : array_like
@@ -804,7 +873,7 @@ def show_linearphase(image, mask, *args):
 def display_slice(recons, colormap="bone", vmin=None, vmax=None):
     """
     Display tomographic slice
-    
+
     Parameters
     ----------
     recons : array_like
@@ -822,7 +891,8 @@ def display_slice(recons, colormap="bone", vmin=None, vmax=None):
         vmax = None
 
     # plt.close("all")
-    fig = plt.figure()
+    if isnotebook(): fig = plt.figure(figsize=(12,7))
+    else: fig = plt.figure()
     plt.clf()
     ax1 = fig.add_subplot(111)
     ax1.imshow(recons, cmap=colormap, vmin=vmin, vmax=vmax)

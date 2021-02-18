@@ -19,7 +19,7 @@ __all__ = ["full_tomo_recons", "tomo_recons"]
 def tomo_recons(sinogram, theta, **params):
     """
     Wrapper to select tomographic algorithm
-    
+
     Parameters
     ----------
     sinogram : ndarray
@@ -33,19 +33,21 @@ def tomo_recons(sinogram, theta, **params):
     params["slicenum"] : int
         Slice number
     params["filtertype"] : str
-        Filter to use for FBP
+        Name of the filter to be applied in frequency domain filtering.
+        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`,
+        `hann`. Assign None to use no filter.
     params["freqcutoff"] : float
         Frequency cutoff (between 0 and 1)
     params["circle"] : bool
         Multiply the reconstructed slice by a circle to remove borders
     params["weight_angles"] : bool
-        If `True`, weights each projection with a factor proportional 
+        If `True`, weights each projection with a factor proportional
         to the angular distance between the neighboring
         projections.
 
         .. math::
             \Delta \phi_0 \longmapsto \Delta \phi_j = \frac{\phi_{j+1} - \phi_{j-1}}{2}
-    
+
     params["derivatives"] : bool
         If the projections are derivatives. Only for FBP.
     params["calc_derivatives"] : bool
