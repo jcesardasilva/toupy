@@ -7,12 +7,19 @@ from scipy.fftpack import fft, ifft, fftfreq
 from scipy.interpolate import interp1d
 from silx import version
 
-try:
-    from silx.opencl.backprojection import Backprojection
-except ModuleNotFoundError:
-    print('Not using pyopencl for the reconstruction')
-    print('The reconstruction will be slow.')
-    nosilx=True
+# local libraries import
+from ..utils.plot_utils import isnotebook
+
+if isnotebook: RunningInCOLAB = 'google.colab' in str(get_ipython())
+else: RunningInCOLAB = False
+
+if not RunningInCOLAB:
+    try:
+        from silx.opencl.backprojection import Backprojection
+    except ModuleNotFoundError:
+        print('Not using pyopencl for the reconstruction')
+        print('The reconstruction will be slow.')
+        nosilx=True
 
 #from nabu.reconstruction.fbp import Backprojector as Backprojection
 

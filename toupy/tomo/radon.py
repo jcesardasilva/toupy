@@ -5,12 +5,20 @@
 import numpy as np
 from skimage.transform import radon
 nosilx = False
-try:
-    from silx.opencl.projection import Projection
-except ModuleNotFoundError:
-    print('Not using pyopencl for the projection')
-    print('The projector will be slow.')
-    nosilx=True
+
+# local libraries import
+from ..utils.plot_utils import isnotebook
+
+if isnotebook: RunningInCOLAB = 'google.colab' in str(get_ipython())
+else: RunningInCOLAB = False
+
+if not RunningInCOLAB:
+    try:
+        from silx.opencl.projection import Projection
+    except ModuleNotFoundError:
+        print('Not using pyopencl for the projection')
+        print('The projector will be slow.')
+        nosilx=True
 
 
 __all__ = ["radonSilx", "projector"]
