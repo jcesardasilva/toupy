@@ -5,11 +5,16 @@
 import functools
 import math
 import re
+#import requests # This library is used to make requests to internet
 import shutil
 import socket
+import urllib
 import warnings
 
-__all__ = ["switch", "deprecated", "checkhostname", "progbar"]
+# local libraries imports
+from .plot_utils import isnotebook
+
+__all__ = ["switch", "deprecated", "checkhostname", "progbar", "downloadURL"]
 
 
 class switch(object):
@@ -68,7 +73,9 @@ def checkhostname(func):
     def new_func(*args, **kwargs):
         hostname = socket.gethostname()  # os.environ['HOST']
         # hostname.find('rnice')==0:
-        if re.search("hpc", hostname) or re.search("hib", hostname):
+        if isnotebook():
+            print("You are running in a Jupyter Notebook enviroment")
+        elif re.search("hpc", hostname) or re.search("hib", hostname):
             print("You are working on the OAR machine: {}".format(hostname))
         elif re.search("rnice", hostname):  # os.system('oarprint host')==0:
             print("You are working on the RNICE machine: {}".format(hostname))
@@ -76,14 +83,8 @@ def checkhostname(func):
         elif re.search("gpu", hostname) or re.search("gpid16a", hostname):
             print("You are working on the GPU: {}".format(hostname))
         else:
-            print(
-                "You running in machine {}, which is not an ESRF machine".format(
-                    hostname
-                )
-            )
-            a = input(
-                "Possibly running in the wrong machine. Do you have enough memory? (y/[n])"
-            ).lower()
+            print("You running in the machine {}".format(hostname))
+            a = input("Do you have enough memory? (y/[n])").lower()
             if str(a) == "" or str(a) == "n":
                 raise SystemExit("You must use more powerfull machines")
             if str(a) == "y":
@@ -135,3 +136,19 @@ def progbar(curr, total, textstr=""):
     textbar = "#" * filled_progbar + "-" * (full_progbar - filled_progbar)
     textperc = "[{:>7.2%}]".format(frac)
     print("\r", textbar, textperc, textstr, end="")
+    
+def downloadURL(url,fname):
+    """
+    Download file from a URL.
+    
+    Parameters
+    ----------
+    url : str
+        URL address
+    fname : str
+        Filename as to be stored
+    """
+    print(f"Downloading {fname} from {url}. Please be patient!")
+    urllib.request.urlretrieve(url, fname)
+    print("Done")
+    

@@ -12,12 +12,14 @@ import time
 
 # third party package
 import h5py
+from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
 
 # local packages
 from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
+from ..utils.plot_utils import isnotebook
 
 __all__ = ["FourierShellCorr", "FSCPlot"]
 
@@ -325,6 +327,12 @@ class FourierShellCorr:
         im2 = ax2.imshow(img2_apod, cmap="bone", interpolation="none")
         ax2.set_title("image2")
         ax2.set_axis_off()
+        if isnotebook():
+            display.display(fig1)
+            display.display(fig1.canvas)
+            #display.clear_output(wait=True)
+        else:
+            plt.show(block=False)
         plt.show(block=False)
 
         # FSC computation
@@ -448,7 +456,11 @@ class FSCPlot(FourierShellCorr):
         plt.ylim(0, 1.1)
         plt.xlabel("Spatial frequency/Nyquist")
         plt.ylabel("Magnitude")
-        plt.show(block=False)
+        if isnotebook():
+            display.display(plt.gcf())
+            display.clear_output(wait=True)
+        else:
+            plt.show(block=False)
         if self.img1.ndim == 2:
             plt.savefig("FSC_2D.png", bbox_inches="tight")
         elif self.img1.ndim == 3:
