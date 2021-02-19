@@ -4,17 +4,18 @@
 # standard libraries imports
 import functools
 import math
+import os
 import re
-#import requests # This library is used to make requests to internet
 import shutil
 import socket
 import urllib
+import urllib.request as urllib2
 import warnings
 
 # local libraries imports
 from .plot_utils import isnotebook
 
-__all__ = ["switch", "deprecated", "checkhostname", "progbar", "downloadURL"]
+__all__ = ["switch", "deprecated", "checkhostname", "progbar", "downloadURL", "downloadURLfile"]
 
 
 class switch(object):
@@ -136,7 +137,8 @@ def progbar(curr, total, textstr=""):
     textbar = "#" * filled_progbar + "-" * (full_progbar - filled_progbar)
     textperc = "[{:>7.2%}]".format(frac)
     print("\r", textbar, textperc, textstr, end="")
-    
+
+@deprecated    
 def downloadURL(url,fname):
     """
     Download file from a URL.
@@ -151,4 +153,45 @@ def downloadURL(url,fname):
     print(f"Downloading {fname} from {url}. Please be patient!")
     urllib.request.urlretrieve(url, fname)
     print("Done")
+
+def downloadURLfile(url, filename):
+    """
+    Download and save file from a URL.
+    
+    Parameters
+    ----------
+    url : str
+        URL address
+    fname : str
+        Filename as to be stored
+    """
+    u = urllib2.urlopen(url)
+
+    with open(filename, 'wb') as f:
+        meta = u.info()
+        meta_func = meta.getheaders if hasattr(meta, 'getheaders') else meta.get_all
+        meta_length = meta_func("Content-Length")
+        file_size = None
+        if meta_length:
+            file_size = int(meta_length[0])
+        print("Downloading: {0} Bytes: {1}".format(url, file_size))
+
+        file_size_dl = 0
+        block_sz = 8192
+        while True:
+            buffer = u.read(block_sz)
+            if not buffer:
+                break
+
+            file_size_dl += len(buffer)
+            f.write(buffer)
+
+            status = "{0:16}".format(file_size_dl)
+            if file_size:
+                status += "   [{0:6.2f}%]".format(file_size_dl * 100 / file_size)
+            status += chr(13)
+            print(status, end="")
+        print()
+
+    return filename
     
