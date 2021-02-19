@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # third party packages
+from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
 from skimage.restoration import unwrap_phase
 
 # local packages
 from ..utils.plot_utils import _plotdelimiters
-from ..utils import progbar
+from ..utils import progbar, isnotebook
 
 __all__ = [
     "wraptopi",
@@ -258,12 +259,18 @@ def chooseregiontounwrap(stack_array):
 
     # display the residues
     plt.close("all")
-    plt.figure(1)
-    plt.imshow(stack_array[0], cmap="bone")
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.imshow(stack_array[0], cmap="bone")
     #plt.imshow(resmap, cmap="jet")
-    plt.axis("tight")
-    plt.plot(xres, yres, "or")
-    plt.show(block=False)
+    ax.axis("tight")
+    ax.plot(xres, yres, "or")
+    if isnotebook():
+        display.display(fig)
+        display.display(fig.canvas)
+        #display.clear_output(wait=True)
+    else:
+        plt.show(block=False)
 
     # choosing the are for the unwrapping
     while True:
@@ -335,7 +342,11 @@ def chooseregiontounwrap(stack_array):
         if airpix != []:
             ax1.plot(airpix[0], airpix[1], "ob")
         ax1.set_title("First projection with boundaries")
-        plt.show(block=False)
+        if isnotebook():
+            display.display(fig)
+            display.display(fig.canvas)
+        else:
+            plt.show(block=False)
 
         ans = input("Are you happy with the boundaries?([y]/n)").lower()
         if str(ans) == "" or str(ans) == "y":
@@ -431,7 +442,12 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     # update images with boudaries
     ax1 = _plotdelimiters(ax1, ry, rx, airpix)
     ax1.axis("tight")
-    plt.show(block=False)
+    if isnotebook():
+        display.display(fig)
+        display.display(fig.canvas)
+        display.clear_output(wait=True)
+    else:
+        plt.show(block=False)
     while True:
         a = input("Do you want to edit the color scale?([y]/n)").lower()
         if str(a) == "" or str(a) == "y":

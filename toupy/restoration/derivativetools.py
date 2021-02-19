@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # third party packages
+from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
 
 # local packages
 from ..registration.shift import ShiftFunc
 from ..utils.plot_utils import _plotdelimiters
-from ..utils import progbar
+from ..utils import progbar, isnotebook
 
 __all__ = [
     "calculate_derivatives",
@@ -56,7 +57,12 @@ def chooseregiontoderivatives(stack_array, **params):
         im1 = ax1.imshow(stack_array[0], cmap="bone")
         ax1 = _plotdelimiters(ax1, roiy, roix)
         ax1.axis("tight")
-        plt.show(block=False)
+        if isnotebook():
+            display.display(fig)
+            display.display(fig.canvas)
+            #display.clear_output(wait=True)
+        else:
+            plt.show(block=False)
 
         ans = input("Are you happy with the boundaries? ([y]/n)").lower()
         if str(ans) == "" or str(ans) == "y":
