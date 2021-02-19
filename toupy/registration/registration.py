@@ -5,6 +5,7 @@
 import time
 
 # third party packages
+from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import center_of_mass, interpolation
@@ -18,6 +19,7 @@ from .shift import ShiftFunc
 from ..tomo import projector, tomo_recons
 from ..utils import (
     deprecated,
+    isnotebook,
     projectpoly1d,
     progbar,
     RegisterPlot,
@@ -345,7 +347,7 @@ def vertical_fluctuations(
     # Initialize shift class
     S = ShiftFunc(shiftmeth=shift_method)
     # array shape
-    _, nr, nc = input_stack.shape
+    nproj, nr, nc = input_stack.shape
     # separate the lims
     rows, cols = lims
     # get the maximum shift value
@@ -355,9 +357,10 @@ def vertical_fluctuations(
 
     # initializing array
     # +2*max_vshift))
-    vert_fluct = np.empty((input_stack.shape[0], rows[-1] - rows[0]))
-    for ii in range(input_stack.shape[0]):
-        print("Calculating for projection: {}".format(ii + 1), end="\r")
+    vert_fluct = np.empty((nproj, rows[-1] - rows[0]))
+    for ii in range(nproj):
+        #print("Calculating for projection: {}".format(ii + 1), end="\r")
+        strbar = "Projection {}".format(ii + 1)
         proj = input_stack[
             ii, rows[0] - max_vshift : rows[-1] + max_vshift, cols[0] : cols[-1]
         ]
@@ -367,6 +370,8 @@ def vertical_fluctuations(
         # to remove possible bias
         shift_calc = projectpoly1d(shift_calc, polyorder, 1)
         vert_fluct[ii] = shift_calc
+        if not isnotebook(): progbar(ii+1,nproj,strbar)
+    print("\r")
     return vert_fluct
 
 
@@ -1121,12 +1126,14 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     """
     print("Starting Tomographic consistency on multiple slices")
     # select the slices, which are typically +5 and -5 relative to slicenum
-    slices = np.arange(params["slicenum"] - 5, params["slicenum"] + 5)
+    slicenumorig = params["slicenum"]
+    slices = np.arange(slicenumorig - 5, slicenumorig + 5)
     shiftslice = np.expand_dims(shiftstack[1], axis=0)
     shiftslice_prev = shiftslice.copy()
     shiftxrefine = []
     for ii in slices:
-        print("\nAligning slice {}".format(ii + 1))
+        print("\nAligning slice {}".format(ii))
+        params["slicenum"] = ii
         sinogram = np.transpose(input_stack[:, ii, :])  # create the sinogram
         shiftstack_aux = alignprojections_horizontal(
             sinogram, theta, shiftstack, **params
@@ -1154,7 +1161,11 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     ax2.set_title("Average displacements in x")
     ax2.set_xlabel("Projection number")
     plt.tight_layout()
-    plt.show()
+    if isnotebook:
+        display.display(fig)
+        display.display(fig.canvas)
+    else:
+        plt.show(block=False)
     a = input(
         "Are you happy with the tomographic consistency alignment of the multiples slices? ([y]/n) "
     ).lower()
@@ -1513,7 +1524,13 @@ def estimate_rot_axis(input_array, theta, **params):
         ax2.axis("tight")
         ax2.set_title("Sinogram - Slice".format(slicenum))
         fig1.colorbar(im2)
-        plt.show(block=False)
+        if isnotebook():
+            display.display(fig1)
+            display.display(fig1.canvas)
+            display.clear_output(wait=True)
+        else:
+            fig1.show(block=False)
+        #plt.show(block=False)
         a = input("Are you happy with the rotation axis?([y]/n)").lower()
         if a == "" or a == "y":
             break

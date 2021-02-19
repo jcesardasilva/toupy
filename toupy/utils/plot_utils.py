@@ -5,6 +5,7 @@
 import functools
 
 # third party packages
+from IPython import display
 import matplotlib
 import matplotlib.animation as animation
 from matplotlib.colors import hsv_to_rgb
@@ -136,7 +137,12 @@ def _createcanvashorizontal(
     ax11.set_xlabel("x [pixels]")
     ax11.set_ylabel("y [pixels]")
     fig1.tight_layout()
-    fig1.show()
+    if isnotebook():
+        display.display(fig1)
+        display.display(fig1.canvas)
+        #display.clear_output(wait=True)
+    else:
+        fig1.show()
 
     # Display initial, current and synthetic sinograms
     fig2 = plt.figure(num=2, figsize=(6, 10))
@@ -160,7 +166,12 @@ def _createcanvashorizontal(
     ax23.set_xlabel("Projection")
     ax23.set_ylabel("x [pixels]")
     fig2.tight_layout()
-    fig2.show()
+    if isnotebook():
+        display.display(fig2)
+        display.display(fig2.canvas)
+        #display.clear_output(wait=True)
+    else:
+        fig2.show()
 
     # Display deltaslice and metric_error
     fig3 = plt.figure(num=3)
@@ -174,7 +185,12 @@ def _createcanvashorizontal(
     ax32.axis("tight")
     ax32.set_title("Error metric")
     fig3.tight_layout()
-    fig3.show()
+    if isnotebook():
+        display.display(fig3)
+        display.display(fig3.canvas)
+        #display.clear_output(wait=True)
+    else:
+        fig3.show()
 
     plt.pause(0.001)
 
@@ -209,7 +225,12 @@ def _createcanvasvertical(
     ax11.axis("image")
     ax11 = _plotdelimiters(ax11, limrow, limcol)
     fig1.tight_layout()
-    fig1.show()
+    if isnotebook():
+        display.display(fig1)
+        display.display(fig1.canvas)
+        display.clear_output(wait=False)
+    else:
+        fig1.show()
 
     # display vertical fluctuations as 2D images
     fig2 = plt.figure(num=2, figsize=figsize)
@@ -227,7 +248,12 @@ def _createcanvasvertical(
     ax22.set_xlabel("Projection")
     ax22.set_ylabel("y [pixels]")
     fig2.tight_layout()
-    fig2.show()
+    if isnotebook():
+        display.display(fig2)
+        display.display(fig2.canvas)
+        display.clear_output(wait=False)
+    else:
+        fig2.show()
 
     # display vertical fluctuations as plots
     fig3 = plt.figure(num=3)#, figsize=figsize)
@@ -249,7 +275,12 @@ def _createcanvasvertical(
     ax32.set_xlabel("Vertical coordinates [pixels]")
     ax32.set_ylabel("y [pixels]")
     fig3.tight_layout()
-    fig3.show()
+    if isnotebook():
+        display.display(fig3)
+        display.display(fig3.canvas)
+        display.clear_output(wait=False)
+    else:
+        fig3.show()
 
     # shifts
     fig4 = plt.figure(num=4)
@@ -264,7 +295,12 @@ def _createcanvasvertical(
     ax42.axis("tight")
     ax42.set_title("Error metric")
     fig4.tight_layout()
-    fig4.show()
+    if isnotebook():
+        display.display(fig4)
+        display.display(fig4.canvas)
+        display.clear_output(wait=False)
+    else:
+        fig4.show()
 
     plt.pause(0.001)
 
@@ -358,25 +394,29 @@ class RegisterPlot:
             ax11.axis("image")
             ax11 = _plotdelimiters(ax11, limrow, limcol)
             fig1.tight_layout()
-            fig1.show()
+            display.display(fig1)
+            display.display(fig1.canvas)
+            display.clear_output(wait=False)
 
             # display vertical fluctuations as 2D images
             fig2 = plt.figure(num=2)
             plt.clf()
             ax21 = fig2.add_subplot(211)
-            im21 = ax21.imshow(vertfluctinit, cmap="jet", interpolation="none")
+            im21 = ax21.imshow(self.vertfluctinit, cmap="jet", interpolation="none")
             ax21.axis("tight")
             ax21.set_title("Initial Integral in x")
             ax21.set_xlabel("Projection")
             ax21.set_ylabel("y [pixels]")
             ax22 = fig2.add_subplot(212)
-            im22 = ax22.imshow(vertfluctcurr, cmap="jet", interpolation="none")
+            im22 = ax22.imshow(self.vertfluctcurr, cmap="jet", interpolation="none")
             ax22.axis("tight")
             ax22.set_title("Current Integral in x")
             ax22.set_xlabel("Projection")
             ax22.set_ylabel("y [pixels]")
             fig2.tight_layout()
-            fig2.show()
+            display.display(fig2)
+            display.display(fig2.canvas)
+            display.clear_output(wait=False)
         else:
             self.updatevertical()
 
@@ -404,7 +444,8 @@ class RegisterPlot:
             ax22.set_xlabel("Projection")
             ax22.set_ylabel("y [pixels]")
             fig2.tight_layout()
-            fig2.show()
+            display.display(fig2)
+            display.display(fig2.canvas)
         else:
             self.im21.set_data(self.vertfluctinit)
             self.im22.set_data(self.vertfluctcurr)
@@ -433,7 +474,11 @@ class RegisterPlot:
         ax32.set_xlabel("Vertical coordinates [pixels]")
         ax32.set_ylabel("y [pixels]")
         fig3.tight_layout()
-        fig3.show()
+        if isnotebook():
+            display.display(fig3)
+            display.display(fig3.canvas)
+        else:
+            fig3.show()
 
         # shifts
         fig4 = plt.figure(num=4)
@@ -448,7 +493,11 @@ class RegisterPlot:
         ax42.axis("tight")
         ax42.set_title("Error metric")
         fig4.tight_layout()
-        fig4.show()
+        if isnotebook():
+            display.display(fig4)
+            display.display(fig4.canvas)
+        else:
+            fig4.show()
 
         # TOCHECK: Find out why this does not work
         # ~ for lnum,line in enumerate(self.im32):
@@ -513,14 +562,58 @@ class RegisterPlot:
         """
         Update the plot canvas during horizontal registration
         """
-        self.im11.set_data(self.recons)
-        self.im22.set_data(self.sinocurr)
-        self.im23.set_data(self.sinocomp)
+        # checking if code runs in notebook
+        # notebooks don't support iterative plots
+        if isnotebook():
+            slicenum = self.params["slicenum"]
+            cmax = self.params["sinohigh"]
+            cmin = self.params["sinolow"]
+            # Display one reconstructed slice
+            fig1 = plt.figure(num=1,figsize=(12,5))
+            plt.clf()
+            ax11 = fig1.add_subplot(111)
+            im11 = ax11.imshow(self.recons, cmap="jet")
+            ax11.axis("image")
+            ax11.set_title("Slice number: {}".format(slicenum))
+            ax11.set_xlabel("x [pixels]")
+            ax11.set_ylabel("y [pixels]")
+            fig1.tight_layout()
+            display.display(fig1)
+            display.display(fig1.canvas)
+            # Display initial, current and synthetic sinograms
+            fig2 = plt.figure(num=2, figsize=(6, 10))
+            plt.clf()
+            ax21 = fig2.add_subplot(311)
+            im21 = ax21.imshow(self.sinoorig, cmap="bone", vmin=cmin, vmax=cmax)
+            ax21.axis("tight")
+            ax21.set_title("Initial sinogram")
+            ax21.set_xlabel("Projection")
+            ax21.set_ylabel("x [pixels]")
+            ax22 = fig2.add_subplot(312)
+            im22 = ax22.imshow(self.sinocurr, cmap="bone", vmin=cmin, vmax=cmax)
+            ax22.axis("tight")
+            ax22.set_title("Current sinogram")
+            ax22.set_xlabel("Projection")
+            ax22.set_ylabel("x [pixels]")
+            ax23 = fig2.add_subplot(313)
+            im23 = ax23.imshow(self.sinocomp, cmap="bone", vmin=cmin, vmax=cmax)
+            ax23.axis("tight")
+            ax23.set_title("Synthetic sinogram")
+            ax23.set_xlabel("Projection")
+            ax23.set_ylabel("x [pixels]")
+            fig2.tight_layout()
+            display.display(fig2)
+            display.display(fig2.canvas)
+            #display.clear_output(wait=True)
+        else:
+            self.im11.set_data(self.recons)
+            self.im22.set_data(self.sinocurr)
+            self.im23.set_data(self.sinocomp)
 
-        self.ax11.set_title("Reconstruced slice. Iteration {}".format(self.count))
-        self.ax11.axes.figure.canvas.draw()
-        self.ax22.axes.figure.canvas.draw()
-        self.ax23.axes.figure.canvas.draw()
+            self.ax11.set_title("Reconstruced slice. Iteration {}".format(self.count))
+            self.ax11.axes.figure.canvas.draw()
+            self.ax22.axes.figure.canvas.draw()
+            self.ax23.axes.figure.canvas.draw()
 
         # shifts and error metric
         fig3 = plt.figure(num=3)
@@ -534,7 +627,11 @@ class RegisterPlot:
         ax32.axis("tight")
         ax32.set_title("Error metric")
         fig3.tight_layout()
-        fig3.show()
+        if isnotebook():
+            display.display(fig3)
+            display.display(fig3.canvas)
+        else:
+            fig3.show()
 
         # ~ self.im31.set_ydata(deltaslice.T)
         # ~ self.im32.set_ydata(metric_error)
@@ -613,7 +710,11 @@ def iterative_show(
         projection = stack_array[ii][slarrayii]
         im1.set_data(projection)
         ax1.set_title("Projection {}".format(ii + 1))
-        fig.show()
+        if isnotebook():
+            display.display(fig)
+            display.display(fig.canvas)
+        else:
+            fig.show()
         plt.pause(0.001)
 
 
@@ -891,7 +992,7 @@ def display_slice(recons, colormap="bone", vmin=None, vmax=None):
         vmax = None
 
     # plt.close("all")
-    if isnotebook(): fig = plt.figure(figsize=(12,7))
+    if isnotebook(): fig = plt.figure(figsize=(12,5))
     else: fig = plt.figure()
     plt.clf()
     ax1 = fig.add_subplot(111)
@@ -900,5 +1001,9 @@ def display_slice(recons, colormap="bone", vmin=None, vmax=None):
     ax1.set_title("Aligned tomographic slice")
     ax1.set_xlabel("x [pixels]")
     ax1.set_ylabel("y [pixels]")
-    plt.show(block=False)
-    plt.pause(0.001)
+    if isnotebook():
+        display.display(fig)
+        display.display(fig.canvas)
+        #display.clear_output(wait=True)
+    else:
+        fig.show(block=False)
