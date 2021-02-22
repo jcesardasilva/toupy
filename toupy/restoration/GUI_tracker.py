@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # third party packages
+from IPython import display
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 from matplotlib.widgets import MultiCursor
@@ -17,7 +18,7 @@ from skimage.restoration import unwrap_phase
 from ..io.dataio import LoadData, SaveData
 from .ramptools import rmphaseramp, rmlinearphase, rmair
 from .roipoly import roipoly
-from ..utils import progbar
+from ..utils import progbar, isnotebook
 
 __all__ = ["gui_plotamp", "gui_plotphase", "AmpTracker", "PhaseTracker"]
 
@@ -155,7 +156,13 @@ def gui_plotamp(stack_objs, **params):
     fig.canvas.mpl_connect("scroll_event", tracker.onscroll)
     fig.canvas.mpl_connect("key_press_event", tracker.key_event)
     multi = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
-    plt.show(block=False)
+    #plt.show(block=False)
+    if isnotebook():
+        display.display(fig)
+        display.display(fig.canvas)
+        #display.clear_output(wait=True)
+    else:
+        fig.show()
     a = input("Press Enter to finish\n")
     # output of the linear phase removal
     stack_ampcorr = tracker.X1.copy()  # tracker.X1 is where the data is stored
@@ -292,7 +299,13 @@ def gui_plotphase(stack_objs, **params):
     fig.canvas.mpl_connect("scroll_event", tracker.onscroll)
     fig.canvas.mpl_connect("key_press_event", tracker.key_event)
     multi = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
-    plt.show(block=False)
+    #plt.show(block=False)
+    if isnotebook():
+        display.display(fig)
+        display.display(fig.canvas)
+        #display.clear_output(wait=True)
+    else:
+        fig.show()
     a = input("Press Enter to finish\n")
     # output of the linear phase removal
     stack_phasecorr = tracker.X1.copy()  # tracker.X1 is where the data is stored
