@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # third party packages
+from IPython import get_ipython
 import numpy as np
 from skimage.transform import radon
 nosilx = False

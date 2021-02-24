@@ -5,7 +5,7 @@
 import functools
 
 # third party packages
-from IPython import display
+from IPython import display, get_ipython
 import matplotlib
 import matplotlib.animation as animation
 from matplotlib.colors import hsv_to_rgb
