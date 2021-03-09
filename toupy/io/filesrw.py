@@ -105,11 +105,15 @@ def read_volfile(filename):
     ------
     tomogram : array_like
         3D array containing the tomogram
+    voxelsize : floats
+        Voxel size in meters
+    arrayshape : tuple of floats
+        The array shape: (x_size, y_size, z_size)
 
     Examples
     --------
     >>> volpath = 'volfilename.vol'
-    >>> tomogram = read_cxi(volpath)
+    >>> tomogram,voxelsize,arrayshape = read_volfile(volpath)
 
     Note
     ----
@@ -125,10 +129,12 @@ def read_volfile(filename):
     x_size = int(linesff[1].split("=")[1])
     y_size = int(linesff[2].split("=")[1])
     z_size = int(linesff[3].split("=")[1])
+    voxelsize = float(linesff[4].split("=")[1]) * 1e-6
+    arrayshape = (x_size, y_size, z_size)
     # Now we read indeed the .vol file
     tomogram = np.fromfile(filename, dtype=np.float32).reshape((z_size, x_size, y_size))
 
-    return tomogram
+    return tomogram, voxelsize, arrayshape
 
 
 def memmap_volfile(filename):
@@ -144,11 +150,15 @@ def memmap_volfile(filename):
     ------
     tomogram : array_like
         3D array containing the tomogram
+    voxelSize : floats
+        Voxel size in meters
+    arrayshape : tuple of floats
+        The array shape: (x_size, y_size, z_size)
 
     Examples
     --------
     >>> volpath = 'volfilename.vol'
-    >>> tomogram = read_cxi(volpath)
+    >>> tomogram,voxelsize,arrayshape = memmap_volfile(volpath)
 
     Note
     ----
@@ -164,12 +174,14 @@ def memmap_volfile(filename):
     x_size = int(linesff[1].split("=")[1])
     y_size = int(linesff[2].split("=")[1])
     z_size = int(linesff[3].split("=")[1])
+    voxelsize = float(linesff[4].split("=")[1]) * 1e-6
+    arrayshape = (x_size, y_size, z_size)
     # Now we read indeed the .vol file
     tomogram = np.memmap(
         filename, dtype=np.float32, mode="r", shape=(z_size, x_size, y_size)
     )
 
-    return tomogram
+    return tomogram, voxelsize, arrayshape
 
 
 def read_tiff_info(tiff_info_file):
