@@ -38,6 +38,7 @@ __all__ = [
     "read_tiff",
     "read_tiff_info",
     "read_volfile",
+    "memmap_volfile",
     "write_edf",
     "write_paramsh5",
     "write_tiff",
