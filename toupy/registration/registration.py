@@ -8,6 +8,7 @@ import time
 from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.fft import fft2, ifft2, fftshift, ifftshift
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy.ndimage.fourier import fourier_shift
@@ -98,7 +99,7 @@ def register_2Darrays(image1, image2):
 
     print("\nCorrecting the shift of image2 by using subpixel precision...")
     # (shift[0],-shift[1])))
-    offset_image2 = np.fft.ifftn(fourier_shift(np.fft.fftn(image2.copy()), shift))
+    offset_image2 = ifft2(fourier_shift(fft2(image2.copy()), shift))
     # TODO: check if we can use ShiftFunc here.
     offset_image2 *= np.exp(1j * diffphase)
 
@@ -787,7 +788,7 @@ def _filter_sino(sinogram, **params):
     apod_width = np.int(0.5 * N * (params["freqcutoff"]))
     filteraux = hanning_apod1D(N, apod_width)
     filteraux = np.tile(filteraux, (M, 1)).T
-    return np.real(np.fft.ifft(np.fft.fft(sinogram) * filteraux))
+    return np.real(ifft(fft(sinogram) * filteraux))
 
 
 def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
@@ -1634,8 +1635,8 @@ def estimate_rot_axis(input_array, theta, **params):
 # ~ ii
 # ~ )
 # ~ )
-# ~ # offset_stack_unwrap[ii] = np.fft.ifftn(fourier_shift(np.fft.fftn(img),shift))#
-# ~ # aligned[ii] = np.fft.ifftn(fourier_shift(np.fft.fftn(img),shift))#
+# ~ # offset_stack_unwrap[ii] = ifftn(fourier_shift(fftn(img),shift))#
+# ~ # aligned[ii] = ifftn(fourier_shift(fftn(img),shift))#
 # ~ # im1.set_data(offset_stack_unwrap[ii])
 # ~ im1.set_data(aligned[ii])
 # ~ ax1.set_title(u"Projection {}".format(ii))
@@ -1654,8 +1655,8 @@ def estimate_rot_axis(input_array, theta, **params):
 
 # ~ # View the output of a cross-correlation to show what the algorithm is
 # ~ # doing behind the scenes
-# ~ image_product = np.fft.fft2(image1) * np.fft.fft2(image2).conj()
-# ~ cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
+# ~ image_product = fft2(image1) * fft2(image2).conj()
+# ~ cc_image = fftshift(ifft2(image_product))
 # ~ ax3.imshow(cc_image.real)
 # ~ # ax3.set_axis_off()
 # ~ ax3.set_title("Cross-correlation")

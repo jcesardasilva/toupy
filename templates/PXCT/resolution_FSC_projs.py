@@ -11,6 +11,7 @@ import time
 # import of third party packages
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.fft import fft2, ifft2, fftshift, ifftshift
 from skimage.restoration import unwrap_phase
 import tkinter
 import tkinter.filedialog as tkFileDialog
@@ -111,8 +112,9 @@ if __name__ == "__main__":
     ax2.set_axis_off()
     ax2.set_title("Image 2")
     # View the output of a cross-correlation
-    image_product = np.fft.fft2(image1) * np.fft.fft2(image2).conj()
-    cc_image = np.fft.fftshift(np.fft.ifft2(image_product))
+    # TODO: consider to use pyfftw instead: 
+    image_product = fft2(image1) * fft2(image2).conj()
+    cc_image = fftshift(ifft2(image_product))
     ax3.imshow(cc_image.real)
     # ax3.set_axis_off()
     ax3.set_title("Cross-correlation")
