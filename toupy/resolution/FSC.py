@@ -15,6 +15,7 @@ import h5py
 from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.fft import fftshift, ifftshift
 
 # local packages
 from ..utils.FFT_utils import fastfftn
@@ -131,8 +132,8 @@ class FourierShellCorr:
             / np.floor(self.nr / 2.0)
         )
         # bring the central pixel to the corners  (important for odd array dimensions)
-        x = np.fft.ifftshift(x)
-        y = np.fft.ifftshift(y)
+        x = ifftshift(x)
+        y = ifftshift(y)
         if self.ndim == 2:
             # meshgriding
             X = np.meshgrid(x, y)
@@ -143,7 +144,7 @@ class FourierShellCorr:
                 / np.floor(self.ns / 2.0)
             )
             # bring the central pixel to the corners  (important for odd array dimensions)
-            z = np.fft.ifftshift(z)
+            z = ifftshift(z)
             # meshgriding
             X = np.meshgrid(y, z, x)
         # sum of the squares independent of ndim
@@ -209,8 +210,8 @@ class FourierShellCorr:
         print("Calculating the transverse apodization")
         self.transv_apod = self.apod_width
         if self.ndim == 2:
-            Nr = np.fft.fftshift(np.arange(self.nr))
-            Nc = np.fft.fftshift(np.arange(self.nc))
+            Nr = fftshift(np.arange(self.nr))
+            Nc = fftshift(np.arange(self.nc))
             window1D1 = (
                 1.0
                 + np.cos(
@@ -233,9 +234,9 @@ class FourierShellCorr:
             window1D2[self.transv_apod : -self.transv_apod] = 1
             window = np.outer(window1D1, window1D2)
         elif self.ndim == 3:
-            Ns = np.fft.fftshift(np.arange(self.ns))
-            Nr = np.fft.fftshift(np.arange(self.nr))
-            Nc = np.fft.fftshift(np.arange(self.nc))
+            Ns = fftshift(np.arange(self.ns))
+            Nr = fftshift(np.arange(self.nr))
+            Nc = fftshift(np.arange(self.nc))
             window1D1 = (
                 1.0
                 + np.cos(
