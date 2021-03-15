@@ -18,6 +18,7 @@ import numpy as np
 from scipy.fft import fftshift, ifftshift
 
 # local packages
+from ..utils import progbar
 from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
 from ..utils.plot_utils import isnotebook
@@ -344,11 +345,15 @@ class FourierShellCorr:
         index = self.ringthickness()  # index for the ring thickness
         f, fnyquist = self.nyquist()  # Frequency and Nyquist Frequency
         # initializing variables
+        print("Initializing...")
         C = np.empty_like(f).astype(np.float)
         C1 = np.empty_like(f).astype(np.float)
         C2 = np.empty_like(f).astype(np.float)
         npts = np.zeros_like(f)
+        print("Calculating the correlation...")
         for ii in f:
+            strbar = "Normalized frequency: {:.2f}".format((ii + 1/fnyquist))
+            # TODO: put a progress bar here
             if self.ring_thick == 0 or self.ring_thick == 1:
                 auxF1 = F1[np.where(index == ii)]
                 auxF2 = F2[np.where(index == ii)]
@@ -373,6 +378,8 @@ class FourierShellCorr:
             C1[ii] = np.abs((auxF1 * np.conj(auxF1)).sum())
             C2[ii] = np.abs((auxF2 * np.conj(auxF2)).sum())
             npts[ii] = auxF1.shape[0]
+            progbar(ii + 1, f, strbar)
+        print("\r")
 
         # The correlation
         FSC = C / (np.sqrt(C1 * C2))
