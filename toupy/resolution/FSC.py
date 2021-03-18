@@ -352,8 +352,7 @@ class FourierShellCorr:
         npts = np.zeros_like(f)
         print("Calculating the correlation...")
         for ii in f:
-            strbar = "Normalized frequency: {:.2f}".format((ii + 1/fnyquist))
-            # TODO: put a progress bar here
+            strbar = "Normalized frequency: {:.2f}".format((ii + 1)/fnyquist)
             if self.ring_thick == 0 or self.ring_thick == 1:
                 auxF1 = F1[np.where(index == ii)]
                 auxF2 = F2[np.where(index == ii)]
@@ -378,7 +377,7 @@ class FourierShellCorr:
             C1[ii] = np.abs((auxF1 * np.conj(auxF1)).sum())
             C2[ii] = np.abs((auxF2 * np.conj(auxF2)).sum())
             npts[ii] = auxF1.shape[0]
-            progbar(ii + 1, f, strbar)
+            progbar(ii + 1, len(f), strbar)
         print("\r")
 
         # The correlation
