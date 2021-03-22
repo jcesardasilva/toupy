@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     # initializing shiftstack
     if params["load_previous_shiftstack"]:
-        shiftstack = LoadData.loadshiftstack("vertical_alignment.h5", **inputparams)
+        shiftstack = LoadData.loadshiftstack("vertical_alignment.h5", **params)
         print("Using previous estimate of shiftstack")
     else:
         # initializing shiftstack with zeros
