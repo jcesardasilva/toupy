@@ -228,10 +228,12 @@ def phaseresiduesStack(stack_array):
         #     "\rSearching for residues in projection {:>4.0f} ... ".format(ii + 1),
         #     end="",
         # )
-        strbar = "Searching for residues in projection {} out of {}".format(ii + 1, nproj)
+        #strbar = "Searching for residues in projection {} out of {}".format(ii + 1, nproj)
         residues, residues_charge, nres = phaseresidues(stack_array[ii])
         resmap += np.abs(residues)
-        progbar(ii+1,nproj,strbar+" ({} residues)".format(nres))
+        strbar = "{} residues in projection {}".format(nres, ii + 1)
+        #progbar(ii+1,nproj,strbar+" ({} residues)".format(nres))
+        progbar(ii+1,nproj,strbar)
     print(". Done")
     posres = np.where(resmap >= 1.0)
     return resmap, posres, nres
