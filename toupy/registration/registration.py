@@ -8,7 +8,7 @@ import time
 from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.fft import fft2, ifft2, fftshift, ifftshift
+from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy.ndimage.fourier import fourier_shift
