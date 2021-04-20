@@ -10,16 +10,20 @@ nosilx = False
 # local libraries import
 from ..utils.plot_utils import isnotebook
 
-if isnotebook: RunningInCOLAB = 'google.colab' in str(get_ipython())
+if isnotebook(): RunningInCOLAB = 'google.colab' in str(get_ipython())
 else: RunningInCOLAB = False
 
-if not RunningInCOLAB:
+if RunningInCOLAB or isnotebook(): RunningInBrowser = True
+
+if not RunningInBrowser:
     try:
         from silx.opencl.projection import Projection
     except ModuleNotFoundError:
         print('Not using pyopencl for the projection')
         print('The projector will be slow.')
         nosilx=True
+else:
+    nosilx=True
 
 
 __all__ = ["radonSilx", "projector"]
