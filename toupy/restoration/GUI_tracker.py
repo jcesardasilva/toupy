@@ -40,7 +40,7 @@ def _crop_stack(stack_images, cropreg):
     crop_stack : array_like
         Cropped stack
     """
-    return stack_objs[:, cropreg[0] : -cropreg[0], cropreg[1] : -cropreg[1]]
+    return stack_images[:, cropreg[0] : -cropreg[0], cropreg[1] : -cropreg[1]]
 
 
 def gui_plotamp(stack_objs, **params):
@@ -443,7 +443,7 @@ class PhaseTracker(object):
         # create another fig in order to close later
         fig_mask = plt.figure()
         ax_mask = fig_mask.add_subplot(111)
-        ax_mask.imshow(self.img_mask, cmap="bone")
+        ax_mask.imshow(self.img_mask, cmap="bone", vmin=self.vmin, vmax=self.vmax)
         self.ROI_draw = roipoly(ax=ax_mask)
         # ~ self.ROI_draw = RoiPoly(color='b', fig = fig_mask, close_fig=True) # has to close to validate
         # ~ self.ROI_draw = MultiRoi_mod(fig=fig_mask,ax=ax_mask)#(color='b', fig = self.fig)
@@ -576,6 +576,7 @@ class PhaseTracker(object):
         print("\nUnwrapping phase")
         self.X1[self.ind, :, :] = unwrap_phase(self.X1[self.ind, :, :])
         if np.any(self.mask[self.ind, :, :] == True):
+            print('Correcting for air/vacuum regions')
             vals = self.X1[self.ind, :, :][
                 np.where(self.mask[self.ind, :, :] == True)
             ].mean()
