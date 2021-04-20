@@ -582,8 +582,10 @@ def write_paramsh5(h5filename, **params):
             if v is None:
                 v = "none"
                 ff.create_dataset("info/{}".format(k), data=v, dtype=dt)
-            elif isinstance(v, str):  # string
+            elif isinstance(v, bytes):  # bytes
                 ff.create_dataset("info/{}".format(k), data=v.decode("utf-8"), dtype=dt)
+            elif isinstance(v, str):  # string
+                ff.create_dataset("info/{}".format(k), data=v, dtype=dt)
             elif isinstance(v, bool) or isinstance(v, np.bool_):  # boolean
                 ff.create_dataset("info/{}".format(k), data=v, dtype=bool)
             elif isinstance(v, np.ndarray):  # float array

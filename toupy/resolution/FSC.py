@@ -15,8 +15,10 @@ import h5py
 from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.fft import fftshift, ifftshift
 
 # local packages
+from ..utils import progbar
 from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
 from ..utils.plot_utils import isnotebook
@@ -131,8 +133,8 @@ class FourierShellCorr:
             / np.floor(self.nr / 2.0)
         )
         # bring the central pixel to the corners  (important for odd array dimensions)
-        x = np.fft.ifftshift(x)
-        y = np.fft.ifftshift(y)
+        x = ifftshift(x)
+        y = ifftshift(y)
         if self.ndim == 2:
             # meshgriding
             X = np.meshgrid(x, y)
@@ -143,7 +145,7 @@ class FourierShellCorr:
                 / np.floor(self.ns / 2.0)
             )
             # bring the central pixel to the corners  (important for odd array dimensions)
-            z = np.fft.ifftshift(z)
+            z = ifftshift(z)
             # meshgriding
             X = np.meshgrid(y, z, x)
         # sum of the squares independent of ndim
@@ -209,8 +211,8 @@ class FourierShellCorr:
         print("Calculating the transverse apodization")
         self.transv_apod = self.apod_width
         if self.ndim == 2:
-            Nr = np.fft.fftshift(np.arange(self.nr))
-            Nc = np.fft.fftshift(np.arange(self.nc))
+            Nr = fftshift(np.arange(self.nr))
+            Nc = fftshift(np.arange(self.nc))
             window1D1 = (
                 1.0
                 + np.cos(
@@ -233,9 +235,9 @@ class FourierShellCorr:
             window1D2[self.transv_apod : -self.transv_apod] = 1
             window = np.outer(window1D1, window1D2)
         elif self.ndim == 3:
-            Ns = np.fft.fftshift(np.arange(self.ns))
-            Nr = np.fft.fftshift(np.arange(self.nr))
-            Nc = np.fft.fftshift(np.arange(self.nc))
+            Ns = fftshift(np.arange(self.ns))
+            Nr = fftshift(np.arange(self.nr))
+            Nc = fftshift(np.arange(self.nc))
             window1D1 = (
                 1.0
                 + np.cos(
@@ -343,11 +345,14 @@ class FourierShellCorr:
         index = self.ringthickness()  # index for the ring thickness
         f, fnyquist = self.nyquist()  # Frequency and Nyquist Frequency
         # initializing variables
+        print("Initializing...")
         C = np.empty_like(f).astype(np.float)
         C1 = np.empty_like(f).astype(np.float)
         C2 = np.empty_like(f).astype(np.float)
         npts = np.zeros_like(f)
+        print("Calculating the correlation...")
         for ii in f:
+            strbar = "Normalized frequency: {:.2f}".format((ii + 1)/fnyquist)
             if self.ring_thick == 0 or self.ring_thick == 1:
                 auxF1 = F1[np.where(index == ii)]
                 auxF2 = F2[np.where(index == ii)]
@@ -372,6 +377,8 @@ class FourierShellCorr:
             C1[ii] = np.abs((auxF1 * np.conj(auxF1)).sum())
             C2[ii] = np.abs((auxF2 * np.conj(auxF2)).sum())
             npts[ii] = auxF1.shape[0]
+            progbar(ii + 1, len(f), strbar)
+        print("\r")
 
         # The correlation
         FSC = C / (np.sqrt(C1 * C2))

@@ -4,5 +4,5 @@ __pycache__
 dist
 build
 *.egg-info
-files.txt
+files*.txt
 toupy/tomo/backprop2d.py

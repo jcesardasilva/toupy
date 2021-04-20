@@ -11,16 +11,20 @@ from silx import version
 # local libraries import
 from ..utils.plot_utils import isnotebook
 
-if isnotebook: RunningInCOLAB = 'google.colab' in str(get_ipython())
+if isnotebook(): RunningInCOLAB = 'google.colab' in str(get_ipython())
 else: RunningInCOLAB = False
 
-if not RunningInCOLAB:
+if RunningInCOLAB or isnotebook(): RunningInBrowser = True
+
+if not RunningInBrowser:
     try:
         from silx.opencl.backprojection import Backprojection
     except ModuleNotFoundError:
         print('Not using pyopencl for the reconstruction')
         print('The reconstruction will be slow.')
         nosilx=True
+else:
+    nosilx = True
 
 #from nabu.reconstruction.fbp import Backprojector as Backprojection
 

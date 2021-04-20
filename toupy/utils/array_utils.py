@@ -3,6 +3,7 @@
 
 # third party packages
 import numpy as np
+from scipy.fft import fftshift, ifftshift
 import scipy.constants as consts
 from scipy.ndimage import filters
 
@@ -423,10 +424,10 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
     out = np.zeros((outputdim, outputdim))
     auxindini = int(np.round(outputdim / 2 - filterdim / 2))
     auxindend = int(np.round(outputdim / 2 + filterdim / 2))
-    out[auxindini:auxindend, auxindini:auxindend] = np.fft.fftshift(
+    out[auxindini:auxindend, auxindini:auxindend] = fftshift(
         fract_hanning(filterdim, unmodsize)
     )
-    return np.fft.fftshift(out)
+    return fftshift(out)
 
 
 def hanning_apod1D(window_size, apod_width):
@@ -446,7 +447,7 @@ def hanning_apod1D(window_size, apod_width):
         1D Hanning window for the apodization
     """
     nr = window_size
-    Nr = np.fft.fftshift(np.arange(nr))
+    Nr = fftshift(np.arange(nr))
     window1D = (
         1.0
         + np.cos(
