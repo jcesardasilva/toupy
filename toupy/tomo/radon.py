@@ -14,6 +14,7 @@ if isnotebook(): RunningInCOLAB = 'google.colab' in str(get_ipython())
 else: RunningInCOLAB = False
 
 if RunningInCOLAB or isnotebook(): RunningInBrowser = True
+else: RunningInBrowser = False
 
 if not RunningInBrowser:
     try:
@@ -59,7 +60,7 @@ def radonSilx(recons, theta):
 def projector(recons, theta, **params):
     """
     Wrapper to choose between Forward Radon transform using Silx and
-    OpenCL or standard reconstruction. 
+    OpenCL or standard reconstruction.
 
     Parameters
     ----------
