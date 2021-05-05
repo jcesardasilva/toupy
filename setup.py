@@ -48,6 +48,7 @@ setuptools.setup(
         "Operating System :: Unix",
     ],
     install_requires=[
+        "decorator<=5",
         "fabio>=0.11.0",
         "h5py>=3.1.0",
         "ipython>=7.16.1",
