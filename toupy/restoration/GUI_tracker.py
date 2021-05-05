@@ -22,6 +22,28 @@ from ..utils import progbar, isnotebook
 
 __all__ = ["gui_plotamp", "gui_plotphase", "AmpTracker", "PhaseTracker"]
 
+def _unwrapping_phase(imgin, mask):
+    """
+    Unwrap phase
+    """
+    #print("\nUnwrapping phase")
+    unwrapimg = unwrap_phase(imgin)
+    if np.any(mask == True):
+        #print('Correcting for air/vacuum regions')
+        vals = unwrapimg[np.where(mask == True)].mean()
+        unwrapimg -= 2 * np.pi * np.round(vals / (2 * np.pi))
+    return unwrapimg
+
+
+def _removing_phaseramp(imgin, mask):
+    """
+    Remove phase ramp
+    """
+    imgin = np.exp(1j * imgin).copy()
+    # ~ corrimg = np.angle(remove_linearphase(imgin, mask, 100)).copy()
+    corrimg = np.angle(rmlinearphase(imgin, mask)).copy()
+    return corrimg
+
 
 def _crop_stack(stack_images, cropreg):
     """
@@ -203,7 +225,7 @@ def gui_plotphase(stack_objs, **params):
             stack_objs = _crop_stack(stack_objs, params["crop_reg"])
 
     plt.close("all")
-    fig = plt.figure(4)
+    fig = plt.figure(1)
     gs = gridspec.GridSpec(
         3, 3, width_ratios=[8, 3, 2], height_ratios=[8, 4.5, 0.5]  # figure=4,
     )
@@ -328,25 +350,33 @@ class PhaseTracker(object):
         if np.iscomplexobj(self.X1):
             raise ValueError("The array is complex")
 
-        self.X2 = self.X1[:, np.int(X1.shape[1] / 2.0), :].copy()
-        self.mask = np.zeros_like(X1, dtype=np.bool)
-        self.slices, rows, cols = X1.shape
+        self.projs, self.rows, self.cols = X1.shape
+        self.hcen = int(self.rows / 2.0)
+        self.X2 = self.X1[:, self.hcen, :].copy()
+        self.mask = np.zeros_like(X1, dtype=bool)
         self.ind = 0
         self.params = params
         self.vmin = params["vmin"]
         self.vmax = params["vmax"]
+        self.colormap = params["colormap"]
 
+        # initializing canvas
+        plt.ion()
         self.im1 = self.ax1.imshow(
-            self.X1[self.ind, :, :], cmap="bone", vmin=self.vmin, vmax=self.vmax
+            self.X1[self.ind],
+            cmap=self.colormap,
+            vmin=self.vmin,
+            vmax=self.vmax,
         )
+        self.ax1.plot([1,self.cols-1],[self.hcen, self.hcen],'b--')
         # ~ self.vmin,self.vmax = self.im1.get_clim() # get colormap limits
         self.ax1.axis("tight")
         (self.im2,) = self.ax2.plot(self.X2[self.ind, :])
-        self.ax2.plot([0, self.X1.shape[2]], [0, 0])
+        self.ax2.plot([0, self.cols], [0, 0])
         self.pmin, self.pmax = self.ax2.get_ylim()  # get plot limits
         # ax2.axis('tight')
         self.ax2.set_ylim([2 * self.vmin, 2 * self.vmax])
-        self.ax2.set_xlim([0, cols])
+        self.ax2.set_xlim([0, self.cols])
         self.update()
         print("Done. When finished, close figure and press <Enter> to exit")
 
@@ -377,10 +407,10 @@ class PhaseTracker(object):
         Move projection number up/down using the mouse scroll wheel
         """
         if event.button == "up":
-            if self.ind == self.slices:  # X1.shape[0]:
+            if self.ind == self.projs:  # X1.shape[0]:
                 print("You reached the maximum number of projections")
             else:
-                self.ind = np.clip(self.ind + 1, 0, self.slices - 1)
+                self.ind = np.clip(self.ind + 1, 0, self.projs - 1)
                 print(
                     "{} {} - projection {}".format(
                         event.button, event.step, self.ind + 1
@@ -390,7 +420,7 @@ class PhaseTracker(object):
             if self.ind == 0:
                 print("You reached the first projection")
             else:
-                self.ind = np.clip(self.ind - 1, 0, self.slices - 1)
+                self.ind = np.clip(self.ind - 1, 0, self.projs - 1)
                 print(
                     "{} {} - projection {}".format(
                         event.button, event.step, self.ind + 1
@@ -403,16 +433,16 @@ class PhaseTracker(object):
         Move projection number up/down using right/left arrows in the keyboard
         """
         if event.key == "right":
-            if self.ind == self.slices:  # self.X1.shape[0]:
+            if self.ind == self.projs:  # self.X1.shape[0]:
                 print("You reached the maximum number of projections")
             else:
-                self.ind = np.clip(self.ind + 1, 0, self.slices - 1)
+                self.ind = np.clip(self.ind + 1, 0, self.projs - 1)
                 print("{} - projection {}".format(event.key, self.ind + 1))
         elif event.key == "left":
             if self.ind == 0:
                 print("You reached the first projection")
             else:
-                self.ind = np.clip(self.ind - 1, 0, self.slices - 1)
+                self.ind = np.clip(self.ind - 1, 0, self.projs - 1)
                 print("{} - projection {}".format(event.key, self.ind + 1))
         else:
             return
@@ -422,7 +452,7 @@ class PhaseTracker(object):
         """
         Move projection number down using button Prev
         """
-        self.ind = np.clip(self.ind - 1, 0, self.slices - 1)
+        self.ind = np.clip(self.ind - 1, 0, self.projs - 1)
         print("Projection {}".format(self.ind + 1))
         self.update()
 
@@ -430,7 +460,7 @@ class PhaseTracker(object):
         """
         Move projection number up using button Next
         """
-        self.ind = np.clip(self.ind + 1, 0, self.slices - 1)
+        self.ind = np.clip(self.ind + 1, 0, self.projs - 1)
         print("Projection {}".format(self.ind + 1))
         self.update()
 
@@ -443,7 +473,12 @@ class PhaseTracker(object):
         # create another fig in order to close later
         fig_mask = plt.figure()
         ax_mask = fig_mask.add_subplot(111)
-        ax_mask.imshow(self.img_mask, cmap="bone", vmin=self.vmin, vmax=self.vmax)
+        ax_mask.imshow(
+                self.img_mask,
+                cmap=self.colormap,
+                vmin=self.vmin,
+                vmax=self.vmax
+            )
         self.ROI_draw = roipoly(ax=ax_mask)
         # ~ self.ROI_draw = RoiPoly(color='b', fig = fig_mask, close_fig=True) # has to close to validate
         # ~ self.ROI_draw = MultiRoi_mod(fig=fig_mask,ax=ax_mask)#(color='b', fig = self.fig)
@@ -466,7 +501,7 @@ class PhaseTracker(object):
         print("\nRepeating the same mask for all projections")
         print("Please wait...")
         mask = self.ROI_draw.getMask(self.img_mask)
-        self.mask |= np.array([mask for _ in range(self.slices)])
+        self.mask |= np.array([mask for _ in range(self.projs)])
         print("Done")
         self.update()
 
@@ -487,7 +522,7 @@ class PhaseTracker(object):
         print("Please wait...")
         mask = self.ROI_draw.getMask(self.img_mask)
         # self.mask[self.mask_ind,:,:] &= ~self.ROI_draw.getMask(self.img_mask)
-        self.mask &= ~np.array([mask for _ in range(self.slices)])
+        self.mask &= ~np.array([mask for _ in range(self.projs)])
         print("Done")
         self.update()
 
@@ -496,13 +531,11 @@ class PhaseTracker(object):
         Apply the linear phase correction using current mask
         """
         print("\nApply the linear phase correction using current mask")
-        imgin = np.exp(1j * self.X1[self.ind, :, :]).copy()
-        mask = self.mask[self.ind, :, :].copy()
-        # ~ self.X1[self.ind,:,:]=np.angle(remove_linearphase(imgin,mask,100)).copy()
-        self.X1[self.ind, :, :] = np.angle(rmlinearphase(imgin, mask)).copy()
-        self.X2[self.ind, :] = self.X1[
-            self.ind, np.int(self.X1.shape[1] / 2.0), :
-        ].copy()
+        self.X1[self.ind] = _removing_phaseramp(
+                        self.X1[self.ind],
+                        self.mask[self.ind],
+                        )
+        self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
 
     def apply_all_masks(self, event):
@@ -512,16 +545,16 @@ class PhaseTracker(object):
         print(
             "\nApply the linear phase correction using current mask to all projections"
         )
-        for ii in range(self.slices):
+        for ii in range(self.projs):
             self.ind = ii
-            strbar = "Projection {} out of {}".format(ii + 1, self.slices)
-            imgin = np.exp(1j * self.X1[ii, :, :]).copy()
-            mask = self.mask[ii, :, :].copy()
-            # ~ self.X1[ii,:,:]=np.angle(remove_linearphase(imgin,mask,100)).copy()
-            self.X1[ii, :, :] = np.angle(rmlinearphase(imgin, mask)).copy()
-            self.X2[ii, :] = self.X1[ii, np.int(self.X1.shape[1] / 2.0), :].copy()
+            strbar = "Projection {} out of {}".format(ii + 1, self.projs)
+            self.X1[ii] = _removing_phaseramp(
+                        self.X1[ii],
+                        self.mask[ii],
+                        )
+            self.X2[ii] = self.X1[ii, self.hcen, :].copy()
             self.update()
-            progbar(ii + 1, self.slices, strbar)
+            progbar(ii + 1, self.projs, strbar)
         print("\r")
         print("Done")
 
@@ -530,9 +563,9 @@ class PhaseTracker(object):
         Remove linear phase ramp
         """
         print("\nRemove linear ramp")
-        self.X1[self.ind, :, :] = np.angle(
+        self.X1[self.ind] = np.angle(
             rmphaseramp(
-                np.exp(1j * self.X1[self.ind, :, :]),
+                np.exp(1j * self.X1[self.ind]),
                 weight=None,
                 return_phaseramp=False,
             )
@@ -549,12 +582,12 @@ class PhaseTracker(object):
         Remove linear phase ramp of all
         """
         print("\nRemove linear phase ramp of all projections")
-        for ii in range(self.slices):
+        for ii in range(self.projs):
             self.ind = ii
-            strbar = "Projection {} out of {}".format(ii + 1, self.slices)
-            self.X1[self.ind, :, :] = np.angle(
+            strbar = "Projection {} out of {}".format(ii + 1, self.projs)
+            self.X1[self.ind] = np.angle(
                 rmphaseramp(
-                    np.exp(1j * self.X1[self.ind, :, :]),
+                    np.exp(1j * self.X1[self.ind]),
                     weight=None,
                     return_phaseramp=False,
                 )
@@ -565,7 +598,7 @@ class PhaseTracker(object):
                 self.ind, np.int(self.X1.shape[1] / 2.0), :
             ].copy()
             self.update()
-            progbar(ii + 1, self.slices, strbar)
+            progbar(ii + 1, self.projs, strbar)
         print("\r")
         print("Done")
 
@@ -573,38 +606,29 @@ class PhaseTracker(object):
         """
         Unwrap phase
         """
-        print("\nUnwrapping phase")
-        self.X1[self.ind, :, :] = unwrap_phase(self.X1[self.ind, :, :])
-        if np.any(self.mask[self.ind, :, :] == True):
-            print('Correcting for air/vacuum regions')
-            vals = self.X1[self.ind, :, :][
-                np.where(self.mask[self.ind, :, :] == True)
-            ].mean()
-            self.X1[self.ind, :, :] -= 2 * np.pi * np.round(vals / (2 * np.pi))
-        self.X2[self.ind, :] = self.X1[
-            self.ind, np.int(self.X1.shape[1] / 2.0), :
-        ].copy()
+        print(f"\nUnwrapping phase projection {self.ind}")
+        self.X1[self.ind] = _unwrapping_phase(
+                        self.X1[self.ind],
+                        self.mask[self.ind]
+                        )
+        self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
 
     def unwrapping_all(self, event):
         """
         Unwrap phase of all projections
         """
-        print("\nRemove linear phase ramp of all projections")
-        for ii in range(self.slices):
+        print("\nUnwrapping all projections")
+        for ii in range(self.projs):
             self.ind = ii
-            strbar = "Projection {} out of {}".format(ii + 1, self.slices)
-            self.X1[self.ind, :, :] = unwrap_phase(self.X1[self.ind, :, :])
-            if np.any(self.mask[self.ind, :, :] == True):
-                vals = self.X1[self.ind, :, :][
-                    np.where(self.mask[self.ind, :, :] == True)
-                ].mean()
-                self.X1[self.ind, :, :] -= 2 * np.pi * np.round(vals / (2 * np.pi))
-            self.X2[self.ind, :] = self.X1[
-                self.ind, np.int(self.X1.shape[1] / 2.0), :
-            ].copy()
+            strbar = "Projection {} out of {}".format(ii + 1, self.projs)
+            self.X1[ii] = _unwrapping_phase(
+                        self.X1[ii],
+                        self.mask[ii]
+                        )
+            self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
             self.update()
-            progbar(ii + 1, self.slices, strbar)
+            progbar(ii + 1, self.projs, strbar)
         print("\r")
         print("Done")
 
@@ -627,7 +651,7 @@ class PhaseTracker(object):
         """
         Textbox submit
         """
-        self.ind = np.clip(eval(text) - 1, 0, self.slices - 1)
+        self.ind = np.clip(eval(text) - 1, 0, self.projs - 1)
         print("Projection {}".format(self.ind + 1))
         self.update()
 
@@ -635,8 +659,8 @@ class PhaseTracker(object):
         """
         Plot one project after the other (play)
         """
-        for ii in range(self.ind, self.slices):
-            self.ind = ii  # np.clip(self.ind + ii, 0, self.slices - ii)
+        for ii in range(self.ind, self.projs):
+            self.ind = ii  # np.clip(self.ind + ii, 0, self.projs - ii)
             print("Projection {}".format(self.ind + 1))
             self.update()
 
@@ -644,10 +668,12 @@ class PhaseTracker(object):
         """
         Update the plot canvas
         """
-        self.im1.set_data(self.X1[self.ind, :, :] + self.mask[self.ind, :, :])
+        self.im1.set_data(self.X1[self.ind] + self.mask[self.ind])
         self.im1.set_clim(self.vmin, self.vmax)
-        self.im2.set_ydata(self.X2[self.ind, :])
+        self.im2.set_ydata(self.X2[self.ind])
         self.im2.axes.set_ylim([self.pmin, self.pmax])
+        self.im2.axes.set_xlim([0, self.cols])
+        #self.ax2.set_xlim([0, self.cols])
         self.ax1.set_ylabel("Projection {}".format(self.ind + 1))
         self.ax2.set_ylabel("Projection {}".format(self.ind + 1))
         self.ax1.axes.figure.canvas.draw()
@@ -708,9 +734,9 @@ class AmpTracker(PhaseTracker):
         print(
             "\nApply the air correction using current mask and the logarithm to all projections"
         )
-        for ii in range(self.slices):
+        for ii in range(self.projs):
             self.ind = ii
-            strbar = "Projection {} out of {}".format(ii + 1, self.slices)
+            strbar = "Projection {} out of {}".format(ii + 1, self.projs)
             if self.ind in self.done:
                 print(
                     "\rProjection {} was already corrected".format(self.ind + 1), end=""
@@ -724,5 +750,5 @@ class AmpTracker(PhaseTracker):
                 self.X2[ii, :] = self.X1[ii, np.int(self.X1.shape[1] / 2.0), :].copy()
                 self.done.append(self.ind)
             self.update()
-            progbar(ii + 1, self.slices, strbar)
+            progbar(ii + 1, self.projs, strbar)
         print("Done")
