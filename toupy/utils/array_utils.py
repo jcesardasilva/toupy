@@ -3,6 +3,7 @@
 
 # third party packages
 import numpy as np
+from scipy import signal
 from scipy.fft import fftshift, ifftshift
 import scipy.constants as consts
 from scipy.ndimage import filters
@@ -13,6 +14,7 @@ __all__ = [
     "create_circle",
     "fract_hanning",
     "fract_hanning_pad",
+    "gauss_kern",
     "hanning_apodization",
     "hanning_apod1D",
     "mask_borders",
@@ -25,6 +27,8 @@ __all__ = [
     "replace_bad",
     "round_to_even",
     "sharpening_image",
+    "smooth1d",
+    "smooth2d",
     "smooth_image",
     "sort_array",
 ]
@@ -74,6 +78,7 @@ def smooth_image(input_image, filter_size=3):
         Image to be smoothed
     filter_size : int
         Size of the filter
+
     Returns
     -------
     array_like
@@ -81,6 +86,126 @@ def smooth_image(input_image, filter_size=3):
     """
     return filters.median_filter(input_image, filter_size)
 
+def smooth1d(x,window_len=11,window='hanning'):
+    """
+    Smooth the data using a window with requested size.
+
+    This method is based on the convolution of a scaled window with the signal.
+    The signal is prepared by introducing reflected copies of the signal
+    (with the window size) in both ends so that transient parts are minimized
+    in the begining and end part of the output signal.
+
+    Parameters
+    ----------
+    x : array_like
+        The input signal
+    window_len : int, optional,
+        The dimension of the smoothing window; should be an odd integer. The default
+        value is `11`.
+    window : str, optional
+        The type of window from `flat`, `hanning`, `hamming`, `bartlett`, `blackman`
+        flat window will produce a moving average smoothing.
+
+    Returns
+    -------
+    y : array_like
+        The smoothed signal
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> t=np.linspace(-2,2,0.1)
+    >>> x=np.sin(t)+np.random.randn(len(t))*0.1
+    >>> y=smooth(x)
+
+    Notes
+    -----
+        see also: numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
+    scipy.signal.lfilter
+    
+    Adapted from : https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
+    from: http://scipy.org/Cookbook/SignalSmooth
+    """
+
+    if x.ndim != 1:
+        raise ValueError("smooth only accepts 1 dimension arrays.")
+
+    if x.size < window_len:
+        raise ValueError("Input vector needs to be bigger than window size.")
+
+    if window_len<3:
+        return x
+
+    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        raise ValueError( "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+
+
+    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
+    #print(len(s))
+    if window == 'flat': #moving average
+        w=np.ones(window_len,'d')
+    else:
+        w=eval('np.'+window+'(window_len)')
+
+    y=np.convolve(w/w.sum(),s,mode='valid')
+    return y
+
+def gauss_kern(size, sizey=None):
+    """
+	Returns a normalized 2D gauss kernel array for convolutions
+    
+    Parameters
+    ----------
+    size : int 
+        Size of the kernel
+    sizey : int, optional
+        Vertical size of the kernel if not squared
+    
+    Returns
+    -------
+    array_like
+        Normalized kernel
+    
+    Notes
+    -----
+        from: http://scipy.org/Cookbook/SignalSmooth
+	"""
+    size = int(size)
+    if not sizey:
+        sizey = size
+    else:
+        sizey = int(sizey)
+    x, y = np.mgrid[-size:size+1, -sizey:sizey+1]
+    g = np.exp(-(x**2/float(size)+y**2/float(sizey)))
+    return g / g.sum()
+
+def smooth2d(im, n, ny=None):
+    """
+	Blurs the image by convolving with a gaussian kernel of typical
+    size n. The optional keyword argument ny allows for a different
+    size in the y direction.
+    
+    Parameters
+    ----------
+    im : array_like
+        Input image
+    n : int
+        Typical size of the gaussian kernel
+    n : int, optional
+        Size in the y direction if not squared
+    
+    Returns
+    -------
+    improc : array_like
+        Smoothed image
+    
+    Notes
+    -----
+        from: http://scipy.org/Cookbook/SignalSmooth
+    """
+    g = gauss_kern(n, sizey=ny)
+    improc = signal.convolve(im,g, mode='valid')
+    return improc
 
 def sharpening_image(input_image, filter_size=3, alpha=30):
     """
@@ -108,7 +233,7 @@ def sharpening_image(input_image, filter_size=3, alpha=30):
 def sort_array(input_array, ref_array):
     """
     Sort array based on another array
-    
+
     Parameters
     ----------
     input_array : array_like
@@ -133,7 +258,7 @@ def sort_array(input_array, ref_array):
 def replace_bad(input_stack, list_bad=[], temporary=False):
     """
     correcting bad projections before unwrapping
-    
+
     Parameters
     ----------
     input_stack : array_like
@@ -143,7 +268,7 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
     temporary : bool
         If `False`, the projection will be interpolated with the previous and
         after projections. If `True`, the projection will be replaced by the
-        previous projection. 
+        previous projection.
     """
     if list_bad == []:
         raise ValueError("List of bad projections is empty")
@@ -325,7 +450,7 @@ def fract_hanning(outputdim, unmodsize):
 
     Parameters
     ----------
-    outputdim : int 
+    outputdim : int
         Size of the output array
     unmodsize : int
         Size of the central array containing no modulation.
@@ -395,7 +520,7 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
     Creates a square hanning window if unmodsize = 0 (or ommited), otherwise the output array
     will contain an array of ones in the center and cosine modulation on the
     edges, the array of ones will have DC in upper left corner.
-    
+
     Parameters
     ----------
     outputdim : int
@@ -433,14 +558,14 @@ def fract_hanning_pad(outputdim, filterdim, unmodsize):
 def hanning_apod1D(window_size, apod_width):
     """
     Create 1D apodization window using Hanning window
-    
+
     Parameters
     ----------
     window_size : int
         Window size
     apod_width : int
         Apodization width
-    
+
     Returns
     -------
     hannwindow1D : array_like
@@ -466,14 +591,14 @@ def hanning_apod1D(window_size, apod_width):
 def hanning_apodization(window_size, apod_width):
     """
     Create apodization window using Hanning window
-    
+
     Parameters
     ----------
     window_size : tuple
         Window size
     apod_width : int
         Apodization width
-    
+
     Returns
     -------
     hannwindow2D : array_like
@@ -493,13 +618,13 @@ def hanning_apodization(window_size, apod_width):
 def mask_borders(imgarray, mask_array, threshold=4e-7):
     """
     Mask borders using the gradient
-    
+
     Parameters
     ----------
     imgarray : array_like
         Input image
     mask_array : bool array_like
-        Input mask 
+        Input mask
     threshold : float, optional
         Threshold value. The default value is ``4e-7``.
 
@@ -524,7 +649,7 @@ def create_mask_borders(tomogram, mask_array, threshold=4e-7):
     tomogram : array_like
         Input volume
     mask : bool array_like
-        Input mask 
+        Input mask
     threshold : float, optional
         Threshold value. The default value is ``4e-7``.
 
