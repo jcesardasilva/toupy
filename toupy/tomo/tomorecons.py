@@ -161,7 +161,7 @@ def full_tomo_recons(input_stack, theta, **params):
         plt.close("all")
         tomogram = np.zeros((nslices, nr, nc), dtype=np.float32)
         for ii in range(nslices):  # num_projections):#sorted(frames):
-            strbar = "Slice: {} out of {}".format(ii + 1, nslices)
+            strbar = "{:5d}/{:5d}".format(ii + 1, nslices)
             sinogram = np.transpose(input_stack[:, ii, :])
             tomogram[ii] = tomo_recons(sinogram, theta, **params)
             progbar(ii + 1, nslices, strbar)

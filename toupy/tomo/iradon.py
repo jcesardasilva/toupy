@@ -7,6 +7,8 @@ import numpy as np
 from scipy.fftpack import fft, ifft, fftfreq
 from scipy.interpolate import interp1d
 from silx import version
+import warnings
+warnings.filterwarnings("ignore")
 
 # local libraries import
 from ..utils.plot_utils import isnotebook
