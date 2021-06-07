@@ -26,20 +26,20 @@ __all__ = [
 def wraptopi(phase, endpoint=True):
     """
     Wrap a scalar value or an entire array
-    
+
     Parameters
     ----------
     phase : float or array_like
         The value or signal to wrapped.
-    endpoint : bool, optional 
-        If ``endpoint=False``, the scalar value or array is wrapped 
+    endpoint : bool, optional
+        If ``endpoint=False``, the scalar value or array is wrapped
         to [-pi, pi), whereas if ``endpoint=True``, it is wrapped to (-pi, pi].
         The default value is ``endpoint=True``
-    
+
     Returns
     -------
     float or array
-        Wrapped value or array        
+        Wrapped value or array
 
     Example
     -------
@@ -60,12 +60,12 @@ def wraptopi(phase, endpoint=True):
 def wrap(phase):
     """
     Wrap a scalar value or an entire array to [-0.5, 0.5).
-    
+
     Parameters
     ----------
     phase : float or array_like
         The value or signal to wrapped.
-    
+
     Returns
     -------
     float or array
@@ -123,9 +123,9 @@ def _get_charge(residues):
     respos = len(posres[0])
     negres = np.where(np.round(residues) == -1)
     resneg = len(negres[0])
-    
+
     nres = respos+resneg
-    
+
     return posres, negres, nres
 
 
@@ -173,7 +173,7 @@ def phaseresidues(phimage):
     marked on the top left corner of the 2 by 2 regions as shown below:
 
     .. graphviz::
-    
+
         graph g {
             node [shape=plaintext];
             active -- right [label="  res4   "];
@@ -222,6 +222,7 @@ def phaseresiduesStack(stack_array):
         Positions of the residues in the format ``posres = (yres,xres)``
     """
     resmap = 0
+    wrong = []
     nproj = stack_array.shape[0]
     for ii in range(nproj):
         # print(
@@ -230,12 +231,18 @@ def phaseresiduesStack(stack_array):
         # )
         #strbar = "Searching for residues in projection {} out of {}".format(ii + 1, nproj)
         residues, residues_charge, nres = phaseresidues(stack_array[ii])
+        if np.any(np.isnan(residues)):
+            raise ValueError(f"NaN found in projection {ii+1}")
+        if nres>1000:
+            wrong.append(ii)
         resmap += np.abs(residues)
-        strbar = "{} residues in projection {}".format(nres, ii + 1)
+        strbar = "{:6d} residues in projection {:6d}".format(nres, ii + 1)
         #progbar(ii+1,nproj,strbar+" ({} residues)".format(nres))
         progbar(ii+1,nproj,strbar)
     print(". Done")
     posres = np.where(resmap >= 1.0)
+    if wrong!=[]:
+        print("The following projections are problematic: {}".format(wrong))
     return resmap, posres, nres
 
 
@@ -256,6 +263,8 @@ def chooseregiontounwrap(stack_array):
     airpix : tuple
         Position of the pixel which should contains only air/vacuum
     """
+    # checking for residues
+    print("Checking for phase residues")
     resmap, posres, nres = phaseresiduesStack(stack_array)
     yres, xres = posres
 
@@ -328,7 +337,7 @@ def chooseregiontounwrap(stack_array):
 
         # update images with boudaries
         #ax1 = _plotdelimiters(ax1, ry, rx, airpix) # TODO: fixme
-        
+
         plt.ion()
         fig = plt.figure(2)
         plt.clf()
@@ -421,12 +430,12 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     ----
     It uses the phase unwrapping algorithm by Herraez et al. [#skimage]_
     implemented in Scikit-Image (https://scikit-image.org).
-    
+
     References
     ----------
     .. [#skimage] Miguel Arevallilo Herraez, David R. Burton, Michael J. Lalor,
-      and Munther A. Gdeisat, “Fast two-dimensional phase-unwrapping algorithm 
-      based on sorting by reliability following a noncontinuous path”, 
+      and Munther A. Gdeisat, “Fast two-dimensional phase-unwrapping algorithm
+      based on sorting by reliability following a noncontinuous path”,
       Journal Applied Optics, Vol. 41, No. 35, pp. 7437, 2002
     """
     stack_unwrap = np.empty_like(stack_phasecorr)

@@ -275,12 +275,12 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
     else:
         list_bad = [int(ii) for ii in list_bad] # to garantee each element is int
         for ii in list_bad:
-            print("\rTemporary replacement of bad projection: {}".format(int(ii)), end="")
+            print("Temporary replacement of bad projection: {} (starts at 0)".format(int(ii)))
             if temporary:
                 input_stack[int(ii)] = input_stack[int(ii) - 1]
             else:
                 input_stack[int(ii)] = (input_stack[int(ii) - 1] + input_stack[int(ii) + 1]) / 2
-        print("\r")
+        #print("\r")
     return input_stack
 
 

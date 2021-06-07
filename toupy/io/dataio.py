@@ -121,6 +121,10 @@ class PathName:
         self.icath5path = os.path.join(
             self.rootpath, self.icath5file
         )  # metadata filename path
+        try: self.pycuda = params["pycudaprojs"]
+        except KeyError: self.pycuda = True
+        try: self.legacy = params['legacy']
+        except KeyError: self.legacy = True
 
     def datafilewcard(self):
         """
@@ -143,12 +147,12 @@ class PathName:
         if self.fileext == ".ptyr":  # Ptypy
             metafile_wcard = re.sub(
                 r"_subtomo\d{3}_\d{4}_\w+",
-                "_subtomo*",
+                "_*subtomo*",
                 os.path.splitext(self.filename)[0],
             )
         elif self.fileext == ".cxi":  # PyNX
             metafile_wcard = re.sub(
-                r"_subtomo\d{3}_\d{4}", "_subtomo*", os.path.splitext(self.filename)[0]
+                r"_*subtomo\d{3}_\d{4}", "_*subtomo*", os.path.splitext(self.filename)[0]
             )
         elif self.fileext == ".edf":  # edf
             metafile_wcard = re.sub(r"_\d{4}$", "*", os.path.splitext(self.filename)[0])
@@ -169,6 +173,8 @@ class PathName:
         if self.fileext == ".edf":
             scan_wcard = re.sub(r"_\d{4}.edf", "*.edf", self.pathfilename)
         elif self.fileext == ".ptyr":  # Ptypy
+            if self.pycuda: reconsuffix = "_ML_pycuda"
+            else: reconsuffix = "_ML"
             # TODO: correct the path name if the calculations are done in cuda or not
             # ~ scan_wcard = os.path.join(
             # ~ re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
@@ -176,7 +182,7 @@ class PathName:
             # ~ )
             scan_wcard = os.path.join(
                 re.sub(self.scanprefix + r"_\w*", self.scanprefix + "_*", self.dirname),
-                self.metadatafilewcard() + "_ML_pycuda" + self.fileext,
+                self.metadatafilewcard() + reconsuffix+"*" + self.fileext,
             )
         elif self.fileext == ".cxi":  # PyNX
             scan_wcard = os.path.join(
@@ -456,6 +462,51 @@ class LoadProjections(PathName, Variables):
             raise SystemExit("Exiting")
         return angles, thetas
 
+    def check_angles_new(self):
+        """
+        Find the angles of the projections and plot them to be checked
+        Specific to ID16A beamline (ESRF)
+        """
+        thetas = {}
+        if self.legacy:
+            suffixfile = '_0000.h5'
+        else:
+            suffixfile = '.h5'
+        # reading the angles from raw files
+        for idxp, proj in enumerate(self.proj_files):
+            keys = os.path.basename(os.path.dirname(proj)) #equal to scanname???
+            scanname = os.path.basename(Path(proj).parents[0])
+            rawfile = os.path.join(scanname,scanname+suffixfile)
+            if not self.legacy:
+                rawscanprefix = re.sub('_subtomo\w+','',scanname)
+                rawfile = os.path.join(rawscanprefix,scanname+suffixfile)
+            rawfilepath = os.path.join(Path(proj).parents[3],rawfile)
+            thetas[keys] = read_theta_raw(rawfilepath) # reading theta
+
+        # checking the angles
+        print("Checking the angles")
+        angles = []
+        deltaidx = 0  # in case of repeated values
+        sorted_thetakeys = sorted(thetas.keys())
+        sorted_thetakeys.sort(key=lambda x: re.findall(r'[0-9]+',x)[-2:])
+        for idx, keys in enumerate(sorted_thetakeys):
+            th = np.float(thetas[keys])
+            if th == np.float(thetas[sorted_thetakeys[idx - 1]]):
+                print("Found repeated value of theta. Discarding it")
+                deltaidx += 1
+                continue
+            print("Projection {}: {} degrees".format(idx + 1 - deltaidx, thetas[keys]))
+            angles.append(th)
+
+        # plot the angles for verification
+        plot_checkangles(angles)
+        a = input("Are the angles ok?([Y]/n)").lower()
+        if a == "" or a == "y":
+            print("Continuing...")
+        else:
+            raise SystemExit("Exiting")
+        return angles, thetas
+
     def _remove_extraprojs(self, thetas, proj_files):
         """
         Remove extra projections of tomographic scans with projections at
@@ -512,7 +563,9 @@ class LoadProjections(PathName, Variables):
         Load the reconstructed projections from the ptyr files
         """
         # get the angles
-        angles, thetas = self.check_angles()
+        #angles, thetas = self.check_angles()
+        print("Extracting theta values from experimental data")
+        angles, thetas = self.check_angles_new()
 
         # count the number of available projections
         num_projections = len(self.proj_files)
@@ -844,7 +897,7 @@ class SaveData(PathName, Variables):
             )
             p0 = time.time()
             for ii in range(nprojs):
-                strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
+                strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
                 dset[ii : ii + 1, :, :] = stack_projs[ii]  # avoid fancy slicing
                 progbar(ii + 1, nprojs, strbar)
             print("\r")
@@ -934,7 +987,7 @@ class SaveData(PathName, Variables):
                 )
                 nslices, nr, nc = tomogram1.shape
                 for ii in range(nslices):
-                    print(" Slice: {} out of {}".format(ii + 1, nslices), end="\r")
+                    print("{:5d} / {:5d}".format(ii + 1, nslices), end="\r")
                     dset1[ii, :, :] = tomogram1[ii]
                     dset2[ii, :, :] = tomogram2[ii]
                     progbar(ii + 1, nslices)
@@ -1160,6 +1213,8 @@ class LoadData(PathName, Variables):
         """
         print("Loading shiftstack from file {}".format(h5name))
         h5file = self.results_datapath(h5name)
+        if not os.path.isfile(h5file):
+            raise ValueError(f"The file {h5file} does not exist yet")
         with h5py.File(h5file, "r") as fid:
             shiftstack = fid["shiftstack/shiftstack"][()]
         return shiftstack
@@ -1248,7 +1303,7 @@ class LoadData(PathName, Variables):
                 print("\b\b Done")
                 print("Loading. This takes time, please wait...")
                 for ii in [projs]:
-                    strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
+                    strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
                     stack_projs[ii, roi[2] : roi[3], roi[4] : roi[5]] = dset[
                         ii, roi[2] : roi[3], roi[4] : roi[5]
                     ]
@@ -1261,7 +1316,7 @@ class LoadData(PathName, Variables):
                 print("\b\b Done")
                 print("Loading. This takes time, please wait...")
                 for ii in range(nprojs):
-                    strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
+                    strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
                     stack_projs[ii, :, :] = dset[ii, :, :]
                     progbar(ii + 1, nprojs, strbar)
                 print("\r")
@@ -1273,6 +1328,8 @@ class LoadData(PathName, Variables):
             print("\rTaking only phases...", end="")
             stack_projs = np.angle(stack_projs)
             print("\b\b Done")
+        try: self.params["correct_bad"]
+        except KeyError: self.params["correct_bad"]=False
         if self.params["correct_bad"]:
             stack_projs = replace_bad(
                 stack_projs, list_bad=self.params["bad_projs"], temporary=True
@@ -1327,7 +1384,7 @@ class LoadData(PathName, Variables):
             stack_projs = np.empty((nprojs, nr, nc), dtype=dset.dtype)
             print("Loading projections. This takes time, please wait...")
             for ii in range(nprojs):
-                strbar = "Projection: {} out of {}".format(ii + 1, nprojs)
+                strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
                 dset = fid["aligned_projections_proj/{}".format(key_list[ii])]
                 stack_projs[ii] = dset[()]
                 progbar(ii + 1, nprojs, strbar)
@@ -1483,7 +1540,7 @@ class SaveTomogram(SaveData):
             print("Saving tomographic slices. This takes time, please wait...")
             p0 = time.time()
             for ii in range(nslices):
-                strbar = "Slice: {} out of {}".format(ii + 1, nslices)
+                strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
                 # ~ print(' Slice: {} out of {}'.format(ii+1, nslices), end='\r')
                 dset[ii, :, :] = tomogram[ii]
                 progbar(ii + 1, nslices, strbar)
@@ -1559,14 +1616,14 @@ class SaveTomogram(SaveData):
             # Conversion from phase-shifts tomogram to delta
             print("Converting from phase-shifts values to delta values")
             for ii in range(nslices):
-                strbar = "Slice {} out of {}".format(ii + 1, nslices)
+                strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
                 tomogram[ii], factor = convert_to_delta(tomogram[ii], energy, voxelsize)
                 progbar(ii + 1, nslices, strbar)
         elif self.params["tomo_type"] == "beta":
             # Conversion from amplitude to beta
             print("Converting from amplitude to beta values")
             for ii in range(slices):
-                strbar = "Slice {} out of {}".format(ii + 1, nslices)
+                strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
                 tomogram[ii], factor = convert_to_beta(tomogram[ii], energy, voxelsize)
                 progbar(ii + 1, nslices, strbar)
         print("\r")
@@ -1578,7 +1635,7 @@ class SaveTomogram(SaveData):
         print("Writing the tiff files...")
         tiff_path = self.tiff_folderpath(tiff_subfolder_name)
         for ii in range(nslices):
-            strbar = "Writing slice {:>5.0f} out of {:>5.0f}".format(ii + 1, nslices)
+            strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
             if self.params["bits"] == 16:
                 imgtiff = convertimageto16bits(tomogram[ii], low_cutoff, high_cutoff)
             elif self.params["bits"] == 8:
@@ -1692,7 +1749,7 @@ class LoadTomogram(LoadData):
             tomogram = np.empty(dset.shape, dtype=dset.dtype)
             # ~ tomogram = fid[u'tomogram/slices'][()]
             for ii in range(nslices):
-                strbar = "Slice: {} out of {}".format(ii + 1, nslices)
+                strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
                 tomogram[ii : ii + 1, :, :] = dset[ii, :, :]
                 progbar(ii + 1, nslices, strbar)
             print("\r")

@@ -102,7 +102,7 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
     nprojs, nr, nc = stack_array.shape
     aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
     for ii in range(nprojs):
-        strbar = "Derivative of projection {}".format(ii + 1)
+        strbar = "{:5d} / {:5d}".format(ii + 1,nprojs)
         img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
         aligned_diff[ii] = derivatives(img, shift_method)
         progbar(ii + 1, nprojs, strbar)
