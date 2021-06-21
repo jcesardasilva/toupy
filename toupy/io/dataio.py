@@ -123,8 +123,11 @@ class PathName:
         )  # metadata filename path
         try: self.pycuda = params["pycudaprojs"]
         except KeyError: self.pycuda = True
-        try: self.legacy = params['legacy']
+        try: self.legacy = params["legacy"]
         except KeyError: self.legacy = True
+        try: self.thetameta = params["thetameta"]
+        except KeyError: self.thetameta = True
+
 
     def datafilewcard(self):
         """
@@ -563,9 +566,12 @@ class LoadProjections(PathName, Variables):
         Load the reconstructed projections from the ptyr files
         """
         # get the angles
-        #angles, thetas = self.check_angles()
-        print("Extracting theta values from experimental data")
-        angles, thetas = self.check_angles_new()
+        if self.thetameta:
+            print("Extracting theta values from metadata")
+            angles, thetas = self.check_angles()
+        else:
+            print("Extracting theta values from experimental data")
+            angles, thetas = self.check_angles_new()
 
         # count the number of available projections
         num_projections = len(self.proj_files)
