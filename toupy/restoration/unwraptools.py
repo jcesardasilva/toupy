@@ -204,7 +204,7 @@ def phaseresidues(phimage):
     return residues, residues_charge, nres
 
 
-def phaseresiduesStack(stack_array):
+def phaseresiduesStack(stack_array, threshold=5000):
     """
     Calculate the map of residues on the stack
 
@@ -233,7 +233,7 @@ def phaseresiduesStack(stack_array):
         residues, residues_charge, nres = phaseresidues(stack_array[ii])
         if np.any(np.isnan(residues)):
             raise ValueError(f"NaN found in projection {ii+1}")
-        if nres>1000:
+        if nres>threshold:
             wrong.append(ii)
         resmap += np.abs(residues)
         strbar = "{:6d} residues in projection {:6d}".format(nres, ii + 1)
@@ -246,7 +246,7 @@ def phaseresiduesStack(stack_array):
     return resmap, posres, nres
 
 
-def chooseregiontounwrap(stack_array):
+def chooseregiontounwrap(stack_array, threshold=5000):
     """
     Choose the region to be unwrapped
 
@@ -265,7 +265,7 @@ def chooseregiontounwrap(stack_array):
     """
     # checking for residues
     print("Checking for phase residues")
-    resmap, posres, nres = phaseresiduesStack(stack_array)
+    resmap, posres, nres = phaseresiduesStack(stack_array, threshold)
     yres, xres = posres
 
     # display the residues
