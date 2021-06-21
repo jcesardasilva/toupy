@@ -1530,8 +1530,8 @@ def estimate_rot_axis(input_array, theta, **params):
             display.display(fig1.canvas)
             display.clear_output(wait=True)
         else:
-            #fig1.show(block=False)
-            plt.show(block=False)
+            fig1.show(block=False)
+            #plt.show(block=False)
         a = input("Are you happy with the rotation axis?([y]/n)").lower()
         if a == "" or a == "y":
             break
