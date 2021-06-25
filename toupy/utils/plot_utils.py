@@ -1006,4 +1006,4 @@ def display_slice(recons, colormap="bone", vmin=None, vmax=None):
         display.display(fig.canvas)
         #display.clear_output(wait=True)
     else:
-        fig.show(block=False)
+        plt.show(block=False)
