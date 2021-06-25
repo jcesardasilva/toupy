@@ -4,6 +4,7 @@
 # standard libraries imports
 import functools
 import multiprocessing
+import os
 
 # third party packages
 import numpy as np
@@ -88,7 +89,8 @@ def metafftw(func):
     def wrapper(input_array):
         # checking number of cores available
         kwargs = dict()
-        kwargs["ncores"] = multiprocessing.cpu_count()
+        try: kwargs["ncores"] = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
+        except: kwargs["ncores"] = multiprocessing.cpu_count()
         # stating the precision.
         # np.complex64: single precision; and np.complex128: double precision
         kwargs["cprecision"] = np.complex64
