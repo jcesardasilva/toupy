@@ -5,6 +5,7 @@
 from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.fftpack import fftfreq, fft, ifft
 
 # local packages
 from ..registration.shift import ShiftFunc
@@ -135,6 +136,29 @@ def derivatives(input_array, shift_method="fourier"):
     # ~ diffimg = np.angle(S(np.exp(1j*input_array),rshift,'reflect',True)*S(np.exp(-1j*input_array),lshift,'reflect',True))
     return diffimg
 
+def derivatives_fft(input_img,symmetric=True):
+    """
+    Calculate the derivative of an image using FFT
+
+    Parameters
+    ----------
+    input_array: array_like
+        Input image to calculate the derivatives
+    symmetric: bool
+        If `True`, symmetric difference is calculated
+
+    Returns
+    -------
+    diffimg : array_like
+        Derivatives of the images along the row direction
+    """
+    freqs = fftfreq(input_img.shape[0])
+    if symmetric:
+        rshift, lshift = 0.5, 0.5
+    else:
+        rshift, lshift = 1.0, 0.0
+    fftimg1 = (np.exp(1j*2*np.pi*freqs*rshift)-np.exp(-1j*2*np.pi*freqs*lshift))*fft(img)
+    return ifft(fftimg1).real
 
 def derivatives_sino(input_sino, shift_method="fourier"):
     """
