@@ -23,6 +23,8 @@ __all__ = [
     "distance",
     "get_charge",
     "phaseresidues",
+    "phaseresiduesStack",
+    "phaseresiduesStack_parallel",
     "chooseregiontounwrap",
     "unwrapping_phase"
     # ~ u'goldstein_unwrap2D'
@@ -309,7 +311,7 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     Returns
     -------
     rx, ry : tuple
-        Limits of the are to be unwrapped
+        Limits of the area to be unwrapped
     airpix : tuple
         Position of the pixel which should contains only air/vacuum
     """

@@ -30,7 +30,7 @@ params["samplename"] = "v97_v_nfptomo2_15nm"
 params["phaseonly"] = True
 params["deltax"] = 2  # From edge of region to edge of image in x
 params["limsy"] = (1, 2329)  # (top, bottom)
-params["shift_method"] = "fourier"
+sparams["n_cpus"] = -1 # negative number means all cpus available
 params["autosave"] = True
 # =========================
 
@@ -47,8 +47,8 @@ if __name__ == "__main__":
     roix, roiy = chooseregiontoderivatives(aligned, **params)
 
     # calculating the projection derivatives
-    aligned_diff = calculate_derivatives(
-        aligned, roiy, roix, shift_method=params["shift_method"]
+    aligned_diff = calculate_derivatives_fft(
+        aligned, roiy, roix, n_cpus=params["n_cpus"]
     )
 
     # display the projections after the unwrapping

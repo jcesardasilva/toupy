@@ -8,9 +8,8 @@ import os
 
 # third party packages
 import numpy as np
-from numpy.fft import fftfreq
 import pyfftw  # has to be imported first to avoid ImportError: dlopen: cannot load any more object with static TLS
-from scipy import fftpack
+from scipy.fft import fftfreq, next_fast_len
 
 # enable cache for pyfftw
 pyfftw.interfaces.cache.enable()
@@ -77,7 +76,7 @@ def padrightside(nbins):
     """
     # ~ nextPower = nextpoweroftwo(nbins)
     # ~ nextPower = nextpow2(nbins)
-    # ~ nextPower = fftpack.next_fast_len(nbins)
+    # ~ nextPower = next_fast_len(nbins)
     nextPower = pyfftw.next_fast_len(nbins)
     deficit = int(nextPower - nbins)
     # ~ deficit = int(np.power(2, nextPower) - nbins)
@@ -125,8 +124,11 @@ def fastfftn(input_array, **kwargs):
     # align array
     fftw_array = pyfftw.byte_align(input_array, dtype=cprecision, n=16)
     # will need to plan once
-    fftw_array = pyfftw.interfaces.numpy_fft.fftn(
-        fftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
+    #fftw_array = pyfftw.interfaces.numpy_fft.fftn(
+    #    fftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
+    #)
+    fftw_array = pyfftw.interfaces.scipy_fft.fftn(
+        fftw_array, overwrite_x=True, planner_effort=planner_type, workers=ncores
     )
 
     return fftw_array
@@ -156,8 +158,11 @@ def fastifftn(input_array, **kwargs):
     planner_type = kwargs["planner_type"]  # 'FFTW_MEASURE'
     # align array
     ifftw_array = pyfftw.byte_align(input_array, dtype=cprecision, n=16)
-    ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(
-        ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
+    #ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(
+    #    ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
+    #)
+    ifftw_array = pyfftw.interfaces.scipy_fft.ifftn(
+        ifftw_array, overwrite_x=True, planner_effort=planner_type, workers=ncores
     )
 
     return ifftw_array

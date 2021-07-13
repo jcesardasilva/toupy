@@ -32,7 +32,7 @@ Click [here](https://toupy.readthedocs.io/en/latest/installing.html) for more in
 
 Travis
 ------
-[![Build Status](https://travis-ci.org/jcesardasilva/toupy.svg?branch=master)](https://travis-ci.org/jcesardasilva/toupy)
+[![Build Status](https://travis-ci.com/jcesardasilva/toupy.svg?branch=master)](https://travis-ci.com/jcesardasilva/toupy)
 
 Get started
 -----------

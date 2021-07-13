@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# standard packages
+import os
+
 # third party packages
 from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.fft import fftfreq, fft, ifft
 
 # local packages
 from ..registration.shift import ShiftFunc
@@ -13,8 +17,10 @@ from ..utils import progbar, isnotebook
 
 __all__ = [
     "calculate_derivatives",
+    "calculate_derivatives_fft",
     "chooseregiontoderivatives",
     "derivatives",
+    "derivatives_fft",
     "derivatives_sino",
     "gradient_axis",
 ]
@@ -98,6 +104,21 @@ def chooseregiontoderivatives(stack_array, **params):
 def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
     """
     Compute projection derivatives
+    
+    Parameters
+    ----------
+    stack_array : array_like
+        Input stack of arrays to calculate the derivatives
+    roix, roiy : tuple
+            Limits of the area on which to calculate the derivatives
+    shift_method : str
+        Name of the shift method to use. For the available options, please
+        see :class:`ShiftFunc()` in :mod:`toupy.registration`
+
+    Returns
+    -------
+    aligned_diff : array_like
+        Stack of derivatives of the arrays along the horizontal direction
     """
     nprojs, nr, nc = stack_array.shape
     aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
@@ -105,6 +126,35 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
         strbar = "{:5d} / {:5d}".format(ii + 1,nprojs)
         img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
         aligned_diff[ii] = derivatives(img, shift_method)
+        progbar(ii + 1, nprojs, strbar)
+
+    return aligned_diff
+    
+def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
+    """
+    Compute projection derivatives using FFTs
+    
+    Parameters
+    ----------
+    stack_array : array_like
+        Input stack of arrays to calculate the derivatives
+    roix, roiy : tuple
+            Limits of the area on which to calculate the derivatives
+    n_cpus: int
+        The number of cpus for parallel computing. If `n_cpus<0`, the number of cpus
+        will be determined by `os.cpu_counts()`
+
+    Returns
+    -------
+    aligned_diff : array_like
+        Stack of derivatives of the arrays along the horizontal direction
+    """
+    nprojs, nr, nc = stack_array.shape
+    aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
+    for ii in range(nprojs):
+        strbar = "{:5d} / {:5d}".format(ii + 1,nprojs)
+        img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
+        aligned_diff[ii] = derivatives_fft(img, n_cpus=n_cpus)
         progbar(ii + 1, nprojs, strbar)
 
     return aligned_diff
@@ -135,6 +185,34 @@ def derivatives(input_array, shift_method="fourier"):
     # ~ diffimg = np.angle(S(np.exp(1j*input_array),rshift,'reflect',True)*S(np.exp(-1j*input_array),lshift,'reflect',True))
     return diffimg
 
+def derivatives_fft(input_img, symmetric=True, n_cpus=-1):
+    """
+    Calculate the derivative of an image using FFT along the horizontal direction
+
+    Parameters
+    ----------
+    input_array: array_like
+        Input image to calculate the derivatives
+    symmetric: bool
+        If `True`, symmetric difference is calculated
+    n_cpus: int
+        The number of cpus for parallel computing. If `n_cpus<0`, the number of cpus
+        will be determined by `os.cpu_counts()`
+
+    Returns
+    -------
+    diffimg : array_like
+        Derivatives of the images along the row direction
+    """
+    if n_cpus < 0:
+        n_cpus = os.cpu_counts()
+    freqs = fftfreq(input_img.shape[0])
+    if symmetric:
+        rshift, lshift = 0.5, 0.5
+    else:
+        rshift, lshift = 1.0, 0.0
+    fftimg = (np.exp(1j*2*np.pi*freqs*rshift) - np.exp(-1j*2*np.pi*freqs*lshift)) * fft(input_img, workers=n_cpus)
+    return ifft(fftimg, workers=n_cpus).real
 
 def derivatives_sino(input_sino, shift_method="fourier"):
     """

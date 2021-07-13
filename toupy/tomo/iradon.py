@@ -4,7 +4,7 @@
 # third party packages
 from IPython import get_ipython
 import numpy as np
-from scipy.fftpack import fft, ifft, fftfreq
+from scipy.fft import fft, ifft, fftfreq
 from scipy.interpolate import interp1d
 from silx import version
 import warnings

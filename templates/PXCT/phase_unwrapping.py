@@ -18,11 +18,14 @@ params = dict()
 # =========================
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["phaseonly"] = True
-params["autosave"] = True
-params["correct_bad"] = True
-params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
+params["threshold"] = 2000
 params["vmin"] = -8
 params["vmax"] = None
+params["parallel"] = True
+params["n_cpus"] = -1
+params["autosave"] = True
+params["correct_bad"] = False
+params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
 # =========================
 
 # =============================================================================#
@@ -41,11 +44,22 @@ if __name__ == "__main__":
         )
 
     # find the residues and choose region to be unwrapped
-    rx, ry, airpix = chooseregiontounwrap(stack_phasecorr)
+    rx, ry, airpix = chooseregiontounwrap(
+                        stack_phasecorr,
+                        threshold = params["n_cpus"],
+                        parallel = params["parallel"],
+                        ncores = params["n_cpus"],
+                    )
 
     ansunw = input("Do you want to continue with the unwrapping?([y]/n)").lower()
     if str(ansunw) == "" or str(ansunw) == "y":
-        stack_unwrap = unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params)
+        stack_unwrap = unwrapping_phase(
+                            stack_phasecorr, 
+                            rx, 
+                            ry, 
+                            airpix, 
+                            **params
+                    )
     else:
         stack_unwrap = stack_phasecorr
         print("The phases have not been unwrapped").lower()
