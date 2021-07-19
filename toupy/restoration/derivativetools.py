@@ -16,6 +16,7 @@ __all__ = [
     "calculate_derivatives",
     "chooseregiontoderivatives",
     "derivatives",
+    "derivatives_fft",
     "derivatives_sino",
     "gradient_axis",
 ]
@@ -99,6 +100,21 @@ def chooseregiontoderivatives(stack_array, **params):
 def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
     """
     Compute projection derivatives
+    
+    Parameters
+    ----------
+    stack_array : array_like
+        Input stack of arrays to calculate the derivatives
+    roix, roiy : tuple
+            Limits of the area on which to calculate the derivatives
+    shift_method : str
+        Name of the shift method to use. For the available options, please
+        see :class:`ShiftFunc()` in :mod:`toupy.registration`
+
+    Returns
+    -------
+    aligned_diff : array_like
+        Stack of derivatives of the arrays along the horizontal direction
     """
     nprojs, nr, nc = stack_array.shape
     aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
