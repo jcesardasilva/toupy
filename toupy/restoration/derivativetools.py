@@ -154,7 +154,7 @@ def derivatives(input_array, shift_method="fourier"):
 
 def derivatives_fft(input_img,symmetric=True):
     """
-    Calculate the derivative of an image using FFT
+    Calculate the derivative of an image using FFT along the horizontal direction
 
     Parameters
     ----------
@@ -173,8 +173,8 @@ def derivatives_fft(input_img,symmetric=True):
         rshift, lshift = 0.5, 0.5
     else:
         rshift, lshift = 1.0, 0.0
-    fftimg1 = (np.exp(1j*2*np.pi*freqs*rshift)-np.exp(-1j*2*np.pi*freqs*lshift))*fft(img)
-    return ifft(fftimg1).real
+    fftimg = (np.exp(1j*2*np.pi*freqs*rshift)-np.exp(-1j*2*np.pi*freqs*lshift))*fft(input_img)
+    return ifft(fftimg).real
 
 def derivatives_sino(input_sino, shift_method="fourier"):
     """
