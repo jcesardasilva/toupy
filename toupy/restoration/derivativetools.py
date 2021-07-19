@@ -17,6 +17,7 @@ from ..utils import progbar, isnotebook
 
 __all__ = [
     "calculate_derivatives",
+    "calculate_derivatives_fft",
     "chooseregiontoderivatives",
     "derivatives",
     "derivatives_fft",
@@ -128,6 +129,35 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
         progbar(ii + 1, nprojs, strbar)
 
     return aligned_diff
+    
+def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
+    """
+    Compute projection derivatives using FFTs
+    
+    Parameters
+    ----------
+    stack_array : array_like
+        Input stack of arrays to calculate the derivatives
+    roix, roiy : tuple
+            Limits of the area on which to calculate the derivatives
+    n_cpus: int
+        The number of cpus for parallel computing. If `n_cpus<0`, the number of cpus
+        will be determined by `os.cpu_counts()`
+
+    Returns
+    -------
+    aligned_diff : array_like
+        Stack of derivatives of the arrays along the horizontal direction
+    """
+    nprojs, nr, nc = stack_array.shape
+    aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
+    for ii in range(nprojs):
+        strbar = "{:5d} / {:5d}".format(ii + 1,nprojs)
+        img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
+        aligned_diff[ii] = derivatives_fft(img, n_cpus=n_cpus)
+        progbar(ii + 1, nprojs, strbar)
+
+    return aligned_diff
 
 
 def derivatives(input_array, shift_method="fourier"):
@@ -155,7 +185,7 @@ def derivatives(input_array, shift_method="fourier"):
     # ~ diffimg = np.angle(S(np.exp(1j*input_array),rshift,'reflect',True)*S(np.exp(-1j*input_array),lshift,'reflect',True))
     return diffimg
 
-def derivatives_fft(input_img, symmetric=True, n_cpus=1):
+def derivatives_fft(input_img, symmetric=True, n_cpus=-1):
     """
     Calculate the derivative of an image using FFT along the horizontal direction
 

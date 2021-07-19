@@ -23,6 +23,8 @@ __all__ = [
     "distance",
     "get_charge",
     "phaseresidues",
+    "phaseresiduesStack",
+    "phaseresiduesStack_parallel",
     "chooseregiontounwrap",
     "unwrapping_phase"
     # ~ u'goldstein_unwrap2D'
