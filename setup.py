@@ -52,6 +52,7 @@ setuptools.setup(
         "fabio>=0.11.0",
         "h5py>=3.1.0",
         "ipython>=7.16.1",
+        "joblib>=1.0.1", 
         "matplotlib>=3.3.4",
         "numpy>=1.16.5",
         "numexpr>=2.6.9",
@@ -61,5 +62,6 @@ setuptools.setup(
         "scikit_image>=0.17.2",
         "silx>=0.9.0",
         "sphinx>=2.1.2",
+        "tqdm>=4.61.2",
     ],
 )
