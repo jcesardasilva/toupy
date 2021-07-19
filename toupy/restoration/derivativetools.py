@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# standard packages
+import os
+
 # third party packages
 from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.fftpack import fftfreq, fft, ifft
+from scipy.fft import fftfreq, fft, ifft
 
 # local packages
 from ..registration.shift import ShiftFunc
@@ -152,7 +155,7 @@ def derivatives(input_array, shift_method="fourier"):
     # ~ diffimg = np.angle(S(np.exp(1j*input_array),rshift,'reflect',True)*S(np.exp(-1j*input_array),lshift,'reflect',True))
     return diffimg
 
-def derivatives_fft(input_img,symmetric=True):
+def derivatives_fft(input_img, symmetric=True, n_cpus=1):
     """
     Calculate the derivative of an image using FFT along the horizontal direction
 
@@ -162,19 +165,24 @@ def derivatives_fft(input_img,symmetric=True):
         Input image to calculate the derivatives
     symmetric: bool
         If `True`, symmetric difference is calculated
+    n_cpus: int
+        The number of cpus for parallel computing. If `n_cpus<0`, the number of cpus
+        will be determined by `os.cpu_counts()`
 
     Returns
     -------
     diffimg : array_like
         Derivatives of the images along the row direction
     """
+    if n_cpus < 0:
+        n_cpus = os.cpu_counts()
     freqs = fftfreq(input_img.shape[0])
     if symmetric:
         rshift, lshift = 0.5, 0.5
     else:
         rshift, lshift = 1.0, 0.0
-    fftimg = (np.exp(1j*2*np.pi*freqs*rshift)-np.exp(-1j*2*np.pi*freqs*lshift))*fft(input_img)
-    return ifft(fftimg).real
+    fftimg = (np.exp(1j*2*np.pi*freqs*rshift) - np.exp(-1j*2*np.pi*freqs*lshift)) * fft(input_img, workers=n_cpus)
+    return ifft(fftimg, workers=n_cpus).real
 
 def derivatives_sino(input_sino, shift_method="fourier"):
     """
