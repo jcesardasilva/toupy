@@ -5,18 +5,16 @@ The script for building/installing packages
 
 import setuptools
 
-with open("./README.md", "r", encoding="utf-8") as fid:
+with open("README.md", "r", encoding="utf-8") as fid:
     long_description = fid.read()
 
 long_description_toupy = "**Toupy** - Tomographic Utilites for Python"
 
 setuptools.setup(
     name="toupy",
-    version="0.2.1",
+    version="0.2.2",
     author="Julio Cesar da Silva",
     author_email="julio-cesar.da-silva@neel.cnrs.fr",
-    # console_scripts=["bin/create_toupy_templates"],
-    license="LICENCE",
     description="Tomographic Utilities for Python",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -24,13 +22,13 @@ setuptools.setup(
     project_urls={"Bug Tracker": "https://github.com/jcesardasilva/toupy/issues"},
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GPLv3 License",
+        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
         "Topic :: Scientific/Engineering",
         "Topic :: Software Development",
         "Operating System :: Unix",
     ],
     package_dir={"toupy": "toupy"},
-    packages=setuptools.find_packages(where="src"),
+    packages=setuptools.find_packages(),
     python_requires=">=3.6",
     scripts=[
         "bin/file_comp",
