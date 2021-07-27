@@ -9,14 +9,6 @@ toupy.tomo package
 Submodules
 ----------
 
-toupy.tomo.backprop2d module
-----------------------------
-
-.. automodule:: toupy.tomo.backprop2d
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 toupy.tomo.iradon module
 ------------------------
 
