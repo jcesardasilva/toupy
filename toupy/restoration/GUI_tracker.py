@@ -22,14 +22,15 @@ from ..utils import progbar, isnotebook
 
 __all__ = ["gui_plotamp", "gui_plotphase", "AmpTracker", "PhaseTracker"]
 
+
 def _unwrapping_phase(imgin, mask):
     """
     Unwrap phase
     """
-    #print("\nUnwrapping phase")
+    # print("\nUnwrapping phase")
     unwrapimg = unwrap_phase(imgin)
     if np.any(mask == True):
-        #print('Correcting for air/vacuum regions')
+        # print('Correcting for air/vacuum regions')
         vals = unwrapimg[np.where(mask == True)].mean()
         unwrapimg -= 2 * np.pi * np.round(vals / (2 * np.pi))
     return unwrapimg
@@ -178,11 +179,11 @@ def gui_plotamp(stack_objs, **params):
     fig.canvas.mpl_connect("scroll_event", tracker.onscroll)
     fig.canvas.mpl_connect("key_press_event", tracker.key_event)
     multi = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
-    #plt.show(block=False)
+    # plt.show(block=False)
     if isnotebook():
         display.display(fig)
         display.display(fig.canvas)
-        #display.clear_output(wait=True)
+        # display.clear_output(wait=True)
     else:
         fig.show()
     a = input("Press Enter to finish\n")
@@ -195,7 +196,7 @@ def gui_plotamp(stack_objs, **params):
 def gui_plotphase(stack_objs, **params):
     """
     GUI for the phase ramp removal from phase projections
-    
+
     Parameters
     ----------
     stack_objs : array_like
@@ -321,11 +322,11 @@ def gui_plotphase(stack_objs, **params):
     fig.canvas.mpl_connect("scroll_event", tracker.onscroll)
     fig.canvas.mpl_connect("key_press_event", tracker.key_event)
     multi = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
-    #plt.show(block=False)
+    # plt.show(block=False)
     if isnotebook():
         display.display(fig)
         display.display(fig.canvas)
-        #display.clear_output(wait=True)
+        # display.clear_output(wait=True)
     else:
         fig.show()
     a = input("Press Enter to finish\n")
@@ -368,7 +369,7 @@ class PhaseTracker(object):
             vmin=self.vmin,
             vmax=self.vmax,
         )
-        self.ax1.plot([1,self.cols-1],[self.hcen, self.hcen],'b--')
+        self.ax1.plot([1, self.cols - 1], [self.hcen, self.hcen], "b--")
         # ~ self.vmin,self.vmax = self.im1.get_clim() # get colormap limits
         self.ax1.axis("tight")
         (self.im2,) = self.ax2.plot(self.X2[self.ind, :])
@@ -474,11 +475,8 @@ class PhaseTracker(object):
         fig_mask = plt.figure()
         ax_mask = fig_mask.add_subplot(111)
         ax_mask.imshow(
-                self.img_mask,
-                cmap=self.colormap,
-                vmin=self.vmin,
-                vmax=self.vmax
-            )
+            self.img_mask, cmap=self.colormap, vmin=self.vmin, vmax=self.vmax
+        )
         self.ROI_draw = roipoly(ax=ax_mask)
         # ~ self.ROI_draw = RoiPoly(color='b', fig = fig_mask, close_fig=True) # has to close to validate
         # ~ self.ROI_draw = MultiRoi_mod(fig=fig_mask,ax=ax_mask)#(color='b', fig = self.fig)
@@ -532,9 +530,9 @@ class PhaseTracker(object):
         """
         print("\nApply the linear phase correction using current mask")
         self.X1[self.ind] = _removing_phaseramp(
-                        self.X1[self.ind],
-                        self.mask[self.ind],
-                        )
+            self.X1[self.ind],
+            self.mask[self.ind],
+        )
         self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
 
@@ -549,9 +547,9 @@ class PhaseTracker(object):
             self.ind = ii
             strbar = "Projection {} out of {}".format(ii + 1, self.projs)
             self.X1[ii] = _removing_phaseramp(
-                        self.X1[ii],
-                        self.mask[ii],
-                        )
+                self.X1[ii],
+                self.mask[ii],
+            )
             self.X2[ii] = self.X1[ii, self.hcen, :].copy()
             self.update()
             progbar(ii + 1, self.projs, strbar)
@@ -607,10 +605,7 @@ class PhaseTracker(object):
         Unwrap phase
         """
         print(f"\nUnwrapping phase projection {self.ind}")
-        self.X1[self.ind] = _unwrapping_phase(
-                        self.X1[self.ind],
-                        self.mask[self.ind]
-                        )
+        self.X1[self.ind] = _unwrapping_phase(self.X1[self.ind], self.mask[self.ind])
         self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
 
@@ -622,10 +617,7 @@ class PhaseTracker(object):
         for ii in range(self.projs):
             self.ind = ii
             strbar = "Projection {} out of {}".format(ii + 1, self.projs)
-            self.X1[ii] = _unwrapping_phase(
-                        self.X1[ii],
-                        self.mask[ii]
-                        )
+            self.X1[ii] = _unwrapping_phase(self.X1[ii], self.mask[ii])
             self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
             self.update()
             progbar(ii + 1, self.projs, strbar)
@@ -673,7 +665,7 @@ class PhaseTracker(object):
         self.im2.set_ydata(self.X2[self.ind])
         self.im2.axes.set_ylim([self.pmin, self.pmax])
         self.im2.axes.set_xlim([0, self.cols])
-        #self.ax2.set_xlim([0, self.cols])
+        # self.ax2.set_xlim([0, self.cols])
         self.ax1.set_ylabel("Projection {}".format(self.ind + 1))
         self.ax2.set_ylabel("Projection {}".format(self.ind + 1))
         self.ax1.axes.figure.canvas.draw()

@@ -8,28 +8,33 @@ from scipy.fft import fft, ifft, fftfreq
 from scipy.interpolate import interp1d
 from silx import version
 import warnings
+
 warnings.filterwarnings("ignore")
 
 # local libraries import
 from ..utils.plot_utils import isnotebook
 
-if isnotebook(): RunningInCOLAB = 'google.colab' in str(get_ipython())
-else: RunningInCOLAB = False
+if isnotebook():
+    RunningInCOLAB = "google.colab" in str(get_ipython())
+else:
+    RunningInCOLAB = False
 
-if RunningInCOLAB or isnotebook(): RunningInBrowser = True
-else: RunningInBrowser = False
+if RunningInCOLAB or isnotebook():
+    RunningInBrowser = True
+else:
+    RunningInBrowser = False
 
 if not RunningInBrowser:
     try:
         from silx.opencl.backprojection import Backprojection
     except ModuleNotFoundError:
-        print('Not using pyopencl for the reconstruction')
-        print('The reconstruction will be slow.')
-        nosilx=True
+        print("Not using pyopencl for the reconstruction")
+        print("The reconstruction will be slow.")
+        nosilx = True
 else:
     nosilx = True
 
-#from nabu.reconstruction.fbp import Backprojector as Backprojection
+# from nabu.reconstruction.fbp import Backprojector as Backprojection
 
 # local package
 from ..utils import create_circle
@@ -48,17 +53,17 @@ def compute_angle_weights(theta):
     """
     Compute the corresponding weight for each angle according to the distance between
     its neighbors in case of non equally spaced angles
-    
+
     Parameters
     ----------
     theta : ndarray
         Angles in degrees
-    
+
     Returns
     -------
     weights : ndarray
         The weights for each angle to be applied to the sinogram
-    
+
     Note
     ----
     The weights are computed assuming a angular distribution between 0 and 180 degrees.
@@ -92,7 +97,7 @@ def compute_filter(nbins, filter_type="ram-lak", derivatives=False, freqcutoff=1
     nbins : int
         Size of the filter to be calculated
     filter_type: str, optional
-        Name of the filter to be applied. The options are: `ram-lak`, 
+        Name of the filter to be applied. The options are: `ram-lak`,
         `shepp-logan`, `cosine`, `hamming`, `hann`. The default is `ram-lak`.
     derivatives : bool, optional
         If True, it will use a Hilbert filter used for derivative projections.
@@ -104,7 +109,7 @@ def compute_filter(nbins, filter_type="ram-lak", derivatives=False, freqcutoff=1
     Return
     ------
     fourier_filter : ndarray
-        A 2-Dimnesional array containing the filter to be used in the FBP 
+        A 2-Dimnesional array containing the filter to be used in the FBP
         reconstruction
     """
 
@@ -182,7 +187,7 @@ def mod_iradon(
         Number of rows and columns in the reconstruction.
     filter : str, optional
         Name of the filter to be applied in frequency domain filtering.
-        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`, 
+        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`,
         `hann`. The default is `ram-lak`. Assign None to use no filter.
     derivatives : bool, optional
         If ``True``, assumes that the radon_image contains the derivates of the
@@ -202,7 +207,7 @@ def mod_iradon(
     Returns
     -------
     reconstructed : ndarray
-        A 2-dimensional array containing the reconstructed image. 
+        A 2-dimensional array containing the reconstructed image.
         The rotation axis will be located in the pixel with indices
         ``(reconstructed.shape[0] // 2, reconstructed.shape[1] // 2)``.
 
@@ -323,7 +328,7 @@ def mod_iradonSilx(
         Number of rows and columns in the reconstruction.
     filter : str, optional
         Name of the filter to be applied in frequency domain filtering.
-        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`, 
+        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`,
         `hann`. The default is `ram-lak`. Assign None to use no filter.
     derivatives : bool, optional
         If ``True``, assumes that the radon_image contains the derivates of the
@@ -343,7 +348,7 @@ def mod_iradonSilx(
     Returns
     -------
     reconstructed : ndarray
-        A 2-dimensional array containing the reconstructed image. 
+        A 2-dimensional array containing the reconstructed image.
         The rotation axis will be located in the pixel with indices
         ``(reconstructed.shape[0] // 2, reconstructed.shape[1] // 2)``.
 
@@ -406,7 +411,7 @@ def backprojector(sinogram, theta, **params):
     """
     Wrapper to choose between Forward Radon transform using Silx and
     OpenCL or standard reconstruction.
-    
+
     Parameters
     ----------
     sinogram : ndarray
@@ -414,8 +419,8 @@ def backprojector(sinogram, theta, **params):
     theta : ndarray
         A 1-dimensional array of thetas
     params : dict
-        Dictionary containing the parameters to be used in the reconstruction. 
-        See :py:meth:`mod_iradonSilx` and :py:meth:`mod_iradon` for the 
+        Dictionary containing the parameters to be used in the reconstruction.
+        See :py:meth:`mod_iradonSilx` and :py:meth:`mod_iradon` for the
         list of parameters
 
     Returns
@@ -423,15 +428,19 @@ def backprojector(sinogram, theta, **params):
     recons : ndarray
         A 2-dimensional array containing the reconstructed sliced by the choosen method
     """
-    #~ if not nosilx:
-        #~ print("Forcing param['opencl']=False")
-        #~ params["opencl"]=False
-    try: params["weight_angles"]
-    except: params["weight_angles"] = False
-    
-    try: params["opencl"]
-    except: params["opencl"] = False
-        
+    # ~ if not nosilx:
+    # ~ print("Forcing param['opencl']=False")
+    # ~ params["opencl"]=False
+    try:
+        params["weight_angles"]
+    except:
+        params["weight_angles"] = False
+
+    try:
+        params["opencl"]
+    except:
+        params["opencl"] = False
+
     if params["opencl"]:
         # using Silx backprojector
         # print("Using OpenCL")
@@ -480,7 +489,7 @@ def reconsSART(
     Returns
     -------
     recons : ndarray
-        A 2-dimensional array containing the reconstructed sliced by SART        
+        A 2-dimensional array containing the reconstructed sliced by SART
     """
     theta = np.float64(theta)
     sinogram = np.float64(sinogram)

@@ -132,7 +132,7 @@ def _get_charge(residues):
     negres = np.where(np.round(residues) == -1)
     resneg = len(negres[0])
 
-    nres = respos+resneg
+    nres = respos + resneg
 
     return posres, negres, nres
 
@@ -237,19 +237,19 @@ def phaseresiduesStack(stack_array, threshold=5000):
         #     "\rSearching for residues in projection {:>4.0f} ... ".format(ii + 1),
         #     end="",
         # )
-        #strbar = "Searching for residues in projection {} out of {}".format(ii + 1, nproj)
+        # strbar = "Searching for residues in projection {} out of {}".format(ii + 1, nproj)
         residues, residues_charge, nres = phaseresidues(stack_array[ii])
         if np.any(np.isnan(residues)):
             raise ValueError(f"NaN found in projection {ii+1}")
-        if nres>threshold:
+        if nres > threshold:
             wrong.append(ii)
         resmap += np.abs(residues)
         strbar = "{:6d} res./proj. {:6d}".format(nres, ii + 1)
-        #progbar(ii+1,nproj,strbar+" ({} residues)".format(nres))
-        progbar(ii+1,nproj,strbar)
+        # progbar(ii+1,nproj,strbar+" ({} residues)".format(nres))
+        progbar(ii + 1, nproj, strbar)
     print(". Done")
     posres = np.where(resmap >= 1.0)
-    if wrong!=[]:
+    if wrong != []:
         print("The following projections are problematic: {}".format(wrong))
     return resmap, posres, nres
 
@@ -274,11 +274,13 @@ def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
         Positions of the residues in the format ``posres = (yres,xres)``
     """
     with parallel_backend("loky", inner_max_num_threads=2):
-        residues, residues_charge, nres = \
-        zip(*Parallel(n_jobs=ncores)(delayed(phaseresidues)(ii) \
-        for ii in tqdm(stack_array)))
-    print('Done')
-    #resmap = np.abs(np.array(residues)).sum(axis=0)
+        residues, residues_charge, nres = zip(
+            *Parallel(n_jobs=ncores)(
+                delayed(phaseresidues)(ii) for ii in tqdm(stack_array)
+            )
+        )
+    print("Done")
+    # resmap = np.abs(np.array(residues)).sum(axis=0)
     nproj = stack_array.shape[0]
     resmap = 0
     print("Creating the map of residues")
@@ -287,10 +289,10 @@ def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
     del residues
     del residues_charge
     posres = np.where(resmap >= 1.0)
-    wrong = np.where(np.array(nres)>threshold)[0]
-    if wrong!=[]:
+    wrong = np.where(np.array(nres) > threshold)[0]
+    if wrong != []:
         print("The following projections are problematic: \n {}".format(wrong))
-    #return residues, residues_charge, nres
+    # return residues, residues_charge, nres
     return resmap, posres, nres
 
 
@@ -317,14 +319,19 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     """
     # checking for residues
     print("Checking for phase residues")
-    if ncores == 1: parallel = False
+    if ncores == 1:
+        parallel = False
     if parallel:
-        if ncores==-1:
-            try: ncores = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
-            except: ncores = multiprocessing.cpu_count()
+        if ncores == -1:
+            try:
+                ncores = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
+            except:
+                ncores = multiprocessing.cpu_count()
         if ncores == 1:
             print(f"{ncores} used: parallel calculations are not possible")
-        resmap, posres, nres = phaseresiduesStack_parallel(stack_array, threshold, ncores)
+        resmap, posres, nres = phaseresiduesStack_parallel(
+            stack_array, threshold, ncores
+        )
     else:
         resmap, posres, nres = phaseresiduesStack(stack_array, threshold)
     yres, xres = posres
@@ -335,13 +342,13 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.imshow(stack_array[0], cmap="bone")
-    #plt.imshow(resmap, cmap="jet")
+    # plt.imshow(resmap, cmap="jet")
     ax.axis("tight")
     ax.plot(xres, yres, "or")
     if isnotebook():
         display.display(fig)
         display.display(fig.canvas)
-        #display.clear_output(wait=True)
+        # display.clear_output(wait=True)
     else:
         plt.show(block=False)
 
@@ -390,7 +397,7 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
         print("Chosen region contains {} residues in total".format(num_residues))
 
         # update images with boudaries
-        #ax1 = _plotdelimiters(ax1, ry, rx, airpix) # TODO: fixme
+        # ax1 = _plotdelimiters(ax1, ry, rx, airpix) # TODO: fixme
 
         fig = plt.figure(2)
         plt.clf()
@@ -398,7 +405,7 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
         im1 = ax1.imshow(stack_array[0], cmap="bone")
         ax1.plot(xres, yres, "or")
         ax1.axis("tight")
-        #plt.show(block=False)
+        # plt.show(block=False)
         ax1.plot([rx[0], rx[-1]], [ry[0], ry[0]], "b")
         ax1.plot([rx[0], rx[-1]], [ry[-1], ry[-1]], "b-")
         ax1.plot([rx[0], rx[0]], [ry[0], ry[-1]], "b-")
@@ -414,7 +421,7 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
 
         ans = input("Are you happy with the boundaries?([y]/n)").lower()
         if str(ans) == "" or str(ans) == "y":
-            plt.close('all')
+            plt.close("all")
             break
 
     return rx, ry, airpix
@@ -448,12 +455,14 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
         img2unwrap_sel = unwrap_phase(img2wrap_sel)
         # update the image in the original array
         img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel
-        img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = (
-            img2unwrap_sel
-            - 2 * np.pi * np.round(img2unwrap[airpix[1], airpix[0]] / (2 * np.pi))
+        img2unwrap[
+            ry[0] : ry[-1], rx[0] : rx[-1]
+        ] = img2unwrap_sel - 2 * np.pi * np.round(
+            img2unwrap[airpix[1], airpix[0]] / (2 * np.pi)
         )
 
     return img2unwrap
+
 
 def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1):
     """
@@ -469,28 +478,33 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1):
     img2unwrap : array_like
         Unwrapped image
     """
-    if ncores==-1:
-        try: ncpus = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
-        except: ncpus = multiprocessing.cpu_count()
+    if ncores == -1:
+        try:
+            ncpus = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
+        except:
+            ncpus = multiprocessing.cpu_count()
     else:
         ncpus = ncores
     print(f"Parallel calculations using {ncpus} cpus")
-    #with parallel_backend('threading',n_jobs = ncpus):#("loky", inner_max_num_threads=1):
-    stack2unwrap_sel = stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]].copy()
+    # with parallel_backend('threading',n_jobs = ncpus):#("loky", inner_max_num_threads=1):
+    stack2unwrap_sel = stack2unwrap[:, ry[0] : ry[-1], rx[0] : rx[-1]].copy()
     with parallel_backend("loky", inner_max_num_threads=2):
         # ~ stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]] = np.array(
-            # ~ zip(*Parallel(n_jobs=ncpus)(delayed(unwrap_phase)(ii) for ii in tqdm(stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]])))
-            # ~ )
-        stack2unwrap_sel = Parallel(n_jobs=ncpus)(delayed(unwrap_phase)(ii) for ii in tqdm(stack2unwrap_sel))
-    
+        # ~ zip(*Parallel(n_jobs=ncpus)(delayed(unwrap_phase)(ii) for ii in tqdm(stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]])))
+        # ~ )
+        stack2unwrap_sel = Parallel(n_jobs=ncpus)(
+            delayed(unwrap_phase)(ii) for ii in tqdm(stack2unwrap_sel)
+        )
+
     print("Correcting for air values")
     for ii in range(stack2unwrap.shape[0]):
-        airphase = np.round(stack2unwrap[ii,airpix[1], airpix[0]] / (2 * np.pi))
-        stack2unwrap[ii,ry[0] : ry[-1], rx[0] : rx[-1]] = stack2unwrap_sel[ii]
-        stack2unwrap[ii,ry[0] : ry[-1], rx[0] : rx[-1]] = (
-            stack2unwrap_sel[ii]  - (2 * np.pi * airphase)
+        airphase = np.round(stack2unwrap[ii, airpix[1], airpix[0]] / (2 * np.pi))
+        stack2unwrap[ii, ry[0] : ry[-1], rx[0] : rx[-1]] = stack2unwrap_sel[ii]
+        stack2unwrap[ii, ry[0] : ry[-1], rx[0] : rx[-1]] = stack2unwrap_sel[ii] - (
+            2 * np.pi * airphase
         )
     return stack2unwrap
+
 
 def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     """
@@ -528,10 +542,14 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
       based on sorting by reliability following a noncontinuous path”,
       Journal Applied Optics, Vol. 41, No. 35, pp. 7437, 2002
     """
-    try: params["parallel"]
-    except: params["parallel"] = True
-    try: params["ncores"]
-    except: params["ncores"] = 1
+    try:
+        params["parallel"]
+    except:
+        params["parallel"] = True
+    try:
+        params["ncores"]
+    except:
+        params["ncores"] = 1
     ncpus = params["ncores"]
     stack_unwrap = np.empty_like(stack_phasecorr)
     # test on first projection
@@ -585,7 +603,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
                 )
             )
             break
-    if not params["parallel"] or params["ncores"]==1:
+    if not params["parallel"] or params["ncores"] == 1:
         # main loop for the unwrapping
         nprojs = stack_phasecorr.shape[0]
         for ii in range(nprojs):
@@ -595,17 +613,19 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
             progbar(ii + 1, nprojs, strbar)
         print("\r")
     else:
-        stack_unwrap= _unwrapping_phase_parallel(stack_phasecorr, rx, ry, airpix, ncores=ncpus)
+        stack_unwrap = _unwrapping_phase_parallel(
+            stack_phasecorr, rx, ry, airpix, ncores=ncpus
+        )
         # ~ stack_unwrap_sel = _unwrapping_phase_parallel(
-                    # ~ stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]]
-                    # ~ )
+        # ~ stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]]
+        # ~ )
         # ~ for ii in range(stack2unwrap.shape[0]):
-            # ~ stack2unwrap[ii,ry[0] : ry[-1], rx[0] : rx[-1]] = stack_unwrap_sel[ii]
-            # ~ stack2unwrap[ii,ry[0] : ry[-1], rx[0] : rx[-1]] = (
-            # ~ stack2unwrap_sel[ii]
-            # ~ - 2 * np.pi * np.round(stack2unwrap[:,airpix[1], airpix[0]] / (2 * np.pi))
-            # ~ )
-    
+        # ~ stack2unwrap[ii,ry[0] : ry[-1], rx[0] : rx[-1]] = stack_unwrap_sel[ii]
+        # ~ stack2unwrap[ii,ry[0] : ry[-1], rx[0] : rx[-1]] = (
+        # ~ stack2unwrap_sel[ii]
+        # ~ - 2 * np.pi * np.round(stack2unwrap[:,airpix[1], airpix[0]] / (2 * np.pi))
+        # ~ )
+
     return stack_unwrap
 
 
