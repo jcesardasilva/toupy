@@ -5,41 +5,22 @@ The script for building/installing packages
 
 import setuptools
 
-
-def readreadme(filename):
-    with open(filename, "r") as fid:
-        long_description = fid.read()
-    return long_description
-
+with open("README.md", "r", encoding="utf-8") as fid:
+    long_description = fid.read()
 
 long_description_toupy = "**Toupy** - Tomographic Utilites for Python"
-packages_list = setuptools.find_packages()
-
-if __name__ == "__main__":
-    packages_list = setuptools.find_packages()
-    long_description_toupy = readreadme("./README.md")
-    if packages_list is None:
-        sys.exit("Failed to fetch packages")
 
 setuptools.setup(
     name="toupy",
-    version="0.1.2",
+    version="0.2.0",
     author="Julio Cesar da Silva",
-    author_email="jdasilva@esrf.fr",
-    package_dir={"toupy": "toupy"},
-    packages=packages_list,
-    scripts=[
-        "bin/file_comp",
-        "bin/missing_recons",
-        "bin/plot_projections",
-        "bin/create_toupy_templates",
-    ],
-    #console_scripts=["bin/create_toupy_templates"],
+    author_email="julio-cesar.da-silva@neel.cnrs.fr",
+    # console_scripts=["bin/create_toupy_templates"],
     license="LICENCE",
     description="Tomographic Utilities for Python",
-    # long_description=long_description_toupy,
-    long_description=readreadme("./README.md"),
-    # long_description_content_type="text/markdown",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    package_urls={"Bug Tracker": "https://github.com/jcesardasilva/toupy/issues"},
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GPLv3 License",
@@ -47,12 +28,20 @@ setuptools.setup(
         "Topic :: Software Development",
         "Operating System :: Unix",
     ],
+    package_dir={"toupy": "toupy"},
+    packages=setuptools.find_packages(where="src"),
+    python_requires=">=3.6",
+    scripts=[
+        "bin/file_comp",
+        "bin/missing_recons",
+        "bin/plot_projections",
+        "bin/create_toupy_templates",
+    ],
     install_requires=[
-        "decorator<=5",
         "fabio>=0.11.0",
         "h5py>=3.1.0",
         "ipython>=7.16.1",
-        "joblib>=1.0.1", 
+        "joblib>=1.0.1",
         "matplotlib>=3.3.4",
         "numpy>=1.16.5",
         "numexpr>=2.6.9",
@@ -61,7 +50,6 @@ setuptools.setup(
         "pyopencl>=2021.1.1",
         "scikit_image>=0.17.2",
         "silx>=0.9.0",
-        "sphinx>=2.1.2",
         "tqdm>=4.61.2",
     ],
 )
