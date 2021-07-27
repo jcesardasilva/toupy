@@ -11,6 +11,20 @@ installation of Toupy, you should run:
 .. code:: shell
 
    pip install -r requirements.txt
+   
+
+Via pip install
+================
+
+.. code-block:: shell
+	
+	pip install toupy
+	
+or for a local installation, using the flag --user:
+
+.. code-block:: shell
+
+	pip install --user toupy
 
 Via Python Package
 ==================

@@ -22,11 +22,17 @@ Installation
 
 Installation should be as simple as:
 
-    sudo python3 setup.py install
+	pip install toupy
 
-or, for local installation, using the flag --user:
+For local installation, using the flag --user:
+
+	pip install --user toupy
+
+or, if you prefer:
 
     python3 setup.py install --user
+
+after downloading/clone github repository files. 
     
 Click [here](https://toupy.readthedocs.io/en/latest/installing.html) for more info about installation.
 
