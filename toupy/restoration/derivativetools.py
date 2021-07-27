@@ -66,7 +66,7 @@ def chooseregiontoderivatives(stack_array, **params):
         if isnotebook():
             display.display(fig)
             display.display(fig.canvas)
-            #display.clear_output(wait=True)
+            # display.clear_output(wait=True)
         else:
             plt.show(block=False)
 
@@ -79,7 +79,7 @@ def chooseregiontoderivatives(stack_array, **params):
                     stack_array[0].shape[0], stack_array[0].shape[1]
                 )
             )
-            #print(stack_array.shape)
+            # print(stack_array.shape)
             while True:
                 roiy = eval(input("Enter new range in y (top, bottom): "))
                 if isinstance(roiy, tuple):
@@ -104,7 +104,7 @@ def chooseregiontoderivatives(stack_array, **params):
 def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
     """
     Compute projection derivatives
-    
+
     Parameters
     ----------
     stack_array : array_like
@@ -123,17 +123,18 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
     nprojs, nr, nc = stack_array.shape
     aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
     for ii in range(nprojs):
-        strbar = "{:5d} / {:5d}".format(ii + 1,nprojs)
+        strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
         img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
         aligned_diff[ii] = derivatives(img, shift_method)
         progbar(ii + 1, nprojs, strbar)
 
     return aligned_diff
-    
+
+
 def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
     """
     Compute projection derivatives using FFTs
-    
+
     Parameters
     ----------
     stack_array : array_like
@@ -152,7 +153,7 @@ def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
     nprojs, nr, nc = stack_array.shape
     aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
     for ii in range(nprojs):
-        strbar = "{:5d} / {:5d}".format(ii + 1,nprojs)
+        strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
         img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
         aligned_diff[ii] = derivatives_fft(img, n_cpus=n_cpus)
         progbar(ii + 1, nprojs, strbar)
@@ -185,6 +186,7 @@ def derivatives(input_array, shift_method="fourier"):
     # ~ diffimg = np.angle(S(np.exp(1j*input_array),rshift,'reflect',True)*S(np.exp(-1j*input_array),lshift,'reflect',True))
     return diffimg
 
+
 def derivatives_fft(input_img, symmetric=True, n_cpus=-1):
     """
     Calculate the derivative of an image using FFT along the horizontal direction
@@ -211,8 +213,12 @@ def derivatives_fft(input_img, symmetric=True, n_cpus=-1):
         rshift, lshift = 0.5, 0.5
     else:
         rshift, lshift = 1.0, 0.0
-    fftimg = (np.exp(1j*2*np.pi*freqs*rshift) - np.exp(-1j*2*np.pi*freqs*lshift)) * fft(input_img, workers=n_cpus)
+    fftimg = (
+        np.exp(1j * 2 * np.pi * freqs * rshift)
+        - np.exp(-1j * 2 * np.pi * freqs * lshift)
+    ) * fft(input_img, workers=n_cpus)
     return ifft(fftimg, workers=n_cpus).real
+
 
 def derivatives_sino(input_sino, shift_method="fourier"):
     """

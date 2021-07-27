@@ -273,8 +273,7 @@ def _print_attrs_ptyr(name):
         if "data" in name:
             metaptyr["probe_h5path"] = name
     if "theta" in name:
-            metaptyr["theta"]=name
-        
+        metaptyr["theta"] = name
 
 
 def _findh5paths(filename):
@@ -339,6 +338,7 @@ def read_ptyr(pathfilename, correct_orientation=True):
 
     return data1, probe1, pixelsize, energy
 
+
 def read_theta_recon(reconfile):
     """
     Auxiliary function to read theta from recon files
@@ -362,11 +362,12 @@ def read_theta_recon(reconfile):
     if metaptyr == {}:
         print("meta is empty")
         _findh5paths(pathfilename)
-    
-    with h5py.File(reconfile,"r") as fid:
+
+    with h5py.File(reconfile, "r") as fid:
         theta = (fid[metaptyr["theta"]][()]).astype(np.float16)
 
     return theta
+
 
 def read_theta_raw(pathfilename):
     """
@@ -389,15 +390,15 @@ def read_theta_raw(pathfilename):
     """
     h5path_motorname = "entry_0000/measurement/Frelon/parameters/motor_mne "
     h5path_motorpos = "entry_0000/measurement/Frelon/parameters/motor_pos "
-    with h5py.File(pathfilename,"r") as fid:
+    with h5py.File(pathfilename, "r") as fid:
         motorname_str = fid[h5path_motorname][()]
         motorpos_str = fid[h5path_motorpos][()]
-    motorname = str(motorname_str).split("'")[1].split() # motor name
-    motorpos = [eval(kk) for kk in str(motorpos_str).split("'")[1].split()] # motor pos
-    motoridx = motorname.index('somega')
+    motorname = str(motorname_str).split("'")[1].split()  # motor name
+    motorpos = [eval(kk) for kk in str(motorpos_str).split("'")[1].split()]  # motor pos
+    motoridx = motorname.index("somega")
 
     return motorpos[motoridx]
-    
+
 
 def _h5py_dataset_iterator(g, prefix=""):
     """

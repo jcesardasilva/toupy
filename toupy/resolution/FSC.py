@@ -158,7 +158,7 @@ class FourierShellCorr:
     def apodization(self):
         """
         Compute the Hanning window of the size of the data for the apodization
-        
+
         Note
         ----
         This method does not depend on the parameter ``apod_width`` from the class
@@ -332,7 +332,7 @@ class FourierShellCorr:
         if isnotebook():
             display.display(fig1)
             display.display(fig1.canvas)
-            #display.clear_output(wait=True)
+            # display.clear_output(wait=True)
         else:
             plt.show(block=False)
         plt.show(block=False)
@@ -352,7 +352,7 @@ class FourierShellCorr:
         npts = np.zeros_like(f)
         print("Calculating the correlation...")
         for ii in f:
-            strbar = "Normalized frequency: {:.2f}".format((ii + 1)/fnyquist)
+            strbar = "Normalized frequency: {:.2f}".format((ii + 1) / fnyquist)
             if self.ring_thick == 0 or self.ring_thick == 1:
                 auxF1 = F1[np.where(index == ii)]
                 auxF2 = F2[np.where(index == ii)]
@@ -426,7 +426,7 @@ class FSCPlot(FourierShellCorr):
     Returns
     -------
     fn : ndarray
-        A 1-dimensional array containing the frequencies normalized by 
+        A 1-dimensional array containing the frequencies normalized by
         the Nyquist frequency
     FSC : ndarray
         A 1-dimensional array containing the Fourier Shell correlation curve

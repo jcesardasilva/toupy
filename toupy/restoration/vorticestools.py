@@ -104,7 +104,7 @@ def rmvortices_probe(img_in, to_ignore=100):
     """
     Remove phase vortices on the probe image ignoring an amount of pixels
     equals to ``to_ignore`` from the borders.
-    
+
     Parameters
     ----------
     img_phase : array_like
@@ -190,7 +190,7 @@ def rmvortices_object(img_in, to_ignore=100):
     """
     Remove phase vortices on the object image ignoring an amount of pixels
     equals to ``to_ignore`` from the borders.
-    
+
     Parameters
     ----------
     img_phase : array_like
@@ -237,7 +237,7 @@ def rmvortices_slow(img_in, to_ignore=100):
     """
     Remove phase vortices on the object image ignoring an amount of pixels
     equals to ``to_ignore`` from the borders.
-    
+
     Parameters
     ----------
     img_phase : array_like

@@ -5,26 +5,31 @@
 from IPython import get_ipython
 import numpy as np
 from skimage.transform import radon
+
 nosilx = False
 
 # local libraries import
 from ..utils.plot_utils import isnotebook
 
-if isnotebook(): RunningInCOLAB = 'google.colab' in str(get_ipython())
-else: RunningInCOLAB = False
+if isnotebook():
+    RunningInCOLAB = "google.colab" in str(get_ipython())
+else:
+    RunningInCOLAB = False
 
-if RunningInCOLAB or isnotebook(): RunningInBrowser = True
-else: RunningInBrowser = False
+if RunningInCOLAB or isnotebook():
+    RunningInBrowser = True
+else:
+    RunningInBrowser = False
 
 if not RunningInBrowser:
     try:
         from silx.opencl.projection import Projection
     except ModuleNotFoundError:
-        print('Not using pyopencl for the projection')
-        print('The projector will be slow.')
-        nosilx=True
+        print("Not using pyopencl for the projection")
+        print("The projector will be slow.")
+        nosilx = True
 else:
-    nosilx=True
+    nosilx = True
 
 
 __all__ = ["radonSilx", "projector"]
@@ -82,9 +87,9 @@ def projector(recons, theta, **params):
     # array shape
     N = recons.shape[0]
     center = int(N / 2)
-    #~ if not nosilx:
-        #~ print("Forcing param['opencl']=False")
-        #~ params["opencl"]=False
+    # ~ if not nosilx:
+    # ~ print("Forcing param['opencl']=False")
+    # ~ params["opencl"]=False
     if params["opencl"]:
         # using Silx Projector
         print("Using OpenCL")

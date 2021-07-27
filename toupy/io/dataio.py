@@ -121,13 +121,18 @@ class PathName:
         self.icath5path = os.path.join(
             self.rootpath, self.icath5file
         )  # metadata filename path
-        try: self.pycuda = params["pycudaprojs"]
-        except KeyError: self.pycuda = True
-        try: self.legacy = params["legacy"]
-        except KeyError: self.legacy = True
-        try: self.thetameta = params["thetameta"]
-        except KeyError: self.thetameta = True
-
+        try:
+            self.pycuda = params["pycudaprojs"]
+        except KeyError:
+            self.pycuda = True
+        try:
+            self.legacy = params["legacy"]
+        except KeyError:
+            self.legacy = True
+        try:
+            self.thetameta = params["thetameta"]
+        except KeyError:
+            self.thetameta = True
 
     def datafilewcard(self):
         """
@@ -155,7 +160,9 @@ class PathName:
             )
         elif self.fileext == ".cxi":  # PyNX
             metafile_wcard = re.sub(
-                r"_*subtomo\d{3}_\d{4}", "_*subtomo*", os.path.splitext(self.filename)[0]
+                r"_*subtomo\d{3}_\d{4}",
+                "_*subtomo*",
+                os.path.splitext(self.filename)[0],
             )
         elif self.fileext == ".edf":  # edf
             metafile_wcard = re.sub(r"_\d{4}$", "*", os.path.splitext(self.filename)[0])
@@ -176,8 +183,10 @@ class PathName:
         if self.fileext == ".edf":
             scan_wcard = re.sub(r"_\d{4}.edf", "*.edf", self.pathfilename)
         elif self.fileext == ".ptyr":  # Ptypy
-            if self.pycuda: reconsuffix = "_ML_pycuda"
-            else: reconsuffix = "_ML"
+            if self.pycuda:
+                reconsuffix = "_ML_pycuda"
+            else:
+                reconsuffix = "_ML"
             # TODO: correct the path name if the calculations are done in cuda or not
             # ~ scan_wcard = os.path.join(
             # ~ re.sub(self.samplename + r"_\w*", self.samplename + "_*", self.dirname),
@@ -185,7 +194,7 @@ class PathName:
             # ~ )
             scan_wcard = os.path.join(
                 re.sub(self.scanprefix + r"_\w*", self.scanprefix + "_*", self.dirname),
-                self.metadatafilewcard() + reconsuffix+"*" + self.fileext,
+                self.metadatafilewcard() + reconsuffix + "*" + self.fileext,
             )
         elif self.fileext == ".cxi":  # PyNX
             scan_wcard = os.path.join(
@@ -472,26 +481,26 @@ class LoadProjections(PathName, Variables):
         """
         thetas = {}
         if self.legacy:
-            suffixfile = '_0000.h5'
+            suffixfile = "_0000.h5"
         else:
-            suffixfile = '.h5'
+            suffixfile = ".h5"
         # reading the angles from raw files
         for idxp, proj in enumerate(self.proj_files):
-            keys = os.path.basename(os.path.dirname(proj)) #equal to scanname???
+            keys = os.path.basename(os.path.dirname(proj))  # equal to scanname???
             scanname = os.path.basename(Path(proj).parents[0])
-            rawfile = os.path.join(scanname,scanname+suffixfile)
+            rawfile = os.path.join(scanname, scanname + suffixfile)
             if not self.legacy:
-                rawscanprefix = re.sub('_subtomo\w+','',scanname)
-                rawfile = os.path.join(rawscanprefix,scanname+suffixfile)
-            rawfilepath = os.path.join(Path(proj).parents[3],rawfile)
-            thetas[keys] = read_theta_raw(rawfilepath) # reading theta
+                rawscanprefix = re.sub("_subtomo\w+", "", scanname)
+                rawfile = os.path.join(rawscanprefix, scanname + suffixfile)
+            rawfilepath = os.path.join(Path(proj).parents[3], rawfile)
+            thetas[keys] = read_theta_raw(rawfilepath)  # reading theta
 
         # checking the angles
         print("Checking the angles")
         angles = []
         deltaidx = 0  # in case of repeated values
         sorted_thetakeys = sorted(thetas.keys())
-        sorted_thetakeys.sort(key=lambda x: re.findall(r'[0-9]+',x)[-2:])
+        sorted_thetakeys.sort(key=lambda x: re.findall(r"[0-9]+", x)[-2:])
         for idx, keys in enumerate(sorted_thetakeys):
             th = np.float(thetas[keys])
             if th == np.float(thetas[sorted_thetakeys[idx - 1]]):
@@ -1334,8 +1343,10 @@ class LoadData(PathName, Variables):
             print("\rTaking only phases...", end="")
             stack_projs = np.angle(stack_projs)
             print("\b\b Done")
-        try: self.params["correct_bad"]
-        except KeyError: self.params["correct_bad"]=False
+        try:
+            self.params["correct_bad"]
+        except KeyError:
+            self.params["correct_bad"] = False
         if self.params["correct_bad"]:
             stack_projs = replace_bad(
                 stack_projs, list_bad=self.params["bad_projs"], temporary=True

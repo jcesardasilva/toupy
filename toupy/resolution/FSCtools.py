@@ -45,7 +45,7 @@ def split_dataset(sinogram, theta):
         A 1-dimensional array containing the 2nd set of thetas
     """
     # split of the data into two datasets
-    #print("Spliting in 2 datasets")
+    # print("Spliting in 2 datasets")
     sinogram1 = sinogram[:, 0::2]
     theta1 = theta[0::2]
     sinogram2 = sinogram[:, 1::2]
@@ -113,14 +113,18 @@ def compute_2tomograms_splitted(sinogram1, sinogram2, theta1, theta2, **params):
     """
 
     # tomographic reconstruction
-    if not isnotebook(): print("Calculating a slice 1...")
+    if not isnotebook():
+        print("Calculating a slice 1...")
     t0 = time.time()
     recon1 = tomo_recons(sinogram1, theta1, **params)
-    if not isnotebook(): print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
+    if not isnotebook():
+        print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
 
-    if not isnotebook(): print("Calculating a slice 2...")
+    if not isnotebook():
+        print("Calculating a slice 2...")
     t0 = time.time()
     recon2 = tomo_recons(sinogram2, theta2, **params)
-    if not isnotebook(): print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
+    if not isnotebook():
+        print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
 
     return recon1, recon2

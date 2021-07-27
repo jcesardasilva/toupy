@@ -360,7 +360,7 @@ def vertical_fluctuations(
     # +2*max_vshift))
     vert_fluct = np.empty((nproj, rows[-1] - rows[0]))
     for ii in range(nproj):
-        #print("Calculating for projection: {}".format(ii + 1), end="\r")
+        # print("Calculating for projection: {}".format(ii + 1), end="\r")
         strbar = "Projection {}".format(ii + 1)
         proj = input_stack[
             ii, rows[0] - max_vshift : rows[-1] + max_vshift, cols[0] : cols[-1]
@@ -371,7 +371,8 @@ def vertical_fluctuations(
         # to remove possible bias
         shift_calc = projectpoly1d(shift_calc, polyorder, 1)
         vert_fluct[ii] = shift_calc
-        if not isnotebook(): progbar(ii+1,nproj,strbar)
+        if not isnotebook():
+            progbar(ii + 1, nproj, strbar)
     print("\r")
     return vert_fluct
 
@@ -587,8 +588,10 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
     if not isinstance(params["maxit"], int):
         params["maxit"] = 10
 
-    try: params['alignx']
-    except: params['alignx']=False
+    try:
+        params["alignx"]
+    except:
+        params["alignx"] = False
 
     limrow, limcol = _selectROI(input_stack.shape, **params)
     lims = (limrow, limcol)
@@ -659,7 +662,7 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
         input_stack, lims, shiftstack, metric_error, vert_fluct_init, RP, **params
     )
 
-    if not isinstance(params["pixtol"], int) or np.mod(params["pixtol"],1)!=0:
+    if not isinstance(params["pixtol"], int) or np.mod(params["pixtol"], 1) != 0:
         # Subpixel precision
         print("\n================================================")
         print("Registration of projections with subpixel precision")
@@ -1530,7 +1533,7 @@ def estimate_rot_axis(input_array, theta, **params):
             display.display(fig1.canvas)
             display.clear_output(wait=True)
         else:
-            #fig1.show(block=False)
+            # fig1.show(block=False)
             plt.show(block=False)
         a = input("Are you happy with the rotation axis?([y]/n)").lower()
         if a == "" or a == "y":

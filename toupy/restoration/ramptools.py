@@ -117,8 +117,8 @@ def rmlinearphase(image, mask):
 
 def rmair(image, mask):
     """
-    Correcting amplitude factor using the mask from the phase ramp 
-    removal considering only pixels where mask is  unity, arrays have 
+    Correcting amplitude factor using the mask from the phase ramp
+    removal considering only pixels where mask is  unity, arrays have
     center on center of array
 
     Parameters

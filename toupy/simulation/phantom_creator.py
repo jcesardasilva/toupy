@@ -29,11 +29,11 @@ __all__ = ["phantom"]
 
 def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
     """
-    Create a Shepp-Logan [#shepp-logan]_ or modified Shepp-Logan 
-    phantom [#toft]_ . A phantom is a known object (either real or 
-    purely mathematical) that is used for testing image reconstruction 
+    Create a Shepp-Logan [#shepp-logan]_ or modified Shepp-Logan
+    phantom [#toft]_ . A phantom is a known object (either real or
+    purely mathematical) that is used for testing image reconstruction
     algorithms. The Shepp-Logan phantom  is a popular mathematical model
-    of a cranial slice, made up of a set of ellipses. This allows 
+    of a cranial slice, made up of a set of ellipses. This allows
     rigorous testing of computed tomography (CT) algorithms as it can be
     analytically transformed with the radon transform.
 
@@ -44,12 +44,12 @@ def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
 
     phantom_type : str, optional
         The type of phantom to produce. Either ``Modified Shepp-Logan``
-        or ``Shepp-Logan``. The default value is ``Modified Shepp-Logan``. 
+        or ``Shepp-Logan``. The default value is ``Modified Shepp-Logan``.
         This is overriden if ``ellipses`` is also specified.
 
     ellipses : array like
-        Custom set of ellipses to use. 
-        
+        Custom set of ellipses to use.
+
     Note
     ----
     To use ellipses, these should be in the
@@ -60,7 +60,7 @@ def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
     * ``a`` : Length of the major axis.
     * ``b`` : Length of the minor axis.
     * ``x0`` : Horizontal offset of the centre of the ellipse.
-    * ``y0`` : Vertical offset of the centre of the ellipse. 
+    * ``y0`` : Vertical offset of the centre of the ellipse.
     * ``phi`` : Counterclockwise rotation of the ellipse in degrees,
       measured as the angle between the horizontal axis and the
       ellipse major axis.
@@ -83,7 +83,7 @@ def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
 
     References
     ----------
-    
+
     .. [#shepp-logan] Shepp, L. A., Logan, B. F., "Reconstructing Interior Head Tissue
       from X-Ray Transmission", IEEE Transactions on Nuclear Science,
       Feb. 1974, p. 232
@@ -163,7 +163,7 @@ def _shepp_logan():
 def _mod_shepp_logan():
     """
     Modified version of Shepp-Logan hean phantom
-    ajusted to improve contrast. 
+    ajusted to improve contrast.
     """
     return [
         [1, 0.69, 0.92, 0, 0, 0],
