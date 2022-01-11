@@ -12,7 +12,7 @@ from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy.ndimage.fourier import fourier_shift
-from skimage.feature import register_translation
+from skimage.registration import phase_cross_correlation
 
 # local packages
 from ..restoration import derivatives, derivatives_sino
@@ -77,7 +77,7 @@ def register_2Darrays(image1, image2):
         # pixel precision
         print("\nCalculating the pixel precision image registration ...")
         start = time.time()
-        shift, error, diffphase = register_translation(image1.copy(), image2.copy())
+        shift, error, diffphase = phase_cross_correlation(image1.copy(), image2.copy())
         print(diffphase)
         end = time.time()
         print("Time elapsed: {:g} s".format(end - start))
@@ -86,7 +86,7 @@ def register_2Darrays(image1, image2):
         # subpixel precision
         print("\nCalculating the subpixel image registration ...")
         start = time.time()
-        shift, error, diffphase = register_translation(
+        shift, error, diffphase = phase_cross_correlation(
             image1.copy(), image2.copy(), 100
         )
         print(diffphase)
@@ -1568,7 +1568,7 @@ def estimate_rot_axis(input_array, theta, **params):
 # ~ if params["gaussian_filter"]:
 # ~ image1 = gaussian_filter(image1, params["gaussian_sigma"])
 # ~ image2 = gaussian_filter(image2, params["gaussian_sigma"])
-# ~ shift, error, diffphase = register_translation(image1, image2, 100)
+# ~ shift, error, diffphase = phase_cross_correlation(image1, image2, 100)
 # ~ shift_values[ii] = shift
 # ~ print(diffphase)
 # ~ end = time.time()

@@ -388,8 +388,10 @@ def read_theta_raw(pathfilename):
     >>> imgpath = 'filename.h5'
     >>> theta = read_theta_raw(imgpath)
     """
-    h5path_motorname = "entry_0000/measurement/Frelon/parameters/motor_mne "
-    h5path_motorpos = "entry_0000/measurement/Frelon/parameters/motor_pos "
+    h5path_motorname = "entry_0000/instrument/Frelon/header/motor_mne "
+    h5path_motorpos = "entry_0000/instrument/Frelon/header/motor_pos "
+    #h5path_motorname = "entry_0000/measurement/Frelon/parameters/motor_mne "
+    #h5path_motorpos = "entry_0000/measurement/Frelon/parameters/motor_pos "
     with h5py.File(pathfilename, "r") as fid:
         motorname_str = fid[h5path_motorname][()]
         motorpos_str = fid[h5path_motorpos][()]

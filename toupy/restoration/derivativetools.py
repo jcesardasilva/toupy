@@ -207,8 +207,8 @@ def derivatives_fft(input_img, symmetric=True, n_cpus=-1):
         Derivatives of the images along the row direction
     """
     if n_cpus < 0:
-        n_cpus = os.cpu_counts()
-    freqs = fftfreq(input_img.shape[0])
+        n_cpus = os.cpu_count()
+    freqs = fftfreq(input_img.shape[1])
     if symmetric:
         rshift, lshift = 0.5, 0.5
     else:
