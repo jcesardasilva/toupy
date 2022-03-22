@@ -352,7 +352,10 @@ class PhaseTracker(object):
             raise ValueError("The array is complex")
 
         self.projs, self.rows, self.cols = X1.shape
-        self.hcen = int(self.rows / 2.0)
+        try:
+            self.hcen = params["hcen"]
+        except:
+            self.hcen = int(self.rows / 2.0)
         self.X2 = self.X1[:, self.hcen, :].copy()
         self.mask = np.zeros_like(X1, dtype=bool)
         self.ind = 0

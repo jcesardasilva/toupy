@@ -298,6 +298,10 @@ class LoadProjections(PathName, Variables):
             self.cxientry = params["cxientry"]
         except:
             pass
+        try:
+            self.detector = params["detector"]
+        except:
+            self.detector = "Frelon"
 
         if self.showrecons:
             self.SP = ShowProjections()
@@ -493,7 +497,7 @@ class LoadProjections(PathName, Variables):
                 rawscanprefix = re.sub("_subtomo\w+", "", scanname)
                 rawfile = os.path.join(rawscanprefix, scanname + suffixfile)
             rawfilepath = os.path.join(Path(proj).parents[3], rawfile)
-            thetas[keys] = read_theta_raw(rawfilepath)  # reading theta
+            thetas[keys] = read_theta_raw(rawfilepath,detector=self.detector)  # reading theta
 
         # checking the angles
         print("Checking the angles")

@@ -369,7 +369,7 @@ def read_theta_recon(reconfile):
     return theta
 
 
-def read_theta_raw(pathfilename):
+def read_theta_raw(pathfilename,detector="Frelon"):
     """
     Auxiliary function to read theta from raw data acquired at ID16A
 
@@ -388,10 +388,8 @@ def read_theta_raw(pathfilename):
     >>> imgpath = 'filename.h5'
     >>> theta = read_theta_raw(imgpath)
     """
-    h5path_motorname = "entry_0000/instrument/Frelon/header/motor_mne "
-    h5path_motorpos = "entry_0000/instrument/Frelon/header/motor_pos "
-    #h5path_motorname = "entry_0000/measurement/Frelon/parameters/motor_mne "
-    #h5path_motorpos = "entry_0000/measurement/Frelon/parameters/motor_pos "
+    h5path_motorname = "entry_0000/instrument/{}/header/motor_mne ".format(detector)
+    h5path_motorpos = "entry_0000/instrument/{}/header/motor_pos ".format(detector)
     with h5py.File(pathfilename, "r") as fid:
         motorname_str = fid[h5path_motorname][()]
         motorpos_str = fid[h5path_motorpos][()]
