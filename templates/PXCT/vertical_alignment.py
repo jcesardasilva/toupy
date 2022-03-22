@@ -30,8 +30,8 @@ params["deltax"] = 20  # From edge of region to edge of image in x
 params["limsy"] = (190, 800)
 params["autosave"] = False
 params["load_previous_shiftstack"] = False  # True
-params["correct_bad"] = True
-params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
+params["correct_bad"] = False
+params["bad_projs"] = []  # starting at zero
 # =========================
 
 # =============================================================================#

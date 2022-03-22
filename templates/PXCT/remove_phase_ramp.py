@@ -20,9 +20,11 @@ params = dict()
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["crop_reg"] = None  # [20,0,20,0] # left, bottom, right, top
 params["autosave"] = False
+params["hcen"] = 738
 params["vmin"] = -1.6
 params["vmax"] = 1.6
 params["phaseonly"] = True  # ensuring that we are loading only phase
+params["colormap"]="bone"
 # =========================
 
 # =============================================================================#

@@ -10,6 +10,7 @@ https://scikit-image.org/docs/dev/auto_examples/filters/plot_phase_unwrap.html?h
 from toupy.io import LoadData, SaveData
 from toupy.restoration import phaseresidues, chooseregiontounwrap, unwrapping_phase
 from toupy.utils import iterative_show, replace_bad
+#from toupy.restoration.unwraptools import _unwrapping_phase_parallel
 
 # initializing dictionaries
 params = dict()
@@ -21,11 +22,12 @@ params["phaseonly"] = True
 params["threshold"] = 2000
 params["vmin"] = -8
 params["vmax"] = None
+params["colormap"]="bone"
 params["parallel"] = True
 params["n_cpus"] = -1
 params["autosave"] = True
 params["correct_bad"] = False
-params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
+params["bad_projs"] = []  # starting at zero
 # =========================
 
 # =============================================================================#
@@ -46,7 +48,7 @@ if __name__ == "__main__":
     # find the residues and choose region to be unwrapped
     rx, ry, airpix = chooseregiontounwrap(
                         stack_phasecorr,
-                        threshold = params["n_cpus"],
+                        threshold = params["threshold"],
                         parallel = params["parallel"],
                         ncores = params["n_cpus"],
                     )
@@ -62,8 +64,9 @@ if __name__ == "__main__":
                     )
     else:
         stack_unwrap = stack_phasecorr
-        print("The phases have not been unwrapped").lower()
+        print("The phases have not been unwrapped")
 
+    del stack_phasecorr
     # display the projections after the unwrapping
     showmovie = input(
         "Do you want to show all the unwrapped projections?([y]/n): "

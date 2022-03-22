@@ -18,7 +18,7 @@ import numpy as np
 
 # local packages
 from toupy.io import LoadData, SaveData
-from toupy.restoration import calculate_derivatives, chooseregiontoderivatives
+from toupy.restoration import calculate_derivatives_fft, chooseregiontoderivatives
 from toupy.utils import iterative_show
 
 # initializing dictionaries
@@ -30,7 +30,7 @@ params["samplename"] = "v97_v_nfptomo2_15nm"
 params["phaseonly"] = True
 params["deltax"] = 2  # From edge of region to edge of image in x
 params["limsy"] = (1, 2329)  # (top, bottom)
-sparams["n_cpus"] = -1 # negative number means all cpus available
+params["n_cpus"] = -1 # negative number means all cpus available
 params["autosave"] = True
 # =========================
 
