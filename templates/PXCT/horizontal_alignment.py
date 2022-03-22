@@ -42,7 +42,7 @@ params = dict()
 params["samplename"] = "v97_v_nfptomo2_15nm"
 params["slicenum"] = 550  # Choose the slice
 params["filtertype"] = "hann"  # Filter to use for FBP
-params["freqcutoff"] = 0.2  # Frequency cutoff (between 0 and 1)
+params["freqcutoff"] = 0.3  # Frequency cutoff (between 0 and 1)
 params["circle"] = True
 params["algorithm"] = "FBP"
 # initial guess of the offset of the axis of rotation
@@ -60,8 +60,8 @@ params["calc_derivatives"] = False  # Calculate derivatives if not done
 params["opencl"] = True
 params["autosave"] = False
 params["load_previous_shiftstack"] = False
-params["correct_bad"] = True
-params["bad_projs"] = [156, 226, 363, 371, 673, 990]  # starting at zero
+params["correct_bad"] = False
+params["bad_projs"] = []  # starting at zero
 # =========================
 
 # =============================================================================#
