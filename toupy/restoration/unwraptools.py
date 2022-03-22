@@ -546,11 +546,16 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         params["parallel"]
     except:
         params["parallel"] = True
-    try:
-        params["ncores"]
-    except:
-        params["ncores"] = 1
-    ncpus = params["ncores"]
+    if params["parallel"]:
+        if params["n_cpus"] == -1:
+            try:
+                ncores = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
+            except:
+                ncores = multiprocessing.cpu_count()
+        else:
+            ncores=params["n_cpus"]
+    else:
+        ncores = 1
     stack_unwrap = np.empty_like(stack_phasecorr)
     # test on first projection
     print("Testing unwrapping on the first projection")
@@ -603,7 +608,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
                 )
             )
             break
-    if not params["parallel"] or params["ncores"] == 1:
+    if not params["parallel"] or ncores == 1:
         # main loop for the unwrapping
         nprojs = stack_phasecorr.shape[0]
         for ii in range(nprojs):
@@ -614,7 +619,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         print("\r")
     else:
         stack_unwrap = _unwrapping_phase_parallel(
-            stack_phasecorr, rx, ry, airpix, ncores=ncpus
+            stack_phasecorr, rx, ry, airpix, ncores=ncores
         )
         # ~ stack_unwrap_sel = _unwrapping_phase_parallel(
         # ~ stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]]
