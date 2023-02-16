@@ -788,7 +788,7 @@ def _filter_sino(sinogram, **params):
     Filter to the sinogram
     """
     N, M = sinogram.shape
-    apod_width = np.int(0.5 * N * (params["freqcutoff"]))
+    apod_width = int(0.5 * N * (params["freqcutoff"]))
     filteraux = hanning_apod1D(N, apod_width)
     filteraux = np.tile(filteraux, (M, 1)).T
     return np.real(ifft(fft(sinogram) * filteraux))

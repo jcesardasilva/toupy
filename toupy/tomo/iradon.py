@@ -121,7 +121,7 @@ def compute_filter(nbins, filter_type="ram-lak", derivatives=False, freqcutoff=1
     f = fftfreq(projection_size_padded).reshape(-1, 1)  # digital frequency
     omega = 2 * np.pi * f  # angular frequency
     if derivatives:
-        fourier_filter = np.ones_like(f).astype(np.complex)  # differential filter
+        fourier_filter = np.ones_like(f).astype(complex)  # differential filter
     else:
         fourier_filter = 2 * np.abs(f)  # ramp filter
     # fourier_filter[0]=3.9579e-4 # value from MATLAB
