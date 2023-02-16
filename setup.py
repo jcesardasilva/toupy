@@ -46,7 +46,6 @@ setuptools.setup(
         "numexpr>=2.8.4",
         "scipy>=1.10.0",
         "pyFFTW>=0.13.1",
-        "pyopencl>=2022.3.1",
         "scikit-image>=0.19.3",
         "silx>=1.1.2",
         "tqdm>=4.64.1",
