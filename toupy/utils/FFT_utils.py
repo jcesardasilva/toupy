@@ -89,7 +89,7 @@ def metafftw(func):
         # checking number of cores available
         kwargs = dict()
         try: kwargs["ncores"] = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
-        except: kwargs["ncores"] = multiprocessing.cpu_count()
+        except: kwargs["ncores"] = 1 #multiprocessing.cpu_count()
         # stating the precision.
         # np.complex64: single precision; and np.complex128: double precision
         kwargs["cprecision"] = np.complex64
