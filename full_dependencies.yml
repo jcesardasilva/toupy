@@ -10,7 +10,6 @@ dependencies:
     - h5py
     - pep8
     - pil
-    - pyfftw
     - pip
     - pip:
         - pytest-cov
