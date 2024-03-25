@@ -6,6 +6,7 @@ dependencies:
     - python >= 3.7
     - numpy
     - fabio
+	- PyFFTW
     - matplotlib
     - h5py
     - pep8

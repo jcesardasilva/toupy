@@ -41,6 +41,7 @@ setuptools.setup(
         "h5py>=3.8.0",
         "ipython>=8.10.0",
         "joblib>=1.2.0",
+        "PyFFTW>=0.11.1",
         "matplotlib>=3.7.0",
         "numpy>=1.24.2",
         "numexpr>=2.8.4",
