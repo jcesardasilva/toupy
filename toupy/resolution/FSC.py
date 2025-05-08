@@ -114,7 +114,7 @@ class FourierShellCorr:
         """
         nmax = np.max(self.n)
         fnyquist = np.floor(nmax / 2.0)
-        f = np.arange(0, fnyquist + 1).astype(np.int)
+        f = np.arange(0, fnyquist + 1).astype(np.int32)
         return f, fnyquist
 
     def ringthickness(self):
@@ -152,7 +152,7 @@ class FourierShellCorr:
         sumsquares = np.zeros_like(X[0])
         for ii in range(len(X)):
             sumsquares += X[ii] ** 2
-        index = np.round(np.sqrt(sumsquares)).astype(np.int)
+        index = np.round(np.sqrt(sumsquares)).astype(np.int32)
         return index
 
     def apodization(self):
@@ -331,11 +331,11 @@ class FourierShellCorr:
         ax2.set_axis_off()
         if isnotebook():
             display.display(fig1)
-            display.display(fig1.canvas)
+            #display.display(fig1.canvas)
             # display.clear_output(wait=True)
         else:
             plt.show(block=False)
-        plt.show(block=False)
+        #plt.show(block=False)
 
         # FSC computation
         print("Calling method fouriercorr from the class FourierShellCorr")
@@ -346,10 +346,10 @@ class FourierShellCorr:
         f, fnyquist = self.nyquist()  # Frequency and Nyquist Frequency
         # initializing variables
         print("Initializing...")
-        C = np.empty_like(f).astype(np.float)
-        C1 = np.empty_like(f).astype(np.float)
-        C2 = np.empty_like(f).astype(np.float)
-        npts = np.zeros_like(f)
+        C = np.empty_like(f).astype(np.float32)
+        C1 = np.empty_like(f).astype(np.float32)
+        C2 = np.empty_like(f).astype(np.float32)
+        npts = np.zeros_like(f).astype(np.float32)
         print("Calculating the correlation...")
         for ii in f:
             strbar = "Normalized frequency: {:.2f}".format((ii + 1) / fnyquist)
