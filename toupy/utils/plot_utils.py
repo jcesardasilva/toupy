@@ -139,7 +139,7 @@ def _createcanvashorizontal(
     fig1.tight_layout()
     if isnotebook():
         display.display(fig1)
-        display.display(fig1.canvas)
+        #display.display(fig1.canvas)
         #display.clear_output(wait=True)
     else:
         fig1.show()
@@ -168,7 +168,7 @@ def _createcanvashorizontal(
     fig2.tight_layout()
     if isnotebook():
         display.display(fig2)
-        display.display(fig2.canvas)
+        #display.display(fig2.canvas)
         #display.clear_output(wait=True)
     else:
         fig2.show()
@@ -187,7 +187,7 @@ def _createcanvashorizontal(
     fig3.tight_layout()
     if isnotebook():
         display.display(fig3)
-        display.display(fig3.canvas)
+        #display.display(fig3.canvas)
         #display.clear_output(wait=True)
     else:
         fig3.show()
@@ -227,8 +227,8 @@ def _createcanvasvertical(
     fig1.tight_layout()
     if isnotebook():
         display.display(fig1)
-        display.display(fig1.canvas)
-        display.clear_output(wait=False)
+        #display.display(fig1.canvas)
+        #display.clear_output(wait=False)
     else:
         fig1.show()
 
@@ -250,8 +250,8 @@ def _createcanvasvertical(
     fig2.tight_layout()
     if isnotebook():
         display.display(fig2)
-        display.display(fig2.canvas)
-        display.clear_output(wait=False)
+        #display.display(fig2.canvas)
+        #display.clear_output(wait=False)
     else:
         fig2.show()
 
@@ -277,8 +277,8 @@ def _createcanvasvertical(
     fig3.tight_layout()
     if isnotebook():
         display.display(fig3)
-        display.display(fig3.canvas)
-        display.clear_output(wait=False)
+        #display.display(fig3.canvas)
+        #display.clear_output(wait=False)
     else:
         fig3.show()
 
@@ -297,8 +297,8 @@ def _createcanvasvertical(
     fig4.tight_layout()
     if isnotebook():
         display.display(fig4)
-        display.display(fig4.canvas)
-        display.clear_output(wait=False)
+        #display.display(fig4.canvas)
+        #display.clear_output(wait=False)
     else:
         fig4.show()
 
@@ -395,8 +395,8 @@ class RegisterPlot:
             ax11 = _plotdelimiters(ax11, limrow, limcol)
             fig1.tight_layout()
             display.display(fig1)
-            display.display(fig1.canvas)
-            display.clear_output(wait=False)
+            #display.display(fig1.canvas)
+            #display.clear_output(wait=False)
 
             # display vertical fluctuations as 2D images
             fig2 = plt.figure(num=2)
@@ -415,8 +415,8 @@ class RegisterPlot:
             ax22.set_ylabel("y [pixels]")
             fig2.tight_layout()
             display.display(fig2)
-            display.display(fig2.canvas)
-            display.clear_output(wait=False)
+            #display.display(fig2.canvas)
+            #display.clear_output(wait=False)
         else:
             self.updatevertical()
 
@@ -444,8 +444,10 @@ class RegisterPlot:
             ax22.set_xlabel("Projection")
             ax22.set_ylabel("y [pixels]")
             fig2.tight_layout()
-            display.display(fig2)
-            display.display(fig2.canvas)
+            fig2.show()
+            #display.display(fig2)
+            #display.display(fig2.canvas)
+            #display.clear_output(wait=False)
         else:
             self.im21.set_data(self.vertfluctinit)
             self.im22.set_data(self.vertfluctcurr)
@@ -474,11 +476,13 @@ class RegisterPlot:
         ax32.set_xlabel("Vertical coordinates [pixels]")
         ax32.set_ylabel("y [pixels]")
         fig3.tight_layout()
-        if isnotebook():
-            display.display(fig3)
-            display.display(fig3.canvas)
-        else:
-            fig3.show()
+        fig3.show()
+        # if isnotebook():
+#             display.display(fig3)
+#             #display.display(fig3.canvas)
+#             #display.clear_output(wait=False)
+#         else:
+#             fig3.show()
 
         # shifts
         fig4 = plt.figure(num=4)
@@ -493,11 +497,13 @@ class RegisterPlot:
         ax42.axis("tight")
         ax42.set_title("Error metric")
         fig4.tight_layout()
-        if isnotebook():
-            display.display(fig4)
-            display.display(fig4.canvas)
-        else:
-            fig4.show()
+        fig4.show()
+        # if isnotebook():
+#             display.display(fig4)
+#             #display.display(fig4.canvas)
+#             #display.clear_output(wait=False)
+#         else:
+#             fig4.show()
 
         # TOCHECK: Find out why this does not work
         # ~ for lnum,line in enumerate(self.im32):
@@ -525,7 +531,7 @@ class RegisterPlot:
         self.metric_error = metric_error
         self.count = count
 
-        if self.count == 0:
+        if self.count == 0 and not isnotebook():
             # Preparing the canvas for the figures
             fig_array, im_array, ax_array = _createcanvashorizontal(
                 self.recons,
@@ -554,6 +560,47 @@ class RegisterPlot:
             self.ax23 = ax_array[3]  # ax23
             self.ax31 = ax_array[4]  # ax31
             self.ax32 = ax_array[5]  # ax32
+        elif self.count == 0 and isnotebook():
+            slicenum = self.params["slicenum"]
+            cmax = self.params["sinohigh"]
+            cmin = self.params["sinolow"]
+            # Display one reconstructed slice
+            fig1 = plt.figure(num=1,figsize=(12,5))
+            plt.clf()
+            ax11 = fig1.add_subplot(111)
+            im11 = ax11.imshow(self.recons, cmap="jet")
+            ax11.axis("image")
+            ax11.set_title("Slice number: {}".format(slicenum))
+            ax11.set_xlabel("x [pixels]")
+            ax11.set_ylabel("y [pixels]")
+            fig1.tight_layout()
+            display.display(fig1)
+            
+            # Display initial, current and synthetic sinograms
+            fig2 = plt.figure(num=2, figsize=(6, 10))
+            plt.clf()
+            ax21 = fig2.add_subplot(311)
+            im21 = ax21.imshow(self.sinoorig, cmap="bone", vmin=cmin, vmax=cmax)
+            ax21.axis("tight")
+            ax21.set_title("Initial sinogram")
+            ax21.set_xlabel("Projection")
+            ax21.set_ylabel("x [pixels]")
+            ax22 = fig2.add_subplot(312)
+            im22 = ax22.imshow(self.sinocurr, cmap="bone", vmin=cmin, vmax=cmax)
+            ax22.axis("tight")
+            ax22.set_title("Current sinogram")
+            ax22.set_xlabel("Projection")
+            ax22.set_ylabel("x [pixels]")
+            ax23 = fig2.add_subplot(313)
+            im23 = ax23.imshow(self.sinocomp, cmap="bone", vmin=cmin, vmax=cmax)
+            ax23.axis("tight")
+            ax23.set_title("Synthetic sinogram")
+            ax23.set_xlabel("Projection")
+            ax23.set_ylabel("x [pixels]")
+            fig2.tight_layout()
+            display.display(fig2)
+            #display.display(fig2.canvas)
+            #display.clear_output(wait=True)
         else:
             self.updatehorizontal()
 
@@ -578,8 +625,10 @@ class RegisterPlot:
             ax11.set_xlabel("x [pixels]")
             ax11.set_ylabel("y [pixels]")
             fig1.tight_layout()
-            display.display(fig1)
-            display.display(fig1.canvas)
+            fig1.show()
+            #display.display(fig1)
+            #display.display(fig1.canvas)
+            
             # Display initial, current and synthetic sinograms
             fig2 = plt.figure(num=2, figsize=(6, 10))
             plt.clf()
@@ -602,8 +651,9 @@ class RegisterPlot:
             ax23.set_xlabel("Projection")
             ax23.set_ylabel("x [pixels]")
             fig2.tight_layout()
-            display.display(fig2)
-            display.display(fig2.canvas)
+            fig2.show()
+            #display.display(fig2)
+            #display.display(fig2.canvas)
             #display.clear_output(wait=True)
         else:
             self.im11.set_data(self.recons)
@@ -627,17 +677,20 @@ class RegisterPlot:
         ax32.axis("tight")
         ax32.set_title("Error metric")
         fig3.tight_layout()
-        if isnotebook():
-            display.display(fig3)
-            display.display(fig3.canvas)
-        else:
-            fig3.show()
+        fig3.show()
+        
+        # if isnotebook():
+#             display.display(fig3)
+#             display.display(fig3.canvas)
+#         else:
+#             fig3.show()
 
         # ~ self.im31.set_ydata(deltaslice.T)
         # ~ self.im32.set_ydata(metric_error)
         # ~ autoscale_y(self.im31)
         # ~ autoscale_y(self.im32)
         # ~ plt.draw()
+        plt.pause(0.001)
 
 
 @interativesession
@@ -1003,7 +1056,7 @@ def display_slice(recons, colormap="bone", vmin=None, vmax=None):
     ax1.set_ylabel("y [pixels]")
     if isnotebook():
         display.display(fig)
-        display.display(fig.canvas)
+        #display.display(fig.canvas)
         #display.clear_output(wait=True)
     else:
         plt.show(block=False)

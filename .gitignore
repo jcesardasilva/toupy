@@ -9,3 +9,5 @@ files*.txt
 toupy/tomo/backprop2d.py
 tutorial/*.npz
 tutorial/*.png
+tutorial/*.txt
+tutorial/.ipynb_checkpoints
