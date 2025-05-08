@@ -1,4 +1,5 @@
 __pycache__
+.DS_Store
 *.pyc
 *.old
 dist
@@ -6,3 +7,5 @@ build
 *.egg-info
 files*.txt
 toupy/tomo/backprop2d.py
+tutorial/*.npz
+tutorial/*.png
