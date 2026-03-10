@@ -6,16 +6,17 @@ import functools
 import math
 import os
 import re
+import sys
 import shutil
 import socket
 import urllib
-import urllib.request as urllib2
+import urllib.request
 import warnings
 
 # local libraries imports
 from .plot_utils import isnotebook
 
-__all__ = ["switch", "deprecated", "checkhostname", "progbar", "downloadURL", "downloadURLfile"]
+__all__ = ["switch", "deprecated", "checkhostname", "progbar", "progress_bar","downloadURL", "downloadURLfile"]
 
 
 class switch(object):
@@ -138,7 +139,25 @@ def progbar(curr, total, textstr=""):
     textperc = "[{:>7.2%}]".format(frac)
     print("\r", textbar, textperc, textstr, end="")
 
-@deprecated    
+def progress_bar(count, block_size, total_size):
+    """Calcule et affiche la barre de progression dans le terminal."""
+    if total_size <= 0:
+        return
+        
+    # Calcul du pourcentage
+    percent = int(count * block_size * 100 / total_size)
+    # On s'assure de ne pas dépasser 100% à cause du dernier bloc
+    percent = min(100, percent)
+    
+    # Création visuelle de la barre [##########          ]
+    bar_length = 40
+    filled_length = int(bar_length * percent / 100)
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+    
+    # \r permet de revenir au début de la ligne sans sauter à la suivante
+    sys.stdout.write(f'\rIndicateur : |{bar}| {percent}% complet')
+    sys.stdout.flush()
+  
 def downloadURL(url,fname):
     """
     Download file from a URL.
@@ -150,10 +169,15 @@ def downloadURL(url,fname):
     fname : str
         Filename as to be stored
     """
-    print(f"Downloading {fname} from {url}. Please be patient!")
-    urllib.request.urlretrieve(url, fname)
-    print("Done")
+    try:
+        print(f"Downloading {fname} from {url}. Please be patient!")
+        # reporthook est l'argument magique pour la progression
+        urllib.request.urlretrieve(url, fname, reporthook=progress_bar)
+        print("\n\nDone")
+    except Exception as e:
+        print(f"\nErreur: {e}")
 
+@deprecated
 def downloadURLfile(url, filename):
     """
     Download and save file from a URL.
@@ -165,7 +189,7 @@ def downloadURLfile(url, filename):
     fname : str
         Filename as to be stored
     """
-    u = urllib2.urlopen(url)
+    u = urllib.request.urlopen(url)
 
     with open(filename, 'wb') as f:
         meta = u.info()
