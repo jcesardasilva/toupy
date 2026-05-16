@@ -347,7 +347,6 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     if isnotebook():
         from IPython import display
         display.display(fig)
-        display.display(fig.canvas)
         # display.clear_output(wait=True)
     else:
         plt.show(block=False)
@@ -415,7 +414,6 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
         ax1.set_title("First projection with boundaries")
         if isnotebook():
             display.display(fig)
-            display.display(fig.canvas)
         else:
             plt.show(block=False)
 
@@ -571,7 +569,6 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     if isnotebook():
         from IPython import display
         display.display(fig)
-        display.display(fig.canvas)
         display.clear_output(wait=True)
     else:
         plt.show(block=False)
