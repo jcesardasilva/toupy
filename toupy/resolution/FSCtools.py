@@ -10,7 +10,7 @@ import time
 
 # third party package
 import h5py
-import matplotlib.pyplot as plt
+from ..utils.plot_utils import plt
 import numpy as np
 
 # local packages

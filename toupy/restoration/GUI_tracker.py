@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 
 # third party packages
-from IPython import display
 import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
+from ..utils.plot_utils import plt
 from matplotlib.widgets import MultiCursor
 from matplotlib.widgets import Button  # , RectangleSelector
 from matplotlib.widgets import TextBox
@@ -181,6 +180,7 @@ def gui_plotamp(stack_objs, **params):
     multi = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
     # plt.show(block=False)
     if isnotebook():
+        from IPython import display
         display.display(fig)
         display.display(fig.canvas)
         # display.clear_output(wait=True)
@@ -324,6 +324,7 @@ def gui_plotphase(stack_objs, **params):
     multi = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
     # plt.show(block=False)
     if isnotebook():
+        from IPython import display
         display.display(fig)
         display.display(fig.canvas)
         # display.clear_output(wait=True)
