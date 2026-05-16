@@ -5,9 +5,8 @@
 import os
 
 # third party packages
-from IPython import display
 from joblib import Parallel, delayed, parallel_backend
-import matplotlib.pyplot as plt
+from ..utils.plot_utils import plt
 import multiprocessing
 import numpy as np
 from skimage.restoration import unwrap_phase
@@ -346,6 +345,7 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     ax.axis("tight")
     ax.plot(xres, yres, "or")
     if isnotebook():
+        from IPython import display
         display.display(fig)
         display.display(fig.canvas)
         # display.clear_output(wait=True)
@@ -569,6 +569,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     ax1 = _plotdelimiters(ax1, ry, rx, airpix)
     ax1.axis("tight")
     if isnotebook():
+        from IPython import display
         display.display(fig)
         display.display(fig.canvas)
         display.clear_output(wait=True)

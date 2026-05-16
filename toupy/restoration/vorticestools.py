@@ -5,7 +5,7 @@
 import time
 
 # third party packages
-import matplotlib.pyplot as plt
+from ..utils.plot_utils import plt
 import numexpr as nr
 import numpy as np
 import h5py

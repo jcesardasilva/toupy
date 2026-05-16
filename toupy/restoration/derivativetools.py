@@ -5,8 +5,7 @@
 import os
 
 # third party packages
-from IPython import display
-import matplotlib.pyplot as plt
+from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fftfreq, fft, ifft
 
@@ -64,9 +63,9 @@ def chooseregiontoderivatives(stack_array, **params):
         ax1 = _plotdelimiters(ax1, roiy, roix)
         ax1.axis("tight")
         if isnotebook():
+            from IPython import display
             display.display(fig)
             display.display(fig.canvas)
-            # display.clear_output(wait=True)
         else:
             plt.show(block=False)
 

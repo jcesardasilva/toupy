@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 # third party packages
-from IPython import get_ipython
 import numpy as np
 from scipy.fft import fft, ifft, fftfreq
 from scipy.interpolate import interp1d
@@ -16,7 +15,11 @@ warnings.filterwarnings("ignore")
 from ..utils.plot_utils import isnotebook
 
 if isnotebook():
-    RunningInCOLAB = "google.colab" in str(get_ipython())
+    try:
+        from IPython import get_ipython
+        RunningInCOLAB = "google.colab" in str(get_ipython())
+    except ImportError:
+        RunningInCOLAB = False
 else:
     RunningInCOLAB = False
 
