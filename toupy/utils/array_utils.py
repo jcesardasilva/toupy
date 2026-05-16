@@ -140,12 +140,17 @@ def smooth1d(x,window_len=11,window='hanning'):
         raise ValueError( "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
 
+    _window_funcs = {
+        'hanning': np.hanning,
+        'hamming': np.hamming,
+        'bartlett': np.bartlett,
+        'blackman': np.blackman,
+    }
     s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
-    #print(len(s))
-    if window == 'flat': #moving average
+    if window == 'flat':  # moving average
         w=np.ones(window_len,'d')
     else:
-        w=eval('np.'+window+'(window_len)')
+        w=_window_funcs[window](window_len)
 
     y=np.convolve(w/w.sum(),s,mode='valid')
     return y
@@ -387,12 +392,12 @@ def crop(input_array, delcropx, delcropy):
     if delcropx is not None or delcropy is not None:
         print("Cropping ROI of data")
         print("Before: {}".format(input_array.shape))
-        print(input_array[delcropy:-delcropy, delcropx:-delcropx].shape)
         if input_array.ndim == 2:
-            return input_array[delcropy:-delcropy, delcropx:-delcropx]
+            out = input_array[delcropy:-delcropy, delcropx:-delcropx]
         elif input_array.ndim == 3:
-            return input_array[:, delcropy:-delcropy, delcropx:-delcropx]
-        print("After: {}".format(input_array.shape))
+            out = input_array[:, delcropy:-delcropy, delcropx:-delcropx]
+        print("After: {}".format(out.shape))
+        return out
     else:
         print("No cropping of data")
         return input_array
@@ -421,10 +426,11 @@ def cropROI(input_array, roi=[]):
         print("Cropping ROI of data")
         print("Before: {}".format(input_array.shape))
         if input_array.ndim == 2:
-            return input_array[roi[0] : roi[1], roi[2] : roi[3]]
+            out = input_array[roi[0] : roi[1], roi[2] : roi[3]]
         elif input_array.ndim == 3:
-            return input_array[:, roi[0] : roi[1], roi[2] : roi[3]]
-        print("After: {}".format(input_array.shape))
+            out = input_array[:, roi[0] : roi[1], roi[2] : roi[3]]
+        print("After: {}".format(out.shape))
+        return out
 
 
 def radtap(X, Y, tappix, zerorad):

@@ -9,9 +9,7 @@ from IPython import display
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift
-from scipy.ndimage import center_of_mass, interpolation
-from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
-from scipy.ndimage.fourier import fourier_shift
+from scipy.ndimage import center_of_mass, interpolation, gaussian_filter, gaussian_filter1d, fourier_shift
 from skimage.registration import phase_cross_correlation
 
 # local packages
@@ -106,18 +104,20 @@ def register_2Darrays(image1, image2):
     return shift, diffphase, offset_image2
 
 
-def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
+def compute_aligned_stack(input_stack, shiftstack, shift_method="linear", inplace=False):
     """
     Compute the aligned stack given the correction for object positions
 
     Parameters
     ----------
-    input_array : array_like
+    input_stack : array_like
         Stack of images to be shifted
     shiftstack : array_like
         Array of initial estimates for object motion (2,n)
     shift_method : str (default linear)
         Name of the shift method. Options: 'linear', 'fourier', 'spline'
+    inplace : bool, optional
+        If True, shifts are applied in-place to input_stack. Default is False.
 
     Return
     ------
@@ -131,7 +131,7 @@ def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
     print(
         "Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__)
     )
-    output_stack = np.empty_like(input_stack)
+    output_stack = input_stack if inplace else np.empty_like(input_stack)
     for ii in range(nstack):
         deltashift = (shiftstack[0, ii], shiftstack[1, ii])
         output_stack[ii] = S(input_stack[ii], deltashift)
@@ -142,65 +142,8 @@ def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
 
 
 def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"):
-    """
-    Compute the aligned stack given the correction for object positions
-
-    Parameters
-    ----------
-    input_array : array_like
-        Stack of images to be shifted
-    shiftstack : array_like
-        Array of initial estimates for object motion (2,n)
-    shift_method : str (default linear)
-        Name of the shift method. Options: 'linear', 'fourier', 'spline'
-
-    Return
-    ------
-    output_stack : array_like
-        2D function containing the stack of aligned images
-    """
-    # Initialize shift class
-    S = ShiftFunc(shiftmeth=shift_method)
-    # array shape
-    nstack = input_stack.shape[0]
-    print(
-        "Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__)
-    )
-    # output_stack = np.empty_like(input_stack)
-    for ii in range(nstack):
-        deltashift = (shiftstack[0, ii], shiftstack[1, ii])
-        input_stack[ii] = S(input_stack[ii], deltashift)
-        strbar = "Image {} of {}".format(ii + 1, nstack)
-        progbar(ii + 1, nstack, strbar)
-    print("\r")
-    return input_stack
-
-
-def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="linear"):
-    """
-    Compute the alignment of the stack on at the horizontal direction
-
-    Parameters
-    ----------
-    input_array : array_like
-        Stack of images to be shifted
-    shiftstack : array_like
-        Array of initial estimates for object motion (2,n)
-        The estimates for vertical movement will be changed to 0
-    shift_method : str (default linear)
-        Name of the shift method. Options: 'linear', 'fourier', 'spline'
-
-    Return
-    ------
-    output_stack : array_like
-        2D function containing the stack of aligned images
-    """
-    deltashift = np.zeros_like(shiftstack)
-    deltashift[1] = shiftstack[1].copy()
-    output_stack = compute_aligned_stack_special(
-        input_stack, shiftstack, shift_method=shift_method
-    )
-    return output_stack
+    """Deprecated: use compute_aligned_stack(..., inplace=True) instead."""
+    return compute_aligned_stack(input_stack, shiftstack, shift_method=shift_method, inplace=True)
 
 
 def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
@@ -237,19 +180,21 @@ def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
     return output_sino
 
 
-def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear"):
+def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear", inplace=False):
     """
-    Compute the alignment of the stack on at the horizontal direction
+    Compute the alignment of the stack in the horizontal direction only.
 
     Parameters
     ----------
-    input_array : array_like
+    input_stack : array_like
         Stack of images to be shifted
     shiftstack : array_like
-        Array of initial estimates for object motion (2,n)
-        The estimates for vertical movement will be changed to 0
+        Array of initial estimates for object motion (2,n).
+        Only the horizontal component (row 1) is applied; vertical is zeroed.
     shift_method : str (default linear)
         Name of the shift method. Options: 'linear', 'fourier', 'spline'
+    inplace : bool, optional
+        If True, shifts are applied in-place to input_stack. Default is False.
 
     Return
     ------
@@ -258,10 +203,12 @@ def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear"):
     """
     deltashift = np.zeros_like(shiftstack)
     deltashift[1] = shiftstack[1].copy()
-    output_stack = compute_aligned_stack(
-        input_stack, deltashift, shift_method=shift_method
-    )
-    return output_stack
+    return compute_aligned_stack(input_stack, deltashift, shift_method=shift_method, inplace=inplace)
+
+
+def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="linear"):
+    """Deprecated: use compute_aligned_horizontal(..., inplace=True) instead."""
+    return compute_aligned_horizontal(input_stack, shiftstack, shift_method=shift_method, inplace=True)
 
 
 def center_of_mass_stack(input_stack, lims, shiftstack, shift_method="fourier"):
@@ -588,10 +535,7 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
     if not isinstance(params["maxit"], int):
         params["maxit"] = 10
 
-    try:
-        params["alignx"]
-    except:
-        params["alignx"] = False
+    params.setdefault("alignx", False)
 
     limrow, limcol = _selectROI(input_stack.shape, **params)
     lims = (limrow, limcol)
@@ -600,14 +544,11 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
     print("Vertical Mass fluctuation pixel alignment")
     print("Number of iterations: {}".format(params["maxit"]))
 
-    # horizontal alignement with center of mass if requested
-    if params["alignx"] and count == 0:
+    # horizontal alignment with center of mass if requested (runs once before the loop)
+    deltaprev = shiftstack.copy()
+    if params["alignx"]:
         print("Estimating the changes in x using center-of-mass:")
-        centerx = center_of_mass_stack(
-            input_stack, params, limrow=limrow, limcol=limcol, shiftstack=shiftstack
-        )[
-            0
-        ]  # [1]
+        centerx = center_of_mass_stack(input_stack, lims, shiftstack)[0]
         # Correction with mass center
         shiftstack[1] = -centerx.round()
         shiftstack[1] -= shiftstack[1].mean().round()
@@ -851,38 +792,15 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
       Proc. SPIE 10391, Developments in X-Ray Tomography XI, 1039106 (2017).
     """
     # parsing of the parameters
-    try:
-        params["circle"]
-    except KeyError:
-        params["circle"] = True
-
-    try:
-        params["sinohigh"]
-    except KeyError:
-        params["sinohigh"] = 0.6
-
-    try:
-        params["sinolow"]
-    except KeyError:
-        params["sinolow"] = -0.6
-
-    try:
-        params["opencl"]
-    except KeyError:
-        params["opencl"] = False
+    params.setdefault("circle", True)
+    params.setdefault("sinohigh", 0.6)
+    params.setdefault("sinolow", -0.6)
+    params.setdefault("opencl", False)
+    params.setdefault("cliplow", None)
+    params.setdefault("cliphigh", None)
 
     if not isinstance(params["maxit"], int):
         params["maxit"] = 10
-
-    try:
-        params["cliplow"]
-    except:
-        params["cliplow"] = None
-
-    try:
-        params["cliphigh"]
-    except:
-        params["cliphigh"] = None
 
     print("\nStarting the horizontal alignment")
     print("=====================================")
@@ -995,10 +913,7 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
     Refine horizontal alignment. Please, see the description of each
     parameter in :py:meth:`alignprojections_horizontal`.
     """
-    try:
-        params["correct_bad"]
-    except KeyError:
-        params["correct_bad"] = False
+    params.setdefault("correct_bad", False)
     while True:
         a = input("Do you want to refine further the alignment? ([y]/n): ").lower()
         if str(a) == "" or str(a) == "y":
@@ -1269,11 +1184,11 @@ def _search_vshift_direction(
     # get the smallest shift error
     min_error = min(dir_shift, key=dir_shift.get)
     # calculate the increment to be shifted
-    if min_error == u"current":
+    if min_error == "current":
         dir_inc = 0
-    elif min_error == u"backward":
+    elif min_error == "backward":
         dir_inc = -1 * pixtol
-    elif min_error == u"forward":
+    elif min_error == "forward":
         dir_inc = 1 * pixtol
     # update shift_delta
     shift_delta += dir_inc
@@ -1292,7 +1207,7 @@ def _search_vshift_direction(
                 dir_shift["current"] = nexterror
                 shift += dir_inc
             else:
-                shift -= dir_inc  # subtract once dir_inc in case of no sucess in the previous iteraction
+                shift -= dir_inc  # undo last step that increased the error
                 break
     else:
         shifted_stack = shifts["current"]
@@ -1355,11 +1270,11 @@ def _search_hshift_direction(
     # get the smallest shift error
     min_error = min(dir_shift, key=dir_shift.get)
     # calculate the increment to be shifted
-    if min_error == u"current":
+    if min_error == "current":
         dir_inc = 0
-    elif min_error == u"backward":
+    elif min_error == "backward":
         dir_inc = -1 * pixtol
-    elif min_error == u"forward":
+    elif min_error == "forward":
         dir_inc = 1 * pixtol
     # update shift delta
     shift_delta += dir_inc
@@ -1376,8 +1291,7 @@ def _search_hshift_direction(
                 dir_shift["current"] = nexterror
                 shift += dir_inc  # shift the sino once more in the same direction
             else:
-                shift -= dir_inc  # subtract once dir_inc in case of no sucess in the previous iteraction
-                # errorxreg[ii] = dir_shift['current'].copy()#currenterror
+                shift -= dir_inc  # undo last step that increased the error
                 break
     else:
         shifted_sino = shifts["current"].copy()
@@ -1388,15 +1302,12 @@ def _clipping_tomo(recons, **params):
     """
     Clip gray level of tomographic images
     """
-    if params["cliplow"] is not None:
-        recons = recons * (recons >= params["cliplow"]) + params["cliplow"] * (
-            recons < params["cliplow"]
-        )
-    if params["cliphigh"] is not None:
-        recons = recons * (recons <= params["cliphigh"]) + params["cliphigh"] * (
-            recons > params["cliphigh"]
-        )
-        recons = recons - params["cliphigh"]
+    cliplow = params.get("cliplow")
+    cliphigh = params.get("cliphigh")
+    if cliplow is not None:
+        recons = np.clip(recons, cliplow, None)
+    if cliphigh is not None:
+        recons = np.clip(recons, None, cliphigh) - cliphigh
     return recons
 
 
@@ -1404,12 +1315,8 @@ def _sino_error_metric(sinogramexp, sinogramcomp, params):
     """
     Estimate the error metric between the experimental sinogram and
     the synthetic one.
-    @author: jdasilva
     """
-    errorxreg = np.zeros(sinogramexp.shape[1])
-    for ii in range(sinogramexp.shape[1]):
-        errorxreg[ii] = np.sum(np.abs(sinogramexp[:, ii] - sinogramcomp[:, ii]) ** 2)
-    return errorxreg
+    return np.sum(np.abs(sinogramexp - sinogramcomp) ** 2, axis=0)
 
 
 def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False):
@@ -1482,10 +1389,7 @@ def estimate_rot_axis(input_array, theta, **params):
     Initial estimate of the rotation axis
     """
 
-    try:
-        params["sinocmap"]
-    except KeyError:
-        params["sinocmap"] = params["colormap"]
+    params.setdefault("sinocmap", params["colormap"])
 
     # Ensuring that theta starts at zero
     theta -= theta.min()
