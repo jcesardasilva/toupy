@@ -18,8 +18,6 @@ import time
 ####                needs to install libtiff4-dev, but I cannot
 import fabio
 import h5py
-import matplotlib.pyplot as plt
-from matplotlib.colors import hsv_to_rgb
 import numpy as np
 from skimage import io
 

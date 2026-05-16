@@ -12,8 +12,7 @@ import time
 
 # third party package
 import h5py
-from IPython import display
-import matplotlib.pyplot as plt
+from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fftshift, ifftshift
 
@@ -330,9 +329,8 @@ class FourierShellCorr:
         ax2.set_title("image2")
         ax2.set_axis_off()
         if isnotebook():
+            from IPython import display
             display.display(fig1)
-            #display.display(fig1.canvas)
-            # display.clear_output(wait=True)
         else:
             plt.show(block=False)
         #plt.show(block=False)
@@ -464,6 +462,7 @@ class FSCPlot(FourierShellCorr):
         plt.xlabel("Spatial frequency/Nyquist")
         plt.ylabel("Magnitude")
         if isnotebook():
+            from IPython import display
             display.display(plt.gcf())
             display.clear_output(wait=True)
         else:

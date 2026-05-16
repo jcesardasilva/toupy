@@ -5,8 +5,7 @@
 import time
 
 # third party packages
-from IPython import display
-import matplotlib.pyplot as plt
+from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift
 from scipy.ndimage import center_of_mass, interpolation, gaussian_filter, gaussian_filter1d, fourier_shift
@@ -1080,7 +1079,8 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     ax2.set_title("Average displacements in x")
     ax2.set_xlabel("Projection number")
     plt.tight_layout()
-    if isnotebook:
+    if isnotebook():
+        from IPython import display
         display.display(fig)
         display.display(fig.canvas)
     else:
@@ -1433,6 +1433,7 @@ def estimate_rot_axis(input_array, theta, **params):
         ax2.set_title("Sinogram - Slice".format(slicenum))
         fig1.colorbar(im2)
         if isnotebook():
+            from IPython import display
             display.display(fig1)
             display.display(fig1.canvas)
             display.clear_output(wait=True)

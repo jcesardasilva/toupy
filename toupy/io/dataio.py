@@ -12,7 +12,6 @@ import time
 
 # third party packages
 import h5py
-import matplotlib.pyplot as plt
 import numpy as np
 
 # local packages
@@ -595,7 +594,7 @@ class LoadProjections(PathName, Variables):
         ).lower()
         if a == "" or a == "y":
             print("Continuing...")
-            plt.close("all")
+            import matplotlib.pyplot as plt; plt.close("all")
         else:
             raise SystemExit("Exiting the script")
 
@@ -691,7 +690,7 @@ class LoadProjections(PathName, Variables):
         ).lower()
         if a == "" or a == "y":
             print("Continuing...")
-            plt.close("all")
+            import matplotlib.pyplot as plt; plt.close("all")
         else:
             raise SystemExit("Exiting the script")
 
