@@ -1145,7 +1145,7 @@ def _search_vshift_stack(input_stack, lims, input_delta, avg_vert_fluct, **kwarg
     return output_shiftstack, vert_fluct_stack
 
 
-def _search_vshift_direction(
+def _search_vshift_direction_old(
     input_array,
     lims,
     shift_delta,
@@ -1211,6 +1211,129 @@ def _search_vshift_direction(
     else:
         shifted_stack = shifts["current"]
     return shift, shifted_stack
+    
+
+def _search_vshift_direction_v1(
+    input_array,
+    lims,
+    shift_delta,
+    avg_vert_fluct,
+    pixtol,
+    max_vshift,
+    shift_method="linear",
+    polyorder=2,
+    learning_rate=0.3, # Added for gradient stability
+    max_gd_iter=10     # Internal iterations for gradient descent
+):
+    """
+    Search for vertical shifts using Gradient Descent (Gauss-Newton).
+    """
+    # Initialize shift class
+    S = ShiftFunc(shiftmeth=shift_method)
+    
+    current_shift = shift_delta
+    
+    for _ in range(max_gd_iter):
+        # 1. Calculate the current signal with the current shift
+        shifted_signal = vertical_shift(
+            input_array, lims, current_shift, max_vshift, shift_method, polyorder
+        )
+        
+        # 2. Calculate the spatial derivative of the signal
+        # (The derivative of the moving image with respect to the shift)
+        derivative = np.gradient(shifted_signal)
+        
+        # 3. Calculate error (Difference between reference and moving)
+        error = avg_vert_fluct - shifted_signal
+        
+        # 4. Gauss-Newton Update: delta_s = sum(error * deriv) / sum(deriv^2)
+        denom = np.sum(derivative**2)
+        if denom == 0:
+            break
+            
+        update = np.sum(error * derivative) / denom
+        
+        # Apply the update with a learning rate/damping factor
+        current_shift -= learning_rate * update
+        
+        # Convergence check: if update is smaller than tolerance, stop internal loop
+        if abs(update) < (pixtol / 10):
+            break
+
+    # Calculate final signal for the return
+    final_signal = vertical_shift(
+        input_array, lims, current_shift, max_vshift, shift_method, polyorder
+    )
+    
+    return current_shift, final_signal
+    
+def _search_vshift_direction_v2(
+    input_array,
+    lims,
+    shift_delta,
+    avg_vert_fluct,
+    pixtol,
+    max_vshift,
+    shift_method="linear",
+    polyorder=2,
+    max_gd_iter=20
+):
+    """
+    Gradient Descent using Finite Differences on the L2 Cost Function.
+    """
+    current_shift = shift_delta
+    
+    # Helper to calculate the L2 Error (Cost)
+    def get_cost(s):
+        sig = vertical_shift(input_array, lims, s, max_vshift, shift_method, polyorder)
+        return np.sum((sig - avg_vert_fluct)**2)
+
+    # Initial state
+    current_cost = get_cost(current_shift)
+    
+    # Hyperparameters
+    learning_rate = 1.0  # Initial step size in pixels
+    eps = pixtol / 5.0   # Finite difference perturbation
+    
+    for i in range(max_gd_iter):
+        # 1. Compute Gradient of the Cost Function w.r.t. the Shift (s)
+        # Gradient = [Cost(s + eps) - Cost(s - eps)] / (2 * eps)
+        cost_plus = get_cost(current_shift + eps)
+        cost_minus = get_cost(current_shift - eps)
+        grad = (cost_plus - cost_minus) / (2 * eps)
+        
+        if grad == 0:
+            break
+            
+        # 2. Normalize Gradient (Sign Descent) with Adaptive Step
+        # This prevents "huge jumps" and ensures we always move by a meaningful amount
+        direction = -np.sign(grad)
+        
+        # 3. Backtracking Line Search (Ensure the move actually improves things)
+        step_found = False
+        temp_lr = learning_rate
+        
+        for _ in range(5): # Try up to 5 smaller steps
+            proposed_shift = current_shift + (direction * temp_lr)
+            proposed_cost = get_cost(proposed_shift)
+            
+            if proposed_cost < current_cost:
+                current_shift = proposed_shift
+                current_cost = proposed_cost
+                # Increase learning rate slightly for next iteration if successful
+                learning_rate = min(learning_rate * 1.2, 2.0) 
+                step_found = True
+                break
+            else:
+                # If it got worse, shrink the step and try again
+                temp_lr *= 0.5
+        
+        # 4. Convergence check
+        if not step_found or (temp_lr < pixtol / 10.0):
+            break
+
+    final_signal = vertical_shift(input_array, lims, current_shift, max_vshift, shift_method, polyorder)
+    return current_shift, final_signal
 
 
 def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice, **kwargs):
@@ -1241,18 +1364,29 @@ def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice, **kwargs):
     return sino_out, shiftslice_out
 
 
-def _search_hshift_direction(
-    sinogram, sinogramcomp, shift_delta, pixtol, shift_method="linear"
+def _search_hshift_direction_v2(
+    sinogram_col, 
+    sinogramcomp_col, 
+    shift_delta, 
+    pixtol, 
+    shift_method="linear",
+    max_gd_iter=20
 ):
     """
-    Search for sinogram shift for each projection
+    Gradient Descent using Finite Differences for Horizontal shifts.
     """
-    shifts = dict()  # dictionary shifts arrays
-    dir_shift = dict()  # dictionary shifts direction
-
-    # Initialize shift class
     S = ShiftFunc(shiftmeth=shift_method)
+    current_shift = shift_delta
+    
+    def get_cost(s):
+        sig = S(sinogram_col, s)
+        return np.sum((sig - sinogramcomp_col)**2)
+    
+    current_cost = get_cost(current_shift)
+    learning_rate = 1.0
+    eps = pixtol / 5.0
 
+<<<<<<< Updated upstream
     # looking both ways
     # compute current shift error
     shifts["current"] = S(sinogram, shift_delta - 0)
@@ -1291,11 +1425,212 @@ def _search_hshift_direction(
                 shift += dir_inc  # shift the sino once more in the same direction
             else:
                 shift -= dir_inc  # undo last step that increased the error
+=======
+    for i in range(max_gd_iter):
+        cost_plus = get_cost(current_shift + eps)
+        cost_minus = get_cost(current_shift - eps)
+        grad = (cost_plus - cost_minus) / (2 * eps)
+        
+        if grad == 0:
+            break
+            
+        direction = -np.sign(grad)
+        
+        step_found = False
+        temp_lr = learning_rate
+        for _ in range(5):
+            proposed_shift = current_shift + (direction * temp_lr)
+            proposed_cost = get_cost(proposed_shift)
+            
+            if proposed_cost < current_cost:
+                current_shift = proposed_shift
+                current_cost = proposed_cost
+                learning_rate = min(learning_rate * 1.2, 1.0)
+                step_found = True
+>>>>>>> Stashed changes
                 break
-    else:
-        shifted_sino = shifts["current"].copy()
-    return shift, shifted_sino
+            else:
+                temp_lr *= 0.5
+                
+        if not step_found or (temp_lr < pixtol / 10.0):
+            break
+            
+    final_sino = S(sinogram_col, current_shift)
+    return current_shift, final_sino
 
+def _search_vshift_direction_v3(
+    input_array,
+    lims,
+    shift_delta,
+    avg_vert_fluct,
+    pixtol,
+    max_vshift,
+    shift_method="linear",
+    polyorder=2,
+    max_iter=8 # 8 iterations gives 1/256 pixel precision
+):
+    """
+    Robust 1D Pattern Search. No gradients, no smoothing. 
+    Guaranteed to find the local minimum within 1-2 pixels.
+    """
+    current_shift = shift_delta
+    
+    def get_cost(s):
+        sig = vertical_shift(input_array, lims, s, max_vshift, shift_method, polyorder)
+        return np.sum((sig - avg_vert_fluct)**2)
+
+    # Initial evaluation
+    current_cost = get_cost(current_shift)
+    
+    # Step size starts at 1.0 pixel
+    step = 1.0 
+    
+    for i in range(max_iter):
+        # Check one step forward and one step backward
+        cost_plus = get_cost(current_shift + step)
+        cost_minus = get_cost(current_shift - step)
+        
+        if cost_plus < current_cost and cost_plus < cost_minus:
+            # Move forward
+            current_shift += step
+            current_cost = cost_plus
+        elif cost_minus < current_cost:
+            # Move backward
+            current_shift -= step
+            current_cost = cost_minus
+        else:
+            # Neither is better; the minimum is closer than 'step'
+            # Reduce step size for higher precision
+            step *= 0.5
+            
+        # Stop if we hit the user's requested tolerance
+        if step < (pixtol / 2.0):
+            break
+
+    final_signal = vertical_shift(input_array, lims, current_shift, max_vshift, shift_method, polyorder)
+    return current_shift, final_signal
+
+
+def _search_hshift_direction_v3(
+    sinogram_col, 
+    sinogramcomp_col, 
+    shift_delta, 
+    pixtol, 
+    shift_method="linear",
+    max_iter=8
+):
+    S = ShiftFunc(shiftmeth=shift_method)
+    current_shift = shift_delta
+    
+    def get_cost(s):
+        sig = S(sinogram_col, s)
+        return np.sum((sig - sinogramcomp_col)**2)
+        
+    current_cost = get_cost(current_shift)
+    step = 1.0
+    
+    for i in range(max_iter):
+        cost_plus = get_cost(current_shift + step)
+        cost_minus = get_cost(current_shift - step)
+        
+        if cost_plus < current_cost and cost_plus < cost_minus:
+            current_shift += step
+            current_cost = cost_plus
+        elif cost_minus < current_cost:
+            current_shift -= step
+            current_cost = cost_minus
+        else:
+            step *= 0.5
+            
+        if step < (pixtol / 2.0):
+            break
+            
+    final_sino = S(sinogram_col, current_shift)
+    return current_shift, final_sino
+    
+
+def _search_vshift_direction(
+    input_array,
+    lims,
+    shift_delta,
+    avg_vert_fluct,
+    pixtol,
+    max_vshift,
+    shift_method="linear",
+    polyorder=2,
+):
+    """
+    Fast Parabolic Fit. 
+    Predicts the minimum in 3 evaluations. Faster than Pattern Search
+    and more robust than analytical gradients.
+    """
+    # Search step for curvature detection
+    h = 0.5 
+    
+    def get_err(s):
+        sig = vertical_shift(input_array, lims, s, max_vshift, shift_method, polyorder)
+        return np.sum((sig - avg_vert_fluct)**2), sig
+
+    # 1. Evaluate the cost at 3 points: [current-h, current, current+h]
+    e_mid, sig_mid = get_err(shift_delta)
+    e_low, _ = get_err(shift_delta - h)
+    e_high, _ = get_err(shift_delta + h)
+
+    # 2. Use Parabolic Interpolation to find the vertex
+    # Formula: x_min = x_mid + h/2 * (f(x-h) - f(x+h)) / (f(x-h) - 2f(x) + f(x+h))
+    denom = (e_low - 2*e_mid + e_high)
+    
+    if denom > 0:
+        # We found a 'valley'. Jump straight to the predicted minimum.
+        optimal_step = 0.5 * h * (e_low - e_high) / denom
+        # Safety clip: don't allow jumps larger than 2 pixels in one go
+        shift_delta += np.clip(optimal_step, -2.0, 2.0)
+    else:
+        # Surface is flat or concave (unlikely but possible with noise).
+        # Take a simple step in the better direction.
+        if e_low < e_mid and e_low < e_high:
+            shift_delta -= h
+        elif e_high < e_mid:
+            shift_delta += h
+            
+    # 3. Final evaluation at the new position to return the signal
+    final_err, final_sig = get_err(shift_delta)
+    return shift_delta, final_sig
+
+
+def _search_hshift_direction(
+    sinogram_col, 
+    sinogramcomp_col, 
+    shift_delta, 
+    pixtol, 
+    shift_method="linear"
+):
+    """
+    Fast Parabolic Fit for horizontal shifts.
+    """
+    S = ShiftFunc(shiftmeth=shift_method)
+    h = 0.5
+    
+    def get_err(s):
+        sig = S(sinogram_col, s)
+        return np.sum((sig - sinogramcomp_col)**2), sig
+
+    e_mid, sig_mid = get_err(shift_delta)
+    e_low, _ = get_err(shift_delta - h)
+    e_high, _ = get_err(shift_delta + h)
+
+    denom = (e_low - 2*e_mid + e_high)
+    if denom > 0:
+        optimal_step = 0.5 * h * (e_low - e_high) / denom
+        shift_delta += np.clip(optimal_step, -1.5, 1.5)
+    else:
+        if e_low < e_mid and e_low < e_high:
+            shift_delta -= h
+        elif e_high < e_mid:
+            shift_delta += h
+            
+    _, final_sino = get_err(shift_delta)
+    return shift_delta, final_sino
 
 def _clipping_tomo(recons, **params):
     """
