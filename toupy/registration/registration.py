@@ -1082,7 +1082,6 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     if isnotebook():
         from IPython import display
         display.display(fig)
-        display.display(fig.canvas)
     else:
         plt.show(block=False)
     a = input(
@@ -1435,7 +1434,6 @@ def estimate_rot_axis(input_array, theta, **params):
         if isnotebook():
             from IPython import display
             display.display(fig1)
-            display.display(fig1.canvas)
             display.clear_output(wait=True)
         else:
             # fig1.show(block=False)
