@@ -3,14 +3,35 @@
 
 # standard libraries imports
 import functools
+import sys
 
 # third party packages
-from IPython import display, get_ipython
 import matplotlib
 import matplotlib.animation as animation
 from matplotlib.colors import hsv_to_rgb
-import matplotlib.pyplot as plt
 import numpy as np
+
+
+class _LazyPlt:
+    """Proxy for matplotlib.pyplot — defers the heavy pyplot import until first plot call."""
+    def __getattr__(self, name):
+        global plt
+        import matplotlib.pyplot as _real_plt
+        plt = _real_plt  # replace proxy with the real module for all future lookups
+        return getattr(_real_plt, name)
+
+
+plt = _LazyPlt()
+
+
+class _LazyIPythonDisplay:
+    """Proxy for IPython.display — defers the actual import until first attribute access."""
+    def __getattr__(self, name):
+        from IPython import display as _d
+        return getattr(_d, name)
+
+
+display = _LazyIPythonDisplay()
 
 __all__ = [
     "isnotebook",
@@ -29,15 +50,18 @@ def isnotebook():
     Check if code is executed in the IPython notebook.
     This is important because jupyter notebook does not support iterative plots
     """
+    ipy = sys.modules.get('IPython')
+    if ipy is None:
+        return False
     try:
-        shell = get_ipython().__class__.__name__
+        shell = ipy.get_ipython().__class__.__name__
         if shell == 'ZMQInteractiveShell':
             return True   # Jupyter notebook or qtconsole
         elif shell == 'TerminalInteractiveShell':
             return False  # Terminal running IPython
         else:
             return False  # Other type (?)
-    except NameError:
+    except (AttributeError, NameError):
         return False
 
 def interativesession(func):
