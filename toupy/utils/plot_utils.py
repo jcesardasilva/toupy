@@ -788,8 +788,8 @@ def iterative_show(
         im1.set_data(projection)
         ax1.set_title("Projection {}".format(ii + 1))
         if isnotebook():
+            display.clear_output(wait=True)
             display.display(fig)
-            display.display(fig.canvas)
         else:
             fig.show()
         plt.pause(0.001)
