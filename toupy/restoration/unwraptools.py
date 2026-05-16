@@ -249,7 +249,7 @@ def phaseresiduesStack(stack_array, threshold=5000):
         progbar(ii + 1, nproj, strbar)
     print(". Done")
     posres = np.where(resmap >= 1.0)
-    if wrong != []:
+    if wrong:
         print("The following projections are problematic: {}".format(wrong))
     return resmap, posres, nres
 
@@ -290,7 +290,7 @@ def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
     del residues_charge
     posres = np.where(resmap >= 1.0)
     wrong = np.where(np.array(nres) > threshold)[0]
-    if wrong != []:
+    if len(wrong) > 0:
         print("The following projections are problematic: \n {}".format(wrong))
     # return residues, residues_charge, nres
     return resmap, posres, nres
@@ -446,7 +446,7 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
         Unwrapped image
     """
     if rx == [] and ry == []:
-        img2unwrap = unwrap_phase(im2unwrap)
+        img2unwrap = unwrap_phase(img2unwrap)
         img2unwrap -= -2 * np.pi * np.round(img2unwrap / (2 * np.pi))
     else:
         # select the region to be unwrapped
@@ -542,10 +542,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
       based on sorting by reliability following a noncontinuous path”,
       Journal Applied Optics, Vol. 41, No. 35, pp. 7437, 2002
     """
-    try:
-        params["parallel"]
-    except:
-        params["parallel"] = True
+    params.setdefault("parallel", True)
     if params["parallel"]:
         if params["n_cpus"] == -1:
             try:
