@@ -6,6 +6,7 @@ from IPython import get_ipython
 import numpy as np
 from scipy.fft import fft, ifft, fftfreq
 from scipy.interpolate import interp1d
+from skimage.transform import iradon_sart
 from silx import version
 import warnings
 
@@ -431,15 +432,8 @@ def backprojector(sinogram, theta, **params):
     # ~ if not nosilx:
     # ~ print("Forcing param['opencl']=False")
     # ~ params["opencl"]=False
-    try:
-        params["weight_angles"]
-    except:
-        params["weight_angles"] = False
-
-    try:
-        params["opencl"]
-    except:
-        params["opencl"] = False
+    params.setdefault("weight_angles", False)
+    params.setdefault("opencl", False)
 
     if params["opencl"]:
         # using Silx backprojector
@@ -495,38 +489,31 @@ def reconsSART(
     sinogram = np.float64(sinogram)
     circle = params["circle"]
 
+    if params.get("weight_angles", False):
+        weights = compute_angle_weights(theta).reshape(1, -1)
+        sinogram = sinogram * weights
+
     # actual reconstruction
     if FBPinitial_guess:
         print("Calculating the initial guess for SART using FBP")
         reconsFBP = backprojector(sinogram, theta, **params)
         reconsFBP = np.float64(reconsFBP)
         print("Done. Starting SART")
-
-        if params["weight_angles"]:
-            # weight the angles prior to the reconstruction
-            weights = compute_angle_weights(theta).reshape(1, -1)
-            sinogram = sinogram * weights
-
-        # with initial guess
-        reconsSART = iradon_sart(
+        recons_sart = iradon_sart(
             sinogram, theta=theta, image=reconsFBP, relaxation=relaxation_params
         )
     else:
-        if params["weight_angles"]:
-            # weight the angles prior to the reconstruction
-            weights = compute_angle_weights(theta).reshape(1, -1)
-            sinogram = sinogram * weights
-        # without initial guess
-        reconsSART = iradon_sart(sinogram, theta=theta, relaxation=relaxation_params)
+        recons_sart = iradon_sart(sinogram, theta=theta, relaxation=relaxation_params)
+
     print("Starting iterative reconstruction:")
-    for ii in range(iteration_num):
+    for ii in range(num_iter):
         print("Iteration {}".format(ii + 1))
-        reconsSART = iradon_sart(
-            sinogram, theta=theta, image=reconsSART, relaxation=relaxation_params
+        recons_sart = iradon_sart(
+            sinogram, theta=theta, image=recons_sart, relaxation=relaxation_params
         )
 
     if circle:
-        recons_circle = create_circle(inputimg)
-        reconsSART = reconsSART * recons_circle
+        recons_circle = create_circle(recons_sart)
+        recons_sart = recons_sart * recons_circle
 
-    return reconsSART
+    return recons_sart
