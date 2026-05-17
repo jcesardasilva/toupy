@@ -580,13 +580,11 @@ def _search_vshift_stack(input_stack, lims, input_delta, avg_vert_fluct, **kwarg
     if not isinstance(input_stack, np.ndarray):
         input_stack = np.asarray(input_stack).copy()
 
-    for ii in range(nprojs):
-        print("Searching shifts (GD) for projection: {}".format(ii + 1), end="\r")
+    for ii in tqdm(range(nprojs), desc="Searching vertical shifts"):
         output_shiftstack[0, ii], vert_fluct_stack[ii] = _search_vshift_direction(
             input_stack[ii], lims, input_delta[0, ii], avg_vert_fluct,
             pixtol, max_vshift, shift_method, polyorder,
         )
-    print("\r")
     return output_shiftstack, vert_fluct_stack
 
 
@@ -598,12 +596,10 @@ def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice, **kwargs):
     sino_out      = np.zeros_like(sinogram)
     shiftslice_out = np.zeros_like(shiftslice)
 
-    for ii in range(nc):
-        print("Searching shifts (GD) for projection: {}".format(ii + 1), end="\r")
+    for ii in tqdm(range(nc), desc="Searching horizontal shifts"):
         shiftslice_out[0, ii], sino_out[:, ii] = _search_hshift_direction(
             sinogram[:, ii], sinogramcomp[:, ii], shiftslice[0, ii], pixtol, shift_method
         )
-    print("\r")
     return sino_out, shiftslice_out
 
 
