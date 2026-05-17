@@ -990,6 +990,9 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         params["maxit"] = 10
     params.setdefault("cliplow", None)
     params.setdefault("cliphigh", None)
+    params.setdefault("multiresolution", False)
+    params.setdefault("mr_factor", 2)
+    params.setdefault("n_coarse_iter", 5)
 
     print("\nStarting the horizontal alignment (Adam gradient descent)")
     print("=====================================")
@@ -1037,6 +1040,66 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     plt.ion()
     RP = RegisterPlot(**params)
     RP.plotshorizontal(recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0)
+
+    # ---------------------------------------------------------------
+    # Optional multiresolution warm-start
+    # ---------------------------------------------------------------
+    if params["multiresolution"]:
+        factor = params["mr_factor"]
+        n_coarse_iter = params["n_coarse_iter"]
+        print("\n=== Multiresolution warm-start (factor={}, coarse iterations={}) ===".format(
+            factor, n_coarse_iter
+        ))
+        nr, nc = original_sino.shape
+        nr_trim = (nr // factor) * factor
+        # Average-pool detector rows by `factor`
+        sino_pool = original_sino[:nr_trim, :].reshape(
+            nr_trim // factor, factor, nc
+        ).mean(axis=1)
+        # Apply same padding and low-pass filter at coarse scale
+        sino_pool_padded = np.pad(
+            sino_pool, ((padval, padval), (0, 0)), "constant", constant_values=0
+        ).copy()
+        sino_orig_c = _filter_sino(sino_pool_padded, **params)
+        # Scale current shifts down to coarse resolution
+        shiftslice_c = shiftslice / factor
+        if not np.all(shiftslice_c == 0):
+            sinogram_c = compute_aligned_sino(
+                sino_orig_c, shiftslice_c, shift_method=params["shiftmeth"]
+            )
+        else:
+            sinogram_c = sino_orig_c.copy()
+        # Initial coarse reconstruction
+        print("Computing initial coarse tomographic slice...")
+        t_c = time.time()
+        recons_c = tomo_recons(sinogram_c, theta=theta, **params)
+        print("Done. Time elapsed: {:.02f} s".format(time.time() - t_c))
+        recons_c = _clipping_tomo(recons_c, **params)
+        circleROI_c = create_circle(recons_c) if params["circle"] else 1
+        recons_c = recons_c * circleROI_c
+        # Initial coarse error metric
+        sinogramcomp_c = projector(recons_c, theta, **params)
+        if params["derivatives"] and not params["calc_derivatives"]:
+            sinogramcomp_c = derivatives_sino(sinogramcomp_c, shift_method=params["shiftmeth"])
+        metric_error_c = []
+        errorinit_c = _sino_error_metric(sinogram_c, sinogramcomp_c, params)
+        metric_error_c.append(np.sum(errorinit_c))
+        print("Initial coarse error metric, E= {:0.04e}".format(metric_error_c[0]))
+        # Run coarse-resolution alignment
+        params_c = dict(params, maxit=n_coarse_iter, subpixel=True)
+        shiftslice_c, _ = _alignprojections_horizontal(
+            sinogram_c, sino_orig_c, theta, circleROI_c,
+            shiftslice_c, metric_error_c, RP, **params_c
+        )
+        # Scale shifts back to full resolution
+        shiftslice = shiftslice_c * factor
+        # Recompute full-res sinogram from warm-started shifts
+        sinogram = compute_aligned_sino(
+            sino_orig, shiftslice, shift_method=params["shiftmeth"]
+        )
+        # Fresh metric_error list for the full-resolution phase
+        metric_error = []
+        print("=== Warm-start complete. Starting full-resolution refinement ===\n")
 
     print("\n===================================================")
     print("Horizontal alignment (Newton GD, pixtol={})".format(params["pixtol"]))
