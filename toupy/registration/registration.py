@@ -19,7 +19,7 @@ import time
 # third party packages
 from ..utils.plot_utils import plt
 import numpy as np
-from tqdm.auto import tqdm
+from ..utils import tqdm
 from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d

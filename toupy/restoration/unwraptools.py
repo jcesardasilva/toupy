@@ -10,7 +10,7 @@ from ..utils.plot_utils import plt
 import multiprocessing
 import numpy as np
 from skimage.restoration import unwrap_phase
-from tqdm.auto import tqdm
+from ..utils import tqdm
 
 # local packages
 from ..utils.plot_utils import _plotdelimiters

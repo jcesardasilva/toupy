@@ -7,7 +7,7 @@ import time
 # third party package
 from ..utils.plot_utils import plt
 import numpy as np
-from tqdm.auto import tqdm
+from ..utils import tqdm
 
 # local packages
 from ..utils import display_slice

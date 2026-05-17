@@ -5,7 +5,7 @@
 import matplotlib.gridspec as gridspec
 from ..utils.plot_utils import plt
 from matplotlib.widgets import MultiCursor
-from tqdm.auto import tqdm
+from ..utils import tqdm
 from matplotlib.widgets import Button  # , RectangleSelector
 from matplotlib.widgets import TextBox
 import numpy as np

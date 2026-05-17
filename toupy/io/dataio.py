@@ -13,7 +13,7 @@ import time
 # third party packages
 import h5py
 import numpy as np
-from tqdm.auto import tqdm
+from ..utils import tqdm
 
 # local packages
 from .filesrw import *

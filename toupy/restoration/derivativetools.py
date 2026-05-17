@@ -8,7 +8,7 @@ import os
 from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fftfreq, fft, ifft
-from tqdm.auto import tqdm
+from ..utils import tqdm
 
 # local packages
 from ..registration.shift import ShiftFunc
