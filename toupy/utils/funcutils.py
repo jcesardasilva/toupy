@@ -19,75 +19,7 @@ from .plot_utils import isnotebook
 __all__ = ["switch", "deprecated", "checkhostname", "progress_bar", "tqdm", "downloadURL", "downloadURLfile"]
 
 
-def _select_tqdm():
-    """Return the best tqdm for the current environment.
-
-    In Jupyter + ipywidgets : tqdm.notebook  (live widget bar)
-    In Jupyter, no ipywidgets: _JupyterTqdm  (HTML bar via display_id —
-                                works in all frontends without \r tricks)
-    Terminal                 : plain tqdm    (ANSI bar to stderr)
-    """
-    if isnotebook():
-        try:
-            import ipywidgets  # noqa: F401
-            from tqdm.notebook import tqdm as _tqdm
-            return _tqdm
-        except ImportError:
-            pass
-
-        class _JupyterTqdm:
-            """Jupyter progress bar using IPython display_id — no ipywidgets needed.
-            Sends update_display_data messages so the bar updates live in all
-            Jupyter frontends (classic Notebook, JupyterLab, VSCode, Colab)."""
-
-            _W = 28  # bar width in characters
-
-            def __init__(self, iterable=None, total=None, desc="", **kwargs):
-                from IPython.display import display, HTML
-                self._iter = iterable
-                self._total = (
-                    total if total is not None
-                    else len(iterable) if hasattr(iterable, "__len__")
-                    else None
-                )
-                self._desc = desc or ""
-                self._n = 0
-                self._HTML = HTML
-                self._handle = display(HTML(self._html()), display_id=True)
-
-            def _html(self):
-                if self._total:
-                    pct = self._n / self._total
-                    filled = round(pct * self._W)
-                    bar = "█" * filled + "░" * (self._W - filled)
-                    text = f"{self._desc}: {pct:.0%}|{bar}| {self._n}/{self._total}"
-                else:
-                    text = f"{self._desc}: {self._n} it"
-                return self._HTML(f"<pre style='margin:0'>{text}</pre>")
-
-            def __iter__(self):
-                for item in self._iter:
-                    yield item
-                    self._n += 1
-                    self._handle.update(self._html())
-
-            def __len__(self):
-                return self._total
-
-            def update(self, n=1):
-                self._n += n
-                self._handle.update(self._html())
-
-            def close(self):
-                pass
-
-        return _JupyterTqdm
-
-    from tqdm import tqdm as _tqdm
-    return _tqdm
-
-
-tqdm = _select_tqdm()
+from tqdm import tqdm
 
 
 class switch(object):
