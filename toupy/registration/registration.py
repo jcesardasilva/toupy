@@ -69,11 +69,6 @@ _FD_H_HORIZ   = 0.5  # FD step for horizontal gradient (pixels); wide enough
 _H_MAX_STEP   = 50.0 # max horizontal Newton step (pixels); generous so the
                       # Newton step can cross a large initial offset in one
                       # iteration — the halving fallback handles overshoots
-_ANDERSON_DEPTH  = 3          # B: Anderson acceleration history depth (m)
-_PIXTOL_SCHEDULE = [2.0, 1.0] # C: coarse→fine pixtol warmup schedule
-                               #    iter 1 → max(user_pixtol, 2.0)
-                               #    iter 2 → max(user_pixtol, 1.0)
-                               #    iter 3+ → user_pixtol
 
 
 # ============================================================================
@@ -910,16 +905,12 @@ def _alignprojections_horizontal(
     """
     Iterative horizontal alignment driver.
 
-    Accelerations applied
-    ---------------------
-    B — Anderson acceleration on the outer shift fixed-point iteration.
-    C — Coarse-to-fine pixtol schedule: early iterations use a relaxed
-        tolerance so the inner Newton loops terminate sooner.
-    D — Per-column skip flags passed to _search_hshift_sinogram.
+    Accelerations active
+    --------------------
+    A — Parallel column processing (inside _search_hshift_sinogram).
+    D — Per-column skip flags: columns already converged are skipped.
+    E — Pre-computed FFT of sinogram columns (Fourier shift mode).
     """
-    # B: Anderson accelerator for the shift vector fixed-point
-    anderson = _AndersonAccelerator(m=_ANDERSON_DEPTH)
-
     # D: per-column change tracker (None = first iteration, no skipping)
     prev_changes = None
 
@@ -939,17 +930,7 @@ def _alignprojections_horizontal(
         print("\nIteration {}".format(count))
         print("-------------------------------------")
         it0 = time.time()
-        shiftslice_old = shiftslice.copy()   # save for convergence check / rollback
-
-        # C: coarse-to-fine pixtol schedule — relax tolerance in early iterations
-        if count <= len(_PIXTOL_SCHEDULE):
-            active_pixtol = max(params["pixtol"], _PIXTOL_SCHEDULE[count - 1])
-            print("  pixtol this iteration: {:.2f}  (C: coarse-to-fine warmup)".format(
-                active_pixtol))
-        else:
-            active_pixtol = params["pixtol"]
-        params_iter = dict(params)
-        params_iter["pixtol"] = active_pixtol
+        deltaprev = shiftslice.copy()
 
         print("Computing synthetic sinogram...")
         sinogramcomp = projector(recons, theta, **params)
@@ -957,15 +938,12 @@ def _alignprojections_horizontal(
             sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params["shiftmeth"])
 
         print("Gradient descent search for horizontal shifts...")
-        sinotempreg, shiftslice_gd = _search_hshift_sinogram(
-            sino_orig, sinogramcomp, shiftslice, prev_changes=prev_changes, **params_iter
+        sinotempreg, shiftslice = _search_hshift_sinogram(
+            sino_orig, sinogramcomp, shiftslice, prev_changes=prev_changes, **params
         )
 
-        # B: Anderson-mix the raw GD result with the shift history
-        shiftslice = anderson.step(shiftslice_old, shiftslice_gd)
-
-        # D: track per-column absolute changes for the next iteration's skip logic
-        prev_changes = np.abs(shiftslice[0] - shiftslice_old[0])
+        # D: record per-column shift changes for the next iteration
+        prev_changes = np.abs(shiftslice[0] - deltaprev[0])
 
         sinogram = compute_aligned_sino(sino_orig, shiftslice, shift_method=params["shiftmeth"])
 
@@ -984,7 +962,7 @@ def _alignprojections_horizontal(
         print("Final error metric for x, E = {:0.04e}".format(sumerrorxreg))
         metric_error.append(sumerrorxreg)
 
-        changex = np.abs(shiftslice_old - shiftslice)
+        changex = np.abs(deltaprev - shiftslice)
         strprint = "Maximum correction in x = {:0.02f} pixels" if params["subpixel"] \
                    else "Maximum correction in x = {:0.02g} pixels"
         print("Estimating the changes in x:")
@@ -1000,10 +978,7 @@ def _alignprojections_horizontal(
             metric_error, changex, pixtol, count, params["maxit"], params["subpixel"]
         )
         if reason == 1:
-            # Anderson overshot — roll back and clear history so the next
-            # call (if any) starts fresh
-            shiftslice = shiftslice_old.copy()
-            anderson.reset()
+            shiftslice = deltaprev.copy()
             metric_error.pop()
             break
         elif reason >= 2:
