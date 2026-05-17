@@ -66,6 +66,7 @@ def chooseregiontoderivatives(stack_array, **params):
         if isnotebook():
             from IPython import display
             display.display(fig)
+            plt.close(fig)
         else:
             plt.show(block=False)
 

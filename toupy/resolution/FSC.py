@@ -304,6 +304,7 @@ class FourierShellCorr:
         if isnotebook():
             from IPython import display
             display.display(fig1)
+            plt.close(fig1)
         else:
             plt.show(block=False)
 
@@ -442,6 +443,7 @@ class FSCPlot(FourierShellCorr):
         if isnotebook():
             from IPython import display
             display.display(plt.gcf())
+            plt.close("all")
             display.clear_output(wait=True)
         else:
             plt.show(block=False)

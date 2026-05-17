@@ -183,6 +183,7 @@ def gui_plotamp(stack_objs, **params):
     if isnotebook():
         from IPython import display
         display.display(fig)
+        plt.close(fig)
         # display.clear_output(wait=True)
     else:
         fig.show()
@@ -326,6 +327,7 @@ def gui_plotphase(stack_objs, **params):
     if isnotebook():
         from IPython import display
         display.display(fig)
+        plt.close(fig)
         # display.clear_output(wait=True)
     else:
         fig.show()
