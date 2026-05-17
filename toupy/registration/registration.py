@@ -990,128 +990,93 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         params["maxit"] = 10
     params.setdefault("cliplow", None)
     params.setdefault("cliphigh", None)
-    params.setdefault("multiresolution", False)
-    params.setdefault("mr_factor", 2)
-    params.setdefault("n_coarse_iter", 5)
+    # Frequency-cutoff schedule: list of freqcutoff values to sweep through,
+    # coarsest first.  Each stage warm-starts the next with its shifts.
+    # If not provided, falls back to a single pass at params["freqcutoff"].
+    schedule = params.get("freqcutoff_schedule", None)
+    if schedule is None or len(schedule) == 0:
+        schedule = [params["freqcutoff"]]
 
+    n_stages = len(schedule)
     print("\nStarting the horizontal alignment (Adam gradient descent)")
     print("=====================================")
-    print("Number of iterations: {}".format(params["maxit"]))
-    print("Using a frequency cutoff of {}".format(params["freqcutoff"]))
+    print("Number of iterations per stage: {}".format(params["maxit"]))
+    if n_stages > 1:
+        print("Frequency-cutoff schedule: {}".format(schedule))
+    else:
+        print("Using a frequency cutoff of {}".format(schedule[0]))
     print("Low limit for tomo values = {}".format(params["cliplow"]))
     print("High limit for tomo values = {}".format(params["cliphigh"]))
 
     original_sino = sinogram.copy()
     shiftslice = np.expand_dims(shiftstack[1], axis=0)
 
-    padval = int(2 * np.round(1 / params["freqcutoff"]))
-    sinogram = np.pad(sinogram, ((padval, padval), (0, 0)), "constant", constant_values=0).copy()
-    sino_orig = _filter_sino(sinogram, **params)
-
-    if not np.all(shiftslice == 0):
-        print("Shifting sinogram.")
-        sinogram = compute_aligned_sino(sino_orig, shiftslice, shift_method=params["shiftmeth"])
-    else:
-        print("Initializing shiftslice with zeros")
-
-    print("Computing initial tomographic slice...")
-    t0 = time.time()
-    recons = tomo_recons(sinogram, theta=theta, **params)
-    print("Done. Time elapsed: {} s".format(time.time() - t0))
-    print("Slice standard deviation = {:0.04e}".format(recons.std()))
-
-    recons = _clipping_tomo(recons, **params)
-    circleROI = create_circle(recons) if params["circle"] else 1
-    recons = recons * circleROI
-
-    print("Computing synthetic sinogram...")
-    t0 = time.time()
-    sinogramcomp = projector(recons, theta, **params)
-    if params["derivatives"] and not params["calc_derivatives"]:
-        sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params["shiftmeth"])
-    print("Done. Time elapsed: {:0.02f} s".format(time.time() - t0))
-
-    metric_error = []
-    errorinit = _sino_error_metric(sinogram, sinogramcomp, params)
-    sumerrorinit = np.sum(errorinit)
-    print("Initial error metric, E= {:0.04e}".format(sumerrorinit))
-    metric_error.append(sumerrorinit)
-
     plt.ion()
     RP = RegisterPlot(**params)
-    RP.plotshorizontal(recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0)
 
     # ---------------------------------------------------------------
-    # Optional multiresolution warm-start
+    # Loop over the frequency-cutoff schedule
+    # Each stage inherits the shifts from the previous one.
     # ---------------------------------------------------------------
-    if params["multiresolution"]:
-        factor = params["mr_factor"]
-        n_coarse_iter = params["n_coarse_iter"]
-        print("\n=== Multiresolution warm-start (factor={}, coarse iterations={}) ===".format(
-            factor, n_coarse_iter
-        ))
-        nr, nc = original_sino.shape
-        nr_trim = (nr // factor) * factor
-        # Average-pool detector rows by `factor`
-        sino_pool = original_sino[:nr_trim, :].reshape(
-            nr_trim // factor, factor, nc
-        ).mean(axis=1)
-        # Apply same padding and low-pass filter at coarse scale
-        sino_pool_padded = np.pad(
-            sino_pool, ((padval, padval), (0, 0)), "constant", constant_values=0
+    for stage_idx, fc in enumerate(schedule):
+        is_last = (stage_idx == n_stages - 1)
+        params_s = dict(params, freqcutoff=fc, subpixel=True)
+
+        if n_stages > 1:
+            print("\n╔══════════════════════════════════════════════════════╗")
+            print("║  Stage {}/{} — freqcutoff = {:<30}║".format(
+                stage_idx + 1, n_stages, str(fc) + "  "))
+            print("╚══════════════════════════════════════════════════════╝")
+
+        padval = int(2 * np.round(1 / fc))
+        sinogram = np.pad(
+            original_sino, ((padval, padval), (0, 0)), "constant", constant_values=0
         ).copy()
-        sino_orig_c = _filter_sino(sino_pool_padded, **params)
-        # Scale current shifts down to coarse resolution
-        shiftslice_c = shiftslice / factor
-        if not np.all(shiftslice_c == 0):
-            sinogram_c = compute_aligned_sino(
-                sino_orig_c, shiftslice_c, shift_method=params["shiftmeth"]
+        sino_orig = _filter_sino(sinogram, **params_s)
+
+        if not np.all(shiftslice == 0):
+            print("Shifting sinogram.")
+            sinogram = compute_aligned_sino(
+                sino_orig, shiftslice, shift_method=params_s["shiftmeth"]
             )
         else:
-            sinogram_c = sino_orig_c.copy()
-        # Initial coarse reconstruction
-        print("Computing initial coarse tomographic slice...")
-        t_c = time.time()
-        recons_c = tomo_recons(sinogram_c, theta=theta, **params)
-        print("Done. Time elapsed: {:.02f} s".format(time.time() - t_c))
-        recons_c = _clipping_tomo(recons_c, **params)
-        circleROI_c = create_circle(recons_c) if params["circle"] else 1
-        recons_c = recons_c * circleROI_c
-        # Initial coarse error metric
-        sinogramcomp_c = projector(recons_c, theta, **params)
-        if params["derivatives"] and not params["calc_derivatives"]:
-            sinogramcomp_c = derivatives_sino(sinogramcomp_c, shift_method=params["shiftmeth"])
-        metric_error_c = []
-        errorinit_c = _sino_error_metric(sinogram_c, sinogramcomp_c, params)
-        metric_error_c.append(np.sum(errorinit_c))
-        print("Initial coarse error metric, E= {:0.04e}".format(metric_error_c[0]))
-        # Run coarse-resolution alignment
-        params_c = dict(params, maxit=n_coarse_iter, subpixel=True)
-        shiftslice_c, _ = _alignprojections_horizontal(
-            sinogram_c, sino_orig_c, theta, circleROI_c,
-            shiftslice_c, metric_error_c, RP, **params_c
-        )
-        # Scale shifts back to full resolution
-        shiftslice = shiftslice_c * factor
-        # Recompute full-res sinogram from warm-started shifts
-        sinogram = compute_aligned_sino(
-            sino_orig, shiftslice, shift_method=params["shiftmeth"]
-        )
-        # Fresh metric_error list for the full-resolution phase
-        metric_error = []
-        print("=== Warm-start complete. Starting full-resolution refinement ===\n")
+            print("Initializing shiftslice with zeros")
 
-    print("\n===================================================")
-    print("Horizontal alignment (Newton GD, pixtol={})".format(params["pixtol"]))
-    print("===================================================")
-    # A single pass is sufficient: the Newton step already operates at
-    # sub-pixel scale (h = _FD_H_HORIZ), so there is no need for a
-    # coarse pixel-precision warmup followed by a sub-pixel refinement.
-    # The outer loop in _alignprojections_horizontal handles convergence.
-    params["subpixel"] = True
-    shiftslice, metric_error = _alignprojections_horizontal(
-        sinogram, sino_orig, theta, circleROI, shiftslice, metric_error, RP, **params
-    )
+        print("Computing initial tomographic slice...")
+        t0 = time.time()
+        recons = tomo_recons(sinogram, theta=theta, **params_s)
+        print("Done. Time elapsed: {:.02f} s".format(time.time() - t0))
+        print("Slice standard deviation = {:0.04e}".format(recons.std()))
+
+        recons = _clipping_tomo(recons, **params_s)
+        circleROI = create_circle(recons) if params_s["circle"] else 1
+        recons = recons * circleROI
+
+        print("Computing synthetic sinogram...")
+        t0 = time.time()
+        sinogramcomp = projector(recons, theta, **params_s)
+        if params_s["derivatives"] and not params_s["calc_derivatives"]:
+            sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params_s["shiftmeth"])
+        print("Done. Time elapsed: {:.02f} s".format(time.time() - t0))
+
+        metric_error = []
+        errorinit = _sino_error_metric(sinogram, sinogramcomp, params_s)
+        print("Initial error metric, E= {:0.04e}".format(np.sum(errorinit)))
+        metric_error.append(np.sum(errorinit))
+
+        RP.plotshorizontal(
+            recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0
+        )
+
+        print("\n===================================================")
+        print("Horizontal alignment (Newton GD, pixtol={})".format(params_s["pixtol"]))
+        print("===================================================")
+        shiftslice, metric_error = _alignprojections_horizontal(
+            sinogram, sino_orig, theta, circleROI, shiftslice, metric_error, RP, **params_s
+        )
+
+        if not is_last:
+            print("Stage {} converged. Handing shifts to next stage.\n".format(stage_idx + 1))
 
     shiftstack[1] = shiftslice
 
