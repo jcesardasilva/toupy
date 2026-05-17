@@ -163,9 +163,6 @@ def _createcanvashorizontal(
     fig1.tight_layout()
     if isnotebook():
         display.display(fig1)
-        plt.close(fig1)
-        #display.display(fig1.canvas)
-        #display.clear_output(wait=True)
     else:
         fig1.show()
 
@@ -193,9 +190,6 @@ def _createcanvashorizontal(
     fig2.tight_layout()
     if isnotebook():
         display.display(fig2)
-        plt.close(fig2)
-        #display.display(fig2.canvas)
-        #display.clear_output(wait=True)
     else:
         fig2.show()
 
@@ -213,9 +207,6 @@ def _createcanvashorizontal(
     fig3.tight_layout()
     if isnotebook():
         display.display(fig3)
-        plt.close(fig3)
-        #display.display(fig3.canvas)
-        #display.clear_output(wait=True)
     else:
         fig3.show()
 
@@ -254,9 +245,6 @@ def _createcanvasvertical(
     fig1.tight_layout()
     if isnotebook():
         display.display(fig1)
-        plt.close(fig1)
-        #display.display(fig1.canvas)
-        #display.clear_output(wait=False)
     else:
         fig1.show()
 
@@ -278,9 +266,6 @@ def _createcanvasvertical(
     fig2.tight_layout()
     if isnotebook():
         display.display(fig2)
-        plt.close(fig2)
-        #display.display(fig2.canvas)
-        #display.clear_output(wait=False)
     else:
         fig2.show()
 
@@ -306,9 +291,6 @@ def _createcanvasvertical(
     fig3.tight_layout()
     if isnotebook():
         display.display(fig3)
-        plt.close(fig3)
-        #display.display(fig3.canvas)
-        #display.clear_output(wait=False)
     else:
         fig3.show()
 
@@ -327,9 +309,6 @@ def _createcanvasvertical(
     fig4.tight_layout()
     if isnotebook():
         display.display(fig4)
-        plt.close(fig4)
-        #display.display(fig4.canvas)
-        #display.clear_output(wait=False)
     else:
         fig4.show()
 
@@ -426,8 +405,6 @@ class RegisterPlot:
             ax11 = _plotdelimiters(ax11, limrow, limcol)
             fig1.tight_layout()
             display.display(fig1)
-            plt.close(fig1)
-            #display.display(fig1.canvas)
             #display.clear_output(wait=False)
 
             # display vertical fluctuations as 2D images
@@ -447,8 +424,6 @@ class RegisterPlot:
             ax22.set_ylabel("y [pixels]")
             fig2.tight_layout()
             display.display(fig2)
-            plt.close(fig2)
-            #display.display(fig2.canvas)
             #display.clear_output(wait=False)
         else:
             self.updatevertical()
@@ -608,7 +583,6 @@ class RegisterPlot:
             ax11.set_ylabel("y [pixels]")
             fig1.tight_layout()
             display.display(fig1)
-            plt.close(fig1)
 
             # Display initial, current and synthetic sinograms
             fig2 = plt.figure(num=2, figsize=(6, 10))
@@ -633,8 +607,6 @@ class RegisterPlot:
             ax23.set_ylabel("x [pixels]")
             fig2.tight_layout()
             display.display(fig2)
-            plt.close(fig2)
-            #display.display(fig2.canvas)
             #display.clear_output(wait=True)
         else:
             self.updatehorizontal()
