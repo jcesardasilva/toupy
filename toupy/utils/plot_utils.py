@@ -36,6 +36,7 @@ display = _LazyIPythonDisplay()
 __all__ = [
     "isnotebook",
     "autoscale_y",
+    "show_figure",
     "RegisterPlot",
     "ShowProjections",
     "plot_checkangles",
@@ -44,6 +45,34 @@ __all__ = [
     "animated_image",
     "display_slice",
 ]
+
+def show_figure(fig=None, close=True):
+    """Display a figure in the current environment and optionally close it.
+
+    In Jupyter: calls display.display(fig) then closes if close=True, which
+    prevents %matplotlib inline from rendering the figure a second time at
+    cell end. Only pass close=False for figures that are updated across
+    iterations or returned for later use.
+
+    In terminal: calls plt.show(block=False).
+
+    Parameters
+    ----------
+    fig : matplotlib Figure, optional
+        Figure to display. Defaults to the current figure (plt.gcf()).
+    close : bool, optional
+        If True (default), close the figure after displaying it in Jupyter.
+        Set to False for figures that will be reused or updated.
+    """
+    if fig is None:
+        fig = plt.gcf()
+    if isnotebook():
+        display.display(fig)
+        if close:
+            plt.close(fig)
+    else:
+        plt.show(block=False)
+
 
 def isnotebook():
     """

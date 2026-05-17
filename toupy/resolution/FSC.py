@@ -20,7 +20,7 @@ from ..utils import tqdm
 # local packages
 from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
-from ..utils.plot_utils import isnotebook
+from ..utils.plot_utils import isnotebook, show_figure
 
 __all__ = ["FourierShellCorr", "FSCPlot"]
 
@@ -301,12 +301,7 @@ class FourierShellCorr:
         ax2.imshow(img2_apod, cmap="bone", interpolation="none")
         ax2.set_title("image2")
         ax2.set_axis_off()
-        if isnotebook():
-            from IPython import display
-            display.display(fig1)
-            plt.close(fig1)
-        else:
-            plt.show(block=False)
+        show_figure(fig1)
 
         # ------------------------------------------------------------------
         # FSC computation
@@ -440,16 +435,8 @@ class FSCPlot(FourierShellCorr):
         plt.xlabel("Spatial frequency/Nyquist")
         plt.ylabel("Magnitude")
 
-        if isnotebook():
-            from IPython import display
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
-        else:
-            plt.show(block=False)
-
         suffix = "2D" if self.img1.ndim == 2 else "3D"
         plt.savefig(f"FSC_{suffix}.png", bbox_inches="tight")
-        if isnotebook():
-            plt.close("all")
+        show_figure()
 
         return fn, T, FSC
