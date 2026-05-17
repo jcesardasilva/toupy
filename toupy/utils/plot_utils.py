@@ -86,7 +86,11 @@ def show_fsc_images(img1_apod, img2_apod):
     img2_apod : ndarray
         Second apodized image (or sagittal slice for 3D).
     """
-    fig = plt.figure()
+    if isnotebook():
+        fig = plt.figure(figsize=(10, 5))
+    else:
+        fig = plt.figure()
+    plt.clf()
     ax1 = fig.add_subplot(121)
     ax2 = fig.add_subplot(122)
     ax1.imshow(img1_apod, cmap="bone", interpolation="none")
@@ -95,7 +99,12 @@ def show_fsc_images(img1_apod, img2_apod):
     ax2.imshow(img2_apod, cmap="bone", interpolation="none")
     ax2.set_title("image2")
     ax2.set_axis_off()
-    show_figure(fig)
+    fig.tight_layout()
+    if isnotebook():
+        display.display(fig)
+        plt.close(fig)
+    else:
+        plt.show(block=False)
 
 
 def show_fsc_curve(fn, FSC, T, snrt, ndim):
@@ -114,7 +123,11 @@ def show_fsc_curve(fn, FSC, T, snrt, ndim):
     ndim : int
         Number of dimensions of the original data (2 or 3).
     """
-    fig = plt.figure()
+    if isnotebook():
+        fig = plt.figure(figsize=(8, 6))
+    else:
+        fig = plt.figure()
+    plt.clf()
     ax = fig.add_subplot(111)
     ax.plot(fn, FSC, "-b", label="FSC")
     if snrt == 0.2071:
@@ -130,7 +143,11 @@ def show_fsc_curve(fn, FSC, T, snrt, ndim):
     ax.set_ylabel("Magnitude")
     suffix = "2D" if ndim == 2 else "3D"
     fig.savefig(f"FSC_{suffix}.png", bbox_inches="tight")
-    show_figure(fig)
+    if isnotebook():
+        display.display(fig)
+        plt.close(fig)
+    else:
+        plt.show(block=False)
 
 
 def isnotebook():
