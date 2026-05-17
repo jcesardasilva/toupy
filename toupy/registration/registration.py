@@ -309,11 +309,17 @@ def _sino_error_metric(sinogramexp, sinogramcomp, params):
 
 def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False):
     step = pixtol if subpixel else 1
-    if metric_error[-1] > metric_error[-2]:
-        print("Last iteration increased error.")
+    # Require 2 consecutive error increases before declaring divergence.
+    # A single increase is often a transient fluctuation; stopping on it
+    # forces the user to restart manually even though the algorithm would
+    # recover by itself in the next iteration.
+    if (len(metric_error) >= 3
+            and metric_error[-1] > metric_error[-2]
+            and metric_error[-2] > metric_error[-3]):
+        print("Error increased for 2 consecutive iterations.")
         print(
-            "Before -> {:.04e}, current -> {:.04e}".format(
-                metric_error[-2], metric_error[-1]
+            "{:.04e} -> {:.04e} -> {:.04e}".format(
+                metric_error[-3], metric_error[-2], metric_error[-1]
             )
         )
         print("Keeping previous shifts.")
@@ -691,27 +697,22 @@ def _search_vshift_stack(input_stack, lims, input_delta, avg_vert_fluct, **kwarg
     return output_shiftstack, vert_fluct_stack
 
 
-def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice,
-                            prev_changes=None, **kwargs):
+def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice, **kwargs):
     """
     Search horizontal shifts for all sinogram columns.
 
     Accelerations applied
     ---------------------
     A — Columns processed in parallel via ThreadPoolExecutor.
-    D — Columns whose shift change fell below 10 % of pixtol in the previous
-        outer iteration are skipped (shift and sinogram column unchanged).
     E — When shiftmeth=='fourier', the FFT of every sinogram column is
-        pre-computed once and reused across all Newton steps.
+        pre-computed once per outer iteration and reused across all Newton
+        steps, avoiding a redundant pad + FFT per cost evaluation.
 
     Parameters
     ----------
     sinogram : ndarray, shape (nr, nc)
     sinogramcomp : ndarray, shape (nr, nc)
     shiftslice : ndarray, shape (1, nc)
-    prev_changes : ndarray, shape (nc,) or None
-        Absolute per-column shift changes from the last outer iteration.
-        None → first call, no skipping (D disabled).
     **kwargs
         Must contain 'pixtol' and 'shiftmeth'.
     """
@@ -720,9 +721,6 @@ def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice,
     nr, nc       = sinogram.shape
     sino_out       = np.empty_like(sinogram)
     shiftslice_out = np.empty_like(shiftslice)
-
-    # D: skip threshold — 10 % of pixtol
-    skip_tol = pixtol * 0.1 if prev_changes is not None else -1.0
 
     # E: batch-precompute FFT of all sinogram columns (Fourier shift only)
     _sino_fft = None
@@ -734,14 +732,10 @@ def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice,
         _sino_fft = fft(_padded, axis=0)                   # (nr+padw, nc), batch FFT
 
     def _process_col(ii):
-        # D: skip columns already converged
-        if prev_changes is not None and prev_changes[ii] < skip_tol:
-            return ii, float(shiftslice[0, ii]), sinogram[:, ii].copy()
-
         # A: each thread gets its own ShiftFunc (ShiftFunc stores state in self)
-        S_local  = ShiftFunc(shiftmeth=shift_method)
-        fft_col  = _sino_fft[:, ii] if _sino_fft is not None else None
-        s, col   = _search_hshift_direction(
+        S_local = ShiftFunc(shiftmeth=shift_method)
+        fft_col = _sino_fft[:, ii] if _sino_fft is not None else None
+        s, col  = _search_hshift_direction(
             sinogram[:, ii], sinogramcomp[:, ii], shiftslice[0, ii],
             pixtol, shift_method,
             S=S_local, sino_fft_col=fft_col, N_fft_col=_N_fft,
@@ -908,12 +902,8 @@ def _alignprojections_horizontal(
     Accelerations active
     --------------------
     A — Parallel column processing (inside _search_hshift_sinogram).
-    D — Per-column skip flags: columns already converged are skipped.
     E — Pre-computed FFT of sinogram columns (Fourier shift mode).
     """
-    # D: per-column change tracker (None = first iteration, no skipping)
-    prev_changes = None
-
     print("Initializing tomographic slice...")
     t0 = time.time()
     recons = tomo_recons(sinogram, theta=theta, **params)
@@ -939,11 +929,8 @@ def _alignprojections_horizontal(
 
         print("Gradient descent search for horizontal shifts...")
         sinotempreg, shiftslice = _search_hshift_sinogram(
-            sino_orig, sinogramcomp, shiftslice, prev_changes=prev_changes, **params
+            sino_orig, sinogramcomp, shiftslice, **params
         )
-
-        # D: record per-column shift changes for the next iteration
-        prev_changes = np.abs(shiftslice[0] - deltaprev[0])
 
         sinogram = compute_aligned_sino(sino_orig, shiftslice, shift_method=params["shiftmeth"])
 
