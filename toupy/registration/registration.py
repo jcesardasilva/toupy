@@ -14,13 +14,15 @@ gradient-based update rule.  All other helper functions are unchanged.
 """
 
 # standard libraries imports
+import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 # third party packages
 from ..utils.plot_utils import plt
 import numpy as np
 from ..utils import tqdm
-from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift
+from scipy.fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from scipy.ndimage.fourier import fourier_shift
@@ -67,6 +69,11 @@ _FD_H_HORIZ   = 0.5  # FD step for horizontal gradient (pixels); wide enough
 _H_MAX_STEP   = 50.0 # max horizontal Newton step (pixels); generous so the
                       # Newton step can cross a large initial offset in one
                       # iteration — the halving fallback handles overshoots
+_ANDERSON_DEPTH  = 3          # B: Anderson acceleration history depth (m)
+_PIXTOL_SCHEDULE = [2.0, 1.0] # C: coarse→fine pixtol warmup schedule
+                               #    iter 1 → max(user_pixtol, 2.0)
+                               #    iter 2 → max(user_pixtol, 1.0)
+                               #    iter 3+ → user_pixtol
 
 
 # ============================================================================
@@ -462,6 +469,9 @@ def _search_hshift_direction(
     shift_delta,
     pixtol,
     shift_method="linear",
+    S=None,
+    sino_fft_col=None,
+    N_fft_col=None,
 ):
     """
     Find the optimal horizontal shift for a single sinogram column using
@@ -505,6 +515,15 @@ def _search_hshift_direction(
         Convergence tolerance (pixels): loop stops when |Δs| < pixtol.
     shift_method : str
         Interpolation method for ShiftFunc.
+    S : ShiftFunc or None
+        Pre-instantiated ShiftFunc to avoid repeated construction.
+        If None, a new one is created.
+    sino_fft_col : complex ndarray or None
+        Pre-computed FFT of the padded sinogram column (optimisation E).
+        When provided together with N_fft_col, reused across all Newton
+        steps — avoids O(n log n) pad + FFT per cost evaluation.
+    N_fft_col : ndarray or None
+        Frequency-coordinate array paired with sino_fft_col.
 
     Returns
     -------
@@ -513,11 +532,22 @@ def _search_hshift_direction(
     final_sino : array_like
         sinogram_col shifted by current_shift.
     """
-    S = ShiftFunc(shiftmeth=shift_method)
     h = _FD_H_HORIZ
+    col_len = len(sinogram_col)
+
+    # E: fast Fourier-shift path — reuse precomputed FFT
+    if sino_fft_col is not None and N_fft_col is not None:
+        def _shift_col(s):
+            H = np.exp(1j * 2.0 * np.pi * s * N_fft_col)
+            return ifft(sino_fft_col * H).real[:col_len]
+    else:
+        if S is None:
+            S = ShiftFunc(shiftmeth=shift_method)
+        def _shift_col(s):
+            return S(sinogram_col, s)
 
     def cost(s):
-        return np.sum((S(sinogram_col, s) - sinogramcomp_col) ** 2)
+        return np.sum((_shift_col(s) - sinogramcomp_col) ** 2)
 
     current_shift = float(shift_delta)
     current_cost  = cost(current_shift)
@@ -555,8 +585,86 @@ def _search_hshift_direction(
         if abs(step) < pixtol:
             break
 
-    final_sino = S(sinogram_col, current_shift)
+    final_sino = _shift_col(current_shift)
     return current_shift, final_sino
+
+
+# ============================================================================
+# Anderson acceleration helper  (optimisation B)
+# ============================================================================
+
+class _AndersonAccelerator:
+    """
+    Anderson acceleration (Anderson mixing) for fixed-point iterations.
+
+    At step k the caller provides the current iterate x_k and the
+    fixed-point image g_k = g(x_k).  The accelerator keeps a rolling window
+    of the last m+1 pairs and returns a linear combination that minimises the
+    norm of the stacked residuals — typically cutting outer iterations 2-5×.
+
+    Reference
+    ---------
+    Walker & Ni, "Anderson Acceleration for Fixed-Point Iterations",
+    SIAM J. Numer. Anal. 49(4), 2011.
+
+    Parameters
+    ----------
+    m : int
+        History depth.  Default 3.
+    """
+
+    def __init__(self, m=3):
+        self.m = m
+        self._G = []   # history of g(x_k), flattened
+        self._F = []   # history of f_k = g(x_k) - x_k, flattened
+        self._shape = None
+
+    def reset(self):
+        """Clear history (call after a rejected step)."""
+        self._G.clear()
+        self._F.clear()
+
+    def step(self, x_k, g_k):
+        """
+        Compute the Anderson-mixed next iterate.
+
+        Parameters
+        ----------
+        x_k : ndarray
+            Current iterate (before the fixed-point step).
+        g_k : ndarray
+            Fixed-point image g(x_k).
+
+        Returns
+        -------
+        x_next : ndarray
+            Anderson-mixed next iterate, same shape as x_k.
+        """
+        self._shape = x_k.shape
+        self._G.append(g_k.ravel().copy())
+        self._F.append((g_k - x_k).ravel())
+
+        # Rolling window: keep at most m+1 entries
+        if len(self._G) > self.m + 1:
+            self._G.pop(0)
+            self._F.pop(0)
+
+        if len(self._G) < 2:
+            return g_k   # no history yet — plain fixed-point step
+
+        # Stack into (n_x, n_hist) matrices
+        F = np.column_stack(self._F)   # residuals
+        G = np.column_stack(self._G)   # g(x) images
+
+        # Unconstrained reformulation of the constrained LS:
+        #   min_{alpha} || F[:,-1] + dF @ alpha ||^2
+        # where dF = F[:,:-1] - F[:,-1:]
+        # x_{k+1} = G[:,-1] + dG @ alpha
+        dF = F[:, :-1] - F[:, -1:]
+        dG = G[:, :-1] - G[:, -1:]
+        alpha, _, _, _ = np.linalg.lstsq(dF, -F[:, -1], rcond=None)
+        x_next = G[:, -1] + dG @ alpha
+        return x_next.reshape(self._shape)
 
 
 # ============================================================================
@@ -588,18 +696,75 @@ def _search_vshift_stack(input_stack, lims, input_delta, avg_vert_fluct, **kwarg
     return output_shiftstack, vert_fluct_stack
 
 
-def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice, **kwargs):
-    """Wrapper to search horizontal shifts in the sinogram using gradient descent."""
+def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice,
+                            prev_changes=None, **kwargs):
+    """
+    Search horizontal shifts for all sinogram columns.
+
+    Accelerations applied
+    ---------------------
+    A — Columns processed in parallel via ThreadPoolExecutor.
+    D — Columns whose shift change fell below 10 % of pixtol in the previous
+        outer iteration are skipped (shift and sinogram column unchanged).
+    E — When shiftmeth=='fourier', the FFT of every sinogram column is
+        pre-computed once and reused across all Newton steps.
+
+    Parameters
+    ----------
+    sinogram : ndarray, shape (nr, nc)
+    sinogramcomp : ndarray, shape (nr, nc)
+    shiftslice : ndarray, shape (1, nc)
+    prev_changes : ndarray, shape (nc,) or None
+        Absolute per-column shift changes from the last outer iteration.
+        None → first call, no skipping (D disabled).
+    **kwargs
+        Must contain 'pixtol' and 'shiftmeth'.
+    """
     pixtol       = kwargs["pixtol"]
     shift_method = kwargs["shiftmeth"]
     nr, nc       = sinogram.shape
-    sino_out      = np.zeros_like(sinogram)
-    shiftslice_out = np.zeros_like(shiftslice)
+    sino_out       = np.empty_like(sinogram)
+    shiftslice_out = np.empty_like(shiftslice)
 
-    for ii in tqdm(range(nc), desc="Searching horizontal shifts"):
-        shiftslice_out[0, ii], sino_out[:, ii] = _search_hshift_direction(
-            sinogram[:, ii], sinogramcomp[:, ii], shiftslice[0, ii], pixtol, shift_method
+    # D: skip threshold — 10 % of pixtol
+    skip_tol = pixtol * 0.1 if prev_changes is not None else -1.0
+
+    # E: batch-precompute FFT of all sinogram columns (Fourier shift only)
+    _sino_fft = None
+    _N_fft    = None
+    if shift_method == "fourier":
+        padw      = int(2 ** np.ceil(np.log2(nr))) - nr   # pad to next power-of-2
+        _padded   = np.pad(sinogram, ((0, padw), (0, 0)), mode="reflect")
+        _N_fft    = fftfreq(nr + padw)                     # frequency coordinates
+        _sino_fft = fft(_padded, axis=0)                   # (nr+padw, nc), batch FFT
+
+    def _process_col(ii):
+        # D: skip columns already converged
+        if prev_changes is not None and prev_changes[ii] < skip_tol:
+            return ii, float(shiftslice[0, ii]), sinogram[:, ii].copy()
+
+        # A: each thread gets its own ShiftFunc (ShiftFunc stores state in self)
+        S_local  = ShiftFunc(shiftmeth=shift_method)
+        fft_col  = _sino_fft[:, ii] if _sino_fft is not None else None
+        s, col   = _search_hshift_direction(
+            sinogram[:, ii], sinogramcomp[:, ii], shiftslice[0, ii],
+            pixtol, shift_method,
+            S=S_local, sino_fft_col=fft_col, N_fft_col=_N_fft,
         )
+        return ii, s, col
+
+    # A: parallel execution over columns
+    n_workers = min(nc, os.cpu_count() or 1)
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        results = list(tqdm(
+            executor.map(_process_col, range(nc)),
+            total=nc, desc="Searching horizontal shifts",
+        ))
+
+    for ii, s, col in results:
+        shiftslice_out[0, ii] = s
+        sino_out[:, ii]       = col
+
     return sino_out, shiftslice_out
 
 
@@ -742,7 +907,22 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
 def _alignprojections_horizontal(
     sinogram, sino_orig, theta, circleROI, shiftslice, metric_error, RP, **params
 ):
-    """Iterative horizontal alignment driver (unchanged outer logic)."""
+    """
+    Iterative horizontal alignment driver.
+
+    Accelerations applied
+    ---------------------
+    B — Anderson acceleration on the outer shift fixed-point iteration.
+    C — Coarse-to-fine pixtol schedule: early iterations use a relaxed
+        tolerance so the inner Newton loops terminate sooner.
+    D — Per-column skip flags passed to _search_hshift_sinogram.
+    """
+    # B: Anderson accelerator for the shift vector fixed-point
+    anderson = _AndersonAccelerator(m=_ANDERSON_DEPTH)
+
+    # D: per-column change tracker (None = first iteration, no skipping)
+    prev_changes = None
+
     print("Initializing tomographic slice...")
     t0 = time.time()
     recons = tomo_recons(sinogram, theta=theta, **params)
@@ -759,8 +939,17 @@ def _alignprojections_horizontal(
         print("\nIteration {}".format(count))
         print("-------------------------------------")
         it0 = time.time()
-        sinoprev = sinogram.copy()
-        deltaprev = shiftslice.copy()
+        shiftslice_old = shiftslice.copy()   # save for convergence check / rollback
+
+        # C: coarse-to-fine pixtol schedule — relax tolerance in early iterations
+        if count <= len(_PIXTOL_SCHEDULE):
+            active_pixtol = max(params["pixtol"], _PIXTOL_SCHEDULE[count - 1])
+            print("  pixtol this iteration: {:.2f}  (C: coarse-to-fine warmup)".format(
+                active_pixtol))
+        else:
+            active_pixtol = params["pixtol"]
+        params_iter = dict(params)
+        params_iter["pixtol"] = active_pixtol
 
         print("Computing synthetic sinogram...")
         sinogramcomp = projector(recons, theta, **params)
@@ -768,9 +957,16 @@ def _alignprojections_horizontal(
             sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params["shiftmeth"])
 
         print("Gradient descent search for horizontal shifts...")
-        sinotempreg, shiftslice = _search_hshift_sinogram(
-            sino_orig, sinogramcomp, shiftslice, **params
+        sinotempreg, shiftslice_gd = _search_hshift_sinogram(
+            sino_orig, sinogramcomp, shiftslice, prev_changes=prev_changes, **params_iter
         )
+
+        # B: Anderson-mix the raw GD result with the shift history
+        shiftslice = anderson.step(shiftslice_old, shiftslice_gd)
+
+        # D: track per-column absolute changes for the next iteration's skip logic
+        prev_changes = np.abs(shiftslice[0] - shiftslice_old[0])
+
         sinogram = compute_aligned_sino(sino_orig, shiftslice, shift_method=params["shiftmeth"])
 
         print("Computing tomographic slice...")
@@ -788,7 +984,7 @@ def _alignprojections_horizontal(
         print("Final error metric for x, E = {:0.04e}".format(sumerrorxreg))
         metric_error.append(sumerrorxreg)
 
-        changex = np.abs(deltaprev - shiftslice)
+        changex = np.abs(shiftslice_old - shiftslice)
         strprint = "Maximum correction in x = {:0.02f} pixels" if params["subpixel"] \
                    else "Maximum correction in x = {:0.02g} pixels"
         print("Estimating the changes in x:")
@@ -804,7 +1000,10 @@ def _alignprojections_horizontal(
             metric_error, changex, pixtol, count, params["maxit"], params["subpixel"]
         )
         if reason == 1:
-            shiftslice = deltaprev.copy()
+            # Anderson overshot — roll back and clear history so the next
+            # call (if any) starts fresh
+            shiftslice = shiftslice_old.copy()
+            anderson.reset()
             metric_error.pop()
             break
         elif reason >= 2:
