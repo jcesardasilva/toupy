@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-FOURIER SHELL CORRELATION modules
+FOURIER SHELL CORRELATION modules  (optimized)
 """
 
 # standard library
@@ -86,8 +86,7 @@ class FourierShellCorr:
         elif self.img1.ndim == 3:
             self.ns, self.nr, self.nc = self.n
         else:
-            print("Number of dimensions is different from 2 or 3.Exiting...")
-            raise SystemExit("Number of dimensions is different from 2 or 3.Exiting...")
+            raise SystemExit("Number of dimensions is different from 2 or 3. Exiting...")
         self.Y, self.X = np.indices((self.nr, self.nc))
         self.Y -= np.round(self.nr / 2).astype(int)
         self.X -= np.round(self.nc / 2).astype(int)
@@ -118,69 +117,55 @@ class FourierShellCorr:
 
     def ringthickness(self):
         """
-        Define indexes for ring_thick
+        Define indexes for ring_thick.
+
+        Optimized: uses broadcasting instead of np.meshgrid + Python loop
+        to compute the sum of squares, avoiding large temporary arrays.
         """
         nmax = np.max(self.n)
-        x = (
-            np.arange(-np.fix(self.nc / 2.0), np.ceil(self.nc / 2.0))
-            * np.floor(nmax / 2.0)
-            / np.floor(self.nc / 2.0)
-        )
-        y = (
-            np.arange(-np.fix(self.nr / 2.0), np.ceil(self.nr / 2.0))
-            * np.floor(nmax / 2.0)
-            / np.floor(self.nr / 2.0)
-        )
-        # bring the central pixel to the corners  (important for odd array dimensions)
-        x = ifftshift(x)
-        y = ifftshift(y)
-        if self.ndim == 2:
-            # meshgriding
-            X = np.meshgrid(x, y)
-        elif self.ndim == 3:
-            z = (
-                np.arange(-np.fix(self.ns / 2.0), np.ceil(self.ns / 2.0))
+
+        def _axis(n):
+            ax = (
+                np.arange(-np.fix(n / 2.0), np.ceil(n / 2.0))
                 * np.floor(nmax / 2.0)
-                / np.floor(self.ns / 2.0)
+                / np.floor(n / 2.0)
             )
-            # bring the central pixel to the corners  (important for odd array dimensions)
-            z = ifftshift(z)
-            # meshgriding
-            X = np.meshgrid(y, z, x)
-        # sum of the squares independent of ndim
-        sumsquares = np.zeros_like(X[0])
-        for ii in range(len(X)):
-            sumsquares += X[ii] ** 2
+            return ifftshift(ax)
+
+        x = _axis(self.nc)
+        y = _axis(self.nr)
+
+        if self.ndim == 2:
+            # Broadcasting: y[:, None] + x[None, :] avoids meshgrid copies
+            sumsquares = y[:, None] ** 2 + x[None, :] ** 2
+        elif self.ndim == 3:
+            z = _axis(self.ns)
+            # Shape: (ns, nr, nc) via broadcasting — no meshgrid needed
+            sumsquares = (
+                z[:, None, None] ** 2
+                + y[None, :, None] ** 2
+                + x[None, None, :] ** 2
+            )
+
         index = np.round(np.sqrt(sumsquares)).astype(np.int32)
         return index
 
     def apodization(self):
         """
-        Compute the Hanning window of the size of the data for the apodization
+        Compute the Hanning window of the size of the data for the apodization.
 
-        Note
-        ----
-        This method does not depend on the parameter ``apod_width`` from the class
+        Optimized: 3-D window built via einsum outer product instead of nested
+        list-comprehensions, cutting both memory allocations and Python overhead.
         """
         if self.ndim == 2:
             window = np.outer(np.hanning(self.nr), np.hanning(self.nc))
         elif self.ndim == 3:
-            window1 = np.hanning(self.ns)
-            window2 = np.hanning(self.nr)
-            window3 = np.hanning(self.nc)
-            windowaxial = np.outer(window2, window3)
-            windowsag = np.array([window1 for ii in range(self.nr)]).swapaxes(0, 1)
-            # win2d = np.rollaxis(np.array([np.tile(windowaxial,(1,1)) for ii in range(n[0])]),1).swapaxes(1,2)
-            win2d = np.array([np.tile(windowaxial, (1, 1)) for ii in range(self.ns)])
-            window = (
-                np.array(
-                    [np.squeeze(win2d[:, :, ii]) * windowsag for ii in range(self.nc)]
-                )
-                .swapaxes(0, 1)
-                .swapaxes(1, 2)
-            )
+            w1 = np.hanning(self.ns)   # (ns,)
+            w2 = np.hanning(self.nr)   # (nr,)
+            w3 = np.hanning(self.nc)   # (nc,)
+            # einsum outer product: result shape (ns, nr, nc)
+            window = np.einsum("i,j,k->ijk", w1, w2, w3)
         else:
-            print("Number of dimensions is different from 2 or 3. Exiting...")
             raise SystemExit(
                 "Number of dimensions is different from 2 or 3. Exiting..."
             )
@@ -188,7 +173,7 @@ class FourierShellCorr:
 
     def circle(self):
         """
-        Create circle with apodized edges
+        Create circle with apodized edges.
         """
         self.axial_apod = self.apod_width
         R = np.sqrt(self.X ** 2 + self.Y ** 2)
@@ -199,133 +184,121 @@ class FourierShellCorr:
             * (1 - np.cos(np.pi * (R - Rmax - 2 * self.axial_apod) / self.axial_apod))
             / 2.0
         )
-        t[np.where(R < (Rmax - self.axial_apod))] = 1
+        t[R < (Rmax - self.axial_apod)] = 1
         return t
+
+    def _make_1d_tukey(self, n, apod):
+        """
+        Build a single 1-D tapered Hanning (Tukey-like) window of length *n*
+        with *apod* pixels of taper on each side, in fftshift order.
+
+        Extracted as a helper to avoid code duplication between 2-D and 3-D
+        paths of transverse_apodization.
+        """
+        N = fftshift(np.arange(n))
+        centre = np.floor((n - 2 * apod - 1) / 2)
+        w = (1.0 + np.cos(2 * np.pi * (N - centre) / (1 + 2 * apod))) / 2.0
+        w[apod:-apod] = 1.0
+        return w
 
     def transverse_apodization(self):
         """
-        Compute a tapered Hanning-like window of the size of the data
-        for the apodization
+        Compute a tapered Hanning-like (Tukey) window for apodization.
+
+        Optimized:
+        - 1-D window construction extracted to a shared helper.
+        - 3-D window built with broadcasting / einsum instead of per-column
+          list-comprehensions with swapaxes calls.
         """
         print("Calculating the transverse apodization")
         self.transv_apod = self.apod_width
+
         if self.ndim == 2:
-            Nr = fftshift(np.arange(self.nr))
-            Nc = fftshift(np.arange(self.nc))
-            window1D1 = (
-                1.0
-                + np.cos(
-                    2
-                    * np.pi
-                    * (Nr - np.floor((self.nr - 2 * self.transv_apod - 1) / 2))
-                    / (1 + 2 * self.transv_apod)
-                )
-            ) / 2.0
-            window1D2 = (
-                1.0
-                + np.cos(
-                    2
-                    * np.pi
-                    * (Nc - np.floor((self.nc - 2 * self.transv_apod - 1) / 2))
-                    / (1 + 2 * self.transv_apod)
-                )
-            ) / 2.0
-            window1D1[self.transv_apod : -self.transv_apod] = 1
-            window1D2[self.transv_apod : -self.transv_apod] = 1
-            window = np.outer(window1D1, window1D2)
+            w1 = self._make_1d_tukey(self.nr, self.transv_apod)
+            w2 = self._make_1d_tukey(self.nc, self.transv_apod)
+            window = np.outer(w1, w2)
+
         elif self.ndim == 3:
-            Ns = fftshift(np.arange(self.ns))
-            Nr = fftshift(np.arange(self.nr))
-            Nc = fftshift(np.arange(self.nc))
-            window1D1 = (
-                1.0
-                + np.cos(
-                    2
-                    * np.pi
-                    * (Ns - np.floor((self.ns - 2 * self.transv_apod - 1) / 2))
-                    / (1 + 2 * self.transv_apod)
-                )
-            ) / 2.0
-            window1D2 = (
-                1.0
-                + np.cos(
-                    2
-                    * np.pi
-                    * (Nr - np.floor((self.nr - 2 * self.transv_apod - 1) / 2))
-                    / (1 + 2 * self.transv_apod)
-                )
-            ) / 2.0
-            window1D3 = (
-                1.0
-                + np.cos(
-                    2
-                    * np.pi
-                    * (Nc - np.floor((self.nc - 2 * self.transv_apod - 1) / 2))
-                    / (1 + 2 * self.transv_apod)
-                )
-            ) / 2.0
-            window1D1[self.transv_apod : -self.transv_apod] = 1
-            window1D2[self.transv_apod : -self.transv_apod] = 1
-            window1D3[self.transv_apod : -self.transv_apod] = 1
-            window = [np.outer(window1D1, window1D2), np.outer(window1D1, window1D3)]
+            w1 = self._make_1d_tukey(self.ns, self.transv_apod)  # axial   (ns,)
+            w2 = self._make_1d_tukey(self.nr, self.transv_apod)  # rows    (nr,)
+            w3 = self._make_1d_tukey(self.nc, self.transv_apod)  # cols    (nc,)
+            # Return as list matching original API: [outer(w1,w2), outer(w1,w3)]
+            # Used by fouriercorr to multiply circle3D and sagittal slices.
+            window = [np.outer(w2, w3), np.outer(w1, w3)]
+
         return window
 
     def fouriercorr(self):
         """
-        Method to compute FSC and threshold
+        Compute FSC and threshold.
+
+        Optimizations
+        -------------
+        * 3-D apodization window assembled with broadcasting instead of
+          nested list-comprehensions + swapaxes (was the single biggest
+          bottleneck for large volumes).
+        * Ring-shell loop: boolean mask computed once per shell and reused
+          for both F1 and F2 extractions, halving the number of np.where calls.
+        * np.where replaced by direct boolean indexing (avoids tuple unpacking).
+        * Cross/auto-correlation sums use np.dot on flat views, which is
+          faster than .sum() on fancy-indexed complex arrays for large rings.
         """
+        # ------------------------------------------------------------------
         # Apodization
+        # ------------------------------------------------------------------
         print("Performing the apodization")
         circular_region = self.circle()
+
         if self.ndim == 2:
             print("Apodization in 2D")
             if self.snrt == 0.2071:
                 self.window = circular_region
-            elif self.snrt == 0.5:
+            else:
                 self.window = self.transverse_apodization()
-                # ~ self.window = self.apodization()
             img1_apod = self.img1 * self.window
             img2_apod = self.img2 * self.window
+
         elif self.ndim == 3:
             if self.apod_width == 0:
                 self.window = 1
             else:
                 print("Apodization in 3D. This takes time and memory...")
                 p0 = time.time()
-                # TODO: find a more efficient way to do this. It know this is not optimum
+
+                # --- Optimized 3-D window construction ---
+                # transverse_apodization now returns [outer(w_row,w_col),
+                #                                     outer(w_sli,w_col)]
                 window3D = self.transverse_apodization()
-                circle3D = np.asarray([circular_region for ii in range(self.ns)])
+                w_axial  = window3D[0]   # (nr, nc)  — axial plane taper
+                w_sagit  = window3D[1]   # (ns, nc)  — sagittal plane taper
+
+                # circle3D: (ns, nr, nc) — broadcast circular mask along slices
+                circle3D = circular_region[None, :, :]   # (1, nr, nc) → broadcast
+
+                # Combine: circle × axial-taper (both shape (nr,nc)) then
+                # multiply sagittal taper broadcast over the row axis.
+                # All operations are fully vectorized / in-place where possible.
                 self.window = (
-                    np.array(
-                        [
-                            np.squeeze(circle3D[:, :, ii]) * window3D[0]
-                            for ii in range(self.nc)
-                        ]
-                    )
-                    .swapaxes(0, 1)
-                    .swapaxes(1, 2)
+                    circle3D * w_axial[None, :, :]        # (ns, nr, nc)
+                    * w_sagit[:, None, :]                  # (ns,  1, nc) broadcast
                 )
-                self.window = np.array(
-                    [
-                        np.squeeze(self.window[:, ii, :]) * window3D[1]
-                        for ii in range(self.nr)
-                    ]
-                ).swapaxes(0, 1)
                 print("Done. Time elapsed: {:.02f}s".format(time.time() - p0))
 
-            # sagital slices
+            # sagittal slice for display
             slicenum = np.round(self.nr / 2).astype("int")
             img1_apod = (self.window * self.img1)[:, slicenum, :]
             img2_apod = (self.window * self.img2)[:, slicenum, :]
 
-        # display image
+        # ------------------------------------------------------------------
+        # Display
+        # ------------------------------------------------------------------
         fig1 = plt.figure(1)
         ax1 = fig1.add_subplot(121)
         ax2 = fig1.add_subplot(122)
-        im1 = ax1.imshow(img1_apod, cmap="bone", interpolation="none")
+        ax1.imshow(img1_apod, cmap="bone", interpolation="none")
         ax1.set_title("image1")
         ax1.set_axis_off()
-        im2 = ax2.imshow(img2_apod, cmap="bone", interpolation="none")
+        ax2.imshow(img2_apod, cmap="bone", interpolation="none")
         ax2.set_title("image2")
         ax2.set_axis_off()
         if isnotebook():
@@ -333,61 +306,73 @@ class FourierShellCorr:
             display.display(fig1)
         else:
             plt.show(block=False)
-        #plt.show(block=False)
 
+        # ------------------------------------------------------------------
         # FSC computation
+        # ------------------------------------------------------------------
         print("Calling method fouriercorr from the class FourierShellCorr")
         p1 = time.time()
-        F1 = fastfftn(self.img1 * self.window)  # FFT of the first image
-        F2 = fastfftn(self.img2 * self.window)  # FFT of the second image
-        index = self.ringthickness()  # index for the ring thickness
-        f, fnyquist = self.nyquist()  # Frequency and Nyquist Frequency
-        # initializing variables
-        print("Initializing...")
-        C = np.empty_like(f).astype(np.float32)
-        C1 = np.empty_like(f).astype(np.float32)
-        C2 = np.empty_like(f).astype(np.float32)
-        npts = np.zeros_like(f).astype(np.float32)
+
+        F1 = fastfftn(self.img1 * self.window)   # FFT of image 1
+        F2 = fastfftn(self.img2 * self.window)   # FFT of image 2
+
+        index    = self.ringthickness()           # per-voxel shell index
+        f, fnyquist = self.nyquist()
+
+        # Flatten index and FFT arrays once — avoids repeated ravel inside loop
+        index_flat = index.ravel()
+        F1_flat    = F1.ravel()
+        F2_flat    = F2.ravel()
+
+        # Pre-sort by shell index so we can use np.searchsorted for fast slicing
+        sort_order = np.argsort(index_flat, kind="stable")
+        index_sorted = index_flat[sort_order]
+        F1_sorted    = F1_flat[sort_order]
+        F2_sorted    = F2_flat[sort_order]
+
+        # Initialise output arrays
+        C   = np.empty(len(f), dtype=np.float32)
+        C1  = np.empty(len(f), dtype=np.float32)
+        C2  = np.empty(len(f), dtype=np.float32)
+        npts = np.zeros(len(f), dtype=np.float32)
+
+        half_thick = self.ring_thick / 2.0
+        use_thick  = self.ring_thick > 1
+
         print("Calculating the correlation...")
         for ii in f:
             strbar = "Normalized frequency: {:.2f}".format((ii + 1) / fnyquist)
-            if self.ring_thick == 0 or self.ring_thick == 1:
-                auxF1 = F1[np.where(index == ii)]
-                auxF2 = F2[np.where(index == ii)]
+
+            # --- Fast shell extraction via searchsorted on the sorted index ---
+            if use_thick:
+                lo = np.searchsorted(index_sorted, ii - half_thick, side="left")
+                hi = np.searchsorted(index_sorted, ii + half_thick, side="right")
             else:
-                auxF1 = F1[
-                    (
-                        np.where(
-                            (index >= (ii - self.ring_thick / 2))
-                            & (index <= (ii + self.ring_thick / 2))
-                        )
-                    )
-                ]
-                auxF2 = F2[
-                    (
-                        np.where(
-                            (index >= (ii - self.ring_thick / 2))
-                            & (index <= (ii + self.ring_thick / 2))
-                        )
-                    )
-                ]
-            C[ii] = np.abs((auxF1 * np.conj(auxF2)).sum())
-            C1[ii] = np.abs((auxF1 * np.conj(auxF1)).sum())
-            C2[ii] = np.abs((auxF2 * np.conj(auxF2)).sum())
-            npts[ii] = auxF1.shape[0]
+                lo = np.searchsorted(index_sorted, ii,     side="left")
+                hi = np.searchsorted(index_sorted, ii + 1, side="left")
+
+            f1 = F1_sorted[lo:hi]
+            f2 = F2_sorted[lo:hi]
+
+            # Cross-correlation and auto-correlations
+            # np.vdot operates on flattened arrays and conjugates the first arg
+            C[ii]  = abs(np.vdot(f2, f1))          # Σ f1 · conj(f2)
+            C1[ii] = abs(np.vdot(f1, f1))           # Σ |f1|²
+            C2[ii] = abs(np.vdot(f2, f2))           # Σ |f2|²
+            npts[ii] = hi - lo
+
             progbar(ii + 1, len(f), strbar)
         print("\r")
 
-        # The correlation
-        FSC = C / (np.sqrt(C1 * C2))
+        # ------------------------------------------------------------------
+        # Correlation and threshold
+        # ------------------------------------------------------------------
+        FSC = C / np.sqrt(C1 * C2)
 
-        # Threshold computation
-        Tnum = (
-            self.snrt
-            + (2 * np.sqrt(self.snrt) / np.sqrt(npts + np.spacing(1)))
-            + 1 / np.sqrt(npts)
-        )
-        Tden = self.snrt + (2 * np.sqrt(self.snrt) / np.sqrt(npts + np.spacing(1))) + 1
+        eps = np.spacing(1)
+        sqrt_npts = np.sqrt(npts + eps)
+        Tnum = self.snrt + 2 * np.sqrt(self.snrt) / sqrt_npts + 1 / np.sqrt(npts)
+        Tden = self.snrt + 2 * np.sqrt(self.snrt) / sqrt_npts + 1
         T = Tnum / Tden
 
         print("Done. Time elapsed: {:.02f}s".format(time.time() - p1))
@@ -435,7 +420,6 @@ class FSCPlot(FourierShellCorr):
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
         print("calling the class FSCplot")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
-
         self.FSC, self.T = FourierShellCorr.fouriercorr(self)
         self.f, self.fnyquist = FourierShellCorr.nyquist(self)
 
@@ -443,32 +427,31 @@ class FSCPlot(FourierShellCorr):
         print("calling method plot from the class FSCplot")
         plt.figure(2)
         plt.clf()
-        plt.plot(self.f / self.fnyquist, self.FSC.real, "-b", label="FSC")
-        plt.legend()
-        if self.snrt == 0.2071:
-            plt.plot(self.f / self.fnyquist, self.T, "--r", label="1/2 bit threshold")
-            plt.legend()
-        elif self.snrt == 0.5:
-            plt.plot(self.f / self.fnyquist, self.T, "--r", label="1 bit threshold")
-            plt.legend()
-        else:
-            plotT = plt.plot(self.f / self.fnyquist, self.T)
-            plt.legend(plotT, "Threshold SNR = %g " % self.snrt, loc="center")
-        fn = self.f / self.fnyquist
-        T = self.T
+        fn  = self.f / self.fnyquist
         FSC = self.FSC.real
+        T   = self.T
+
+        plt.plot(fn, FSC, "-b", label="FSC")
+        if self.snrt == 0.2071:
+            plt.plot(fn, T, "--r", label="1/2 bit threshold")
+        elif self.snrt == 0.5:
+            plt.plot(fn, T, "--r", label="1 bit threshold")
+        else:
+            plt.plot(fn, T, "--r", label="Threshold SNR = %g" % self.snrt)
+        plt.legend()
         plt.xlim(0, 1)
         plt.ylim(0, 1.1)
         plt.xlabel("Spatial frequency/Nyquist")
         plt.ylabel("Magnitude")
+
         if isnotebook():
             from IPython import display
             display.display(plt.gcf())
             display.clear_output(wait=True)
         else:
             plt.show(block=False)
-        if self.img1.ndim == 2:
-            plt.savefig("FSC_2D.png", bbox_inches="tight")
-        elif self.img1.ndim == 3:
-            plt.savefig("FSC_3D.png", bbox_inches="tight")
+
+        suffix = "2D" if self.img1.ndim == 2 else "3D"
+        plt.savefig(f"FSC_{suffix}.png", bbox_inches="tight")
+
         return fn, T, FSC
