@@ -15,7 +15,7 @@ import h5py
 from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fftshift, ifftshift
-from tqdm.auto import tqdm
+from ..utils import tqdm
 
 # local packages
 from ..utils.FFT_utils import fastfftn

@@ -16,7 +16,19 @@ import warnings
 # local libraries imports
 from .plot_utils import isnotebook
 
-__all__ = ["switch", "deprecated", "checkhostname", "progress_bar","downloadURL", "downloadURLfile"]
+__all__ = ["switch", "deprecated", "checkhostname", "progress_bar", "tqdm", "downloadURL", "downloadURLfile"]
+
+
+def _select_tqdm():
+    """Return tqdm.notebook inside Jupyter, plain tqdm elsewhere."""
+    if isnotebook():
+        from tqdm.notebook import tqdm as _tqdm
+    else:
+        from tqdm import tqdm as _tqdm
+    return _tqdm
+
+
+tqdm = _select_tqdm()
 
 
 class switch(object):
