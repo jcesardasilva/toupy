@@ -19,6 +19,7 @@ import time
 # third party packages
 from ..utils.plot_utils import plt
 import numpy as np
+from tqdm.auto import tqdm
 from scipy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift
 from scipy.ndimage import center_of_mass, interpolation
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
@@ -33,7 +34,6 @@ from ..utils import (
     deprecated,
     isnotebook,
     projectpoly1d,
-    progbar,
     RegisterPlot,
     replace_bad,
     display_slice,
@@ -146,11 +146,9 @@ def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
     nstack = input_stack.shape[0]
     print("Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__))
     output_stack = np.empty_like(input_stack)
-    for ii in range(nstack):
+    for ii in tqdm(range(nstack), desc="Aligning images"):
         deltashift = (shiftstack[0, ii], shiftstack[1, ii])
         output_stack[ii] = S(input_stack[ii], deltashift)
-        progbar(ii + 1, nstack, "Image {} of {}".format(ii + 1, nstack))
-    print("\r")
     return output_stack
 
 
@@ -159,11 +157,9 @@ def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"
     S = ShiftFunc(shiftmeth=shift_method)
     nstack = input_stack.shape[0]
     print("Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__))
-    for ii in range(nstack):
+    for ii in tqdm(range(nstack), desc="Aligning images"):
         deltashift = (shiftstack[0, ii], shiftstack[1, ii])
         input_stack[ii] = S(input_stack[ii], deltashift)
-        progbar(ii + 1, nstack, "Image {} of {}".format(ii + 1, nstack))
-    print("\r")
     return input_stack
 
 
@@ -196,10 +192,8 @@ def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
     nprojs = input_sino.shape[1]
     print("Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__))
     output_sino = np.empty_like(input_sino)
-    for ii in range(nprojs):
+    for ii in tqdm(range(nprojs), desc="Aligning sinogram"):
         output_sino[:, ii] = S(input_sino[:, ii], shiftslice[0, ii])
-        print("Image {} of {}".format(ii + 1, nprojs), end="\r")
-    print("\r")
     return output_sino
 
 
@@ -252,16 +246,12 @@ def vertical_fluctuations(input_stack, lims, shiftstack, shift_method="fourier",
     if np.any((rows - max_vshift) < 0) or np.any((rows + max_vshift) > nr):
         max_vshift = 1
     vert_fluct = np.empty((nproj, rows[-1] - rows[0]))
-    for ii in range(nproj):
-        strbar = "Projection {}".format(ii + 1)
+    for ii in tqdm(range(nproj), desc="Computing vertical fluctuations"):
         proj = input_stack[ii, rows[0] - max_vshift:rows[-1] + max_vshift, cols[0]:cols[-1]]
         stack_shift = S(proj, (shiftstack[0, ii], 0.0))
         shift_calc = stack_shift[max_vshift:-max_vshift].sum(axis=1)
         shift_calc = projectpoly1d(shift_calc, polyorder, 1)
         vert_fluct[ii] = shift_calc
-        if not isnotebook():
-            progbar(ii + 1, nproj, strbar)
-    print("\r")
     return vert_fluct
 
 

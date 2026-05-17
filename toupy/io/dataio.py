@@ -13,6 +13,7 @@ import time
 # third party packages
 import h5py
 import numpy as np
+from tqdm.auto import tqdm
 
 # local packages
 from .filesrw import *
@@ -22,7 +23,6 @@ from ..utils import (
     convert_to_delta,
     convert_to_beta,
     padarray_bothsides,
-    progbar,
     ShowProjections,
     plot_checkangles,
     replace_bad,
@@ -914,11 +914,8 @@ class SaveData(PathName, Variables):
                 chunks=chunk_size,
             )
             p0 = time.time()
-            for ii in range(nprojs):
-                strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
+            for ii in tqdm(range(nprojs), desc="Saving projections"):
                 dset[ii : ii + 1, :, :] = stack_projs[ii]  # avoid fancy slicing
-                progbar(ii + 1, nprojs, strbar)
-            print("\r")
             if masks is not None:
                 fid.create_dataset(
                     "masks/stack", data=masks, dtype=np.bool
@@ -1004,12 +1001,9 @@ class SaveData(PathName, Variables):
                     chunks=chunk_size,
                 )
                 nslices, nr, nc = tomogram1.shape
-                for ii in range(nslices):
-                    print("{:5d} / {:5d}".format(ii + 1, nslices), end="\r")
+                for ii in tqdm(range(nslices), desc="Saving tomograms"):
                     dset1[ii, :, :] = tomogram1[ii]
                     dset2[ii, :, :] = tomogram2[ii]
-                    progbar(ii + 1, nslices)
-                # ~ print('\r')
             print("Done. Time elapsed = {:.03f} s".format(time.time() - p0))
         print("FSC data saved to file {}".format(h5name))
         print("In the folder {}".format(self.results_folder()))
@@ -1320,24 +1314,18 @@ class LoadData(PathName, Variables):
                 stack_projs = np.empty((nprojs, nr, nc), dtype=dset.dtype)
                 print("\b\b Done")
                 print("Loading. This takes time, please wait...")
-                for ii in [projs]:
-                    strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
+                for ii in tqdm([projs], desc="Loading slices"):
                     stack_projs[ii, roi[2] : roi[3], roi[4] : roi[5]] = dset[
                         ii, roi[2] : roi[3], roi[4] : roi[5]
                     ]
-                    progbar(ii + 1, nprojs, strbar)
-                print("\r")
             else:
                 nprojs = dset.shape[0]
                 print("\rInitializing array...", end="")
                 stack_projs = np.empty(dset.shape, dtype=dset.dtype)
                 print("\b\b Done")
                 print("Loading. This takes time, please wait...")
-                for ii in range(nprojs):
-                    strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
+                for ii in tqdm(range(nprojs), desc="Loading projections"):
                     stack_projs[ii, :, :] = dset[ii, :, :]
-                    progbar(ii + 1, nprojs, strbar)
-                print("\r")
         if self.amponly and np.iscomplexobj(stack_projs):
             print("\rTaking only amplitudes...", end="")
             stack_projs = np.abs(stack_projs)
@@ -1403,12 +1391,9 @@ class LoadData(PathName, Variables):
             nprojs = len(key_list)
             stack_projs = np.empty((nprojs, nr, nc), dtype=dset.dtype)
             print("Loading projections. This takes time, please wait...")
-            for ii in range(nprojs):
-                strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
+            for ii in tqdm(range(nprojs), desc="Loading projections"):
                 dset = fid["aligned_projections_proj/{}".format(key_list[ii])]
                 stack_projs[ii] = dset[()]
-                progbar(ii + 1, nprojs, strbar)
-            print("\r")
 
         # sorting theta
         print("Sorting theta...")
@@ -1559,12 +1544,8 @@ class SaveTomogram(SaveData):
             )
             print("Saving tomographic slices. This takes time, please wait...")
             p0 = time.time()
-            for ii in range(nslices):
-                strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
-                # ~ print(' Slice: {} out of {}'.format(ii+1, nslices), end='\r')
+            for ii in tqdm(range(nslices), desc="Saving slices"):
                 dset[ii, :, :] = tomogram[ii]
-                progbar(ii + 1, nslices, strbar)
-            print("\r")
             print("Done. Time elapsed = {:.03f} s".format(time.time() - p0))
         print("Tomogram saved to file {}".format(h5name))
         print("In the folder {}".format(self.results_folder()))
@@ -1635,18 +1616,13 @@ class SaveTomogram(SaveData):
         if self.params["tomo_type"] == "delta":
             # Conversion from phase-shifts tomogram to delta
             print("Converting from phase-shifts values to delta values")
-            for ii in range(nslices):
-                strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
+            for ii in tqdm(range(nslices), desc="Converting to delta"):
                 tomogram[ii], factor = convert_to_delta(tomogram[ii], energy, voxelsize)
-                progbar(ii + 1, nslices, strbar)
         elif self.params["tomo_type"] == "beta":
             # Conversion from amplitude to beta
             print("Converting from amplitude to beta values")
-            for ii in range(slices):
-                strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
+            for ii in tqdm(range(nslices), desc="Converting to beta"):
                 tomogram[ii], factor = convert_to_beta(tomogram[ii], energy, voxelsize)
-                progbar(ii + 1, nslices, strbar)
-        print("\r")
         # low and high cutoff for Tiff normalization
         low_cutoff = np.min(tomogram)
         high_cutoff = np.max(tomogram)
@@ -1654,8 +1630,7 @@ class SaveTomogram(SaveData):
         # writing the tiffs
         print("Writing the tiff files...")
         tiff_path = self.tiff_folderpath(tiff_subfolder_name)
-        for ii in range(nslices):
-            strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
+        for ii in tqdm(range(nslices), desc="Writing TIFFs"):
             if self.params["bits"] == 16:
                 imgtiff = convertimageto16bits(tomogram[ii], low_cutoff, high_cutoff)
             elif self.params["bits"] == 8:
@@ -1668,8 +1643,6 @@ class SaveTomogram(SaveData):
             )
             pathfilename = os.path.join(tiff_path, filename)
             write_tiff(imgtiff, pathfilename)
-            progbar(ii + 1, nslices, strbar)
-        print("\r")
 
         # writing the metadata
         filename = tiff_subfolder_name + "_cutoffs.txt"
@@ -1768,11 +1741,8 @@ class LoadTomogram(LoadData):
             nslices = dset.shape[0]
             tomogram = np.empty(dset.shape, dtype=dset.dtype)
             # ~ tomogram = fid[u'tomogram/slices'][()]
-            for ii in range(nslices):
-                strbar = "{:5d} / {:5d}".format(ii + 1, nslices)
+            for ii in tqdm(range(nslices), desc="Loading slices"):
                 tomogram[ii : ii + 1, :, :] = dset[ii, :, :]
-                progbar(ii + 1, nslices, strbar)
-            print("\r")
         print("Tomogram loaded from file {}".format(h5name))
         print("Time elapsed = {:.03f} s".format(time.time() - p0))
         return tomogram, theta, shiftstack, datakwargs

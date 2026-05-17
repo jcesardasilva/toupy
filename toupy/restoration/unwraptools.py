@@ -10,11 +10,11 @@ from ..utils.plot_utils import plt
 import multiprocessing
 import numpy as np
 from skimage.restoration import unwrap_phase
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 # local packages
 from ..utils.plot_utils import _plotdelimiters
-from ..utils import progbar, isnotebook
+from ..utils import isnotebook
 
 __all__ = [
     "wraptopi",
@@ -231,21 +231,13 @@ def phaseresiduesStack(stack_array, threshold=5000):
     resmap = 0
     wrong = []
     nproj = stack_array.shape[0]
-    for ii in range(nproj):
-        # print(
-        #     "\rSearching for residues in projection {:>4.0f} ... ".format(ii + 1),
-        #     end="",
-        # )
-        # strbar = "Searching for residues in projection {} out of {}".format(ii + 1, nproj)
+    for ii in tqdm(range(nproj), desc="Searching phase residues"):
         residues, residues_charge, nres = phaseresidues(stack_array[ii])
         if np.any(np.isnan(residues)):
             raise ValueError(f"NaN found in projection {ii+1}")
         if nres > threshold:
             wrong.append(ii)
         resmap += np.abs(residues)
-        strbar = "{:6d} res./proj. {:6d}".format(nres, ii + 1)
-        # progbar(ii+1,nproj,strbar+" ({} residues)".format(nres))
-        progbar(ii + 1, nproj, strbar)
     print(". Done")
     posres = np.where(resmap >= 1.0)
     if wrong:
@@ -606,12 +598,9 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     if not params["parallel"] or ncores == 1:
         # main loop for the unwrapping
         nprojs = stack_phasecorr.shape[0]
-        for ii in range(nprojs):
-            strbar = "Unwrapping projection: {}".format(ii + 1)
+        for ii in tqdm(range(nprojs), desc="Unwrapping projections"):
             img_unwrap = _unwrapping_phase(stack_phasecorr[ii], rx, ry, airpix)
             stack_unwrap[ii] = img_unwrap  # update the stack
-            progbar(ii + 1, nprojs, strbar)
-        print("\r")
     else:
         stack_unwrap = _unwrapping_phase_parallel(
             stack_phasecorr, rx, ry, airpix, ncores=ncores
