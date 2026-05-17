@@ -16,7 +16,7 @@ import warnings
 # local libraries imports
 from .plot_utils import isnotebook
 
-__all__ = ["switch", "deprecated", "checkhostname", "progbar", "progress_bar","downloadURL", "downloadURLfile"]
+__all__ = ["switch", "deprecated", "checkhostname", "progress_bar","downloadURL", "downloadURLfile"]
 
 
 class switch(object):
@@ -117,16 +117,20 @@ def close_allopenfiles(obj_test):
                 pass  # Was already closed
 
 
+@deprecated
 def progbar(curr, total, textstr=""):
     """
-    Create a progress bar for for-loops. 
+    Create a progress bar for for-loops.
+
+    .. deprecated::
+        Use ``tqdm.auto.tqdm`` instead of ``progbar``.
 
     Parameters
     ----------
     curr : int
         Current value to shown in the progress bar
     total : int
-        Maximum size of the progress bar.         
+        Maximum size of the progress bar.
     textstr : str
         String to be shown at the right side of the progress bar
     """

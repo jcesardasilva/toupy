@@ -5,6 +5,7 @@
 import matplotlib.gridspec as gridspec
 from ..utils.plot_utils import plt
 from matplotlib.widgets import MultiCursor
+from tqdm.auto import tqdm
 from matplotlib.widgets import Button  # , RectangleSelector
 from matplotlib.widgets import TextBox
 import numpy as np
@@ -17,7 +18,7 @@ from skimage.restoration import unwrap_phase
 from ..io.dataio import LoadData, SaveData
 from .ramptools import rmphaseramp, rmlinearphase, rmair
 from .roipoly import roipoly
-from ..utils import progbar, isnotebook
+from ..utils import isnotebook
 
 __all__ = ["gui_plotamp", "gui_plotphase", "AmpTracker", "PhaseTracker"]
 
@@ -545,17 +546,14 @@ class PhaseTracker(object):
         print(
             "\nApply the linear phase correction using current mask to all projections"
         )
-        for ii in range(self.projs):
+        for ii in tqdm(range(self.projs), desc="Applying phase correction"):
             self.ind = ii
-            strbar = "Projection {} out of {}".format(ii + 1, self.projs)
             self.X1[ii] = _removing_phaseramp(
                 self.X1[ii],
                 self.mask[ii],
             )
             self.X2[ii] = self.X1[ii, self.hcen, :].copy()
             self.update()
-            progbar(ii + 1, self.projs, strbar)
-        print("\r")
         print("Done")
 
     def remove_ramp(self, event):
@@ -582,9 +580,8 @@ class PhaseTracker(object):
         Remove linear phase ramp of all
         """
         print("\nRemove linear phase ramp of all projections")
-        for ii in range(self.projs):
+        for ii in tqdm(range(self.projs), desc="Removing phase ramp"):
             self.ind = ii
-            strbar = "Projection {} out of {}".format(ii + 1, self.projs)
             self.X1[self.ind] = np.angle(
                 rmphaseramp(
                     np.exp(1j * self.X1[self.ind]),
@@ -598,8 +595,6 @@ class PhaseTracker(object):
                 self.ind, np.int(self.X1.shape[1] / 2.0), :
             ].copy()
             self.update()
-            progbar(ii + 1, self.projs, strbar)
-        print("\r")
         print("Done")
 
     def unwrapping_phase(self, event):
@@ -616,14 +611,11 @@ class PhaseTracker(object):
         Unwrap phase of all projections
         """
         print("\nUnwrapping all projections")
-        for ii in range(self.projs):
+        for ii in tqdm(range(self.projs), desc="Unwrapping projections"):
             self.ind = ii
-            strbar = "Projection {} out of {}".format(ii + 1, self.projs)
             self.X1[ii] = _unwrapping_phase(self.X1[ii], self.mask[ii])
             self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
             self.update()
-            progbar(ii + 1, self.projs, strbar)
-        print("\r")
         print("Done")
 
     def load_masks(self, event):
@@ -728,9 +720,8 @@ class AmpTracker(PhaseTracker):
         print(
             "\nApply the air correction using current mask and the logarithm to all projections"
         )
-        for ii in range(self.projs):
+        for ii in tqdm(range(self.projs), desc="Applying air correction"):
             self.ind = ii
-            strbar = "Projection {} out of {}".format(ii + 1, self.projs)
             if self.ind in self.done:
                 print(
                     "\rProjection {} was already corrected".format(self.ind + 1), end=""
@@ -744,5 +735,4 @@ class AmpTracker(PhaseTracker):
                 self.X2[ii, :] = self.X1[ii, np.int(self.X1.shape[1] / 2.0), :].copy()
                 self.done.append(self.ind)
             self.update()
-            progbar(ii + 1, self.projs, strbar)
         print("Done")

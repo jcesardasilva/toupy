@@ -7,9 +7,10 @@ import time
 # third party package
 from ..utils.plot_utils import plt
 import numpy as np
+from tqdm.auto import tqdm
 
 # local packages
-from ..utils import progbar, display_slice
+from ..utils import display_slice
 from .iradon import backprojector, reconsSART
 from ..restoration import derivatives_sino
 
@@ -160,12 +161,9 @@ def full_tomo_recons(input_stack, theta, **params):
     if str(a) == "" or str(a) == "y":
         plt.close("all")
         tomogram = np.zeros((nslices, nr, nc), dtype=np.float32)
-        for ii in range(nslices):  # num_projections):#sorted(frames):
-            strbar = "{:5d}/{:5d}".format(ii + 1, nslices)
+        for ii in tqdm(range(nslices), desc="Reconstructing slices"):
             sinogram = np.transpose(input_stack[:, ii, :])
             tomogram[ii] = tomo_recons(sinogram, theta, **params)
-            progbar(ii + 1, nslices, strbar)
-        print("\r")
     elif str(a) == "n":
         raise ValueError("The full tomographic reconstrucion has not been done.")
 

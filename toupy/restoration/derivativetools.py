@@ -8,11 +8,12 @@ import os
 from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fftfreq, fft, ifft
+from tqdm.auto import tqdm
 
 # local packages
 from ..registration.shift import ShiftFunc
 from ..utils.plot_utils import _plotdelimiters
-from ..utils import progbar, isnotebook
+from ..utils import isnotebook
 
 __all__ = [
     "calculate_derivatives",
@@ -120,11 +121,9 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
     """
     nprojs, nr, nc = stack_array.shape
     aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
-    for ii in range(nprojs):
-        strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
+    for ii in tqdm(range(nprojs), desc="Computing derivatives"):
         img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
         aligned_diff[ii] = derivatives(img, shift_method)
-        progbar(ii + 1, nprojs, strbar)
 
     return aligned_diff
 
@@ -150,11 +149,9 @@ def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
     """
     nprojs, nr, nc = stack_array.shape
     aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
-    for ii in range(nprojs):
-        strbar = "{:5d} / {:5d}".format(ii + 1, nprojs)
+    for ii in tqdm(range(nprojs), desc="Computing FFT derivatives"):
         img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
         aligned_diff[ii] = derivatives_fft(img, n_cpus=n_cpus)
-        progbar(ii + 1, nprojs, strbar)
 
     return aligned_diff
 

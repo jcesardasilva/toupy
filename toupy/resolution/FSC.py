@@ -15,9 +15,9 @@ import h5py
 from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fftshift, ifftshift
+from tqdm.auto import tqdm
 
 # local packages
-from ..utils import progbar
 from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
 from ..utils.plot_utils import isnotebook
@@ -340,9 +340,7 @@ class FourierShellCorr:
         use_thick  = self.ring_thick > 1
 
         print("Calculating the correlation...")
-        for ii in f:
-            strbar = "Normalized frequency: {:.2f}".format((ii + 1) / fnyquist)
-
+        for ii in tqdm(f, desc="Computing FSC shells"):
             # --- Fast shell extraction via searchsorted on the sorted index ---
             if use_thick:
                 lo = np.searchsorted(index_sorted, ii - half_thick, side="left")
@@ -360,9 +358,6 @@ class FourierShellCorr:
             C1[ii] = abs(np.vdot(f1, f1))           # Σ |f1|²
             C2[ii] = abs(np.vdot(f2, f2))           # Σ |f2|²
             npts[ii] = hi - lo
-
-            progbar(ii + 1, len(f), strbar)
-        print("\r")
 
         # ------------------------------------------------------------------
         # Correlation and threshold
