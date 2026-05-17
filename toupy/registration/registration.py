@@ -16,7 +16,7 @@ gradient-based update rule.  All other helper functions are unchanged.
 # standard libraries imports
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 # third party packages
 from ..utils.plot_utils import plt
@@ -978,9 +978,10 @@ def _alignprojections_horizontal(
         print(strprint.format(np.max(changex)))
         print("Elapsed time in the iteration= {:0.02f} s".format(time.time() - it0))
 
-        RP.plotshorizontal(
-            recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count
-        )
+        if RP is not None:
+            RP.plotshorizontal(
+                recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count
+            )
 
         pixtol = params["pixtol"] if params["subpixel"] else 1
         reason = _checkconditions(
@@ -1014,6 +1015,8 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     params.setdefault("cliplow", None)
     params.setdefault("cliphigh", None)
     params.setdefault("rtol", 0.0)
+    # silent=True: suppress all matplotlib calls (used for parallel workers).
+    params.setdefault("silent", False)
     # Spatial multiresolution: downsample at stage 0 for a cheap coarse warm-start.
     params.setdefault("multiresolution", False)
     params.setdefault("mr_factor", 2)
@@ -1044,8 +1047,11 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     original_sino = sinogram.copy()
     shiftslice = np.expand_dims(shiftstack[1], axis=0)
 
-    plt.ion()
-    RP = RegisterPlot(**params)
+    if not params["silent"]:
+        plt.ion()
+        RP = RegisterPlot(**params)
+    else:
+        RP = None
 
     # ---------------------------------------------------------------
     # Loop over the frequency-cutoff schedule.
@@ -1153,9 +1159,10 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         print("Initial error metric, E= {:0.04e}".format(np.sum(errorinit)))
         metric_error.append(np.sum(errorinit))
 
-        RP.plotshorizontal(
-            recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0
-        )
+        if RP is not None:
+            RP.plotshorizontal(
+                recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0
+            )
 
         print("\n===================================================")
         print("Horizontal alignment (Newton GD, pixtol={})".format(params_s["pixtol"]))
@@ -1169,13 +1176,13 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
     shiftstack[1] = shiftslice
 
-    print("\nComputing aligned images")
-    alignedsinogram = compute_aligned_sino(
-        original_sino, shiftslice, shift_method=params["shiftmeth"]
-    )
-
-    print("Calculating aligned slice for display")
-    _oneslicefordisplay(alignedsinogram, theta, **params)
+    if not params["silent"]:
+        print("\nComputing aligned images")
+        alignedsinogram = compute_aligned_sino(
+            original_sino, shiftslice, shift_method=params["shiftmeth"]
+        )
+        print("Calculating aligned slice for display")
+        _oneslicefordisplay(alignedsinogram, theta, **params)
 
     return shiftstack
 
@@ -1267,6 +1274,34 @@ def _oneslicefordisplay(sinogram, theta, **params):
     display_slice(recons, colormap="bone", vmin=params["cliplow"], vmax=params["cliphigh"])
 
 
+def _tc_worker(args):
+    """
+    Process-pool worker for tomoconsistency_multiple.
+
+    Each worker aligns one sinogram slice independently.  Runs silently
+    (no matplotlib) so it is safe to execute inside a subprocess.
+
+    Parameters
+    ----------
+    args : tuple
+        (slice_index, sinogram_2d, theta, shiftstack_copy, params_dict)
+
+    Returns
+    -------
+    (slice_index, shift_array)
+    """
+    # matplotlib must be imported AFTER the process is spawned so we can set
+    # the backend before any display code runs.
+    import matplotlib
+    matplotlib.use("Agg")
+
+    ii, sinogram, theta, shiftstack_copy, params_w = args
+    shiftstack_aux = alignprojections_horizontal(
+        sinogram, theta, shiftstack_copy, **params_w
+    )
+    return ii, shiftstack_aux[1]
+
+
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     """
     Tomographic consistency alignment on multiple slices.
@@ -1275,24 +1310,64 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     is no need for a multi-stage frequency schedule or spatial
     multiresolution — a single-pass alignment at the current
     ``freqcutoff`` is sufficient and significantly faster.
+
+    Parameters controlled via ``params``
+    -------------------------------------
+    n_slices_tc : int, optional
+        Total number of slices to align, centred on ``params["slicenum"]``.
+        Default ``10``.
+    n_workers_tc : int, optional
+        Number of parallel worker processes.  Default
+        ``max(1, cpu_count // 2)``.  Set to ``1`` to run sequentially.
     """
     print("Starting Tomographic consistency on multiple slices")
     slicenumorig = params["slicenum"]
-    slices = np.arange(slicenumorig - 5, slicenumorig + 5)
+    n_slices_tc  = params.get("n_slices_tc", 10)
+    half         = n_slices_tc // 2
+    slices       = np.arange(slicenumorig - half,
+                              slicenumorig - half + n_slices_tc)
     shiftslice_prev = np.expand_dims(shiftstack[1], axis=0).copy()
 
-    # Single-pass params: strip schedule and spatial MR (warm-start is good)
+    # Single-pass params: strip schedule and spatial MR (warm-start is good).
+    # silent=True suppresses matplotlib — required for subprocess workers.
     params_tc = dict(params)
     params_tc.pop("freqcutoff_schedule", None)
     params_tc["multiresolution"] = False
+    params_tc["silent"]          = True
 
-    shiftxrefine = []
+    n_cpu        = os.cpu_count() or 1
+    n_workers_tc = params.get("n_workers_tc", max(1, n_cpu // 2))
+    n_workers_tc = min(n_workers_tc, len(slices))
+
+    print("Slices: {} (n={})".format(list(slices), len(slices)))
+    print("Parallel workers: {}".format(n_workers_tc))
+
+    # Build one argument tuple per slice (sinogram pre-extracted to avoid
+    # pickling the full input_stack in every worker).
+    task_args = []
     for ii in slices:
-        print("\nAligning slice {}".format(ii))
-        params_tc["slicenum"] = ii
-        sinogram = np.transpose(input_stack[:, ii, :])
-        shiftstack_aux = alignprojections_horizontal(sinogram, theta, shiftstack, **params_tc)
-        shiftxrefine.append(shiftstack_aux[1])
+        sino = np.transpose(input_stack[:, ii, :])
+        p    = dict(params_tc, slicenum=int(ii))
+        task_args.append((int(ii), sino, theta, shiftstack.copy(), p))
+
+    if n_workers_tc == 1:
+        # Sequential fallback — useful for debugging or single-core machines.
+        results = []
+        for args in tqdm(task_args, desc="Tomographic consistency"):
+            results.append(_tc_worker(args))
+    else:
+        with ProcessPoolExecutor(max_workers=n_workers_tc) as executor:
+            results = list(
+                tqdm(
+                    executor.map(_tc_worker, task_args),
+                    total=len(task_args),
+                    desc="Tomographic consistency",
+                )
+            )
+
+    # Sort by slice index (process pool may return out of order).
+    results.sort(key=lambda r: r[0])
+    shiftxrefine = [r[1] for r in results]
 
     shiftxrefine = np.squeeze(shiftxrefine)
     shiftxrefine_avg = shiftxrefine.mean(axis=0)
