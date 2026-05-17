@@ -307,8 +307,21 @@ def _sino_error_metric(sinogramexp, sinogramcomp, params):
     return errorxreg
 
 
-def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False):
+def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False, rtol=0.0):
+    """
+    Evaluate stopping conditions for the alignment loop.
+
+    Returns
+    -------
+    0 : continue
+    1 : diverged (2 consecutive error increases) — caller should roll back
+    2 : shifts converged (max change < pixtol)
+    3 : maximum iterations reached
+    4 : relative error improvement below rtol (only when rtol > 0)
+    """
     step = pixtol if subpixel else 1
+    eps = np.spacing(1)
+
     # Require 2 consecutive error increases before declaring divergence.
     # A single increase is often a transient fluctuation; stopping on it
     # forces the user to restart manually even though the algorithm would
@@ -324,7 +337,15 @@ def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False
         )
         print("Keeping previous shifts.")
         return 1
-    elif np.max(changes) < step:
+    # Relative improvement below threshold — useful for warm-started refinement
+    # where the solution is already close to optimal.
+    if rtol > 0 and len(metric_error) >= 2:
+        rel_improv = (metric_error[-2] - metric_error[-1]) / (abs(metric_error[-2]) + eps)
+        if metric_error[-1] <= metric_error[-2] and rel_improv < rtol:
+            print("Relative improvement {:.2e} < rtol {:.2e}. Converged.".format(
+                rel_improv, rtol))
+            return 4
+    if np.max(changes) < step:
         if step >= 1:
             print("Changes are smaller than one pixel.")
         else:
@@ -810,7 +831,8 @@ def _alignprojections_vertical(
 
         pixtol = params["pixtol"] if params["subpixel"] else 1
         reason = _checkconditions(
-            metric_error, changey, pixtol, count, params["maxit"], params["subpixel"]
+            metric_error, changey, pixtol, count, params["maxit"], params["subpixel"],
+            rtol=params.get("rtol", 0.0),
         )
         if reason == 1:
             shiftstack = deltaprev.copy()
@@ -962,7 +984,8 @@ def _alignprojections_horizontal(
 
         pixtol = params["pixtol"] if params["subpixel"] else 1
         reason = _checkconditions(
-            metric_error, changex, pixtol, count, params["maxit"], params["subpixel"]
+            metric_error, changex, pixtol, count, params["maxit"], params["subpixel"],
+            rtol=params.get("rtol", 0.0),
         )
         if reason == 1:
             shiftslice = deltaprev.copy()
@@ -990,8 +1013,13 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         params["maxit"] = 10
     params.setdefault("cliplow", None)
     params.setdefault("cliphigh", None)
-    # Frequency-cutoff schedule: list of freqcutoff values to sweep through,
-    # coarsest first.  Each stage warm-starts the next with its shifts.
+    params.setdefault("rtol", 0.0)
+    # Spatial multiresolution: downsample at stage 0 for a cheap coarse warm-start.
+    params.setdefault("multiresolution", False)
+    params.setdefault("mr_factor", 2)
+    params.setdefault("n_coarse_iter", 5)
+    # Frequency-cutoff schedule: list of freqcutoff values (coarsest first).
+    # Each stage warm-starts the next with its shifts.
     # If not provided, falls back to a single pass at params["freqcutoff"].
     schedule = params.get("freqcutoff_schedule", None)
     if schedule is None or len(schedule) == 0:
@@ -1005,6 +1033,11 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         print("Frequency-cutoff schedule: {}".format(schedule))
     else:
         print("Using a frequency cutoff of {}".format(schedule[0]))
+    if params["multiresolution"]:
+        print("Spatial multiresolution warm-start at stage 0 (factor={}, {} iterations)".format(
+            params["mr_factor"], params["n_coarse_iter"]))
+    if params["rtol"] > 0:
+        print("Relative tolerance (rtol) = {}".format(params["rtol"]))
     print("Low limit for tomo values = {}".format(params["cliplow"]))
     print("High limit for tomo values = {}".format(params["cliphigh"]))
 
@@ -1015,8 +1048,8 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     RP = RegisterPlot(**params)
 
     # ---------------------------------------------------------------
-    # Loop over the frequency-cutoff schedule
-    # Each stage inherits the shifts from the previous one.
+    # Loop over the frequency-cutoff schedule.
+    # Each stage inherits shiftslice from the previous one.
     # ---------------------------------------------------------------
     for stage_idx, fc in enumerate(schedule):
         is_last = (stage_idx == n_stages - 1)
@@ -1041,6 +1074,62 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
             )
         else:
             print("Initializing shiftslice with zeros")
+
+        # -----------------------------------------------------------
+        # Spatial multiresolution warm-start (stage 0 only).
+        # Downsamples the detector axis by mr_factor, runs a few cheap
+        # coarse iterations, then scales the shifts back to full res.
+        # Combined with freqcutoff_schedule this acts at the coarsest
+        # frequency stage, giving the largest displacement reduction for
+        # the smallest cost.
+        # -----------------------------------------------------------
+        if stage_idx == 0 and params["multiresolution"]:
+            factor = params["mr_factor"]
+            n_coarse_iter = params["n_coarse_iter"]
+            print("\n--- Spatial warm-start (factor={}, {} coarse iterations) ---".format(
+                factor, n_coarse_iter))
+            nr, nc_sino = original_sino.shape
+            nr_trim = (nr // factor) * factor
+            sino_pool = original_sino[:nr_trim, :].reshape(
+                nr_trim // factor, factor, nc_sino
+            ).mean(axis=1)
+            sino_pool_padded = np.pad(
+                sino_pool, ((padval, padval), (0, 0)), "constant", constant_values=0
+            ).copy()
+            sino_orig_c = _filter_sino(sino_pool_padded, **params_s)
+            shiftslice_c = shiftslice / factor
+            if not np.all(shiftslice_c == 0):
+                sinogram_c = compute_aligned_sino(
+                    sino_orig_c, shiftslice_c, shift_method=params_s["shiftmeth"]
+                )
+            else:
+                sinogram_c = sino_orig_c.copy()
+            print("Computing initial coarse tomographic slice...")
+            t_c = time.time()
+            recons_c = tomo_recons(sinogram_c, theta=theta, **params_s)
+            print("Done. Time elapsed: {:.02f} s".format(time.time() - t_c))
+            recons_c = _clipping_tomo(recons_c, **params_s)
+            circleROI_c = create_circle(recons_c) if params_s["circle"] else 1
+            recons_c = recons_c * circleROI_c
+            sinogramcomp_c = projector(recons_c, theta, **params_s)
+            if params_s["derivatives"] and not params_s["calc_derivatives"]:
+                sinogramcomp_c = derivatives_sino(
+                    sinogramcomp_c, shift_method=params_s["shiftmeth"]
+                )
+            metric_error_c = []
+            errorinit_c = _sino_error_metric(sinogram_c, sinogramcomp_c, params_s)
+            metric_error_c.append(np.sum(errorinit_c))
+            print("Initial coarse error, E= {:0.04e}".format(metric_error_c[0]))
+            params_c = dict(params_s, maxit=n_coarse_iter)
+            shiftslice_c, _ = _alignprojections_horizontal(
+                sinogram_c, sino_orig_c, theta, circleROI_c,
+                shiftslice_c, metric_error_c, RP, **params_c
+            )
+            shiftslice = shiftslice_c * factor
+            sinogram = compute_aligned_sino(
+                sino_orig, shiftslice, shift_method=params_s["shiftmeth"]
+            )
+            print("--- Spatial warm-start done. Proceeding at full resolution ---\n")
 
         print("Computing initial tomographic slice...")
         t0 = time.time()
@@ -1096,7 +1185,15 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 # ============================================================================
 
 def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
-    """Interactively refine horizontal alignment (unchanged)."""
+    """
+    Interactively refine horizontal alignment.
+
+    Refinement always runs a single pass at the current ``freqcutoff``
+    (ignoring ``freqcutoff_schedule`` and ``multiresolution`` if set) because
+    the input shifts are already a good warm-start and do not need the
+    full multi-stage pipeline.  Use ``params["rtol"]`` (e.g. 1e-3) to stop
+    early when the improvement per iteration becomes negligible.
+    """
     params.setdefault("correct_bad", False)
     while True:
         a = input("Do you want to refine further the alignment? ([y]/n): ").lower()
@@ -1125,8 +1222,15 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
             sinogram = np.transpose(input_stack[:, params["slicenum"], :])
             if params["correct_bad"]:
                 sinogram = replace_bad(sinogram, list_bad=params["bad_projs"], temporary=False)
+
+            # Refinement uses the current freqcutoff only — no multi-stage
+            # pipeline and no spatial downsampling (shifts are already good).
+            params_refine = dict(params)
+            params_refine.pop("freqcutoff_schedule", None)
+            params_refine["multiresolution"] = False
+
             print("Starting the refinement of the alignment")
-            shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params)
+            shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params_refine)
         elif str(a) == "n":
             print("No further refinement done")
             break
@@ -1164,17 +1268,30 @@ def _oneslicefordisplay(sinogram, theta, **params):
 
 
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
-    """Tomographic consistency alignment on multiple slices (unchanged)."""
+    """
+    Tomographic consistency alignment on multiple slices.
+
+    Each slice starts from the same ``shiftstack`` warm-start, so there
+    is no need for a multi-stage frequency schedule or spatial
+    multiresolution — a single-pass alignment at the current
+    ``freqcutoff`` is sufficient and significantly faster.
+    """
     print("Starting Tomographic consistency on multiple slices")
     slicenumorig = params["slicenum"]
     slices = np.arange(slicenumorig - 5, slicenumorig + 5)
     shiftslice_prev = np.expand_dims(shiftstack[1], axis=0).copy()
+
+    # Single-pass params: strip schedule and spatial MR (warm-start is good)
+    params_tc = dict(params)
+    params_tc.pop("freqcutoff_schedule", None)
+    params_tc["multiresolution"] = False
+
     shiftxrefine = []
     for ii in slices:
         print("\nAligning slice {}".format(ii))
-        params["slicenum"] = ii
+        params_tc["slicenum"] = ii
         sinogram = np.transpose(input_stack[:, ii, :])
-        shiftstack_aux = alignprojections_horizontal(sinogram, theta, shiftstack, **params)
+        shiftstack_aux = alignprojections_horizontal(sinogram, theta, shiftstack, **params_tc)
         shiftxrefine.append(shiftstack_aux[1])
 
     shiftxrefine = np.squeeze(shiftxrefine)
