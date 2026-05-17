@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 
 # standard packages
+import heapq
 import os
+from collections import deque
+from itertools import count
 
 # third party packages
 from joblib import Parallel, delayed, parallel_backend
 from ..utils.plot_utils import plt
 import multiprocessing
 import numpy as np
-from skimage.restoration import unwrap_phase
 from ..utils import tqdm
 
 # local packages
@@ -25,6 +27,7 @@ __all__ = [
     "phaseresiduesStack",
     "phaseresiduesStack_parallel",
     "chooseregiontounwrap",
+    "unwrap_phase_2d",
     "unwrapping_phase"
     # ~ u'goldstein_unwrap2D'
 ]
@@ -418,7 +421,335 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     return rx, ry, airpix
 
 
-def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
+# ---------------------------------------------------------------------------
+# Internal reliability-map helper
+# ---------------------------------------------------------------------------
+
+def _reliability_map(phase):
+    """
+    Compute a per-pixel reliability map for Herraez's reliability-guided
+    phase unwrapping algorithm.
+
+    Reliability = 1 / D where D = sqrt(H^2 + V^2 + D1^2 + D2^2).
+    H, V, D1, D2 are second-order phase differences computed via wraptopi.
+    Border pixels receive reliability 0.
+
+    Parameters
+    ----------
+    phase : ndarray
+        2-D wrapped phase array (radians).
+
+    Returns
+    -------
+    rel : ndarray
+        Float64 reliability array, same shape as ``phase``.
+    """
+    nr, nc = phase.shape
+    rel = np.zeros((nr, nc), dtype=np.float64)
+
+    # Second differences (interior pixels only)
+    H  = wraptopi(phase[1:-1, 2:]  - phase[1:-1, 1:-1]) - wraptopi(phase[1:-1, 1:-1] - phase[1:-1, :-2])
+    V  = wraptopi(phase[2:,  1:-1] - phase[1:-1, 1:-1]) - wraptopi(phase[1:-1, 1:-1] - phase[:-2,  1:-1])
+    D1 = wraptopi(phase[2:,  2:]   - phase[1:-1, 1:-1]) - wraptopi(phase[1:-1, 1:-1] - phase[:-2,  :-2])
+    D2 = wraptopi(phase[2:,  :-2]  - phase[1:-1, 1:-1]) - wraptopi(phase[1:-1, 1:-1] - phase[:-2,  2:])
+
+    D = np.sqrt(H ** 2 + V ** 2 + D1 ** 2 + D2 ** 2)
+    # Avoid division by zero; zero D gives maximum reliability (flat region)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rel[1:-1, 1:-1] = np.where(D == 0.0, np.finfo(np.float64).max, 1.0 / D)
+
+    return rel
+
+
+# ---------------------------------------------------------------------------
+# Algorithm 1: Herraez reliability-guided BFS
+# ---------------------------------------------------------------------------
+
+def _unwrap_herraez(phase):
+    """
+    Reliability-guided phase unwrapping (Herraez et al., 2002).
+
+    Uses a max-heap (implemented as a min-heap with negated priorities) to
+    process pixel edges in decreasing order of edge reliability, where edge
+    reliability = min(reliability[p1], reliability[p2]).
+
+    Parameters
+    ----------
+    phase : ndarray
+        2-D wrapped phase array (radians).
+
+    Returns
+    -------
+    unwrapped : ndarray
+        Float64 unwrapped phase array, same shape as ``phase``.
+    """
+    nr, nc = phase.shape
+    rel = _reliability_map(phase)
+
+    unwrapped = np.empty((nr, nc), dtype=np.float64)
+    visited = np.zeros((nr, nc), dtype=bool)
+
+    # Seed from pixel (0, 0)
+    seed_r, seed_c = 0, 0
+    unwrapped[seed_r, seed_c] = phase[seed_r, seed_c]
+    visited[seed_r, seed_c] = True
+
+    ctr = count()
+    heap = []
+
+    def _push_neighbors(r, c):
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            r2, c2 = r + dr, c + dc
+            if 0 <= r2 < nr and 0 <= c2 < nc and not visited[r2, c2]:
+                edge_rel = min(rel[r, c], rel[r2, c2])
+                heapq.heappush(heap, (-edge_rel, next(ctr), r2, c2, r, c))
+
+    _push_neighbors(seed_r, seed_c)
+
+    while heap:
+        neg_rel, _cnt, r, c, src_r, src_c = heapq.heappop(heap)
+        if visited[r, c]:
+            continue
+        visited[r, c] = True
+        d = wraptopi(phase[r, c] - unwrapped[src_r, src_c])
+        unwrapped[r, c] = unwrapped[src_r, src_c] + d
+        _push_neighbors(r, c)
+
+    return unwrapped
+
+
+# ---------------------------------------------------------------------------
+# Algorithm 2: Goldstein branch-cut + BFS flood fill
+# ---------------------------------------------------------------------------
+
+def _unwrap_goldstein(phase):
+    """
+    Goldstein branch-cut phase unwrapping (Goldstein et al., 1988).
+
+    Locates phase residues, pairs them with a greedy nearest-neighbour
+    strategy, draws L-shaped branch cuts, then flood-fills from the image
+    centre while respecting the branch cuts.
+
+    Parameters
+    ----------
+    phase : ndarray
+        2-D wrapped phase array (radians).
+
+    Returns
+    -------
+    unwrapped : ndarray
+        Float64 unwrapped phase array, same shape as ``phase``.
+        Pixels unreachable due to branch cuts retain their wrapped value.
+    """
+    nr, nc = phase.shape
+    residues, residues_charge, nres = phaseresidues(phase)
+
+    if nres == 0:
+        return _unwrap_flynn(phase)
+
+    # Convert residue indices to image coordinates (+1 offset)
+    pos_rows = residues_charge["pos"][0] + 1
+    pos_cols = residues_charge["pos"][1] + 1
+    neg_rows = residues_charge["neg"][0] + 1
+    neg_cols = residues_charge["neg"][1] + 1
+
+    branch_cuts = np.zeros((nr, nc), dtype=bool)
+
+    pos_used = [False] * len(pos_rows)
+    neg_used = [False] * len(neg_rows)
+
+    # Greedy nearest-neighbour pairing of positive to negative residues
+    for pi in range(len(pos_rows)):
+        r1, c1 = pos_rows[pi], pos_cols[pi]
+        best_dist = np.inf
+        best_ni = -1
+        for ni in range(len(neg_rows)):
+            if neg_used[ni]:
+                continue
+            d = distance((r1, c1), (neg_rows[ni], neg_cols[ni]))
+            if d < best_dist:
+                best_dist = d
+                best_ni = ni
+        if best_ni >= 0:
+            pos_used[pi] = True
+            neg_used[best_ni] = True
+            r2, c2 = neg_rows[best_ni], neg_cols[best_ni]
+            # L-shaped branch cut: horizontal segment then vertical segment
+            c_lo, c_hi = min(c1, c2), max(c1, c2)
+            branch_cuts[r1, c_lo:c_hi + 1] = True
+            r_lo, r_hi = min(r1, r2), max(r1, r2)
+            branch_cuts[r_lo:r_hi + 1, c2] = True
+
+    # Unmatched positives: vertical cut to top border
+    for pi in range(len(pos_rows)):
+        if not pos_used[pi]:
+            r, c = pos_rows[pi], pos_cols[pi]
+            branch_cuts[:r + 1, c] = True
+
+    # Unmatched negatives: vertical cut to bottom border
+    for ni in range(len(neg_rows)):
+        if not neg_used[ni]:
+            r, c = neg_rows[ni], neg_cols[ni]
+            branch_cuts[r:, c] = True
+
+    # BFS flood fill from centre
+    unwrapped = phase.astype(np.float64).copy()
+    visited = np.zeros((nr, nc), dtype=bool)
+
+    start_r, start_c = nr // 2, nc // 2
+    # If start pixel is on a branch cut, search nearby for a free pixel
+    if branch_cuts[start_r, start_c]:
+        found = False
+        for dr in range(nr):
+            for dc in range(nc):
+                for sr, sc in [(start_r + dr, start_c + dc),
+                               (start_r - dr, start_c - dc),
+                               (start_r + dr, start_c - dc),
+                               (start_r - dr, start_c + dc)]:
+                    if 0 <= sr < nr and 0 <= sc < nc and not branch_cuts[sr, sc]:
+                        start_r, start_c = sr, sc
+                        found = True
+                        break
+                if found:
+                    break
+            if found:
+                break
+
+    queue = deque()
+    queue.append((start_r, start_c))
+    visited[start_r, start_c] = True
+    # seed value is the wrapped phase itself (already set in unwrapped)
+
+    while queue:
+        r, c = queue.popleft()
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            r2, c2 = r + dr, c + dc
+            if 0 <= r2 < nr and 0 <= c2 < nc and not visited[r2, c2] and not branch_cuts[r2, c2]:
+                visited[r2, c2] = True
+                d = wraptopi(phase[r2, c2] - unwrapped[r, c])
+                unwrapped[r2, c2] = unwrapped[r, c] + d
+                queue.append((r2, c2))
+
+    return unwrapped
+
+
+# ---------------------------------------------------------------------------
+# Algorithm 3: Flynn row-integration + median row correction
+# ---------------------------------------------------------------------------
+
+def _unwrap_flynn(phase):
+    """
+    Flynn's integration-based phase unwrapping (Flynn, 1997).
+
+    Fast O(N) approach:
+    1. Integrate wrapped horizontal differences row by row.
+    2. Fix row-to-row jumps using a median correction.
+
+    Parameters
+    ----------
+    phase : ndarray
+        2-D wrapped phase array (radians).
+
+    Returns
+    -------
+    unwrapped : ndarray
+        Float64 unwrapped phase array, same shape as ``phase``.
+    """
+    nr, nc = phase.shape
+    two_pi = 2.0 * np.pi
+
+    unwrapped = np.empty((nr, nc), dtype=np.float64)
+
+    # Step 1: integrate wrapped horizontal differences row by row
+    dh = wraptopi(np.diff(phase, axis=1))
+    unwrapped[:, 0] = phase[:, 0]
+    unwrapped[:, 1:] = phase[:, :1] + np.cumsum(dh, axis=1)
+
+    # Step 2: fix row-to-row jumps using median correction
+    for r in range(1, nr):
+        dv = unwrapped[r] - unwrapped[r - 1]
+        correction = int(np.round(np.median(dv) / two_pi))
+        if correction != 0:
+            unwrapped[r:] -= two_pi * correction
+
+    return unwrapped
+
+
+# ---------------------------------------------------------------------------
+# Public dispatcher
+# ---------------------------------------------------------------------------
+
+def unwrap_phase_2d(phase, method="herraez"):
+    """
+    Unwrap a 2-D phase array using one of three internal algorithms.
+
+    Parameters
+    ----------
+    phase : ndarray
+        2-D wrapped phase array (radians).
+    method : str, optional
+        Algorithm to use.  One of:
+
+        ``"herraez"`` (default)
+            Reliability-guided BFS.  Computes a per-pixel reliability from
+            second-order phase differences and processes pixel edges in
+            decreasing reliability order via a priority queue.  Generally
+            the most robust choice for noisy data.
+
+            Reference: M. A. Herraez, D. R. Burton, M. J. Lalor, and
+            M. A. Gdeisat, "Fast two-dimensional phase-unwrapping algorithm
+            based on sorting by reliability", Applied Optics 41(35), 2002.
+
+        ``"goldstein"``
+            Branch-cut algorithm.  Locates phase residues, pairs them with a
+            greedy nearest-neighbour strategy, draws L-shaped branch cuts,
+            then unwraps via BFS flood fill from the image centre.  Falls
+            back to Flynn's method when no residues are found.
+
+            Reference: R. M. Goldstein, H. A. Zebker, and C. L. Werner,
+            "Satellite radar interferometry: Two-dimensional phase
+            unwrapping", Radio Science 23(4), 1988.
+
+        ``"flynn"``
+            Row-integration + median row correction.  Integrates wrapped
+            horizontal differences row by row, then corrects accumulated
+            row-to-row offsets using a median estimator.  O(N) complexity,
+            fastest but least robust to noise.
+
+            Reference: T. J. Flynn, "Two-dimensional phase unwrapping with
+            minimum weighted discontinuity", Journal of the Optical Society
+            of America A 14(10), 1997.
+
+    Returns
+    -------
+    unwrapped : ndarray
+        Float64 unwrapped phase array, same shape as ``phase``.
+
+    Raises
+    ------
+    ValueError
+        If ``method`` is not one of ``"herraez"``, ``"goldstein"``,
+        ``"flynn"``.
+    """
+    method = method.lower()
+    if method == "herraez":
+        return _unwrap_herraez(phase)
+    elif method == "goldstein":
+        return _unwrap_goldstein(phase)
+    elif method == "flynn":
+        return _unwrap_flynn(phase)
+    else:
+        raise ValueError(
+            f"Unknown unwrapping method '{method}'. "
+            "Choose one of: 'herraez', 'goldstein', 'flynn'."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Internal single-image unwrapping helper
+# ---------------------------------------------------------------------------
+
+def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez"):
     """
     Unwrap the phases of a projection
 
@@ -430,6 +761,9 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
         Limits of the are to be unwrapped in x and y
     airpix : tuple or list of ints
         Position of pixel in the air/vacuum area
+    method : str, optional
+        Phase unwrapping algorithm. See ``unwrap_phase_2d`` for details.
+        Default is ``"herraez"``.
 
     Returns
     -------
@@ -437,13 +771,13 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
         Unwrapped image
     """
     if rx == [] and ry == []:
-        img2unwrap = unwrap_phase(img2unwrap)
+        img2unwrap = unwrap_phase_2d(img2unwrap, method=method)
         img2unwrap -= -2 * np.pi * np.round(img2unwrap / (2 * np.pi))
     else:
         # select the region to be unwrapped
         img2wrap_sel = img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]]
-        # unwrap the region using the algorithm from skimage
-        img2unwrap_sel = unwrap_phase(img2wrap_sel)
+        # unwrap the region using the chosen algorithm
+        img2unwrap_sel = unwrap_phase_2d(img2wrap_sel, method=method)
         # update the image in the original array
         img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel
         img2unwrap[
@@ -455,7 +789,11 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[]):
     return img2unwrap
 
 
-def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1):
+# ---------------------------------------------------------------------------
+# Internal parallel unwrapping helper
+# ---------------------------------------------------------------------------
+
+def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, method="herraez"):
     """
     Unwrap the phases of a projection
 
@@ -463,6 +801,9 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1):
     ----------
     img2unwrap : ndarray
         A stack of 2-dimensional arrays containing the images to be unwrapped
+    method : str, optional
+        Phase unwrapping algorithm. See ``unwrap_phase_2d`` for details.
+        Default is ``"herraez"``.
 
     Returns
     -------
@@ -480,11 +821,8 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1):
     # with parallel_backend('threading',n_jobs = ncpus):#("loky", inner_max_num_threads=1):
     stack2unwrap_sel = stack2unwrap[:, ry[0] : ry[-1], rx[0] : rx[-1]].copy()
     with parallel_backend("loky", inner_max_num_threads=2):
-        # ~ stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]] = np.array(
-        # ~ zip(*Parallel(n_jobs=ncpus)(delayed(unwrap_phase)(ii) for ii in tqdm(stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]])))
-        # ~ )
         stack2unwrap_sel = Parallel(n_jobs=ncpus)(
-            delayed(unwrap_phase)(ii) for ii in tqdm(stack2unwrap_sel)
+            delayed(unwrap_phase_2d)(ii, method=method) for ii in tqdm(stack2unwrap_sel)
         )
 
     print("Correcting for air values")
@@ -496,6 +834,10 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1):
         )
     return stack2unwrap
 
+
+# ---------------------------------------------------------------------------
+# Public stack unwrapping function
+# ---------------------------------------------------------------------------
 
 def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     """
@@ -513,8 +855,11 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         Dictionary of additional parameters
     params["vmin"] : float, None
         Minimum value for the gray level at each display
-    params["vmin"] : float, None
+    params["vmax"] : float, None
         Maximum value for the gray level at each display
+    params["unwrap_method"] : str, optional
+        Phase unwrapping algorithm to use. One of ``"herraez"`` (default),
+        ``"goldstein"``, or ``"flynn"``. See ``unwrap_phase_2d`` for details.
 
     Returns
     -------
@@ -523,17 +868,18 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
 
     Note
     ----
-    It uses the phase unwrapping algorithm by Herraez et al. [#skimage]_
-    implemented in Scikit-Image (https://scikit-image.org).
+    Three built-in algorithms are available. The default is the
+    reliability-guided algorithm by Herraez et al. [#herraez]_.
 
     References
     ----------
-    .. [#skimage] Miguel Arevallilo Herraez, David R. Burton, Michael J. Lalor,
-      and Munther A. Gdeisat, “Fast two-dimensional phase-unwrapping algorithm
-      based on sorting by reliability following a noncontinuous path”,
+    .. [#herraez] Miguel Arevallilo Herraez, David R. Burton, Michael J. Lalor,
+      and Munther A. Gdeisat, "Fast two-dimensional phase-unwrapping algorithm
+      based on sorting by reliability following a noncontinuous path",
       Journal Applied Optics, Vol. 41, No. 35, pp. 7437, 2002
     """
     params.setdefault("parallel", True)
+    params.setdefault("unwrap_method", "herraez")
     if params["parallel"]:
         if params["n_cpus"] == -1:
             try:
@@ -547,7 +893,9 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     stack_unwrap = np.empty_like(stack_phasecorr)
     # test on first projection
     print("Testing unwrapping on the first projection")
-    img0_unwrap = _unwrapping_phase(stack_phasecorr[0], rx, ry, airpix)
+    img0_unwrap = _unwrapping_phase(
+        stack_phasecorr[0], rx, ry, airpix, method=params["unwrap_method"]
+    )
     # displaying
     plt.close("all")
     plt.ion()
@@ -601,11 +949,13 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         # main loop for the unwrapping
         nprojs = stack_phasecorr.shape[0]
         for ii in tqdm(range(nprojs), desc="Unwrapping projections"):
-            img_unwrap = _unwrapping_phase(stack_phasecorr[ii], rx, ry, airpix)
+            img_unwrap = _unwrapping_phase(
+                stack_phasecorr[ii], rx, ry, airpix, method=params["unwrap_method"]
+            )
             stack_unwrap[ii] = img_unwrap  # update the stack
     else:
         stack_unwrap = _unwrapping_phase_parallel(
-            stack_phasecorr, rx, ry, airpix, ncores=ncores
+            stack_phasecorr, rx, ry, airpix, ncores=ncores, method=params["unwrap_method"]
         )
         # ~ stack_unwrap_sel = _unwrapping_phase_parallel(
         # ~ stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]]
