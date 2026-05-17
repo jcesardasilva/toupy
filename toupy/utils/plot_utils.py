@@ -141,6 +141,7 @@ def show_fsc_curve(fn, FSC, T, snrt, ndim):
     ax.set_ylim(0, 1.1)
     ax.set_xlabel("Spatial frequency/Nyquist")
     ax.set_ylabel("Magnitude")
+    ax.grid(True, linestyle="--", alpha=0.5)
     suffix = "2D" if ndim == 2 else "3D"
     fig.savefig(f"FSC_{suffix}.png", bbox_inches="tight")
     if isnotebook():
