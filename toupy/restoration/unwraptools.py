@@ -12,7 +12,15 @@ from joblib import Parallel, delayed, parallel_backend
 from ..utils.plot_utils import plt
 import multiprocessing
 import numpy as np
+from scipy.fft import dctn, idctn
 from ..utils import tqdm
+
+# optional: SNAPHU (pip install snaphu)
+try:
+    import snaphu as _snaphu
+    _SNAPHU_AVAILABLE = True
+except ImportError:
+    _SNAPHU_AVAILABLE = False
 
 # local packages
 from ..utils.plot_utils import _plotdelimiters
@@ -637,6 +645,7 @@ def _unwrap_goldstein(phase):
 # Algorithm 3: Flynn row-integration + median row correction
 # ---------------------------------------------------------------------------
 
+
 def _unwrap_flynn(phase):
     """
     Flynn's integration-based phase unwrapping (Flynn, 1997).
@@ -673,6 +682,135 @@ def _unwrap_flynn(phase):
             unwrapped[r:] -= two_pi * correction
 
     return unwrapped
+
+
+# ---------------------------------------------------------------------------
+# Algorithm 4: DCT-based Weighted Least Squares (Ghiglia & Romero, 1994)
+# ---------------------------------------------------------------------------
+
+def _unwrap_wls(phase):
+    """
+    DCT-based unweighted least-squares phase unwrapping (Ghiglia & Romero, 1994).
+
+    Solves the 2-D discrete Poisson equation  ∇²φ = ρ  where ρ is the
+    divergence of the wrapped phase gradients.  The system is solved via a
+    DCT-II transform (Neumann boundary conditions) in O(N log N) time.
+
+    This gives a globally optimal solution under a flat (uniform) weight
+    model, making it substantially more robust than the greedy Herraez or
+    Goldstein methods for images that are smooth but wrapped many times.
+
+    Parameters
+    ----------
+    phase : ndarray
+        2-D wrapped phase array (radians).
+
+    Returns
+    -------
+    unwrapped : ndarray
+        Float64 unwrapped phase array, same shape as ``phase``.
+
+    Reference
+    ---------
+    D. C. Ghiglia and L. A. Romero, "Robust two-dimensional weighted and
+    unweighted phase unwrapping that uses fast transforms and iterative
+    methods", J. Opt. Soc. Am. A 11(1), 107-117 (1994).
+    """
+    nr, nc = phase.shape
+
+    # Wrapped forward differences (phase gradients)
+    dy = wraptopi(np.diff(phase, axis=0))   # shape (nr-1, nc)
+    dx = wraptopi(np.diff(phase, axis=1))   # shape (nr, nc-1)
+
+    # Discrete divergence with Neumann (zero-flux) boundary conditions.
+    # Interior: rho[i,j] = dx[i,j] - dx[i,j-1] + dy[i,j] - dy[i-1,j]
+    rho = np.zeros((nr, nc), dtype=np.float64)
+    rho[:, 1:-1] += dx[:, 1:] - dx[:, :-1]   # interior x
+    rho[:, 0]    += dx[:, 0]                   # left boundary
+    rho[:, -1]   -= dx[:, -1]                  # right boundary
+    rho[1:-1, :] += dy[1:, :] - dy[:-1, :]    # interior y
+    rho[0, :]    += dy[0, :]                   # top boundary
+    rho[-1, :]   -= dy[-1, :]                  # bottom boundary
+
+    # Eigenvalues of the discrete Laplacian in DCT-II / Neumann basis:
+    #   mu[k, l] = 2*(cos(pi*k/nr) - 1) + 2*(cos(pi*l/nc) - 1)
+    k = np.arange(nr, dtype=np.float64)
+    l = np.arange(nc, dtype=np.float64)
+    mu = (
+        2.0 * (np.cos(np.pi * k / nr) - 1.0)[:, None]
+        + 2.0 * (np.cos(np.pi * l / nc) - 1.0)[None, :]
+    )
+    mu[0, 0] = 1.0   # avoid division by zero; DC set to 0 below
+
+    # Solve in DCT domain
+    rho_hat = dctn(rho, type=2, norm="ortho")
+    phi_hat = rho_hat / mu
+    phi_hat[0, 0] = 0.0   # DC is a free gauge (arbitrary global offset)
+    phi = idctn(phi_hat, type=2, norm="ortho")
+
+    return phi
+
+
+# ---------------------------------------------------------------------------
+# Algorithm 5: SNAPHU (Chen & Zebker, 2001) — optional dependency
+# ---------------------------------------------------------------------------
+
+def _unwrap_snaphu(phase):
+    """
+    SNAPHU phase unwrapping (Chen & Zebker, 2001).
+
+    Uses the Statistical-cost, Network-flow Algorithm for Phase Unwrapping
+    (SNAPHU) via the ``snaphu-py`` package.  The per-pixel reliability map
+    is normalised to [0, 1] and used as a coherence estimate so that SNAPHU's
+    statistical cost model is guided by local phase quality.
+
+    Requires the optional dependency::
+
+        pip install snaphu
+
+    Parameters
+    ----------
+    phase : ndarray
+        2-D wrapped phase array (radians).
+
+    Returns
+    -------
+    unwrapped : ndarray
+        Float64 unwrapped phase array, same shape as ``phase``.
+
+    Raises
+    ------
+    ImportError
+        If ``snaphu-py`` is not installed.
+
+    Reference
+    ---------
+    C. W. Chen and H. A. Zebker, "Two-dimensional phase unwrapping with use
+    of statistical models for cost functions in nonlinear optimization",
+    J. Opt. Soc. Am. A 18(2), 338-351 (2001).
+    """
+    if not _SNAPHU_AVAILABLE:
+        raise ImportError(
+            "snaphu-py is required for method='snaphu'.\n"
+            "Install it with:  pip install snaphu"
+        )
+
+    phase = np.asarray(phase, dtype=np.float64)
+
+    # Convert wrapped phase → complex interferogram  e^{i φ}
+    igram = np.exp(1j * phase).astype(np.complex64)
+
+    # Use reliability map as a coherence proxy (normalised to [0, 1])
+    rel = _reliability_map(phase)
+    rel_range = rel.max() - rel.min()
+    if rel_range == 0.0:
+        corr = np.ones(phase.shape, dtype=np.float32)
+    else:
+        corr = ((rel - rel.min()) / rel_range).astype(np.float32)
+
+    # Run SNAPHU
+    unw, _ = _snaphu.unwrap(igram, corr, nlooks=1)
+    return np.asarray(unw, dtype=np.float64)
 
 
 # ---------------------------------------------------------------------------
@@ -720,6 +858,29 @@ def unwrap_phase_2d(phase, method="herraez"):
             minimum weighted discontinuity", Journal of the Optical Society
             of America A 14(10), 1997.
 
+        ``"wls"``
+            DCT-based unweighted least-squares (Ghiglia & Romero, 1994).
+            Solves the 2-D Poisson equation whose right-hand side is the
+            divergence of the wrapped phase gradients, using a DCT-II
+            transform (Neumann boundary conditions).  Globally optimal under
+            a flat weight model; O(N log N) complexity.  More robust than
+            the greedy methods for densely wrapped, smooth phase fields.
+
+            Reference: D. C. Ghiglia and L. A. Romero, "Robust two-dimensional
+            weighted and unweighted phase unwrapping that uses fast transforms
+            and iterative methods", J. Opt. Soc. Am. A 11(1), 107-117 (1994).
+
+        ``"snaphu"``
+            Statistical-cost network-flow algorithm (Chen & Zebker, 2001).
+            Regarded as the gold standard for 2-D phase unwrapping.  The
+            per-pixel reliability map is used as a coherence estimate.
+            Requires the optional package ``snaphu-py``
+            (``pip install snaphu``).
+
+            Reference: C. W. Chen and H. A. Zebker, "Two-dimensional phase
+            unwrapping with use of statistical models for cost functions in
+            nonlinear optimization", J. Opt. Soc. Am. A 18(2), 338-351 (2001).
+
     Returns
     -------
     unwrapped : ndarray
@@ -728,8 +889,9 @@ def unwrap_phase_2d(phase, method="herraez"):
     Raises
     ------
     ValueError
-        If ``method`` is not one of ``"herraez"``, ``"goldstein"``,
-        ``"flynn"``.
+        If ``method`` is not one of the recognised algorithm names.
+    ImportError
+        If ``method='snaphu'`` and ``snaphu-py`` is not installed.
     """
     method = method.lower()
     if method == "herraez":
@@ -738,10 +900,14 @@ def unwrap_phase_2d(phase, method="herraez"):
         return _unwrap_goldstein(phase)
     elif method == "flynn":
         return _unwrap_flynn(phase)
+    elif method == "wls":
+        return _unwrap_wls(phase)
+    elif method == "snaphu":
+        return _unwrap_snaphu(phase)
     else:
         raise ValueError(
             f"Unknown unwrapping method '{method}'. "
-            "Choose one of: 'herraez', 'goldstein', 'flynn'."
+            "Choose one of: 'herraez', 'goldstein', 'flynn', 'wls', 'snaphu'."
         )
 
 
@@ -859,7 +1025,9 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         Maximum value for the gray level at each display
     params["unwrap_method"] : str, optional
         Phase unwrapping algorithm to use. One of ``"herraez"`` (default),
-        ``"goldstein"``, or ``"flynn"``. See ``unwrap_phase_2d`` for details.
+        ``"goldstein"``, ``"flynn"``, ``"wls"``, or ``"snaphu"``.
+        See ``unwrap_phase_2d`` for details.  ``"snaphu"`` requires the
+        optional package ``snaphu-py`` (``pip install snaphu``).
 
     Returns
     -------
@@ -868,15 +1036,22 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
 
     Note
     ----
-    Three built-in algorithms are available. The default is the
-    reliability-guided algorithm by Herraez et al. [#herraez]_.
+    Five algorithms are available.  The default is the reliability-guided
+    algorithm by Herraez et al. [#herraez]_.  For the best robustness use
+    ``"wls"`` (no extra dependency) or ``"snaphu"`` (requires
+    ``pip install snaphu``).
 
     References
     ----------
-    .. [#herraez] Miguel Arevallilo Herraez, David R. Burton, Michael J. Lalor,
-      and Munther A. Gdeisat, "Fast two-dimensional phase-unwrapping algorithm
-      based on sorting by reliability following a noncontinuous path",
-      Journal Applied Optics, Vol. 41, No. 35, pp. 7437, 2002
+    .. [#herraez] M. A. Herraez et al., "Fast two-dimensional phase-unwrapping
+      algorithm based on sorting by reliability following a noncontinuous path",
+      Applied Optics 41(35), 7437 (2002).
+    .. [#ghiglia] D. C. Ghiglia and L. A. Romero, "Robust two-dimensional
+      weighted and unweighted phase unwrapping that uses fast transforms and
+      iterative methods", J. Opt. Soc. Am. A 11(1), 107-117 (1994).
+    .. [#chen] C. W. Chen and H. A. Zebker, "Two-dimensional phase unwrapping
+      with use of statistical models for cost functions in nonlinear
+      optimization", J. Opt. Soc. Am. A 18(2), 338-351 (2001).
     """
     params.setdefault("parallel", True)
     params.setdefault("unwrap_method", "herraez")
