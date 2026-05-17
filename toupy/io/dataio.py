@@ -565,11 +565,9 @@ class LoadProjections(PathName, Variables):
         # special: insert the information of the missing projections
         print("Inserting the missing projections:{}".format(missingnum))
         delta_theta = theta[1] - theta[0]
-        for ii in missingnum:
-            print("Projection: {}".format(ii), end="\r")
+        for ii in tqdm(missingnum, desc="Inserting missing projections"):
             theta = np.insert(theta, ii, theta[ii - 1] + delta_theta)
             stack_objs = np.insert(stack_objs, ii, stack_objs[ii - 1], axis=0)
-        print("\r")
         return stack_objs, theta
 
     @checkhostname
