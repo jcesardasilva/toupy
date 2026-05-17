@@ -37,6 +37,8 @@ __all__ = [
     "isnotebook",
     "autoscale_y",
     "show_figure",
+    "show_fsc_images",
+    "show_fsc_curve",
     "RegisterPlot",
     "ShowProjections",
     "plot_checkangles",
@@ -72,6 +74,63 @@ def show_figure(fig=None, close=True):
             plt.close(fig)
     else:
         plt.show(block=False)
+
+
+def show_fsc_images(img1_apod, img2_apod):
+    """Display the two apodized images used in the FSC computation.
+
+    Parameters
+    ----------
+    img1_apod : ndarray
+        First apodized image (or sagittal slice for 3D).
+    img2_apod : ndarray
+        Second apodized image (or sagittal slice for 3D).
+    """
+    fig = plt.figure()
+    ax1 = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122)
+    ax1.imshow(img1_apod, cmap="bone", interpolation="none")
+    ax1.set_title("image1")
+    ax1.set_axis_off()
+    ax2.imshow(img2_apod, cmap="bone", interpolation="none")
+    ax2.set_title("image2")
+    ax2.set_axis_off()
+    show_figure(fig)
+
+
+def show_fsc_curve(fn, FSC, T, snrt, ndim):
+    """Plot the FSC and threshold curves, save to disk, and display.
+
+    Parameters
+    ----------
+    fn : ndarray
+        Spatial frequencies normalised by the Nyquist frequency.
+    FSC : ndarray
+        Fourier Shell Correlation curve (real part).
+    T : ndarray
+        Threshold curve.
+    snrt : float
+        SNR threshold value (0.2071 → half-bit, 0.5 → one-bit).
+    ndim : int
+        Number of dimensions of the original data (2 or 3).
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(fn, FSC, "-b", label="FSC")
+    if snrt == 0.2071:
+        ax.plot(fn, T, "--r", label="1/2 bit threshold")
+    elif snrt == 0.5:
+        ax.plot(fn, T, "--r", label="1 bit threshold")
+    else:
+        ax.plot(fn, T, "--r", label="Threshold SNR = %g" % snrt)
+    ax.legend()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1.1)
+    ax.set_xlabel("Spatial frequency/Nyquist")
+    ax.set_ylabel("Magnitude")
+    suffix = "2D" if ndim == 2 else "3D"
+    fig.savefig(f"FSC_{suffix}.png", bbox_inches="tight")
+    show_figure(fig)
 
 
 def isnotebook():

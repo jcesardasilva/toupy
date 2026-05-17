@@ -12,7 +12,6 @@ import time
 
 # third party package
 import h5py
-from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fftshift, ifftshift
 from ..utils import tqdm
@@ -20,7 +19,7 @@ from ..utils import tqdm
 # local packages
 from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
-from ..utils.plot_utils import isnotebook, show_figure
+from ..utils.plot_utils import show_fsc_images, show_fsc_curve
 
 __all__ = ["FourierShellCorr", "FSCPlot"]
 
@@ -292,16 +291,7 @@ class FourierShellCorr:
         # ------------------------------------------------------------------
         # Display
         # ------------------------------------------------------------------
-        fig1 = plt.figure(1)
-        ax1 = fig1.add_subplot(121)
-        ax2 = fig1.add_subplot(122)
-        ax1.imshow(img1_apod, cmap="bone", interpolation="none")
-        ax1.set_title("image1")
-        ax1.set_axis_off()
-        ax2.imshow(img2_apod, cmap="bone", interpolation="none")
-        ax2.set_title("image2")
-        ax2.set_axis_off()
-        show_figure(fig1)
+        show_fsc_images(img1_apod, img2_apod)
 
         # ------------------------------------------------------------------
         # FSC computation
@@ -416,27 +406,8 @@ class FSCPlot(FourierShellCorr):
 
     def plot(self):
         print("calling method plot from the class FSCplot")
-        plt.figure(2)
-        plt.clf()
         fn  = self.f / self.fnyquist
         FSC = self.FSC.real
         T   = self.T
-
-        plt.plot(fn, FSC, "-b", label="FSC")
-        if self.snrt == 0.2071:
-            plt.plot(fn, T, "--r", label="1/2 bit threshold")
-        elif self.snrt == 0.5:
-            plt.plot(fn, T, "--r", label="1 bit threshold")
-        else:
-            plt.plot(fn, T, "--r", label="Threshold SNR = %g" % self.snrt)
-        plt.legend()
-        plt.xlim(0, 1)
-        plt.ylim(0, 1.1)
-        plt.xlabel("Spatial frequency/Nyquist")
-        plt.ylabel("Magnitude")
-
-        suffix = "2D" if self.img1.ndim == 2 else "3D"
-        plt.savefig(f"FSC_{suffix}.png", bbox_inches="tight")
-        show_figure()
-
+        show_fsc_curve(fn, FSC, T, self.snrt, self.img1.ndim)
         return fn, T, FSC
