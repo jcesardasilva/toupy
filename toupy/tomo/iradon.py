@@ -285,11 +285,18 @@ def mod_iradon(
     interpolation="linear",
     circle=False,
     freqcutoff=1,
+    backproject_chunk=32,
 ):
     """
     Inverse Radon transform — CPU path (pure NumPy/SciPy).
 
     Reconstruct an image from its Radon transform using filtered back-projection.
+
+    The backprojection step is vectorised: instead of one Python iteration per
+    angle, ``backproject_chunk`` angles are processed together in a single
+    NumPy batch.  This reduces GIL hold-time between iterations and allows
+    two concurrent reconstructions (as in :func:`compute_2tomograms_splitted`)
+    to actually run in parallel via ``ThreadPoolExecutor``.
 
     Parameters
     ----------
@@ -310,6 +317,10 @@ def mod_iradon(
         Zero pixels outside the inscribed circle.
     freqcutoff : float, optional
         Normalised frequency cutoff.
+    backproject_chunk : int, optional
+        Number of angles processed per batch.  Larger values use more memory
+        but reduce Python-loop overhead further.  Default ``32``.
+        Peak extra memory ≈ ``8 × output_size² × chunk × 4`` bytes (float32).
 
     Returns
     -------
@@ -330,6 +341,9 @@ def mod_iradon(
         output_size = (radon_image.shape[0] if circle
                        else int(np.floor(np.sqrt(radon_image.shape[0] ** 2 / 2.0))))
 
+    # ------------------------------------------------------------------
+    # Filtering (already vectorised over all angles in one FFT pass)
+    # ------------------------------------------------------------------
     th = np.deg2rad(theta)
     fourier_filter = compute_filter(radon_image.shape[0], filter_type=filter_type,
                                     derivatives=derivatives, freqcutoff=freqcutoff)
@@ -337,29 +351,81 @@ def mod_iradon(
     img = np.pad(radon_image, pad_width, mode="constant", constant_values=0)
     projection    = fft(img, axis=0) * fourier_filter
     radon_filtered = np.real(ifft(projection, axis=0))[:radon_image.shape[0], :]
+    # float32 halves memory for the batch arrays below
+    radon_filtered = radon_filtered.astype(np.float32)
 
-    reconstructed = np.zeros((output_size, output_size))
-    mid_index = radon_image.shape[0] // 2
-    [X, Y] = np.mgrid[0:output_size, 0:output_size]
-    xpr = X - output_size // 2
-    ypr = Y - output_size // 2
-    x   = np.arange(radon_filtered.shape[0]) - mid_index
+    # ------------------------------------------------------------------
+    # Vectorised backprojection (chunk-based)
+    #
+    # For each chunk of K angles we build a (H, W, K) array of detector
+    # coordinates and look up the filtered sinogram values with a single
+    # NumPy fancy-index call — no Python loop over individual angles.
+    #
+    # Fancy-index trick:
+    #   radon_filtered  shape (nbins, nangles)
+    #   t0              shape (H, W, K)   — integer floor of detector coord
+    #   k_idx           shape (K,)        — [0, 1, ..., K-1]
+    #   radon_filtered[t0, k_idx]         — NumPy broadcasts k_idx to (H,W,K)
+    #                                        so result[i,j,k] = rf[t0[i,j,k], k]
+    # ------------------------------------------------------------------
+    nbins     = radon_filtered.shape[0]
+    nangles   = len(th)
+    half      = output_size // 2
+    mid_index = nbins // 2
 
-    for i in range(len(theta)):
-        t = ypr * np.cos(th[i]) - xpr * np.sin(th[i])
-        if interpolation == "linear":
-            backprojected = np.interp(t, x, radon_filtered[:, i], left=0, right=0)
-        else:
-            backprojected = interp1d(x, radon_filtered[:, i], kind=interpolation,
-                                     bounds_error=False, fill_value=0)(t)
-        reconstructed += backprojected
+    cos_th = np.cos(th).astype(np.float32)   # (nangles,)
+    sin_th = np.sin(th).astype(np.float32)
+
+    # Pixel coordinate grids — (output_size, output_size), float32
+    rows = np.arange(output_size, dtype=np.float32) - half   # ypr
+    cols = np.arange(output_size, dtype=np.float32) - half   # xpr
+    ypr, xpr = np.meshgrid(rows, cols, indexing="ij")
+
+    reconstructed = np.zeros((output_size, output_size), dtype=np.float32)
+
+    if interpolation in ("linear", "nearest"):
+        for start in range(0, nangles, backproject_chunk):
+            end     = min(start + backproject_chunk, nangles)
+            K       = end - start
+            k_idx   = np.arange(K, dtype=np.int32)           # (K,)
+            rf_chunk = radon_filtered[:, start:end]           # (nbins, K)
+
+            # Detector coordinates: (H, W, K)
+            t = (ypr[:, :, None] * cos_th[start:end]
+                 - xpr[:, :, None] * sin_th[start:end]
+                 + mid_index)
+
+            if interpolation == "nearest":
+                t0 = np.round(t).astype(np.int32)
+                valid = (t0 >= 0) & (t0 < nbins)
+                t0 = np.clip(t0, 0, nbins - 1)
+                reconstructed += (rf_chunk[t0, k_idx] * valid).sum(axis=2)
+            else:  # linear
+                t_lo  = np.floor(t).astype(np.int32)
+                frac  = (t - t_lo).astype(np.float32)
+                valid = (t_lo >= 0) & (t_lo < nbins - 1)
+                t0    = np.clip(t_lo,     0, nbins - 2)
+                t1    = t0 + 1
+                reconstructed += (
+                    (rf_chunk[t0, k_idx] * (1.0 - frac)
+                     + rf_chunk[t1, k_idx] * frac)
+                    * valid
+                ).sum(axis=2)
+    else:
+        # cubic — fall back to per-angle interp1d (uncommon, not a bottleneck)
+        x = np.arange(nbins) - mid_index
+        for i in range(nangles):
+            t = ypr * cos_th[i] - xpr * sin_th[i]
+            reconstructed += interp1d(
+                x, radon_filtered[:, i], kind="cubic",
+                bounds_error=False, fill_value=0,
+            )(t)
 
     if circle:
-        radius = output_size // 2
-        mask = (xpr ** 2 + ypr ** 2) <= radius ** 2
-        reconstructed[~mask] = 0.0
+        Y_g, X_g = np.ogrid[-half:output_size - half, -half:output_size - half]
+        reconstructed[X_g ** 2 + Y_g ** 2 > half ** 2] = 0.0
 
-    return reconstructed * np.pi / (2 * len(th))
+    return (reconstructed * np.pi / (2 * nangles)).astype(np.float64)
 
 
 def mod_iradon_cuda(
@@ -490,17 +556,18 @@ def backprojector(sinogram, theta, **params):
         sinogram = sinogram * weights
 
     shared = dict(
-        theta       = theta,
-        output_size = sinogram.shape[0],
-        filter_type = params["filtertype"],
-        derivatives = params["derivatives"],
-        circle      = params["circle"],
-        freqcutoff  = params["freqcutoff"],
+        theta              = theta,
+        output_size        = sinogram.shape[0],
+        filter_type        = params["filtertype"],
+        derivatives        = params["derivatives"],
+        circle             = params["circle"],
+        freqcutoff         = params["freqcutoff"],
     )
 
     if use_cuda:
         return mod_iradon_cuda(sinogram, **shared)
     else:
+        shared["backproject_chunk"] = params.get("backproject_chunk", 32)
         return mod_iradon(sinogram, **shared)
 
 
