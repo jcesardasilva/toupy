@@ -1278,8 +1278,10 @@ def _tc_worker(args):
     """
     Process-pool worker for tomoconsistency_multiple.
 
-    Each worker aligns one sinogram slice independently.  Runs silently
-    (no matplotlib) so it is safe to execute inside a subprocess.
+    Each worker aligns one sinogram slice independently.  All per-slice
+    console output is suppressed so only the parent's overall progress
+    bar is visible.  Runs silently (no matplotlib display) so it is safe
+    inside a subprocess.
 
     Parameters
     ----------
@@ -1290,15 +1292,22 @@ def _tc_worker(args):
     -------
     (slice_index, shift_array)
     """
-    # matplotlib must be imported AFTER the process is spawned so we can set
-    # the backend before any display code runs.
+    import contextlib
+    import os
+    # matplotlib must be imported AFTER the process is spawned so we can
+    # set the non-interactive backend before any display code runs.
     import matplotlib
     matplotlib.use("Agg")
 
     ii, sinogram, theta, shiftstack_copy, params_w = args
-    shiftstack_aux = alignprojections_horizontal(
-        sinogram, theta, shiftstack_copy, **params_w
-    )
+    # Redirect stdout and stderr to /dev/null for the duration of this slice.
+    # contextlib restores them correctly even in the sequential (same-process)
+    # case, so the parent's tqdm bar is never disrupted.
+    with open(os.devnull, "w") as devnull:
+        with contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
+            shiftstack_aux = alignprojections_horizontal(
+                sinogram, theta, shiftstack_copy, **params_w
+            )
     return ii, shiftstack_aux[1]
 
 
