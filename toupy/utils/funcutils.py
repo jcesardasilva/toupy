@@ -20,9 +20,22 @@ __all__ = ["switch", "deprecated", "checkhostname", "progress_bar", "tqdm", "dow
 
 
 def _select_tqdm():
-    """Return tqdm.notebook inside Jupyter, plain tqdm elsewhere."""
+    """Return the best tqdm for the current environment.
+
+    In Jupyter: prefer tqdm.notebook (ipywidgets widget); fall back to plain
+    tqdm writing to stdout, since Jupyter buffers stderr and only flushes it
+    when a cell finishes — making the bar appear frozen.
+    In terminal: plain tqdm (writes to stderr as normal).
+    """
     if isnotebook():
-        from tqdm.notebook import tqdm as _tqdm
+        try:
+            import ipywidgets  # noqa: F401
+            from tqdm.notebook import tqdm as _tqdm
+        except ImportError:
+            import sys
+            from functools import partial
+            from tqdm import tqdm as _base
+            _tqdm = partial(_base, file=sys.stdout)
     else:
         from tqdm import tqdm as _tqdm
     return _tqdm
