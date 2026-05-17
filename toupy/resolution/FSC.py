@@ -443,12 +443,13 @@ class FSCPlot(FourierShellCorr):
         if isnotebook():
             from IPython import display
             display.display(plt.gcf())
-            plt.close("all")
             display.clear_output(wait=True)
         else:
             plt.show(block=False)
 
         suffix = "2D" if self.img1.ndim == 2 else "3D"
         plt.savefig(f"FSC_{suffix}.png", bbox_inches="tight")
+        if isnotebook():
+            plt.close("all")
 
         return fn, T, FSC
