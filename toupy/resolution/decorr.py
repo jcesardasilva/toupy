@@ -59,8 +59,16 @@ class ImageDecorr:
         Axis along which slices are taken when ``image`` is 3-D.
         Default ``0`` (first axis, i.e. slices are ``image[i, :, :]``).
     n_slices : int, optional
-        Number of evenly-spaced slices to sample from the 3-D volume.
+        Number of evenly-spaced slices to sample from the 3-D volume
+        (or from the sub-range defined by ``slice_range``).
         Ignored when ``image`` is 2-D.  Default ``10``.
+    slice_range : tuple of int or None, optional
+        ``(start, stop)`` slice indices along ``axis`` that define the
+        sub-range from which slices are sampled, following standard
+        Python / NumPy half-open convention (``start`` inclusive,
+        ``stop`` exclusive).  Negative indices are supported and are
+        resolved against the axis length before use.  ``None`` (default)
+        samples the full extent of the volume.
 
     Attributes
     ----------
@@ -110,17 +118,19 @@ class ImageDecorr:
         apod_width=20,
         axis=0,
         n_slices=10,
+        slice_range=None,
     ):
         print("Calling the class ImageDecorr")
         self.image = np.asarray(image, dtype=np.float64)
         if self.image.ndim not in (2, 3):
             raise ValueError("ImageDecorr requires a 2-D or 3-D array.")
-        self.pixel_size = float(pixel_size)
-        self.n_r        = int(n_r)
-        self.threshold  = float(threshold)
-        self.apod_width = int(apod_width)
-        self.axis       = int(axis)
-        self.n_slices   = int(n_slices)
+        self.pixel_size  = float(pixel_size)
+        self.n_r         = int(n_r)
+        self.threshold   = float(threshold)
+        self.apod_width  = int(apod_width)
+        self.axis        = int(axis)
+        self.n_slices    = int(n_slices)
+        self.slice_range = slice_range   # validated in _run_3d
 
         # Initialise per-slice attributes (populated only for 3-D input)
         self.resolutions_px    = None
@@ -164,22 +174,58 @@ class ImageDecorr:
         """
         Apply the 2-D algorithm to evenly-spaced slices along ``self.axis``.
 
+        The set of candidate slice indices is taken from ``self.slice_range``
+        when provided, otherwise the full axis length is used.
+        ``self.n_slices`` slices are sampled evenly from that range.
+
         Summary statistics (mean, median, std) are stored as instance
         attributes.  ``self.r_res``, ``self.resolution_px``, and
         ``self.resolution`` are set to the median values so that the
         scalar interface remains consistent.
         """
-        vol = self.image
+        vol  = self.image
         n_ax = vol.shape[self.axis]
-        # Choose evenly-spaced slice indices (avoid the very first/last)
-        n = min(self.n_slices, n_ax)
-        indices = np.round(np.linspace(0, n_ax - 1, n)).astype(int)
-        # Remove duplicates that can appear on very thin volumes
+
+        # --- resolve slice_range ---
+        if self.slice_range is None:
+            i_start, i_stop = 0, n_ax
+        else:
+            try:
+                i_start, i_stop = self.slice_range
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "slice_range must be a (start, stop) tuple of integers."
+                )
+            # Resolve negative indices
+            if i_start < 0:
+                i_start = max(0, n_ax + i_start)
+            if i_stop < 0:
+                i_stop = max(0, n_ax + i_stop)
+            i_start = int(np.clip(i_start, 0, n_ax))
+            i_stop  = int(np.clip(i_stop,  0, n_ax))
+            if i_start >= i_stop:
+                raise ValueError(
+                    f"slice_range ({i_start}, {i_stop}) is empty after "
+                    f"resolving against axis length {n_ax}."
+                )
+
+        # Choose evenly-spaced indices within [i_start, i_stop)
+        n_avail = i_stop - i_start
+        n       = min(self.n_slices, n_avail)
+        indices = np.round(
+            np.linspace(i_start, i_stop - 1, n)
+        ).astype(int)
+        # Remove duplicates that can appear on very thin sub-ranges
         indices = np.unique(indices)
 
+        range_str = (
+            f"[{i_start}:{i_stop}]"
+            if self.slice_range is not None
+            else "full range"
+        )
         print(
             f"  Volume shape : {vol.shape}  —  axis={self.axis}, "
-            f"sampling {len(indices)} slice(s)"
+            f"{range_str}, sampling {len(indices)} slice(s)"
         )
         print(f"  Pixel size   : {self.pixel_size}")
         print(f"  Threshold    : {self.threshold}")
