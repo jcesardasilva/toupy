@@ -102,26 +102,28 @@ def get_probe_novort(img_phase, residues):
 
 def rmvortices_probe(img_in, to_ignore=100):
     """
-    Remove phase vortices on the probe image ignoring an amount of pixels
-    equals to ``to_ignore`` from the borders.
+    Remove phase vortices on the probe image ignoring border pixels.
 
     Parameters
     ----------
-    img_phase : array_like
-        Probe image with vortices to be removed.
+    img_in : array_like
+        Complex probe image with vortices to be removed.
     to_ignore : int, optional
-        amount of pixels to ignore from the borders.
+        Number of pixels to ignore from each border.  Default ``100``.
 
     Returns
     -------
     img_phase_novort : array_like
-        Probe image without vortices
-    xres, yres : array_like
-        Coordinates `x` and `y` of the vortices
+        Probe image without vortices.
+    xres : ndarray
+        X-coordinates (columns) of the detected vortices.
+    yres : ndarray
+        Y-coordinates (rows) of the detected vortices.
 
-    Note
-    ----
-    An eventual linear phase ramp will be remove from the input image.
+    Notes
+    -----
+    Any linear phase ramp present in the input image is removed before
+    and after the vortex correction.
     """
     # remove phase ramp
     img_pr = rmphaseramp(img_in)  # [101:-100,93:-93] # to get square image
@@ -188,26 +190,28 @@ def get_object_novort(img_phase, residues):
 
 def rmvortices_object(img_in, to_ignore=100):
     """
-    Remove phase vortices on the object image ignoring an amount of pixels
-    equals to ``to_ignore`` from the borders.
+    Remove phase vortices on the object image ignoring border pixels.
 
     Parameters
     ----------
-    img_phase : array_like
-        Phase image with vortices to be removed.
+    img_in : array_like
+        Complex phase image with vortices to be removed.
     to_ignore : int, optional
-        amount of pixels to ignore from the borders.
+        Number of pixels to ignore from each border.  Default ``100``.
 
     Returns
     -------
     img_phase_novort : array_like
-        Phase image without vortices
-    xres, yres : array_like
-        Coordinates `x` and `y` of the vortices
+        Phase image without vortices.
+    xres : ndarray
+        X-coordinates (columns) of the detected vortices.
+    yres : ndarray
+        Y-coordinates (rows) of the detected vortices.
 
-    Note
-    ----
-    An eventual linear phase ramp will be remove from the input image.
+    Notes
+    -----
+    Any linear phase ramp present in the input image is removed before
+    and after the vortex correction.
     """
     # remove phase ramp
     img_pr = rmphaseramp(img_in)  # [101:-100,93:-93] # to get square image
@@ -235,26 +239,28 @@ def rmvortices_object(img_in, to_ignore=100):
 
 def rmvortices_slow(img_in, to_ignore=100):
     """
-    Remove phase vortices on the object image ignoring an amount of pixels
-    equals to ``to_ignore`` from the borders.
+    Remove phase vortices on the object image (slow reference implementation).
 
     Parameters
     ----------
-    img_phase : array_like
-        Phase image with vortices to be removed.
+    img_in : array_like
+        Complex phase image with vortices to be removed.
     to_ignore : int, optional
-        amount of pixels to ignore from the borders.
+        Number of pixels to ignore from each border.  Default ``100``.
 
     Returns
     -------
     img_phase_novort : array_like
-        Phase image without vortices
-    xres, yres : array_like
-        Coordinates `x` and `y` of the vortices
+        Phase image without vortices.
+    xres : ndarray
+        X-coordinates (columns) of the detected vortices.
+    yres : ndarray
+        Y-coordinates (rows) of the detected vortices.
 
-    Note
-    ----
-    Possibly deprecated and should disappear sooon
+    Notes
+    -----
+    Possibly deprecated and will be removed in a future version.
+    Prefer :func:`rmvortices_object` for production use.
     """
     # remove phase ramp
     img_pr = rmphaseramp(img_in)  # to get square image

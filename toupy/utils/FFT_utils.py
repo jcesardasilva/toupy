@@ -29,21 +29,51 @@ __all__ = [
 
 def is_power2(num):
     """
-    States if a number ``num`` is a power of two
+    Check whether a number is a power of two.
+
+    Parameters
+    ----------
+    num : int
+        Integer to test.
+
+    Returns
+    -------
+    bool
+        ``True`` if ``num`` is a non-zero power of two, ``False`` otherwise.
     """
     return num != 0 and ((num & (num - 1)) == 0)
 
 
 def nextpoweroftwo(number):
     """
-    Returns next power of two following ``number``
+    Return the exponent of the next power of two at or above ``number``.
+
+    Parameters
+    ----------
+    number : int or float
+        Input value.
+
+    Returns
+    -------
+    int
+        Smallest integer ``k`` such that ``2**k >= number``.
     """
     return int(np.ceil(np.log2(number)))
 
 
 def _nextpoweroftwo_print(number):
     """
-    Return next power of two following ``number``
+    Return the next power of two at or above ``number``.
+
+    Parameters
+    ----------
+    number : int or float
+        Input value.
+
+    Returns
+    -------
+    int
+        Smallest power of two ``2**k`` such that ``2**k >= number``.
     """
     nextPower = int(np.ceil(np.log2(number)))
     return np.power(2, nextPower)
@@ -51,7 +81,17 @@ def _nextpoweroftwo_print(number):
 
 def nextpow2(number):
     """
-    Find the next power 2 of ``number`` for FFT
+    Find the next power of two at or above ``number`` for use with FFTs.
+
+    Parameters
+    ----------
+    number : int or float
+        Input value.
+
+    Returns
+    -------
+    int
+        Smallest power of two ``n`` such that ``n >= number``.
     """
     n = 1
     while n < number:
@@ -61,7 +101,18 @@ def nextpow2(number):
 
 def padwidthbothsides(nbins):
     """
-    Returns pad_width for padding both sides given a value of ``nbins``
+    Compute the per-side padding width needed to reach the next power of two.
+
+    Parameters
+    ----------
+    nbins : int
+        Current array length.
+
+    Returns
+    -------
+    int
+        Number of zeros to add on each side so that the total length is
+        a power of two.
     """
     # ~ nextPower = nextpoweroftwo(nbins)
     deficit = int(nextpow2(nbins) - nbins)
@@ -71,8 +122,22 @@ def padwidthbothsides(nbins):
 
 def padrightside(nbins):
     """
-    Returns pad_width for padding at the right side given a value of ``nbins``
-    The pad_width is calculated with ``next_fast_len`` function from `PyFFTW` package
+    Compute the right-side padding width needed to reach the next FFT-fast length.
+
+    Uses :func:`pyfftw.next_fast_len` to find the smallest length that is
+    efficient for pyFFTW, which may be any highly composite number (not
+    necessarily a power of two).
+
+    Parameters
+    ----------
+    nbins : int
+        Current array length.
+
+    Returns
+    -------
+    int
+        Number of zeros to append on the right so that the total length
+        is FFT-efficient.
     """
     # ~ nextPower = nextpoweroftwo(nbins)
     # ~ nextPower = nextpow2(nbins)
@@ -84,6 +149,26 @@ def padrightside(nbins):
 
 
 def metafftw(func):
+    """
+    Decorator that injects pyFFTW configuration kwargs into FFT functions.
+
+    Determines the number of available CPU cores (respecting SLURM
+    environment variables when present), sets single-precision complex
+    dtype (``np.complex64``), and selects the ``'FFTW_MEASURE'`` planner
+    effort.
+
+    Parameters
+    ----------
+    func : callable
+        FFT function to decorate.  Must accept ``input_array`` as its
+        first positional argument and ``**kwargs`` for the configuration.
+
+    Returns
+    -------
+    callable
+        Wrapped function that automatically receives the pyFFTW
+        configuration as keyword arguments.
+    """
     @functools.wraps(func)
     def wrapper(input_array):
         # checking number of cores available
@@ -106,9 +191,9 @@ def fastfftn(input_array, **kwargs):
     apply FFTW transform
 
     Parameters
-    ---------
+    ----------
     input_array : array_like
-        Array to be FFTWed
+        Array to be FFT-transformed via pyFFTW.
 
     Returns
     -------
@@ -141,9 +226,9 @@ def fastifftn(input_array, **kwargs):
     apply inverse FFTW transform
 
     Parameters
-    ---------
+    ----------
     input_array : array_like
-        Array to be FFTWed
+        Array to be FFT-transformed via pyFFTW.
 
     Returns
     -------

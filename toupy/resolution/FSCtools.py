@@ -37,13 +37,13 @@ def split_dataset(sinogram, theta):
     Returns
     -------
     sinogram1 : ndarray
-        A 2-dimensional array containing the 1st sinogram
-    sinogram2
-        A 2-dimensional array containing the 2nd sinogram
+        A 2-dimensional array containing the 1st sinogram.
+    sinogram2 : ndarray
+        A 2-dimensional array containing the 2nd sinogram.
     theta1 : ndarray
-        A 1-dimensional array containing the 1st set of thetas
+        A 1-dimensional array containing the 1st set of thetas.
     theta2 : ndarray
-        A 1-dimensional array containing the 2nd set of thetas
+        A 1-dimensional array containing the 2nd set of thetas.
     """
     sinogram1 = sinogram[:, 0::2]
     theta1 = theta[0::2]
@@ -67,9 +67,9 @@ def compute_2tomograms(sinogram, theta, **params):
     Returns
     -------
     recon1 : ndarray
-        A 2-dimensional array containing the 1st reconstruction
-    recon2
-        A 2-dimensional array containing the 2nd reconstruction
+        A 2-dimensional array containing the 1st reconstruction.
+    recon2 : ndarray
+        A 2-dimensional array containing the 2nd reconstruction.
     """
     sino1, sino2, theta1, theta2 = split_dataset(sinogram, theta)
     return compute_2tomograms_splitted(sino1, sino2, theta1, theta2, **params)

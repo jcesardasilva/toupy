@@ -101,24 +101,24 @@ def read_volfile(filename):
     filename : str
         filename to be read
 
-    Return
-    ------
-    tomogram : array_like
-        3D array containing the tomogram
-    voxelsize : floats
-        Voxel size in meters
-    arrayshape : tuple of floats
-        The array shape: (x_size, y_size, z_size)
+    Returns
+    -------
+    tomogram : ndarray, float32, shape (z_size, x_size, y_size)
+        3D array containing the tomogram.
+    voxelsize : float
+        Voxel size in metres.
+    arrayshape : tuple of int
+        The array shape ``(x_size, y_size, z_size)``.
 
     Examples
     --------
     >>> volpath = 'volfilename.vol'
-    >>> tomogram,voxelsize,arrayshape = read_volfile(volpath)
+    >>> tomogram, voxelsize, arrayshape = read_volfile(volpath)
 
-    Note
-    ----
-    The volume info file containing the metadata of the volume should be
-    in the same folder as the volume file.
+    Notes
+    -----
+    The volume info file (``.vol.info``) containing the metadata of the
+    volume must reside in the same folder as the ``.vol`` file.
     """
     # Usually, the file .vol.info contains de size of the volume
     linesff = []
@@ -146,24 +146,24 @@ def memmap_volfile(filename):
     filename : str
         filename to be read
 
-    Return
-    ------
-    tomogram : array_like
-        3D array containing the tomogram
-    voxelSize : floats
-        Voxel size in meters
-    arrayshape : tuple of floats
-        The array shape: (x_size, y_size, z_size)
+    Returns
+    -------
+    tomogram : numpy.memmap, float32, shape (z_size, x_size, y_size)
+        Memory-mapped 3D array containing the tomogram.
+    voxelsize : float
+        Voxel size in metres.
+    arrayshape : tuple of int
+        The array shape ``(x_size, y_size, z_size)``.
 
     Examples
     --------
     >>> volpath = 'volfilename.vol'
-    >>> tomogram,voxelsize,arrayshape = memmap_volfile(volpath)
+    >>> tomogram, voxelsize, arrayshape = memmap_volfile(volpath)
 
-    Note
-    ----
-    The volume info file containing the metadata of the volume should be
-    in the same folder as the volume file.
+    Notes
+    -----
+    The volume info file (``.vol.info``) containing the metadata of the
+    volume must reside in the same folder as the ``.vol`` file.
     """
     # Usually, the file .vol.info contains de size of the volume
     linesff = []
@@ -203,11 +203,11 @@ def read_tiff_info(tiff_info_file):
     pixelsize : float
         Pixelsize in nanometers
 
-    Note
-    ----
-    The info file here is the file that is save when the volume is
-    exported to Tiff files. It is not the info file saved by the volume
-    reconstruction when saving the file in .vol.
+    Notes
+    -----
+    The info file here is the file that is saved when the volume is exported
+    to TIFF files.  It is not the info file saved by the volume reconstruction
+    when saving in ``.vol`` format.
     """
     # read info file
     # with open(tiff_info_beta,'r') as ff:
@@ -235,9 +235,22 @@ def read_tiff_info(tiff_info_file):
 
 def _reorient_ptyrimg(input_array):
     """
+    Correct the orientation of an image or probe array from a ptyr file.
 
-    Auxiliary function to corrects the orientation of the image and
-    probe from the arrays in ptyr file
+    Parameters
+    ----------
+    input_array : ndarray
+        2-D or 3-D complex array to reorient.
+
+    Returns
+    -------
+    output_array : ndarray
+        Reoriented array of the same shape as ``input_array``.
+
+    Raises
+    ------
+    ValueError
+        If ``input_array`` has neither 2 nor 3 dimensions.
     """
     # reorienting the probe
     if input_array.ndim == 3:
@@ -256,8 +269,12 @@ metaptyr = dict()
 
 def _print_attrs_ptyr(name):
     """
-    Auxiliary function to indentify from where the data must be read in
-    the ptyr files
+    Visitor callback to identify HDF5 paths for object/probe/energy in ptyr files.
+
+    Parameters
+    ----------
+    name : str
+        HDF5 path visited by :meth:`h5py.File.visit`.
     """
     global metaptyr
     if "obj" in name:
@@ -276,8 +293,12 @@ def _print_attrs_ptyr(name):
 
 def _findh5paths(filename):
     """
-    Auxiliary function to indentify from where the data must be read in
-    the HDF5 files
+    Populate the module-level ``metaptyr`` dict with HDF5 paths from a ptyr file.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the HDF5/ptyr file to inspect.
     """
     global metaptyr
     with h5py.File(filename, "r") as fid:
@@ -367,19 +388,22 @@ def read_theta_recon(reconfile):
     return theta
 
 
-def read_theta_raw(pathfilename,detector="Frelon"):
+def read_theta_raw(pathfilename, detector="Frelon"):
     """
-    Auxiliary function to read theta from raw data acquired at ID16A
+    Read the tomographic angle from a raw acquisition HDF5 file at ID16A.
 
     Parameters
     ----------
     pathfilename : str
-        Path to file
+        Path to the raw HDF5 file.
+    detector : str, optional
+        Detector name used to construct the HDF5 path to the motor header.
+        Default is ``"Frelon"``.
 
     Returns
     -------
     theta : float
-        Tomographic angle
+        Tomographic angle in degrees (value of the ``somega`` motor).
 
     Examples
     --------
@@ -400,7 +424,21 @@ def read_theta_raw(pathfilename,detector="Frelon"):
 
 def _h5py_dataset_iterator(g, prefix=""):
     """
-    Auxiliary function to iterate over the h5 file datasets
+    Recursively iterate over all datasets in an HDF5 group.
+
+    Parameters
+    ----------
+    g : h5py.Group or h5py.File
+        HDF5 group to traverse.
+    prefix : str, optional
+        Path prefix accumulated during recursion. Default ``""``.
+
+    Yields
+    ------
+    path : str
+        Absolute HDF5 path of each dataset.
+    data : ndarray
+        Dataset contents loaded with ``[()]``.
     """
     for key in g.keys():
         item = g[key]
@@ -416,7 +454,15 @@ metacxi = dict()
 
 def _h5pathcxi(filename):
     """
-    h5py visititems does not find links
+    Populate the module-level ``metacxi`` dict with HDF5 paths from a cxi file.
+
+    Uses :func:`_h5py_dataset_iterator` instead of ``h5py.File.visititems``
+    because the latter does not follow HDF5 soft links present in CXI files.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the CXI (HDF5) file to inspect.
     """
     global metacxi
     with h5py.File(filename, "r") as fid:
@@ -590,7 +636,19 @@ def read_edf(fname):
 
 def load_paramsh5(**params):
     """
-    Load parameters from HDF5 file of parameters
+    Load parameters from the sample's HDF5 parameter file.
+
+    Parameters
+    ----------
+    **params
+        Must contain ``params["samplename"]`` (str) to derive the filename
+        ``<samplename>_params.h5``.
+
+    Returns
+    -------
+    out_params : dict
+        Parameters read from the HDF5 file, updated with any keys in
+        ``params`` that were not present in the file.
     """
     # read parameter file
     paramsh5file = params["samplename"] + "_params.h5"
@@ -823,21 +881,21 @@ def convertimageto8bits(input_image, low_cutoff, high_cutoff):
 
 def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
     """
-    Convert 16 bits tiff files back to quantitative values.
+    Convert a 16-bit TIFF image back to quantitative values.
 
     Parameters
     ----------
-    imgpath : array_like
-        Image read from 16 bits tiff file.
+    tiffimage : array_like
+        Image read from a 16-bit TIFF file.
     low_cutoff : float
-        Low cutoff of the gray level.
+        Low cutoff of the gray level used during the original normalisation.
     high_cutoff : float
-        High cutoff of the gray level.
+        High cutoff of the gray level used during the original normalisation.
 
     Returns
     -------
-    tiffimage : array_like
-        Array containing the image with quantitative values.
+    tiffimage : ndarray, float
+        Array containing the image restored to quantitative values.
     """
     tiffimage = tiffimage.astype(np.float)
     # Convert to 16 bits
@@ -848,23 +906,23 @@ def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
     return tiffimage
 
 
-def convert8bitstiff(filename, low_cutoff, high_cutoff):
+def convert8bitstiff(tiffimage, low_cutoff, high_cutoff):
     """
-    Convert 8bits tiff files back to quantitative values.
+    Convert an 8-bit TIFF image back to quantitative values.
 
     Parameters
     ----------
-    imgpath : array_like
-        Image read from 8 bits tiff file.
+    tiffimage : array_like
+        Image read from an 8-bit TIFF file.
     low_cutoff : float
-        Low cutoff of the gray level.
+        Low cutoff of the gray level used during the original normalisation.
     high_cutoff : float
-        High cutoff of the gray level.
+        High cutoff of the gray level used during the original normalisation.
 
     Returns
     -------
-    tiffimage : array_like
-        Array containing the image with quantitative values.
+    tiffimage : ndarray, float
+        Array containing the image restored to quantitative values.
     """
     tiffimage = tiffimage.astype(np.float)
     # Convert to 8 bits

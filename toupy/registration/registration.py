@@ -207,7 +207,29 @@ def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear"):
 
 
 def center_of_mass_stack(input_stack, lims, shiftstack, shift_method="fourier"):
-    """Centre-of-mass for each projection (unchanged)."""
+    """
+    Compute the centre-of-mass position for each projection in the stack.
+
+    Parameters
+    ----------
+    input_stack : ndarray, shape (n, nr, nc)
+        Stack of projection images.
+    lims : tuple of array_like
+        ``(limrow, limcol)`` — row and column index arrays defining the
+        region of interest.
+    shiftstack : ndarray, shape (2, n)
+        Current shift estimates used to pre-align each projection before
+        computing the centre of mass.
+    shift_method : str, optional
+        Interpolation method for the shift operation.  Default ``'fourier'``.
+
+    Returns
+    -------
+    ndarray, shape (2, n)
+        Array ``[centerx, centery]`` where ``centerx[i]`` and ``centery[i]``
+        are the horizontal and vertical centre-of-mass offsets (in pixels)
+        for projection ``i``.
+    """
     limrow, limcol = lims
     print("Calculating center-of-mass with pixel precision")
     S = ShiftFunc(shiftmeth=shift_method)
@@ -240,7 +262,31 @@ def center_of_mass_stack(input_stack, lims, shiftstack, shift_method="fourier"):
 
 
 def vertical_fluctuations(input_stack, lims, shiftstack, shift_method="fourier", polyorder=2):
-    """Vertical mass fluctuation functions (unchanged)."""
+    """
+    Compute the vertical mass-fluctuation signal for each projection.
+
+    The signal is obtained by integrating each (shifted) projection over the
+    horizontal axis within the region of interest, then subtracting a
+    polynomial baseline fit.
+
+    Parameters
+    ----------
+    input_stack : ndarray, shape (n, nr, nc)
+        Stack of projection images.
+    lims : tuple of array_like
+        ``(rows, cols)`` — row and column index arrays for the ROI.
+    shiftstack : ndarray, shape (2, n)
+        Current vertical and horizontal shift estimates.
+    shift_method : str, optional
+        Interpolation method for the shift operation.  Default ``'fourier'``.
+    polyorder : int, optional
+        Polynomial order used for baseline removal.  Default ``2``.
+
+    Returns
+    -------
+    vert_fluct : ndarray, shape (n, n_rows_roi)
+        Array of vertical fluctuation signals, one row per projection.
+    """
     S = ShiftFunc(shiftmeth=shift_method)
     nproj, nr, nc = input_stack.shape
     rows, cols = lims
@@ -258,7 +304,31 @@ def vertical_fluctuations(input_stack, lims, shiftstack, shift_method="fourier",
 
 
 def vertical_shift(input_array, lims, vstep, maxshift, shift_method="linear", polyorder=2):
-    """Compute the vertical mass fluctuation signal for a given shift (unchanged)."""
+    """
+    Compute the vertical mass-fluctuation signal for a single projection
+    shifted by a given amount.
+
+    Parameters
+    ----------
+    input_array : ndarray, shape (nr, nc)
+        Single projection image.
+    lims : tuple of array_like
+        ``(rows, cols)`` — row and column index arrays for the ROI.
+    vstep : float
+        Vertical shift to apply (pixels).
+    maxshift : int
+        Safety margin (pixels) around the ROI to absorb border effects.
+    shift_method : str, optional
+        Interpolation method for the shift operation.  Default ``'linear'``.
+    polyorder : int, optional
+        Polynomial order used for baseline removal.  Default ``2``.
+
+    Returns
+    -------
+    shift_calc : ndarray, shape (n_rows_roi,)
+        Vertical fluctuation signal after shifting and polynomial baseline
+        subtraction.
+    """
     S = ShiftFunc(shiftmeth=shift_method)
     nr, nc = input_array.shape
     max_vshift = maxshift + int(np.abs(vstep))
@@ -279,6 +349,24 @@ def vertical_shift(input_array, lims, vstep, maxshift, shift_method="linear", po
 # ============================================================================
 
 def _selectROI(stack_shape, **params):
+    """
+    Derive region-of-interest row and column limits from params.
+
+    Parameters
+    ----------
+    stack_shape : tuple of int
+        Shape ``(n, nr, nc)`` of the projection stack.
+    **params
+        Must contain ``'deltax'`` (int, horizontal margin) and ``'limsy'``
+        (list of int or None, explicit row limits).
+
+    Returns
+    -------
+    limrow : ndarray of int
+        Row limits ``[row_start, row_end]``.
+    limcol : ndarray of int
+        Column limits ``[col_start, col_end]``.
+    """
     deltax = params["deltax"]
     limcol = (deltax, stack_shape[2] - deltax)
     limrow = params["limsy"]
@@ -288,6 +376,24 @@ def _selectROI(stack_shape, **params):
 
 
 def _clipping_tomo(recons, **params):
+    """
+    Apply low and high clipping to a tomographic reconstruction.
+
+    Parameters
+    ----------
+    recons : ndarray
+        Reconstructed slice array.
+    **params
+        Must contain ``'cliplow'`` (float or None) and ``'cliphigh'``
+        (float or None).  When a value is not ``None`` the reconstruction
+        is clipped to that threshold and, for ``cliphigh``, also shifted
+        so that the clipped maximum maps to zero.
+
+    Returns
+    -------
+    recons : ndarray
+        Clipped (and optionally shifted) reconstruction.
+    """
     if params["cliplow"] is not None:
         recons = recons * (recons >= params["cliplow"]) + params["cliplow"] * (
             recons < params["cliplow"]
@@ -301,6 +407,23 @@ def _clipping_tomo(recons, **params):
 
 
 def _sino_error_metric(sinogramexp, sinogramcomp, params):
+    """
+    Compute the per-column L2 error between experimental and synthetic sinograms.
+
+    Parameters
+    ----------
+    sinogramexp : ndarray, shape (nr, nc)
+        Experimental (measured) sinogram.
+    sinogramcomp : ndarray, shape (nr, nc)
+        Synthetic sinogram computed from the current reconstruction.
+    params : dict
+        Unused; reserved for future weighting options.
+
+    Returns
+    -------
+    errorxreg : ndarray, shape (nc,)
+        Per-column sum of squared differences between the two sinograms.
+    """
     errorxreg = np.zeros(sinogramexp.shape[1])
     for ii in range(sinogramexp.shape[1]):
         errorxreg[ii] = np.sum(np.abs(sinogramexp[:, ii] - sinogramcomp[:, ii]) ** 2)
@@ -358,6 +481,22 @@ def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False
 
 
 def _filter_sino(sinogram, **params):
+    """
+    Apply a Hanning low-pass filter to a sinogram along the detector axis.
+
+    Parameters
+    ----------
+    sinogram : ndarray, shape (nr, nc)
+        Input sinogram (rows = detector pixels, columns = projections).
+    **params
+        Must contain ``'freqcutoff'`` (float in ``(0, 1]``), which sets the
+        half-width of the apodisation window as a fraction of ``nr``.
+
+    Returns
+    -------
+    ndarray, shape (nr, nc)
+        Real-valued filtered sinogram.
+    """
     N, M = sinogram.shape
     apod_width = np.int32(0.5 * N * params["freqcutoff"])
     filteraux = hanning_apod1D(N, apod_width)
@@ -694,7 +833,32 @@ class _AndersonAccelerator:
 # ============================================================================
 
 def _search_vshift_stack(input_stack, lims, input_delta, avg_vert_fluct, **kwargs):
-    """Search vertical shifts for the full stack using gradient descent."""
+    """
+    Search optimal vertical shifts for all projections in the stack.
+
+    Applies :func:`_search_vshift_direction` independently to each
+    projection using gradient descent.
+
+    Parameters
+    ----------
+    input_stack : ndarray, shape (n, nr, nc)
+        Stack of projection images.
+    lims : tuple of array_like
+        ``(rows, cols)`` — ROI limits.
+    input_delta : ndarray, shape (2, n)
+        Current shift estimates; only row 0 (vertical) is updated.
+    avg_vert_fluct : ndarray, shape (n_rows_roi,)
+        Reference mean vertical fluctuation signal.
+    **kwargs
+        Must contain ``'pixtol'``, ``'shiftmeth'``, and ``'polyorder'``.
+
+    Returns
+    -------
+    output_shiftstack : ndarray, shape (2, n)
+        Updated shift array (row 0 = optimised vertical shifts).
+    vert_fluct_stack : ndarray, shape (n, n_rows_roi)
+        Vertical fluctuation signals at the optimised shifts.
+    """
     pixtol       = kwargs["pixtol"]
     shift_method = kwargs["shiftmeth"]
     polyorder    = kwargs["polyorder"]
@@ -785,7 +949,40 @@ def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice, **kwargs):
 def _alignprojections_vertical(
     input_stack, lims, shiftstack, metric_error, vert_fluct_init, RP, **params
 ):
-    """Iterative vertical alignment driver (unchanged outer logic)."""
+    """
+    Iterative outer loop for vertical projection alignment.
+
+    At each iteration the mean vertical fluctuation is recomputed from
+    the currently shifted stack and :func:`_search_vshift_stack` refines
+    the shifts via gradient descent.  Stops when the error increases for
+    two consecutive iterations, when shifts converge within ``pixtol``,
+    or when ``params['maxit']`` iterations are reached.
+
+    Parameters
+    ----------
+    input_stack : ndarray, shape (n, nr, nc)
+        Stack of projection images.
+    lims : tuple of array_like
+        ``(rows, cols)`` ROI limits.
+    shiftstack : ndarray, shape (2, n)
+        Initial shift estimates; modified in-place.
+    metric_error : list of float
+        Running list of error values; a new value is appended each iteration.
+    vert_fluct_init : ndarray, shape (n, n_rows_roi)
+        Vertical fluctuations computed before the first iteration.
+    RP : RegisterPlot
+        Plot helper for live visualisation.
+    **params
+        Algorithm parameters including ``'pixtol'``, ``'maxit'``,
+        ``'shiftmeth'``, ``'polyorder'``, ``'subpixel'``.
+
+    Returns
+    -------
+    shiftstack : ndarray, shape (2, n)
+        Optimised shift array.
+    metric_error : list of float
+        Updated error history.
+    """
     count = 0
     error_reg = np.zeros(vert_fluct_init.shape[0])
     while True:
@@ -846,11 +1043,48 @@ def _alignprojections_vertical(
 
 def alignprojections_vertical(input_stack, shiftstack, **params):
     """
-    Vertical alignment of projections using mass fluctuation approach with
-    Adam gradient descent optimisation.
+    Vertical alignment of projections using the mass-fluctuation approach.
 
-    Parameters and return values are identical to the original function.
-    See the original docstring for full parameter descriptions.
+    Shifts are optimised with a Newton gradient-descent algorithm that
+    minimises the L2 distance between each projection's vertical
+    mass-fluctuation signal and the stack mean.
+
+    Parameters
+    ----------
+    input_stack : ndarray, shape (n, nr, nc)
+        Stack of projection images to be aligned.
+    shiftstack : ndarray, shape (2, n)
+        Initial shift estimates ``[vertical_shifts, horizontal_shifts]``.
+        Modified in-place and also returned.
+    **params
+        Algorithm parameters.  Required keys:
+
+        maxit : int
+            Maximum number of outer iterations.
+        pixtol : float
+            Convergence tolerance in pixels.
+        deltax : int
+            Horizontal margin (pixels) to exclude from the ROI.
+        limsy : list of int or None
+            Explicit ``[row_start, row_end]`` row limits.  ``None`` uses
+            the full image height.
+        shiftmeth : str
+            Interpolation method (``'linear'``, ``'fourier'``,
+            ``'spline'``).
+        polyorder : int
+            Polynomial order for baseline removal in the fluctuation signal.
+        alignx : bool, optional
+            If ``True``, estimate horizontal shifts from the centre-of-mass
+            before the vertical loop.  Default ``False``.
+        subpixel : bool, optional
+            Ignored (always runs at sub-pixel precision).  Default ``True``.
+
+    Returns
+    -------
+    shiftstack : ndarray, shape (2, n)
+        Optimised shift array.
+    output_stack : ndarray, shape (n, nr, nc)
+        Vertically aligned projection stack.
     """
     if not isinstance(params["maxit"], int):
         params["maxit"] = 10
@@ -919,12 +1153,45 @@ def _alignprojections_horizontal(
     sinogram, sino_orig, theta, circleROI, shiftslice, metric_error, RP, **params
 ):
     """
-    Iterative horizontal alignment driver.
+    Iterative outer loop for horizontal projection alignment.
 
-    Accelerations active
-    --------------------
-    A — Parallel column processing (inside _search_hshift_sinogram).
-    E — Pre-computed FFT of sinogram columns (Fourier shift mode).
+    At each iteration a synthetic sinogram is computed from the current
+    reconstruction, horizontal shifts are updated via
+    :func:`_search_hshift_sinogram`, the sinogram is realigned and a new
+    reconstruction is computed.  Stops on error divergence, shift
+    convergence, or ``params['maxit']`` iterations.
+
+    Accelerations active:
+    A — parallel column processing inside :func:`_search_hshift_sinogram`;
+    E — pre-computed FFT of sinogram columns in Fourier-shift mode.
+
+    Parameters
+    ----------
+    sinogram : ndarray, shape (nr, nc)
+        Current aligned sinogram.
+    sino_orig : ndarray, shape (nr, nc)
+        Low-pass-filtered original sinogram (shift source).
+    theta : ndarray, shape (nc,)
+        Projection angles in radians.
+    circleROI : ndarray or int
+        Circular mask applied to the reconstruction.
+    shiftslice : ndarray, shape (1, nc)
+        Current horizontal shift estimates.
+    metric_error : list of float
+        Running error history; appended each iteration.
+    RP : RegisterPlot or None
+        Live-plot helper; ``None`` in silent mode.
+    **params
+        Algorithm parameters including ``'pixtol'``, ``'maxit'``,
+        ``'shiftmeth'``, ``'subpixel'``, ``'circle'``, ``'cliplow'``,
+        ``'cliphigh'``, ``'derivatives'``, ``'calc_derivatives'``.
+
+    Returns
+    -------
+    shiftslice : ndarray, shape (1, nc)
+        Optimised horizontal shift array.
+    metric_error : list of float
+        Updated error history.
     """
     print("Initializing tomographic slice...")
     t0 = time.time()
@@ -1000,11 +1267,66 @@ def _alignprojections_horizontal(
 
 def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     """
-    Horizontal alignment of projections by tomographic consistency using
-    Adam gradient descent optimisation.
+    Horizontal alignment of projections by tomographic consistency.
 
-    Parameters and return values are identical to the original function.
-    See the original docstring for full parameter descriptions.
+    Shifts are optimised with a Newton gradient-descent algorithm that
+    minimises the L2 distance between the measured sinogram and a
+    synthetic sinogram computed from a filtered-back-projection
+    reconstruction.  Supports a multi-stage frequency-cutoff schedule
+    and an optional spatial multiresolution warm-start.
+
+    Parameters
+    ----------
+    sinogram : ndarray, shape (nr, nc)
+        Measured sinogram (rows = detector pixels, columns = projections).
+    theta : ndarray, shape (nc,)
+        Projection angles in radians.
+    shiftstack : ndarray, shape (2, n)
+        Current shift estimates ``[vertical_shifts, horizontal_shifts]``.
+        Only the horizontal row (index 1) is updated.
+    **params
+        Algorithm parameters.  Required keys:
+
+        maxit : int
+            Maximum number of outer iterations per stage.
+        pixtol : float
+            Convergence tolerance in pixels.
+        freqcutoff : float
+            Fraction of Nyquist used as the sinogram low-pass cut-off.
+        shiftmeth : str
+            Interpolation method (``'linear'``, ``'fourier'``,
+            ``'spline'``).
+        circle : bool
+            Apply a circular mask to the reconstruction.
+        cliplow : float or None
+            Lower clipping threshold for the reconstruction values.
+        cliphigh : float or None
+            Upper clipping threshold for the reconstruction values.
+        derivatives : bool
+            Whether projections are phase-gradient images.
+        calc_derivatives : bool
+            Whether to compute derivatives on the synthetic sinogram.
+
+        freqcutoff_schedule : list of float, optional
+            Sequence of ``freqcutoff`` values (coarsest first).  Each
+            stage warm-starts the next.  Default is
+            ``[params['freqcutoff']]`` (single stage).
+        multiresolution : bool, optional
+            Spatial multiresolution warm-start at stage 0.  Default ``False``.
+        mr_factor : int, optional
+            Down-sampling factor for the spatial warm-start.  Default ``2``.
+        n_coarse_iter : int, optional
+            Number of coarse iterations in the warm-start.  Default ``5``.
+        rtol : float, optional
+            Relative improvement threshold for early stopping.  Default ``0``.
+        silent : bool, optional
+            If ``True``, suppress all matplotlib output (required for
+            sub-process workers).  Default ``False``.
+
+    Returns
+    -------
+    shiftstack : ndarray, shape (2, n)
+        Updated shift array with optimised horizontal shifts in row 1.
     """
     params.setdefault("circle", True)
     params.setdefault("sinohigh", 0.6)
@@ -1265,6 +1587,20 @@ def oneslicefordisplay(sinogram, theta, **params):
 
 
 def _oneslicefordisplay(sinogram, theta, **params):
+    """
+    Reconstruct and display a single tomographic slice.
+
+    Parameters
+    ----------
+    sinogram : ndarray, shape (nr, nc)
+        Sinogram to reconstruct.
+    theta : ndarray, shape (nc,)
+        Projection angles in radians.
+    **params
+        Must contain ``'circle'`` (bool), ``'cliplow'`` (float or None),
+        ``'cliphigh'`` (float or None), and ``'colormap'`` (str).
+        All remaining keys are forwarded to :func:`tomo_recons`.
+    """
     p0 = time.time()
     recons = tomo_recons(sinogram, theta=theta, **params)
     recons = _clipping_tomo(recons, **params)
@@ -1313,21 +1649,40 @@ def _tc_worker(args):
 
 def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     """
-    Tomographic consistency alignment on multiple slices.
+    Tomographic consistency alignment over multiple sinogram slices.
 
-    Each slice starts from the same ``shiftstack`` warm-start, so there
-    is no need for a multi-stage frequency schedule or spatial
-    multiresolution — a single-pass alignment at the current
-    ``freqcutoff`` is sufficient and significantly faster.
+    Each slice is aligned independently (using the same ``shiftstack``
+    warm-start) and the resulting per-slice horizontal shifts are averaged
+    to produce a robust final estimate.  Slices can be processed in
+    parallel via :class:`~concurrent.futures.ProcessPoolExecutor`.
 
-    Parameters controlled via ``params``
-    -------------------------------------
-    n_slices_tc : int, optional
-        Total number of slices to align, centred on ``params["slicenum"]``.
-        Default ``10``.
-    n_workers_tc : int, optional
-        Number of parallel worker processes.  Default
-        ``max(1, cpu_count // 2)``.  Set to ``1`` to run sequentially.
+    Parameters
+    ----------
+    input_stack : ndarray, shape (n, nr, nc)
+        Full 3-D projection stack.
+    theta : ndarray, shape (n,)
+        Projection angles in radians.
+    shiftstack : ndarray, shape (2, n)
+        Current shift estimates used as a warm-start for every slice.
+        The horizontal row (index 1) is updated with the averaged result.
+    **params
+        Algorithm parameters forwarded to
+        :func:`alignprojections_horizontal`.  Extra keys:
+
+        slicenum : int
+            Central slice index.
+        n_slices_tc : int, optional
+            Number of slices to process (centred on ``slicenum``).
+            Default ``10``.
+        n_workers_tc : int, optional
+            Number of parallel worker processes.
+            Default ``max(1, cpu_count // 2)``.  Pass ``1`` for sequential.
+
+    Returns
+    -------
+    shiftstack : ndarray, shape (2, n)
+        Updated shift array with the averaged horizontal shifts in row 1
+        (or the original shifts if the user declines the result).
     """
     print("Starting Tomographic consistency on multiple slices")
     slicenumorig = params["slicenum"]
@@ -1474,6 +1829,22 @@ def estimate_rot_axis(input_array, theta, **params):
 
 @deprecated
 def _offset_sinogram_old(sinogram, offset):
+    """
+    Pad a sinogram to offset the rotation axis (deprecated).
+
+    Parameters
+    ----------
+    sinogram : ndarray, shape (nr, nc)
+        Input sinogram.
+    offset : int
+        Rotation-axis offset in pixels.  Positive values pad the bottom;
+        negative values pad the top.
+
+    Returns
+    -------
+    sinogram : ndarray
+        Zero-padded sinogram.
+    """
     if np.sign(offset) == +1:
         print("Initial guess of the rotation axis offset : {}".format(offset))
         sinogram = np.pad(sinogram, ((0, 2 * abs(offset)), (0, 0)), "constant", constant_values=0)
@@ -1484,5 +1855,22 @@ def _offset_sinogram_old(sinogram, offset):
 
 
 def _offset_sinogram(sinogram, offset, shift_method="linear"):
+    """
+    Shift a sinogram vertically to offset the rotation axis.
+
+    Parameters
+    ----------
+    sinogram : ndarray, shape (nr, nc)
+        Input sinogram.
+    offset : float
+        Rotation-axis offset in pixels (positive = shift down).
+    shift_method : str, optional
+        Interpolation method.  Default ``'linear'``.
+
+    Returns
+    -------
+    ndarray, shape (nr, nc)
+        Vertically shifted sinogram.
+    """
     S = ShiftFunc(shiftmeth="linear")
     return S(sinogram, (offset, 0))

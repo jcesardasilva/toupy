@@ -67,10 +67,10 @@ def tomo_recons(sinogram, theta, **params):
     params["showrecons"] : bool
         If to show the reconstructed slices
 
-    Return
-    ------
+    Returns
+    -------
     recons : ndarray
-        A 2-dimensional array containing the reconstructed slice
+        A 2-dimensional array containing the reconstructed slice.
     """
     if params["algorithm"] == "FBP":
         if params["calc_derivatives"]:
@@ -126,10 +126,10 @@ def full_tomo_recons(input_stack, theta, **params):
         If to show the reconstructed slices
 
 
-    Return
-    ------
-    Tomogram : ndarray
-        A 3-dimensional array containing the full reconstructed tomogram
+    Returns
+    -------
+    tomogram : ndarray
+        A 3-dimensional array containing the full reconstructed tomogram.
     """
 
     print("Calculating a slice for display")
