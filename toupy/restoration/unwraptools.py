@@ -933,26 +933,34 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez"):
 
     Returns
     -------
-    img2unwrap : array_like
-        Unwrapped image
+    unwrapped : ndarray
+        Unwrapped image (new array — the input ``img2unwrap`` is never modified).
     """
     if rx == [] and ry == []:
-        img2unwrap = unwrap_phase_2d(img2unwrap, method=method)
-        img2unwrap -= -2 * np.pi * np.round(img2unwrap / (2 * np.pi))
+        # unwrap_phase_2d always returns a new array, so the original is safe
+        unwrapped = unwrap_phase_2d(img2unwrap, method=method)
+        unwrapped -= -2 * np.pi * np.round(unwrapped / (2 * np.pi))
     else:
-        # select the region to be unwrapped
-        img2wrap_sel = img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]]
-        # unwrap the region using the chosen algorithm
-        img2unwrap_sel = unwrap_phase_2d(img2wrap_sel, method=method)
-        # update the image in the original array
-        img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]] = img2unwrap_sel
-        img2unwrap[
-            ry[0] : ry[-1], rx[0] : rx[-1]
-        ] = img2unwrap_sel - 2 * np.pi * np.round(
-            img2unwrap[airpix[1], airpix[0]] / (2 * np.pi)
-        )
+        # Take an explicit copy of the ROI so the original wrapped data is
+        # never overwritten — this guarantees that calling with a different
+        # method later always starts from the same original wrapped phase.
+        img_wrap_sel = img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]].copy()
 
-    return img2unwrap
+        # Unwrap the selected region
+        img_unwrap_sel = unwrap_phase_2d(img_wrap_sel, method=method)
+
+        # Air-pixel correction: read from the unwrapped result
+        # (airpix is (col, row) == (x, y); chooseregiontounwrap guarantees
+        #  it lies inside [ry, rx])
+        air_val = img_unwrap_sel[airpix[1] - ry[0], airpix[0] - rx[0]]
+        air_offset = 2 * np.pi * np.round(air_val / (2 * np.pi))
+
+        # Build the output image: start from a copy of the original so that
+        # pixels outside the ROI keep their original values.
+        unwrapped = img2unwrap.copy()
+        unwrapped[ry[0] : ry[-1], rx[0] : rx[-1]] = img_unwrap_sel - air_offset
+
+    return unwrapped
 
 
 # ---------------------------------------------------------------------------
