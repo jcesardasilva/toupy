@@ -21,7 +21,7 @@ from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
 from ..utils.plot_utils import show_fsc_images, show_fsc_curve
 
-__all__ = ["FourierShellCorr", "FSCPlot"]
+__all__ = ["FourierShellCorr", "FSCPlot", "FRCPlot", "SSNRPlot"]
 
 
 class FourierShellCorr:
@@ -413,6 +413,44 @@ class FourierShellCorr:
         return FSC, T
 
 
+    def ssnr(self):
+        """
+        Compute the Spectral Signal-to-Noise Ratio (SSNR) from the FSC curve.
+
+        The SSNR is a direct transformation of the FSC:
+
+        .. math::
+
+            \\mathrm{SSNR}(r) = \\frac{2 \\cdot \\mathrm{FSC}(r)}{1 - \\mathrm{FSC}(r)}
+
+        SSNR > 1 indicates signal-dominated shells; SSNR = 1 corresponds to the
+        resolution limit.  This method calls :meth:`fouriercorr` internally if
+        the FSC has not already been computed.
+
+        Returns
+        -------
+        f : ndarray
+            Integer shell indices (same as :meth:`nyquist`).
+        fnyquist : float
+            Nyquist frequency (in pixels).
+        FSC : ndarray
+            Fourier Shell Correlation curve.
+        SSNR : ndarray
+            Spectral Signal-to-Noise Ratio as a function of spatial frequency.
+
+        References
+        ----------
+        .. [1] M. Unser, B. L. Trus, and A. C. Steven, "A new resolution
+           criterion based on spectral signal-to-noise ratios", Ultramicroscopy
+           23, 39-52 (1987).
+        """
+        FSC, _ = FourierShellCorr.fouriercorr(self)
+        f, fnyquist = FourierShellCorr.nyquist(self)
+        eps = np.spacing(1)
+        SSNR = 2.0 * FSC / np.maximum(1.0 - FSC, eps)
+        return f, fnyquist, FSC, SSNR
+
+
 class FSCPlot(FourierShellCorr):
     """
     Upper level object to plot the FSC and threshold curves
@@ -479,3 +517,155 @@ class FSCPlot(FourierShellCorr):
         T   = self.T
         show_fsc_curve(fn, FSC, T, self.snrt, self.img1.ndim)
         return fn, T, FSC
+
+
+class FRCPlot(FSCPlot):
+    """
+    Fourier Ring Correlation (FRC) — the 2-D analogue of the FSC.
+
+    Identical to :class:`FSCPlot` but enforces two-dimensional input and
+    uses "FRC" in all labels and output filenames.  FRC is standard in
+    cryo-EM and increasingly used in X-ray ptychography and nano-tomography.
+
+    Parameters
+    ----------
+    img1 : ndarray
+        A 2-dimensional array containing the first image.
+    img2 : ndarray
+        A 2-dimensional array containing the second image.
+    threshold : str, optional
+        ``'halfbit'`` (default) or ``'onebit'``.
+    ring_thick : int, optional
+        Ring thickness in pixels.  Default ``1``.
+    apod_width : int, optional
+        Apodization width in pixels.  Default ``20``.
+
+    Returns
+    -------
+    fn : ndarray
+        Spatial frequencies normalised by the Nyquist frequency.
+    FRC : ndarray
+        Fourier Ring Correlation curve.
+    T : ndarray
+        Threshold curve.
+
+    Raises
+    ------
+    ValueError
+        If either input image is not 2-dimensional.
+
+    Notes
+    -----
+    The mathematical definition and threshold criteria are identical to the
+    FSC; only the geometry changes (rings in 2-D vs shells in 3-D).
+
+    References
+    ----------
+    .. [1] M. van Heel and M. Schatz, "Fourier shell correlation threshold
+       criteria", Journal of Structural Biology 151, 250-262 (2005).
+    """
+
+    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
+        if np.asarray(img1).ndim != 2 or np.asarray(img2).ndim != 2:
+            raise ValueError("FRCPlot requires 2-D images (use FSCPlot for 3-D).")
+        print("Calling the class FRCPlot")
+        super().__init__(img1, img2, threshold, ring_thick, apod_width)
+
+    def plot(self):
+        """
+        Plot the FRC and threshold curves and return the underlying data.
+
+        Returns
+        -------
+        fn : ndarray
+            Spatial frequencies normalised by the Nyquist frequency.
+        T : ndarray
+            Threshold curve (half-bit or one-bit).
+        FRC : ndarray
+            Fourier Ring Correlation curve (real part).
+        """
+        print("Calling method plot from the class FRCPlot")
+        fn  = self.f / self.fnyquist
+        FRC = self.FSC.real
+        T   = self.T
+        # Reuse show_fsc_curve but relabel via the ndim=2 path
+        show_fsc_curve(fn, FRC, T, self.snrt, ndim=2)
+        return fn, T, FRC
+
+
+class SSNRPlot(FourierShellCorr):
+    """
+    Compute and plot the Spectral Signal-to-Noise Ratio (SSNR).
+
+    The SSNR is derived from the FSC via:
+
+    .. math::
+
+        \\mathrm{SSNR}(r) = \\frac{2 \\cdot \\mathrm{FSC}(r)}{1 - \\mathrm{FSC}(r)}
+
+    The resolution limit is the spatial frequency where SSNR = 1.
+
+    Parameters
+    ----------
+    img1 : ndarray
+        First half-dataset (2-D or 3-D array).
+    img2 : ndarray
+        Second half-dataset, same shape as ``img1``.
+    threshold : str, optional
+        ``'halfbit'`` (default) or ``'onebit'``.
+    ring_thick : int, optional
+        Ring thickness in pixels.  Default ``1``.
+    apod_width : int, optional
+        Apodization width in pixels.  Default ``20``.
+
+    References
+    ----------
+    .. [1] M. Unser, B. L. Trus, and A. C. Steven, "A new resolution
+       criterion based on spectral signal-to-noise ratios",
+       Ultramicroscopy 23, 39-52 (1987).
+    """
+
+    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
+        print("Calling the class SSNRPlot")
+        super().__init__(img1, img2, threshold, ring_thick, apod_width)
+        self.f, self.fnyquist, self.FSC, self.SSNR = FourierShellCorr.ssnr(self)
+
+    def plot(self):
+        """
+        Plot the SSNR curve and return the underlying data.
+
+        Returns
+        -------
+        fn : ndarray
+            Spatial frequencies normalised by the Nyquist frequency.
+        FSC : ndarray
+            Fourier Shell/Ring Correlation curve.
+        SSNR : ndarray
+            Spectral Signal-to-Noise Ratio curve.
+        """
+        from ..utils.plot_utils import plt, isnotebook
+        print("Calling method plot from the class SSNRPlot")
+        fn   = self.f / self.fnyquist
+        FSC  = self.FSC.real
+        SSNR = self.SSNR
+        suffix = "2D" if self.ndim == 2 else "3D"
+
+        fig = plt.figure(figsize=(8, 6))
+        plt.clf()
+        ax = fig.add_subplot(111)
+        ax.semilogy(fn, SSNR, "-b", label="SSNR")
+        ax.axhline(1.0, color="r", linestyle="--", label="SSNR = 1 (resolution limit)")
+        ax.legend()
+        ax.set_xlim(0, 1)
+        ax.set_xlabel("Spatial frequency / Nyquist")
+        ax.set_ylabel("SSNR")
+        ax.set_title(f"Spectral Signal-to-Noise Ratio ({suffix})")
+        ax.grid(True, linestyle="--", alpha=0.5)
+        fig.savefig(f"SSNR_{suffix}.png", bbox_inches="tight")
+        if isnotebook():
+            from IPython import display
+            display.display(fig)
+            plt.close(fig)
+        else:
+            plt.show(block=False)
+        return fn, FSC, SSNR
