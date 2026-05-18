@@ -734,6 +734,21 @@ def _unwrap_wls(phase):
     rho[0, :]    += dy[0, :]                   # top boundary
     rho[-1, :]   -= dy[-1, :]                  # bottom boundary
 
+    # Residue correction: phase residues make the gradient field non-
+    # conservative; the Poisson solver would otherwise spread that
+    # inconsistency as a smooth large-scale gradient across the whole image.
+    # We detect residue locations (2×2 loops where the wrapped path integral
+    # ≠ 0) and zero-out their divergence contribution before solving, which
+    # localises the residue error rather than distributing it globally.
+    res_map, _, _ = phaseresidues(phase)   # values ±1 at residue corners
+    # phaseresidues uses a (nr-2)×(nc-2) interior grid with +1 offset
+    res_mask = np.zeros((nr, nc), dtype=bool)
+    res_mask[1:-1, 1:-1] = np.abs(np.round(res_map)) >= 1
+    # Dilate one pixel so the correction covers the full 2×2 residue cell
+    from scipy.ndimage import binary_dilation
+    res_mask = binary_dilation(res_mask)
+    rho[res_mask] = 0.0
+
     # Eigenvalues of the discrete Laplacian in DCT-II / Neumann basis:
     #   mu[k, l] = 2*(cos(pi*k/nr) - 1) + 2*(cos(pi*l/nc) - 1)
     k = np.arange(nr, dtype=np.float64)
@@ -1037,22 +1052,31 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, 
     else:
         ncpus = ncores
     print(f"Parallel calculations using {ncpus} cpus")
-    # with parallel_backend('threading',n_jobs = ncpus):#("loky", inner_max_num_threads=1):
-    stack2unwrap_sel = stack2unwrap[:, ry[0] : ry[-1], rx[0] : rx[-1]].copy()
+    # Unwrap each projection in the ROI (copy so the original is never touched)
+    roi_wrapped = stack2unwrap[:, ry[0] : ry[-1], rx[0] : rx[-1]].copy()
     with parallel_backend("loky", inner_max_num_threads=2):
-        stack2unwrap_sel = Parallel(n_jobs=ncpus)(
-            delayed(unwrap_phase_2d)(ii, method=method, verbose=verbose)
-            for ii in tqdm(stack2unwrap_sel)
+        results = Parallel(n_jobs=ncpus)(
+            delayed(unwrap_phase_2d)(img, method=method, verbose=verbose)
+            for img in tqdm(roi_wrapped)
         )
 
+    # Air-pixel indices within the ROI sub-array
+    air_row = airpix[1] - ry[0]   # airpix is (col, row)
+    air_col = airpix[0] - rx[0]
+
+    # Build the output from a copy of the original (preserves pixels outside
+    # the ROI and guarantees the caller's stack_phasecorr is never modified)
+    stack_out = stack2unwrap.copy()
     print("Correcting for air values")
     for ii in range(stack2unwrap.shape[0]):
-        airphase = np.round(stack2unwrap[ii, airpix[1], airpix[0]] / (2 * np.pi))
-        stack2unwrap[ii, ry[0] : ry[-1], rx[0] : rx[-1]] = stack2unwrap_sel[ii]
-        stack2unwrap[ii, ry[0] : ry[-1], rx[0] : rx[-1]] = stack2unwrap_sel[ii] - (
-            2 * np.pi * airphase
+        # Read air correction from the UNWRAPPED result (same logic as the
+        # sequential path) — the wrapped value would always round to 0
+        air_val = results[ii][air_row, air_col]
+        airphase = np.round(air_val / (2 * np.pi))
+        stack_out[ii, ry[0] : ry[-1], rx[0] : rx[-1]] = (
+            results[ii] - 2 * np.pi * airphase
         )
-    return stack2unwrap
+    return stack_out
 
 
 # ---------------------------------------------------------------------------
