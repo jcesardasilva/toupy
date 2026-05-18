@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 # standard packages
+import contextlib
 import heapq
 import os
+import sys
 from collections import deque
 from itertools import count
 
@@ -755,7 +757,30 @@ def _unwrap_wls(phase):
 # Algorithm 5: SNAPHU (Chen & Zebker, 2001) — optional dependency
 # ---------------------------------------------------------------------------
 
-def _unwrap_snaphu(phase):
+@contextlib.contextmanager
+def _suppress_fd1():
+    """
+    Context manager that silences C-level stdout (file descriptor 1).
+
+    ``contextlib.redirect_stdout`` only redirects Python's ``sys.stdout``
+    object.  SNAPHU's C library writes directly to fd 1, so the only
+    reliable way to suppress it is to temporarily replace fd 1 with
+    /dev/null at the OS level via ``os.dup2``.
+    """
+    sys.stdout.flush()
+    saved_fd = os.dup(1)                          # save real fd 1
+    devnull_fd = os.open(os.devnull, os.O_WRONLY) # open /dev/null
+    try:
+        os.dup2(devnull_fd, 1)                    # redirect fd 1 → /dev/null
+        yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved_fd, 1)                      # restore real fd 1
+        os.close(saved_fd)
+        os.close(devnull_fd)
+
+
+def _unwrap_snaphu(phase, verbose=False):
     """
     SNAPHU phase unwrapping (Chen & Zebker, 2001).
 
@@ -772,6 +797,10 @@ def _unwrap_snaphu(phase):
     ----------
     phase : ndarray
         2-D wrapped phase array (radians).
+    verbose : bool, optional
+        If ``False`` (default) SNAPHU's extensive C-level output is
+        suppressed and a single progress line is printed instead.
+        Set to ``True`` to see the full SNAPHU log (useful for debugging).
 
     Returns
     -------
@@ -808,8 +837,16 @@ def _unwrap_snaphu(phase):
     else:
         corr = ((rel - rel.min()) / rel_range).astype(np.float32)
 
-    # Run SNAPHU
-    unw, _ = _snaphu.unwrap(igram, corr, nlooks=1)
+    # Run SNAPHU, optionally suppressing its C-level output
+    print("Running SNAPHU ...", end=" ", flush=True)
+    if verbose:
+        print()   # newline before SNAPHU's own output
+        unw, _ = _snaphu.unwrap(igram, corr, nlooks=1)
+    else:
+        with _suppress_fd1():
+            unw, _ = _snaphu.unwrap(igram, corr, nlooks=1)
+        print("done.", flush=True)
+
     return np.asarray(unw, dtype=np.float64)
 
 
@@ -817,7 +854,7 @@ def _unwrap_snaphu(phase):
 # Public dispatcher
 # ---------------------------------------------------------------------------
 
-def unwrap_phase_2d(phase, method="herraez"):
+def unwrap_phase_2d(phase, method="herraez", verbose=False):
     """
     Unwrap a 2-D phase array using one of three internal algorithms.
 
@@ -881,6 +918,11 @@ def unwrap_phase_2d(phase, method="herraez"):
             unwrapping with use of statistical models for cost functions in
             nonlinear optimization", J. Opt. Soc. Am. A 18(2), 338-351 (2001).
 
+    verbose : bool, optional
+        Only used when ``method='snaphu'``.  If ``False`` (default) SNAPHU's
+        extensive C-level log is suppressed and replaced by a single line.
+        Set to ``True`` to see the full SNAPHU output.
+
     Returns
     -------
     unwrapped : ndarray
@@ -903,7 +945,7 @@ def unwrap_phase_2d(phase, method="herraez"):
     elif method == "wls":
         return _unwrap_wls(phase)
     elif method == "snaphu":
-        return _unwrap_snaphu(phase)
+        return _unwrap_snaphu(phase, verbose=verbose)
     else:
         raise ValueError(
             f"Unknown unwrapping method '{method}'. "
@@ -915,7 +957,7 @@ def unwrap_phase_2d(phase, method="herraez"):
 # Internal single-image unwrapping helper
 # ---------------------------------------------------------------------------
 
-def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez"):
+def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez", verbose=False):
     """
     Unwrap the phases of a projection
 
@@ -930,6 +972,9 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez"):
     method : str, optional
         Phase unwrapping algorithm. See ``unwrap_phase_2d`` for details.
         Default is ``"herraez"``.
+    verbose : bool, optional
+        Passed to ``unwrap_phase_2d`` (only relevant for ``method='snaphu'``).
+        Default is ``False``.
 
     Returns
     -------
@@ -938,7 +983,7 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez"):
     """
     if rx == [] and ry == []:
         # unwrap_phase_2d always returns a new array, so the original is safe
-        unwrapped = unwrap_phase_2d(img2unwrap, method=method)
+        unwrapped = unwrap_phase_2d(img2unwrap, method=method, verbose=verbose)
         unwrapped -= -2 * np.pi * np.round(unwrapped / (2 * np.pi))
     else:
         # Take an explicit copy of the ROI so the original wrapped data is
@@ -947,7 +992,7 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez"):
         img_wrap_sel = img2unwrap[ry[0] : ry[-1], rx[0] : rx[-1]].copy()
 
         # Unwrap the selected region
-        img_unwrap_sel = unwrap_phase_2d(img_wrap_sel, method=method)
+        img_unwrap_sel = unwrap_phase_2d(img_wrap_sel, method=method, verbose=verbose)
 
         # Air-pixel correction: read from the unwrapped result
         # (airpix is (col, row) == (x, y); chooseregiontounwrap guarantees
@@ -967,7 +1012,7 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez"):
 # Internal parallel unwrapping helper
 # ---------------------------------------------------------------------------
 
-def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, method="herraez"):
+def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, method="herraez", verbose=False):
     """
     Unwrap the phases of a projection
 
@@ -996,7 +1041,8 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, 
     stack2unwrap_sel = stack2unwrap[:, ry[0] : ry[-1], rx[0] : rx[-1]].copy()
     with parallel_backend("loky", inner_max_num_threads=2):
         stack2unwrap_sel = Parallel(n_jobs=ncpus)(
-            delayed(unwrap_phase_2d)(ii, method=method) for ii in tqdm(stack2unwrap_sel)
+            delayed(unwrap_phase_2d)(ii, method=method, verbose=verbose)
+            for ii in tqdm(stack2unwrap_sel)
         )
 
     print("Correcting for air values")
@@ -1063,6 +1109,8 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     """
     params.setdefault("parallel", True)
     params.setdefault("unwrap_method", "herraez")
+    params.setdefault("snaphu_verbose", False)
+    verbose = params["snaphu_verbose"]
     if params["parallel"]:
         if params["n_cpus"] == -1:
             try:
@@ -1070,14 +1118,15 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
             except:
                 ncores = multiprocessing.cpu_count()
         else:
-            ncores=params["n_cpus"]
+            ncores = params["n_cpus"]
     else:
         ncores = 1
     stack_unwrap = np.empty_like(stack_phasecorr)
     # test on first projection
     print("Testing unwrapping on the first projection")
     img0_unwrap = _unwrapping_phase(
-        stack_phasecorr[0], rx, ry, airpix, method=params["unwrap_method"]
+        stack_phasecorr[0], rx, ry, airpix,
+        method=params["unwrap_method"], verbose=verbose,
     )
     # displaying
     plt.close("all")
@@ -1133,12 +1182,14 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         nprojs = stack_phasecorr.shape[0]
         for ii in tqdm(range(nprojs), desc="Unwrapping projections"):
             img_unwrap = _unwrapping_phase(
-                stack_phasecorr[ii], rx, ry, airpix, method=params["unwrap_method"]
+                stack_phasecorr[ii], rx, ry, airpix,
+                method=params["unwrap_method"], verbose=verbose,
             )
             stack_unwrap[ii] = img_unwrap  # update the stack
     else:
         stack_unwrap = _unwrapping_phase_parallel(
-            stack_phasecorr, rx, ry, airpix, ncores=ncores, method=params["unwrap_method"]
+            stack_phasecorr, rx, ry, airpix,
+            ncores=ncores, method=params["unwrap_method"], verbose=verbose,
         )
         # ~ stack_unwrap_sel = _unwrapping_phase_parallel(
         # ~ stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]]
