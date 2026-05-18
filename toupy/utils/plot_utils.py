@@ -172,7 +172,18 @@ def isnotebook():
 
 def interativesession(func):
     """
-    Decorator to activate matplotlib interactive
+    Decorator that ensures matplotlib interactive mode is active before calling a plot function.
+
+    Parameters
+    ----------
+    func : callable
+        Plot function to decorate.
+
+    Returns
+    -------
+    callable
+        Wrapped function that enables ``matplotlib.interactive(True)`` if
+        it was not already active, then delegates to ``func``.
     """
 
     @functools.wraps(func)
@@ -250,7 +261,34 @@ def _createcanvashorizontal(
     recons, sinoorig, sinocurr, sinocomp, deltaslice, metric_error, **params
 ):
     """
-    Create canvas for the plots during horizontal alignement
+    Create the initial matplotlib canvas for horizontal alignment plots.
+
+    Parameters
+    ----------
+    recons : ndarray
+        Current reconstructed slice.
+    sinoorig : ndarray
+        Original (unaligned) sinogram.
+    sinocurr : ndarray
+        Current aligned sinogram.
+    sinocomp : ndarray
+        Synthetic sinogram computed from the reconstruction.
+    deltaslice : ndarray
+        Current horizontal shift estimates.
+    metric_error : list of float
+        Error metric history.
+    **params
+        Must contain ``'slicenum'`` (int), ``'sinohigh'`` (float),
+        and ``'sinolow'`` (float).
+
+    Returns
+    -------
+    fig_array : list of Figure
+        Figures ``[fig1, fig2, fig3]``.
+    im_array : list
+        Image/line artist objects for later updates.
+    ax_array : list of Axes
+        Axes objects for later updates.
     """
     slicenum = params["slicenum"]
     cmax = params["sinohigh"]
@@ -329,7 +367,34 @@ def _createcanvasvertical(
     proj, lims, vertfluctinit, vertfluctcurr, deltastack, metric_error, **params
 ):
     """
-    Create canvas for the plots during vertical alignement
+    Create the initial matplotlib canvas for vertical alignment plots.
+
+    Parameters
+    ----------
+    proj : ndarray
+        First projection image (for the ROI overlay panel).
+    lims : tuple of array_like
+        ``(limrow, limcol)`` ROI limits.
+    vertfluctinit : ndarray, shape (n, n_rows_roi)
+        Initial vertical fluctuation signals.
+    vertfluctcurr : ndarray, shape (n, n_rows_roi)
+        Current vertical fluctuation signals.
+    deltastack : ndarray, shape (2, n)
+        Current shift estimates.
+    metric_error : list of float
+        Error metric history.
+    **params
+        Additional display parameters (unused directly; forwarded for
+        consistency with ``plotsvertical``).
+
+    Returns
+    -------
+    fig_array : list of Figure
+        Figures ``[fig1, fig2, fig3, fig4]``.
+    im_array : list
+        Image/line artist objects for later updates.
+    ax_array : list of Axes
+        Axes objects for later updates.
     """
     limrow, limcol = lims
 
@@ -429,7 +494,18 @@ def _createcanvasvertical(
 
 class RegisterPlot:
     """
-    Display plots during registration
+    Manage live plot updates during tomographic projection alignment.
+
+    Provides two high-level methods — :meth:`plotsvertical` and
+    :meth:`plotshorizontal` — that create and update the alignment
+    diagnostic figures in both Jupyter and terminal environments.
+
+    Parameters
+    ----------
+    **params
+        Algorithm parameters forwarded to the underlying canvas helpers.
+        Must include at least ``'slicenum'``, ``'sinohigh'``, and
+        ``'sinolow'``.
     """
 
     def __init__(self, **params):
@@ -886,7 +962,27 @@ def iterative_show(
 
 def _animated_image(stack_array, *args):
     """
-    Iterative plot of the images using pyplot text for the title
+    Create an animation-ready figure using a text artist for the frame title.
+
+    Parameters
+    ----------
+    stack_array : ndarray, shape (n, nr, nc)
+        Stack of images to animate.
+    *args
+        args[0] : list of int, optional
+            Row limits ``[row_start, row_end]``.
+        args[1] : list of int, optional
+            Column limits ``[col_start, col_end]``.
+        If not provided, the full image dimensions are used.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure object.
+    updatefig : callable
+        Frame-update function for :class:`matplotlib.animation.FuncAnimation`.
+    nproj : int
+        Total number of frames.
     """
     nproj, nr, nc = stack_array.shape
     if len(args) == 0:
@@ -925,7 +1021,27 @@ def _animated_image(stack_array, *args):
 
 def _animated_image2(stack_array, *args):
     """
-    Iterative plot of the images using pyplot title
+    Create an animation-ready figure using the axes title for the frame label.
+
+    Parameters
+    ----------
+    stack_array : ndarray, shape (n, nr, nc)
+        Stack of images to animate.
+    *args
+        args[0] : list of int, optional
+            Row limits ``[row_start, row_end]``.
+        args[1] : list of int, optional
+            Column limits ``[col_start, col_end]``.
+        If not provided, the full image dimensions are used.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure object.
+    updatefig : callable
+        Frame-update function for :class:`matplotlib.animation.FuncAnimation`.
+    nproj : int
+        Total number of frames.
     """
     nproj, nr, nc = stack_array.shape
     if len(args) == 0:
@@ -1118,7 +1234,18 @@ def plot_checkangles(angles):
 
 def show_linearphase(image, mask, *args):
     """
-    Show projections and probe
+    Display a phase projection with an overlaid mask and a horizontal line cut.
+
+    Parameters
+    ----------
+    image : ndarray, shape (nr, nc)
+        Phase image to display.
+    mask : ndarray, shape (nr, nc)
+        Mask added to ``image`` for the 2-D panel.
+    *args
+        args[0] : int or str, optional
+            Projection index used in the figure title.  Defaults to an
+            empty string if not provided.
     """
     try:
         idxproj = args[0]

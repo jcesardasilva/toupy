@@ -24,8 +24,29 @@ from tqdm import tqdm
 
 class switch(object):
     """
-    This class provides the functionality of switch or case in other
-    languages than python. This mimics the functionality of `switch` in Python
+    Provide switch/case functionality for Python.
+
+    Mimics the ``switch`` statement found in C, Java, and similar
+    languages.  Intended to be used in a ``for`` loop with a single
+    iteration, where each ``case`` is an ``if`` guarded by a call to
+    :meth:`match`.
+
+    Parameters
+    ----------
+    value : object
+        The value to compare against in each case.
+
+    Examples
+    --------
+    >>> for case in switch(x):
+    ...     if case(1):
+    ...         print("one")
+    ...         break
+    ...     if case(2, 3):
+    ...         print("two or three")
+    ...         break
+    ...     if case():  # default
+    ...         print("other")
     """
 
     def __init__(self, value):
@@ -33,12 +54,26 @@ class switch(object):
         self.fall = False
 
     def __iter__(self):
-        """Return the match method once, then stop"""
+        """Return the match method once, then stop."""
         yield self.match
         raise StopIteration
 
     def match(self, *args):
-        """Indicate whether or not to enter a case suite """
+        """
+        Indicate whether to enter a case suite.
+
+        Parameters
+        ----------
+        *args : object
+            Values to match against.  If no arguments are given (default
+            case), always returns ``True``.
+
+        Returns
+        -------
+        bool
+            ``True`` if the switch value matches any of ``args``, or if
+            fall-through is active, or if no args are given.
+        """
         if self.fall or not args:
             return True
         elif self.value in args:
@@ -101,14 +136,17 @@ def checkhostname(func):
 
 def close_allopenfiles(obj_test):
     """
-    Browse through all objects, check if there is files open of type of
-    obj_test and close them.
-    
-    Example
-    -------
-    >> import h5py
-    >> obj_test = h5py.File
-    >> close_allopenfiles(obj_test) # will close all open HDF5 file
+    Close all open objects of a given type found in the garbage collector.
+
+    Parameters
+    ----------
+    obj_test : type
+        Type to search for among all live Python objects.
+
+    Examples
+    --------
+    >>> import h5py
+    >>> close_allopenfiles(h5py.File)  # closes all open HDF5 files
     """
     import gc
 
@@ -147,7 +185,22 @@ def progbar(curr, total, textstr=""):
     print("\r", textbar, textperc, textstr, end="")
 
 def progress_bar(count, block_size, total_size):
-    """Calcule et affiche la barre de progression dans le terminal."""
+    """
+    Display a download progress bar in the terminal.
+
+    Intended as a ``reporthook`` callback for
+    :func:`urllib.request.urlretrieve`.
+
+    Parameters
+    ----------
+    count : int
+        Number of blocks transferred so far.
+    block_size : int
+        Size of each block in bytes.
+    total_size : int
+        Total file size in bytes.  If ``<= 0`` the function returns
+        immediately without printing.
+    """
     if total_size <= 0:
         return
         

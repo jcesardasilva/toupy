@@ -61,8 +61,8 @@ def wraptopi(phase, endpoint=True):
     float or array
         Wrapped value or array
 
-    Example
-    -------
+    Examples
+    --------
     >>> import numpy as np
     >>> wraptopi(np.linspace(-np.pi,np.pi,7),endpoint=True)
     array([ 3.14159265, -2.0943951 , -1.04719755, -0.        ,  1.04719755,
@@ -91,8 +91,8 @@ def wrap(phase):
     float or array
         Wrapped value or array
 
-    Note
-    ----
+    Notes
+    -----
     Created by Sebastian Theilenberg, PyMRR, which is available at
     Github repository: https://github.com/theilen/PyMRR.git
     """
@@ -110,10 +110,22 @@ def wrap(phase):
 
 def distance(pixel1, pixel2):
     """
-    Return the Euclidean distance of two pixels.
+    Return the Euclidean distance between two pixels.
 
-    Example
+    Parameters
+    ----------
+    pixel1 : array_like
+        Coordinates of the first pixel, e.g. ``(row, col)``.
+    pixel2 : array_like
+        Coordinates of the second pixel, e.g. ``(row, col)``.
+
+    Returns
     -------
+    float
+        Euclidean distance between ``pixel1`` and ``pixel2``.
+
+    Examples
+    --------
     >>> distance(np.arange(1,10),np.arange(2,11))
     3.0
     """
@@ -226,20 +238,27 @@ def phaseresidues(phimage):
 
 def phaseresiduesStack(stack_array, threshold=5000):
     """
-    Calculate the map of residues on the stack
+    Calculate the map of residues on the stack.
 
     Parameters
     ----------
     stack_array : ndarray
         A 3-dimensional array containing the stack of projections
         from which to calculate the phase residues.
+    threshold : int, optional
+        Maximum number of acceptable phase residues per projection.
+        Projections with more residues than ``threshold`` are flagged
+        as problematic.  Default ``5000``.
 
     Returns
     -------
-    resmap : array_like
-        Phase residue map
-    posres : tuple
-        Positions of the residues in the format ``posres = (yres,xres)``
+    resmap : ndarray
+        2-D phase residue accumulation map (sum of absolute residue maps
+        across all projections).
+    posres : tuple of ndarray
+        Indices ``(yres, xres)`` of pixels where ``resmap >= 1``.
+    nres : int
+        Total number of residues found in the last processed projection.
     """
     resmap = 0
     wrong = []
@@ -260,7 +279,7 @@ def phaseresiduesStack(stack_array, threshold=5000):
 
 def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
     """
-    Calculate the map of residues on the stack
+    Calculate the map of residues on the stack using parallel processing.
 
     Parameters
     ----------
@@ -268,14 +287,21 @@ def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
         A 3-dimensional array containing the stack of projections
         from which to calculate the phase residues.
     threshold : int, optional
-        The threshold of the number of acceptable phase residues. (Default = 5000)
+        Maximum number of acceptable phase residues per projection.
+        Projections with more residues than ``threshold`` are flagged
+        as problematic.  Default ``1000``.
+    ncores : int, optional
+        Number of CPU cores for parallel computation via joblib.
+        Default ``2``.
 
     Returns
     -------
-    resmap : array_like
-        Phase residue map
-    posres : tuple
-        Positions of the residues in the format ``posres = (yres,xres)``
+    resmap : ndarray
+        2-D phase residue accumulation map.
+    posres : tuple of ndarray
+        Indices ``(yres, xres)`` of pixels where ``resmap >= 1``.
+    nres : tuple of int
+        Tuple of per-projection residue counts.
     """
     with parallel_backend("loky", inner_max_num_threads=2):
         residues, residues_charge, nres = zip(
@@ -1029,20 +1055,33 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez", ver
 
 def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, method="herraez", verbose=False):
     """
-    Unwrap the phases of a projection
+    Unwrap the phases of a stack of projections in parallel.
 
     Parameters
     ----------
-    img2unwrap : ndarray
-        A stack of 2-dimensional arrays containing the images to be unwrapped
+    stack2unwrap : ndarray, shape (n, nr, nc)
+        Stack of 2-D wrapped phase images to be unwrapped.
+    rx : list or range of int, optional
+        Column index range of the ROI.  Default ``[]`` (full width).
+    ry : list or range of int, optional
+        Row index range of the ROI.  Default ``[]`` (full height).
+    airpix : tuple or list of int, optional
+        Position ``(col, row)`` of a pixel in the air/vacuum region used
+        to set the absolute phase offset.  Default ``[]``.
+    ncores : int, optional
+        Number of CPU cores for parallel computation via joblib.
+        Pass ``-1`` to use all available cores.  Default ``1``.
     method : str, optional
-        Phase unwrapping algorithm. See ``unwrap_phase_2d`` for details.
-        Default is ``"herraez"``.
+        Phase unwrapping algorithm.  See :func:`unwrap_phase_2d` for
+        details.  Default ``"herraez"``.
+    verbose : bool, optional
+        Passed to :func:`unwrap_phase_2d`; only relevant for
+        ``method='snaphu'``.  Default ``False``.
 
     Returns
     -------
-    img2unwrap : array_like
-        Unwrapped image
+    stack_out : ndarray, shape (n, nr, nc)
+        Stack of unwrapped phase images.
     """
     if ncores == -1:
         try:
@@ -1095,25 +1134,32 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         Limits of the are to be unwrapped in x and y
     airpix : tuple or list of ints
         Position of pixel in the air/vacuum area
-    params : dict
-        Dictionary of additional parameters
-    params["vmin"] : float, None
-        Minimum value for the gray level at each display
-    params["vmax"] : float, None
-        Maximum value for the gray level at each display
-    params["unwrap_method"] : str, optional
-        Phase unwrapping algorithm to use. One of ``"herraez"`` (default),
-        ``"goldstein"``, ``"flynn"``, ``"wls"``, or ``"snaphu"``.
-        See ``unwrap_phase_2d`` for details.  ``"snaphu"`` requires the
-        optional package ``snaphu-py`` (``pip install snaphu``).
+    **params
+        Dictionary of additional parameters.
+
+        vmin : float or None
+            Minimum value for the gray level at each display.
+        vmax : float or None
+            Maximum value for the gray level at each display.
+        unwrap_method : str, optional
+            Phase unwrapping algorithm to use.  One of ``"herraez"``
+            (default), ``"goldstein"``, ``"flynn"``, ``"wls"``, or
+            ``"snaphu"``.  See :func:`unwrap_phase_2d` for details.
+            ``"snaphu"`` requires the optional package ``snaphu-py``
+            (``pip install snaphu``).
+        parallel : bool, optional
+            If ``True``, use parallel processing.  Default ``True``.
+        n_cpus : int, optional
+            Number of CPU cores for parallel computation.  Pass ``-1``
+            to use all available cores.  Default ``-1``.
 
     Returns
     -------
     stack_unwrap : ndarray
         A 3-dimensional array containing the stack of unwrapped projections
 
-    Note
-    ----
+    Notes
+    -----
     Five algorithms are available.  The default is the reliability-guided
     algorithm by Herraez et al. [#herraez]_.  For the best robustness use
     ``"wls"`` (no extra dependency) or ``"snaphu"`` (requires

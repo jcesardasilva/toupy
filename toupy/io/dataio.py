@@ -73,7 +73,10 @@ def remove_extraprojs(stack_projs, theta):
 
 class SliceMaker(object):
     """
-    Class to make array slices more efficient
+    Class to make array slices more efficient.
+
+    Allows convenient slice creation via indexing syntax, e.g.
+    ``SliceMaker()[0:10, :]`` returns ``(slice(0, 10), slice(None))``.
     """
 
     def __getitem__(self, item):
@@ -82,25 +85,33 @@ class SliceMaker(object):
 
 class PathName:
     """
-    Class to manage file location and paths
+    Class to manage file location and paths.
+
+    Parameters
+    ----------
+    **params
+        Dictionary of parameters.
+    params["pathfilename"] : str
+        Path to first file and filename.
+    params["account"] : str
+        User account number.
+    params["samplename"] : str
+        Sample name.
+    params["scanprefix"] : str
+        Prefix of the scan folder names.
+    params["regime"] : str
+        Imaging regime. Options are ``nearfield``, ``farfield``, ``holoct``.
+    params["pycudaprojs"] : bool, optional
+        Whether reconstructions were done with PyCUDA. Default ``True``.
+    params["legacy"] : bool, optional
+        Whether the raw-data filenames follow the legacy naming scheme.
+        Default ``True``.
+    params["thetameta"] : bool, optional
+        Whether to read angles from the ESRF ICA metadata HDF5 file.
+        Default ``True``.
     """
 
     def __init__(self, **params):
-        """
-        Parameters
-        ----------
-        **params
-            Dictionary of parameters
-        params["pathfilename"] : str
-            Path to first file and filename
-        params["account"] : str
-            User account number
-        params["samplename"] : str
-            Samplename
-        params["regime"] : str
-            Regime of imaging
-
-        """
         self.pathfilename = os.path.abspath(params["pathfilename"])
         self.useraccount = params["account"]
         self.samplename = params["samplename"]
@@ -135,7 +146,12 @@ class PathName:
 
     def datafilewcard(self):
         """
-        Create file wildcard to search for files
+        Create file wildcard to search for files.
+
+        Returns
+        -------
+        file_wcard : str
+            Wildcard string for globbing data files.
         """
 
         file_wcard = re.sub(
@@ -146,7 +162,18 @@ class PathName:
 
     def metadatafilewcard(self):
         """
-        Create file wildcard to search for metafiles
+        Create file wildcard to search for metafiles.
+
+        Returns
+        -------
+        metafile_wcard : str
+            Wildcard string for globbing metadata files.
+
+        Raises
+        ------
+        IOError
+            If the ICA HDF5 metadata file does not exist, or if the
+            projection file extension is not ``.ptyr``, ``.cxi``, or ``.edf``.
         """
 
         if not os.path.isfile(self.icath5path):
@@ -175,7 +202,18 @@ class PathName:
 
     def search_projections(self):
         """
-        Search for projection given the filenames
+        Search for projection files given the filenames.
+
+        Returns
+        -------
+        scan_wcard : str
+            Wildcard string for globbing projection files.
+
+        Raises
+        ------
+        IOError
+            If the projection file extension is not ``.ptyr``, ``.cxi``,
+            or ``.edf``.
         """
         print("Path: {}".format(self.dirname))
         print("First projection file: {}".format(self.filename))
@@ -210,7 +248,19 @@ class PathName:
 
     def results_folder(self):
         """
-        create path for the result folder
+        Create path for the result folder.
+
+        Returns
+        -------
+        results_path : str
+            Absolute path to the results folder.  The folder is created if it
+            does not already exist.
+
+        Raises
+        ------
+        ValueError
+            If ``self.regime`` is not one of ``nearfield``, ``farfield``,
+            or ``holoct``.
         """
         aux_wcard = re.sub(r"\*", "", self.datafilewcard())
         if self.regime == "nearfield":
@@ -229,7 +279,17 @@ class PathName:
 
     def results_datapath(self, h5name):
         """
-        create path for the h5file in result folder
+        Create the full path for an HDF5 file inside the result folder.
+
+        Parameters
+        ----------
+        h5name : str
+            HDF5 file name (basename only).
+
+        Returns
+        -------
+        h5file : str
+            Absolute path to the HDF5 file.
         """
         aux_path = self.results_folder()
         h5file = os.path.join(aux_path, h5name)
@@ -238,7 +298,10 @@ class PathName:
 
 class Variables(object):
     """
-    Auxiliary class to initialize some variables
+    Auxiliary class that provides default values for optional processing flags.
+
+    All attributes are class-level defaults that subclasses or callers may
+    override before use.
     """
 
     showrecons = False
@@ -263,7 +326,31 @@ class Variables(object):
 
 class LoadProjections(PathName, Variables):
     """
-    Load the reconstructed projections from the ptyr files
+    Load the reconstructed projections from ptyr, cxi, or edf files.
+
+    Parameters
+    ----------
+    **params
+        Keyword arguments forwarded to :class:`PathName`.  See that class for
+        the full list.  Additional recognised keys:
+
+    params["showrecons"] : bool, optional
+        Show each projection interactively as it is loaded. Default ``False``.
+    params["border_crop_x"] : int or None, optional
+        Pixels to crop from each horizontal border. Default ``None``.
+    params["border_crop_y"] : int or None, optional
+        Pixels to crop from each vertical border. Default ``None``.
+    params["checkextraprojs"] : bool, optional
+        Remove projections acquired at or beyond 180 degrees. Default ``True``.
+    params["missingprojs"] : bool, optional
+        Interpolate missing projections. Default ``False``.
+    params["missingnum"] : list of int, optional
+        Indices of missing projections to interpolate. Default ``None``.
+    params["cxientry"] : str or None, optional
+        HDF5 path inside CXI file. Default ``None``.
+    params["detector"] : str, optional
+        Detector name used to find angles in the raw HDF5 header.
+        Default ``"Frelon"``.
     """
 
     def __init__(self, **params):
@@ -423,8 +510,18 @@ class LoadProjections(PathName, Variables):
 
     def check_angles(self):
         """
-        Find the angles of the projections and plot them to be checked
-        Specific to ID16A beamline (ESRF)
+        Find projection angles from ICA metadata and plot them for verification.
+
+        Specific to the ID16A beamline at ESRF.  Reads the theta motor position
+        from the ICA HDF5 metadata file, removes duplicate angles, and prompts
+        the user to confirm before returning.
+
+        Returns
+        -------
+        angles : list of float
+            Sorted list of unique tomographic angles in degrees.
+        thetas : dict
+            Mapping of scan-key strings to raw theta values.
         """
         thetas = {}
         with h5py.File(self.icath5path, "r") as fid:
@@ -479,8 +576,18 @@ class LoadProjections(PathName, Variables):
 
     def check_angles_new(self):
         """
-        Find the angles of the projections and plot them to be checked
-        Specific to ID16A beamline (ESRF)
+        Find projection angles from raw HDF5 scan files and plot them for
+        verification.
+
+        Reads theta directly from the raw acquisition HDF5 files rather than
+        from the ICA metadata file.  Specific to the ID16A beamline at ESRF.
+
+        Returns
+        -------
+        angles : list of float
+            Sorted list of unique tomographic angles in degrees.
+        thetas : dict
+            Mapping of scan-key strings to raw theta values.
         """
         thetas = {}
         if self.legacy:
@@ -560,7 +667,23 @@ class LoadProjections(PathName, Variables):
     @staticmethod
     def insert_missing(stack_objs, theta, missingnum):
         """
-        Insert missing projections by interpolation of neighbours
+        Insert missing projections by interpolation of their neighbours.
+
+        Parameters
+        ----------
+        stack_objs : ndarray, shape (nprojs, nr, nc)
+            Stack of projections.
+        theta : ndarray, shape (nprojs,)
+            Corresponding angle array.
+        missingnum : list of int
+            Zero-based indices of the missing projections to be inserted.
+
+        Returns
+        -------
+        stack_objs : ndarray
+            Updated stack with interpolated projections inserted.
+        theta : ndarray
+            Updated angle array with interpolated angles inserted.
         """
         # special: insert the information of the missing projections
         print("Inserting the missing projections:{}".format(missingnum))
@@ -573,7 +696,18 @@ class LoadProjections(PathName, Variables):
     @checkhostname
     def _load_projections(self):
         """
-        Load the reconstructed projections from the ptyr files
+        Load the reconstructed projections from ptyr or cxi files.
+
+        Returns
+        -------
+        stack_objs : ndarray, complex64, shape (nprojs, nr, nc)
+            Stack of complex projection images.
+        stack_angles : ndarray, float32, shape (nprojs,)
+            Tomographic angles in degrees.
+        pxsize : ndarray
+            Pixel size(s) in metres.
+        paramsload : dict
+            Parameters dictionary updated with ``pixelsize`` and ``energy``.
         """
         # get the angles
         if self.thetameta:
@@ -667,9 +801,21 @@ class LoadProjections(PathName, Variables):
     @checkhostname
     def _load_edfprojections(self):
         """
-        Load the reconstructed projections from the edf files
-        This is adapted for the phase-contrast imaging generating
-        projections as edf files
+        Load projections from EDF files.
+
+        This is adapted for phase-contrast imaging workflows that produce
+        projections as EDF files.
+
+        Returns
+        -------
+        stack_objs : ndarray, float32, shape (nprojs, nr, nc)
+            Stack of projection images.
+        stack_angles : ndarray, float32, shape (nprojs,)
+            Tomographic angles in degrees (uniformly spaced over [0, 180)).
+        pxsize : float
+            Pixel size in metres.
+        paramsload : dict
+            Parameters dictionary updated with ``pixelsize`` and ``energy``.
         """
         ## to be tested
         # notuseful = sorted(glob.glob(self.samplename+'*_[0-4].edf'))
@@ -732,7 +878,16 @@ class LoadProjections(PathName, Variables):
 
 class SaveData(PathName, Variables):
     """
-    Save projections to HDF5 file
+    Save projections to an HDF5 file.
+
+    Parameters
+    ----------
+    **params
+        Keyword arguments forwarded to :class:`PathName`.
+    params["autosave"] : bool, optional
+        If ``True`` save without prompting the user. Default ``False``.
+    params["cxientry"] : str or None, optional
+        CXI entry path. Default ``None``.
     """
 
     def __init__(self, **params):
@@ -807,8 +962,17 @@ class SaveData(PathName, Variables):
 
     def _save_masks(self, h5name, masks):
         """
-        Save masks for the linear phase ramp removal of the phase
-        contrast image or the air removal from the amplitude images
+        Save projection masks to an HDF5 file.
+
+        The masks are used for linear phase-ramp removal or air/vacuum
+        removal from amplitude images.
+
+        Parameters
+        ----------
+        h5name : str
+            HDF5 file name (basename).
+        masks : ndarray, bool
+            Boolean mask array to be saved under ``masks/stack``.
         """
         print("Saving {}".format(h5name))
         h5file = self.results_datapath(h5name)
@@ -1009,7 +1173,23 @@ class SaveData(PathName, Variables):
 
 class LoadData(PathName, Variables):
     """
-    Load projections from HDF5 file
+    Load projections from an HDF5 file.
+
+    Parameters
+    ----------
+    **params
+        Keyword arguments forwarded to :class:`PathName` via a params HDF5
+        file lookup.  Additional recognised keys:
+
+    params["amponly"] : bool, optional
+        Return only the amplitude of complex projections. Default ``False``.
+    params["phaseonly"] : bool, optional
+        Return only the phase of complex projections. Default ``False``.
+    params["loadroi"] : bool, optional
+        Load only a sub-region of interest. Default ``False``.
+    params["roi"] : list of int, optional
+        ``[proj_start, proj_end, row_start, row_end, col_start, col_end]``
+        when ``loadroi=True``.
     """
 
     def __init__(self, **params):
@@ -1159,34 +1339,34 @@ class LoadData(PathName, Variables):
     @classmethod
     def loadshiftstack(cls, *args, **params):
         """
-        Load shitstack from previous h5 file
+        Load the shift-stack from a previous HDF5 file.
 
         Parameters
         ----------
         h5name : str
-            File name from which data is loaded
+            File name from which data is loaded.
 
         Returns
         -------
-        shiftstack : array_like
-            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        shiftstack : ndarray, shape (2, nprojs)
+            Shifts in the vertical (row 0) and horizontal (row 1) directions.
         """
         return cls(**params)._load_shiftstack(*args)
 
     @classmethod
     def loadtheta(cls, *args, **params):
         """
-        Load shitstack from previous h5 file
+        Load theta angles from a previous HDF5 file.
 
         Parameters
         ----------
         h5name : str
-            File name from which data is loaded
+            File name from which data is loaded.
 
         Returns
         -------
-        shiftstack : array_like
-            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        theta : ndarray
+            Array of tomographic angles in degrees.
         """
         return cls(**params)._load_theta(*args)
 
@@ -1209,17 +1389,17 @@ class LoadData(PathName, Variables):
 
     def _load_shiftstack(self, h5name):
         """
-        Load shitstack from previous h5 file
+        Load the shift-stack from a previous HDF5 file.
 
         Parameters
         ----------
         h5name : str
-            File name from which data is loaded
+            File name from which data is loaded.
 
         Returns
         -------
-        shiftstack : array_like
-            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        shiftstack : ndarray, shape (2, nprojs)
+            Shifts in the vertical (row 0) and horizontal (row 1) directions.
         """
         print("Loading shiftstack from file {}".format(h5name))
         h5file = self.results_datapath(h5name)
@@ -1231,17 +1411,17 @@ class LoadData(PathName, Variables):
 
     def _load_theta(self, h5name):
         """
-        Load shitstack from previous h5 file
+        Load theta angles from an HDF5 file.
 
         Parameters
         ----------
         h5name : str
-            File name from which data is loaded
+            File name from which data is loaded.
 
         Returns
         -------
-        shiftstack : array_like
-            Shifts in vertical (1st dimension) and horizontal (2nd dimension)
+        theta : ndarray
+            Array of tomographic angles in degrees.
         """
         print("Loading thetas from file {}".format(h5name))
         h5file = self.results_datapath(h5name)
@@ -1365,8 +1545,8 @@ class LoadData(PathName, Variables):
         datakwargs : dict
             Dictionary with metadata information
 
-        Note
-        ----
+        Notes
+        -----
         May be deprecated soon.
         """
         h5file = self.results_datapath(h5name)
@@ -1404,7 +1584,12 @@ class LoadData(PathName, Variables):
 
 class SaveTomogram(SaveData):
     """
-    Save tomogram to HDF5 file
+    Save a tomogram volume to an HDF5 file.
+
+    Parameters
+    ----------
+    **params
+        Keyword arguments forwarded to :class:`SaveData`.
     """
 
     def __init__(self, **params):
@@ -1550,8 +1735,17 @@ class SaveTomogram(SaveData):
 
     def tiff_folderpath(self, foldername):
         """
-        Create the path to the folder in which the tiff files will be
-        stored.
+        Create the path to the folder in which the TIFF files will be stored.
+
+        Parameters
+        ----------
+        foldername : str
+            Name of the sub-folder to be created inside the results folder.
+
+        Returns
+        -------
+        folderpath : str
+            Absolute path to the TIFF sub-folder.
         """
         aux_path = self.results_folder()
         folderpath = os.path.join(aux_path, foldername)
@@ -1650,7 +1844,16 @@ class SaveTomogram(SaveData):
     @savecheck
     def _save_vol_to_h5(self, *args):
         """
-        Save .vol files into HDF5 file
+        Save a ``.vol`` file into an HDF5 file.
+
+        Parameters
+        ----------
+        *args
+            Positional arguments.
+        args[0] : str
+            HDF5 file name.
+        args[1] : ndarray
+            Array of theta values.
         """
         h5name = args[0]
         theta = args[1]
@@ -1665,7 +1868,12 @@ class SaveTomogram(SaveData):
 
 class LoadTomogram(LoadData):
     """
-    Load projections from HDF5 file
+    Load a tomogram from an HDF5 file.
+
+    Parameters
+    ----------
+    **params
+        Keyword arguments forwarded to :class:`LoadData`.
     """
 
     def __init__(self, **params):

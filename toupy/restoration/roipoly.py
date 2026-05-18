@@ -16,6 +16,32 @@ import matplotlib.path as mplPath
 
 
 class roipoly:
+    """
+    Draw a polygonal region of interest (ROI) interactively on a matplotlib figure.
+
+    Left-click to add polygon vertices.  Double-click or right-click to close
+    the polygon and disconnect the event callbacks.  Inspired by Matlab's
+    ``roipoly`` function.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure, optional
+        Figure on which to draw the ROI.  Defaults to the current figure
+        (``plt.gcf()``).
+    ax : matplotlib.axes.Axes, optional
+        Axes on which to draw the ROI.  Defaults to the current axes
+        (``plt.gca()``).
+    roicolor : str, optional
+        Colour of the ROI polygon line.  Default ``'b'`` (blue).
+
+    Attributes
+    ----------
+    allxpoints : list of float
+        X-coordinates of the polygon vertices in the order they were clicked.
+    allypoints : list of float
+        Y-coordinates of the polygon vertices in the order they were clicked.
+    """
+
     def __init__(self, fig=[], ax=[], roicolor="b"):
         if fig == []:
             fig = plt.gcf()
@@ -47,6 +73,19 @@ class roipoly:
             plt.show(block=False)
 
     def getMask(self, currentImage):
+        """
+        Compute a boolean mask of the polygon ROI for a given image.
+
+        Parameters
+        ----------
+        currentImage : array_like, shape (ny, nx)
+            Image whose pixel grid is used to rasterise the polygon.
+
+        Returns
+        -------
+        grid : ndarray of bool, shape (ny, nx)
+            ``True`` for pixels inside the polygon, ``False`` outside.
+        """
         ny, nx = np.shape(currentImage)
         poly_verts = [(self.allxpoints[0], self.allypoints[0])]
         for i in range(len(self.allxpoints) - 1, -1, -1):
@@ -63,6 +102,16 @@ class roipoly:
         return grid
 
     def displayROI(self, **linekwargs):
+        """
+        Overlay the closed polygon ROI on the current axes.
+
+        Parameters
+        ----------
+        **linekwargs
+            Additional keyword arguments forwarded to
+            :class:`matplotlib.lines.Line2D` (e.g. ``linewidth``,
+            ``linestyle``).
+        """
         l = plt.Line2D(
             self.allxpoints + [self.allxpoints[0]],
             self.allypoints + [self.allypoints[0]],
@@ -74,6 +123,17 @@ class roipoly:
         plt.draw()
 
     def displayMean(self, currentImage, **textkwargs):
+        """
+        Annotate the figure with the mean and standard deviation of the ROI.
+
+        Parameters
+        ----------
+        currentImage : array_like, shape (ny, nx)
+            Image from which pixel values inside the ROI are extracted.
+        **textkwargs
+            Additional keyword arguments forwarded to :func:`matplotlib.pyplot.text`
+            (e.g. ``fontsize``, ``ha``).
+        """
         mask = self.getMask(currentImage)
         meanval = np.mean(np.extract(mask, currentImage))
         stdval = np.std(np.extract(mask, currentImage))
@@ -88,6 +148,14 @@ class roipoly:
         )
 
     def __motion_notify_callback(self, event):
+        """
+        Update the rubber-band line as the mouse moves.
+
+        Parameters
+        ----------
+        event : matplotlib.backend_bases.MouseEvent
+            Mouse motion event from the canvas.
+        """
         if event.inaxes:
             ax = event.inaxes
             x, y = event.xdata, event.ydata
@@ -100,6 +168,17 @@ class roipoly:
                 self.fig.canvas.draw()
 
     def __button_press_callback(self, event):
+        """
+        Handle mouse button presses to add polygon vertices or close the ROI.
+
+        Left single-click adds a vertex; left double-click or right single-click
+        closes the polygon and disconnects the callbacks.
+
+        Parameters
+        ----------
+        event : matplotlib.backend_bases.MouseEvent
+            Mouse button press event from the canvas.
+        """
         if event.inaxes:
             x, y = event.xdata, event.ydata
             ax = event.inaxes

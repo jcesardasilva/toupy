@@ -50,8 +50,8 @@ def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
     ellipses : array like
         Custom set of ellipses to use.
 
-    Note
-    ----
+    Notes
+    -----
     To use ellipses, these should be in the
     form ``[[I, a, b, x0, y0, phi], [I, a, b, x0, y0, phi], ...]``
     where each row defines an ellipse and:
@@ -131,7 +131,24 @@ def phantom(N=256, phantom_type="Modified Shepp-Logan", ellipses=None):
 
 def _select_phantom(name):
     """
-    Wrapper to select the phantom type
+    Select a built-in phantom ellipse set by name.
+
+    Parameters
+    ----------
+    name : str
+        Phantom type.  Either ``'Shepp-Logan'`` or
+        ``'Modified Shepp-Logan'`` (case-insensitive).
+
+    Returns
+    -------
+    list of list
+        List of ellipse parameter rows, each of the form
+        ``[I, a, b, x0, y0, phi]``.
+
+    Raises
+    ------
+    ValueError
+        If ``name`` does not match a known phantom type.
     """
     if name.lower() == "shepp-logan":
         e = _shepp_logan()
@@ -144,7 +161,13 @@ def _select_phantom(name):
 
 def _shepp_logan():
     """
-    Standard head phantom, taken from Shepp-Logan
+    Standard Shepp-Logan head phantom ellipse parameters.
+
+    Returns
+    -------
+    list of list
+        Ellipse parameters ``[I, a, b, x0, y0, phi]`` for the original
+        Shepp-Logan phantom (10 ellipses).
     """
     return [
         [2, 0.69, 0.92, 0, 0, 0],
@@ -162,8 +185,13 @@ def _shepp_logan():
 
 def _mod_shepp_logan():
     """
-    Modified version of Shepp-Logan hean phantom
-    ajusted to improve contrast.
+    Modified Shepp-Logan head phantom ellipse parameters with improved contrast.
+
+    Returns
+    -------
+    list of list
+        Ellipse parameters ``[I, a, b, x0, y0, phi]`` for the modified
+        Shepp-Logan phantom (10 ellipses), adjusted to improve contrast.
     """
     return [
         [1, 0.69, 0.92, 0, 0, 0],

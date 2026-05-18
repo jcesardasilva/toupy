@@ -25,7 +25,7 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
 
     weight : array_like, str, optional
         Pass weighting array or use ``'abs'`` for a modulus-weighted
-        phaseramp and ``Non`` for no weights.
+        phaseramp and ``None`` for no weights.
 
     return_phaseramp : bool, optional
         Use True to get also the phaseramp array ``p``.
@@ -37,8 +37,8 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
     p : array_like, optional
         Phaseramp if ``return_phaseramp = True``, otherwise omitted
 
-    Note
-    ----
+    Notes
+    -----
     Function forked from Ptypy.plot_utils (https://github.com/ptycho/ptypy)
     and ported to Python 3.
 

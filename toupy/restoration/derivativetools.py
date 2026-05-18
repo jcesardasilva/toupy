@@ -28,8 +28,24 @@ __all__ = [
 
 def gradient_axis(x, axis=-1):
     """
-    Compute the gradient (keeping dimensions) along one dimension only.
-    By default, the axis is -1 (diff along columns).
+    Compute the forward-difference gradient along one axis, preserving shape.
+
+    Unlike :func:`numpy.gradient`, this function keeps all dimensions
+    unchanged and sets the last slice along the chosen axis to zero.
+
+    Parameters
+    ----------
+    x : ndarray, shape (..., M, N)
+        Input 2-D (or higher-dimensional) array.
+    axis : int, optional
+        Axis along which to compute the difference.  ``-1`` (default)
+        computes the difference along columns; ``0`` computes it along rows.
+
+    Returns
+    -------
+    ndarray
+        Array of the same shape as ``x`` containing the forward finite
+        differences along ``axis``.
     """
     t1 = np.empty_like(x)
     t2 = np.empty_like(x)
@@ -48,7 +64,31 @@ def gradient_axis(x, axis=-1):
 
 def chooseregiontoderivatives(stack_array, **params):
     """
-    Choose the region to be unwrapped
+    Interactively choose the region of interest for derivative computation.
+
+    Displays the first projection with the current ROI boundaries overlaid
+    and lets the user refine the limits before returning.
+
+    Parameters
+    ----------
+    stack_array : ndarray, shape (n, nr, nc)
+        Stack of projection images.
+    **params
+        Must contain:
+
+        deltax : int
+            Horizontal margin in pixels to exclude from the left and right
+            edges of the image.
+        limsy : tuple of int
+            ``(row_start, row_end)`` vertical limits passed to
+            :func:`range` via tuple unpacking.
+
+    Returns
+    -------
+    roix : range
+        Horizontal index range selected by the user.
+    roiy : range
+        Vertical index range selected by the user.
     """
     # horizontal ROI
     deltax = params["deltax"]

@@ -19,9 +19,16 @@ def binlist(n, width=0):
     Parameters
     ----------
     n : int
-        non-negative integer
-    width : int
-        number of bits in returned zero-filled list (default 0)
+        Non-negative integer to convert.
+    width : int, optional
+        Minimum number of bits in the returned zero-filled list.
+        Default is ``0``.
+
+    Returns
+    -------
+    list of int
+        List of ``0``/``1`` values representing ``n`` in binary,
+        zero-padded on the left to at least ``width`` elements.
     """
     return list(map(int, list(bin(n)[2:].zfill(width))))
 
@@ -33,7 +40,12 @@ def numVals(shape):
     Parameters
     ----------
     shape : sequence of ints
-        list of variable dimension sizes
+        List of variable dimension sizes.
+
+    Returns
+    -------
+    int
+        Product of all dimension sizes, or ``1`` if ``shape`` is empty.
     """
     if len(shape) == 0:
         return 1
@@ -42,14 +54,20 @@ def numVals(shape):
 
 def perturbShape(shape, onbits):
     """
-    Return shape perturbed by adding 1 to elements corresponding to 1 bits in onbits
+    Return shape perturbed by adding 1 to elements corresponding to 1 bits in onbits.
 
     Parameters
     ----------
     shape : sequence of ints
-        list of variable dimension sizes
+        List of variable dimension sizes.
     onbits : int
-        non-negative integer less than 2**len(shape)
+        Non-negative integer less than ``2**len(shape)``.
+
+    Returns
+    -------
+    list of int
+        New shape with ``1`` added to each dimension whose corresponding bit
+        in ``onbits`` is set.
     """
     return list(map(sum, zip(shape, binlist(onbits, len(shape)))))
 

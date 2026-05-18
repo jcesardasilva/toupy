@@ -58,8 +58,8 @@ class FourierShellCorr:
     T : ndarray
         Threshold curve
 
-    Note
-    ----
+    Notes
+    -----
     If 3D images, the first axis is the number of slices, ie., ``[slices, rows, cols]``
 
     References
@@ -107,7 +107,14 @@ class FourierShellCorr:
 
     def nyquist(self):
         """
-        Evaluate the Nyquist Frequency
+        Evaluate the Nyquist frequency and the corresponding frequency array.
+
+        Returns
+        -------
+        f : ndarray of int32
+            Integer frequency indices from ``0`` to ``fnyquist`` (inclusive).
+        fnyquist : float
+            Nyquist frequency in pixels (half the largest image dimension).
         """
         nmax = np.max(self.n)
         fnyquist = np.floor(nmax / 2.0)
@@ -116,10 +123,17 @@ class FourierShellCorr:
 
     def ringthickness(self):
         """
-        Define indexes for ring_thick.
+        Compute the shell index for each voxel in Fourier space.
 
-        Optimized: uses broadcasting instead of np.meshgrid + Python loop
-        to compute the sum of squares, avoiding large temporary arrays.
+        Uses broadcasting instead of ``np.meshgrid`` and a Python loop to
+        compute the sum of squares, avoiding large temporary arrays.
+
+        Returns
+        -------
+        index : ndarray of int32
+            Array of the same shape as the input image containing the
+            integer shell index (rounded radius in scaled Fourier pixels)
+            for each voxel.
         """
         nmax = np.max(self.n)
 
@@ -151,10 +165,17 @@ class FourierShellCorr:
 
     def apodization(self):
         """
-        Compute the Hanning window of the size of the data for the apodization.
+        Compute a Hanning apodization window matching the image dimensions.
 
-        Optimized: 3-D window built via einsum outer product instead of nested
-        list-comprehensions, cutting both memory allocations and Python overhead.
+        The 3-D window is built via an ``einsum`` outer product instead of
+        nested list-comprehensions, reducing memory allocations and Python
+        overhead.
+
+        Returns
+        -------
+        window : ndarray
+            Hanning window array of shape ``(nr, nc)`` for 2-D images or
+            ``(ns, nr, nc)`` for 3-D volumes.
         """
         if self.ndim == 2:
             window = np.outer(np.hanning(self.nr), np.hanning(self.nc))
@@ -172,7 +193,13 @@ class FourierShellCorr:
 
     def circle(self):
         """
-        Create circle with apodized edges.
+        Create a circular mask with apodized (cosine-tapered) edges.
+
+        Returns
+        -------
+        t : ndarray, shape (nr, nc)
+            2-D mask that is ``1`` inside the central circle, smoothly tapered
+            to ``0`` over ``apod_width`` pixels at the edges.
         """
         self.axial_apod = self.apod_width
         R = np.sqrt(self.X ** 2 + self.Y ** 2)
@@ -188,11 +215,23 @@ class FourierShellCorr:
 
     def _make_1d_tukey(self, n, apod):
         """
-        Build a single 1-D tapered Hanning (Tukey-like) window of length *n*
-        with *apod* pixels of taper on each side, in fftshift order.
+        Build a 1-D tapered Hanning (Tukey-like) window in fftshift order.
 
-        Extracted as a helper to avoid code duplication between 2-D and 3-D
-        paths of transverse_apodization.
+        Extracted to avoid code duplication between the 2-D and 3-D paths
+        of :meth:`transverse_apodization`.
+
+        Parameters
+        ----------
+        n : int
+            Window length (number of samples).
+        apod : int
+            Number of pixels of cosine taper on each side of the flat-top.
+
+        Returns
+        -------
+        w : ndarray, shape (n,)
+            Window array in fftshift order: flat ``1`` in the centre,
+            cosine-tapered to ``0`` over the outer ``apod`` pixels on each side.
         """
         N = fftshift(np.arange(n))
         centre = np.floor((n - 2 * apod - 1) / 2)
@@ -202,12 +241,18 @@ class FourierShellCorr:
 
     def transverse_apodization(self):
         """
-        Compute a tapered Hanning-like (Tukey) window for apodization.
+        Compute a tapered Hanning-like (Tukey) apodization window.
 
-        Optimized:
-        - 1-D window construction extracted to a shared helper.
-        - 3-D window built with broadcasting / einsum instead of per-column
-          list-comprehensions with swapaxes calls.
+        The 1-D window construction is delegated to :meth:`_make_1d_tukey`
+        to avoid duplication.  The 3-D window is assembled with broadcasting
+        instead of per-column list-comprehensions with ``swapaxes`` calls.
+
+        Returns
+        -------
+        window : ndarray or list of ndarray
+            For 2-D images: a single 2-D window array of shape ``(nr, nc)``.
+            For 3-D volumes: a list ``[outer(w_row, w_col), outer(w_sli, w_col)]``
+            matching the original API expected by :meth:`fouriercorr`.
         """
         print("Calculating the transverse apodization")
         self.transv_apod = self.apod_width
@@ -229,18 +274,25 @@ class FourierShellCorr:
 
     def fouriercorr(self):
         """
-        Compute FSC and threshold.
+        Compute the Fourier Shell Correlation (FSC) and its threshold curve.
 
-        Optimizations
-        -------------
+        Optimizations applied:
+
         * 3-D apodization window assembled with broadcasting instead of
-          nested list-comprehensions + swapaxes (was the single biggest
-          bottleneck for large volumes).
+          nested list-comprehensions and ``swapaxes`` calls.
         * Ring-shell loop: boolean mask computed once per shell and reused
-          for both F1 and F2 extractions, halving the number of np.where calls.
-        * np.where replaced by direct boolean indexing (avoids tuple unpacking).
-        * Cross/auto-correlation sums use np.dot on flat views, which is
-          faster than .sum() on fancy-indexed complex arrays for large rings.
+          for both F1 and F2 extractions, halving the number of ``np.where``
+          calls.
+        * ``np.where`` replaced by direct boolean indexing.
+        * Cross/auto-correlation sums use ``np.dot`` on flat views, which is
+          faster than ``.sum()`` on fancy-indexed complex arrays for large rings.
+
+        Returns
+        -------
+        FSC : ndarray, shape (n_shells,)
+            Fourier Shell Correlation values for each frequency shell.
+        T : ndarray, shape (n_shells,)
+            Threshold curve (half-bit or one-bit) for each frequency shell.
         """
         # ------------------------------------------------------------------
         # Apodization
@@ -405,6 +457,22 @@ class FSCPlot(FourierShellCorr):
         self.f, self.fnyquist = FourierShellCorr.nyquist(self)
 
     def plot(self):
+        """
+        Plot the FSC and threshold curves and return the underlying data.
+
+        Delegates the actual plotting to
+        :func:`~toupy.utils.plot_utils.show_fsc_curve`.
+
+        Returns
+        -------
+        fn : ndarray
+            Spatial frequencies normalised by the Nyquist frequency
+            (range ``[0, 1]``).
+        T : ndarray
+            Threshold curve (half-bit or one-bit).
+        FSC : ndarray
+            Real part of the Fourier Shell Correlation values.
+        """
         print("calling method plot from the class FSCplot")
         fn  = self.f / self.fnyquist
         FSC = self.FSC.real
