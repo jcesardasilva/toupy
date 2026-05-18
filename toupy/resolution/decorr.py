@@ -30,12 +30,16 @@ class ImageDecorr:
     exceeds ``threshold`` is taken as the resolution limit.
 
     No second image or half-dataset is required — the estimate is obtained
-    from a **single** 2-D image.
+    from a **single** 2-D image (or from a set of 2-D slices sampled from a
+    3-D volume).
 
     Parameters
     ----------
     image : ndarray
-        A 2-dimensional array containing the image to analyse.
+        A 2-dimensional array (single image) **or** a 3-dimensional array
+        (tomographic volume).  When a 3-D volume is supplied the algorithm
+        is applied slice-by-slice along ``axis`` and summary statistics are
+        reported.
     pixel_size : float, optional
         Physical size of one pixel (in any consistent unit, e.g. nm).
         Used to convert the resolution from pixels to physical units.
@@ -51,22 +55,43 @@ class ImageDecorr:
         Width in pixels of the Hanning apodization applied to the image
         edges before computing the FFT.  Set to ``0`` to disable
         apodization.  Default ``20``.
+    axis : int, optional
+        Axis along which slices are taken when ``image`` is 3-D.
+        Default ``0`` (first axis, i.e. slices are ``image[i, :, :]``).
+    n_slices : int, optional
+        Number of evenly-spaced slices to sample from the 3-D volume.
+        Ignored when ``image`` is 2-D.  Default ``10``.
 
     Attributes
     ----------
     r_values : ndarray
         Radial spatial frequencies (cycles/pixel) at which the
-        correlation was evaluated.
+        correlation was evaluated.  For 3-D input this is taken from the
+        last slice processed.
     A : ndarray
-        Normalised ring correlation A(r).
+        Normalised ring correlation A(r).  For 3-D input: result of the
+        last slice processed.
     d : ndarray
-        Decorrelation function d(r) = 1 − A(r).
+        Decorrelation function d(r) = 1 − A(r).  For 3-D input: result
+        of the last slice processed.
     r_res : float
         Estimated resolution spatial frequency (cycles/pixel).
+        For 3-D input: median over all sampled slices.
     resolution_px : float
         Estimated resolution in pixels (= 1 / r_res).
+        For 3-D input: median over all sampled slices.
     resolution : float
         Estimated resolution in physical units (= pixel_size / r_res).
+        For 3-D input: median over all sampled slices.
+    resolutions_px : ndarray or None
+        Per-slice resolution estimates in pixels.  ``None`` for 2-D input.
+    resolution_px_mean : float or None
+        Mean per-slice resolution in pixels.  ``None`` for 2-D input.
+    resolution_px_median : float or None
+        Median per-slice resolution in pixels.  ``None`` for 2-D input.
+    resolution_px_std : float or None
+        Standard deviation of per-slice resolutions in pixels.
+        ``None`` for 2-D input.
 
     References
     ----------
@@ -76,27 +101,115 @@ class ImageDecorr:
        https://doi.org/10.1038/s41592-019-0515-7
     """
 
-    def __init__(self, image, pixel_size=1.0, n_r=100, threshold=0.15, apod_width=20):
+    def __init__(
+        self,
+        image,
+        pixel_size=1.0,
+        n_r=100,
+        threshold=0.15,
+        apod_width=20,
+        axis=0,
+        n_slices=10,
+    ):
         print("Calling the class ImageDecorr")
         self.image = np.asarray(image, dtype=np.float64)
-        if self.image.ndim != 2:
-            raise ValueError("ImageDecorr requires a 2-D image.")
-        self.nr, self.nc = self.image.shape
-        self.pixel_size  = float(pixel_size)
-        self.n_r         = int(n_r)
-        self.threshold   = float(threshold)
-        self.apod_width  = int(apod_width)
+        if self.image.ndim not in (2, 3):
+            raise ValueError("ImageDecorr requires a 2-D or 3-D array.")
+        self.pixel_size = float(pixel_size)
+        self.n_r        = int(n_r)
+        self.threshold  = float(threshold)
+        self.apod_width = int(apod_width)
+        self.axis       = int(axis)
+        self.n_slices   = int(n_slices)
 
+        # Initialise per-slice attributes (populated only for 3-D input)
+        self.resolutions_px    = None
+        self.resolution_px_mean   = None
+        self.resolution_px_median = None
+        self.resolution_px_std    = None
+
+        p0 = time.time()
+
+        if self.image.ndim == 2:
+            self._run_2d(self.image)
+        else:
+            self._run_3d()
+
+        print(f"Done. Time elapsed: {time.time() - p0:.2f}s")
+
+    # ------------------------------------------------------------------
+    # Top-level dispatch
+    # ------------------------------------------------------------------
+
+    def _run_2d(self, img2d):
+        """Run the analysis on a single 2-D image and store results."""
+        self.nr, self.nc = img2d.shape
         print(f"  Image size : {self.nr} × {self.nc} pixels")
         print(f"  Pixel size : {self.pixel_size}")
         print(f"  Threshold  : {self.threshold}")
 
-        p0 = time.time()
+        # Temporarily point self.image at the 2-D slice so _apodize works
+        _saved = self.image
+        self.image = img2d
         self.r_values, self.A, self.d = self._compute()
         self.r_res, self.resolution_px, self.resolution = self._find_resolution()
-        print(f"Done. Time elapsed: {time.time() - p0:.2f}s")
-        print(f"  Resolution : {self.resolution_px:.1f} px  "
-              f"({self.resolution:.4g} in physical units)")
+        self.image = _saved
+
+        print(
+            f"  Resolution : {self.resolution_px:.1f} px  "
+            f"({self.resolution:.4g} in physical units)"
+        )
+
+    def _run_3d(self):
+        """
+        Apply the 2-D algorithm to evenly-spaced slices along ``self.axis``.
+
+        Summary statistics (mean, median, std) are stored as instance
+        attributes.  ``self.r_res``, ``self.resolution_px``, and
+        ``self.resolution`` are set to the median values so that the
+        scalar interface remains consistent.
+        """
+        vol = self.image
+        n_ax = vol.shape[self.axis]
+        # Choose evenly-spaced slice indices (avoid the very first/last)
+        n = min(self.n_slices, n_ax)
+        indices = np.round(np.linspace(0, n_ax - 1, n)).astype(int)
+        # Remove duplicates that can appear on very thin volumes
+        indices = np.unique(indices)
+
+        print(
+            f"  Volume shape : {vol.shape}  —  axis={self.axis}, "
+            f"sampling {len(indices)} slice(s)"
+        )
+        print(f"  Pixel size   : {self.pixel_size}")
+        print(f"  Threshold    : {self.threshold}")
+
+        res_px_list = []
+        for idx in indices:
+            sl = np.take(vol, idx, axis=self.axis)  # always 2-D
+            self._run_2d(sl)                         # sets self.r_values, self.A, self.d, …
+            res_px_list.append(self.resolution_px)
+            print(
+                f"    Slice {idx:4d} → {self.resolution_px:.1f} px "
+                f"({self.resolution:.4g} in physical units)"
+            )
+
+        self.resolutions_px       = np.array(res_px_list)
+        self.resolution_px_mean   = float(np.mean(self.resolutions_px))
+        self.resolution_px_median = float(np.median(self.resolutions_px))
+        self.resolution_px_std    = float(np.std(self.resolutions_px))
+
+        # Set scalar summary to median
+        self.resolution_px = self.resolution_px_median
+        self.resolution    = self.resolution_px_median * self.pixel_size
+        self.r_res         = 1.0 / self.resolution_px_median
+
+        print(
+            f"  Resolution (median) : {self.resolution_px_median:.1f} ± "
+            f"{self.resolution_px_std:.1f} px  "
+            f"(mean {self.resolution_px_mean:.1f} px)  "
+            f"({self.resolution:.4g} in physical units)"
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -223,7 +336,15 @@ class ImageDecorr:
 
     def plot(self):
         """
-        Plot the decorrelation curve A(r) and mark the resolution estimate.
+        Plot the decorrelation analysis result.
+
+        For a **2-D** input (or after 3-D analysis) the decorrelation
+        curve A(r) is shown together with the threshold line and the
+        resolution estimate marker.
+
+        For a **3-D** input a histogram of the per-slice resolution
+        estimates is shown in addition to the A(r) curve of the last
+        processed slice, so that the spread across slices is visible.
 
         Returns
         -------
@@ -234,7 +355,7 @@ class ImageDecorr:
         d : ndarray
             Decorrelation function d(r) = 1 − A(r).
         resolution_px : float
-            Estimated resolution in pixels.
+            Estimated resolution in pixels (median for 3-D input).
         """
         print("Calling method plot from the class ImageDecorr")
         r  = self.r_values
@@ -242,12 +363,39 @@ class ImageDecorr:
         d  = self.d
         fn = r / 0.5   # normalise to [0, 1] (Nyquist = 1)
 
-        if isnotebook():
-            fig = plt.figure(figsize=(8, 6))
+        is3d = self.resolutions_px is not None
+
+        if is3d:
+            # Two-panel figure: A(r) curve on left, histogram on right
+            if isnotebook():
+                fig, (ax, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+            else:
+                fig, (ax, ax2) = plt.subplots(1, 2)
+
+            ax2.hist(self.resolutions_px, bins="auto", color="steelblue",
+                     edgecolor="white")
+            ax2.axvline(self.resolution_px_median, color="k", linestyle="-",
+                        label=f"Median = {self.resolution_px_median:.1f} px")
+            ax2.axvline(self.resolution_px_mean, color="r", linestyle="--",
+                        label=f"Mean = {self.resolution_px_mean:.1f} px")
+            ax2.set_xlabel("Resolution (pixels)")
+            ax2.set_ylabel("Count")
+            ax2.set_title(
+                f"Per-slice resolution  (n={len(self.resolutions_px)},  "
+                f"std={self.resolution_px_std:.1f} px)"
+            )
+            ax2.legend()
+            ax2.grid(True, linestyle="--", alpha=0.5)
+            title_suffix = "  [last slice]"
         else:
-            fig = plt.figure()
-        plt.clf()
-        ax = fig.add_subplot(111)
+            if isnotebook():
+                fig = plt.figure(figsize=(8, 6))
+            else:
+                fig = plt.figure()
+            plt.clf()
+            ax = fig.add_subplot(111)
+            title_suffix = ""
+
         ax.plot(fn, A, "-b", label="A(r)  (ring correlation)")
         ax.plot(fn, d, "-g", label="d(r) = 1 − A(r)")
         ax.axhline(self.threshold, color="r", linestyle="--",
@@ -259,8 +407,10 @@ class ImageDecorr:
         ax.set_ylim(-0.1, 1.1)
         ax.set_xlabel("Spatial frequency / Nyquist")
         ax.set_ylabel("Normalised correlation")
-        ax.set_title("Image Decorrelation Analysis")
+        ax.set_title(f"Image Decorrelation Analysis{title_suffix}")
         ax.grid(True, linestyle="--", alpha=0.5)
+
+        fig.tight_layout()
         fig.savefig("ImageDecorr.png", bbox_inches="tight")
         if isnotebook():
             from IPython import display
