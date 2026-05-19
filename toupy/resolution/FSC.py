@@ -23,7 +23,13 @@ from ..utils import tqdm
 # local packages
 from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
-from ..utils.plot_utils import show_fsc_images, show_fsc_curve
+from ..utils.plot_utils import (
+    show_fsc_images,
+    show_fsc_curve,
+    show_ssnr_curve,
+    show_random_fsc_curve,
+    show_resolution_map,
+)
 
 __all__ = ["FourierShellCorr", "FSCPlot", "FRCPlot", "SSNRPlot", "LocalFSC", "RandomFSC"]
 
@@ -708,58 +714,12 @@ class SSNRPlot(FourierShellCorr):
         SSNR_T : ndarray
             Frequency-dependent SSNR threshold curve.
         """
-        from ..utils.plot_utils import plt, isnotebook
         print("Calling method plot from the class SSNRPlot")
-
         fn     = self.f / self.fnyquist
         FSC    = self.FSC.real
         SSNR   = self.SSNR
         SSNR_T = self.SSNR_T
-        suffix = "2D" if self.ndim == 2 else "3D"
-
-        # Asymptotic threshold value: snrt / (1 + snrt)  →  SSNR = 2*T_∞/(1-T_∞)
-        eps          = np.spacing(1)
-        T_asymptote  = self.snrt / (self.snrt + 1.0)
-        SSNR_asymp   = 2.0 * T_asymptote / max(1.0 - T_asymptote, eps)
-        thr_name     = "half-bit" if self.snrt == 0.2071 else "one-bit"
-
-        # Resolution: last shell where SSNR exceeds the threshold curve
-        above = SSNR > SSNR_T
-        if np.any(above):
-            idx_res = int(np.where(above)[0][-1])
-            fn_res  = float(fn[idx_res])
-        else:
-            idx_res = None
-            fn_res  = None
-
-        fig = plt.figure(figsize=(8, 6))
-        plt.clf()
-        ax = fig.add_subplot(111)
-
-        ax.semilogy(fn, SSNR,   "-b", label="SSNR")
-        ax.semilogy(fn, SSNR_T, "-r",
-                    label=f"SSNR threshold ({thr_name})")
-        ax.axhline(SSNR_asymp, color="r", linestyle=":", alpha=0.6,
-                   label=f"Asymptote = {SSNR_asymp:.3f}")
-        if fn_res is not None:
-            ax.axvline(fn_res, color="k", linestyle="--", alpha=0.7,
-                       label=f"Resolution ≈ {fn_res:.3f} × Nyquist")
-
-        ax.legend()
-        ax.set_xlim(0, 1)
-        ax.set_xlabel("Spatial frequency / Nyquist")
-        ax.set_ylabel("SSNR")
-        ax.set_title(f"Spectral Signal-to-Noise Ratio ({suffix})")
-        ax.grid(True, linestyle="--", alpha=0.5)
-        fig.tight_layout()
-        fig.savefig(f"SSNR_{suffix}.png", bbox_inches="tight")
-        if isnotebook():
-            from IPython import display
-            display.display(fig)
-            plt.close(fig)
-        else:
-            plt.show(block=False)
-
+        show_ssnr_curve(fn, FSC, SSNR, SSNR_T, self.snrt, self.ndim)
         return fn, FSC, SSNR, SSNR_T
 
 
@@ -1019,31 +979,17 @@ class LocalFSC:
         resolution_map : ndarray
             The full local-resolution map (same shape as the input volume).
         """
-        from ..utils.plot_utils import plt, isnotebook
-
-        rmap = self.resolution_map
-        if self.ndim == 3:
-            if slice_idx is None:
-                slice_idx = self.shape[axis] // 2
-            rmap2d = np.take(rmap, slice_idx, axis=axis)
-            title = f"LocalFSC resolution map  (axis={axis}, slice={slice_idx})"
-        else:
-            rmap2d = rmap
-            title = "LocalFSC resolution map"
-
-        fig, ax = plt.subplots(figsize=(7, 6))
-        im = ax.imshow(rmap2d, cmap=cmap, vmin=vmin, vmax=vmax, origin='lower')
-        cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("Local resolution (pixels)")
-        ax.set_title(title)
-        fig.tight_layout()
-        fig.savefig("LocalFSC_resmap.png", bbox_inches="tight")
-        if isnotebook():
-            from IPython import display as _disp
-            _disp.display(fig)
-            plt.close(fig)
-        else:
-            plt.show(block=False)
+        show_resolution_map(
+            self.resolution_map,
+            self.ndim,
+            title="LocalFSC resolution map",
+            filename="LocalFSC_resmap.png",
+            slice_idx=slice_idx,
+            axis=axis,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
         return self.resolution_map
 
 
@@ -1329,52 +1275,12 @@ class RandomFSC(FourierShellCorr):
         T : ndarray
             Threshold curve.
         """
-        from ..utils.plot_utils import plt, isnotebook
         print("Calling method plot from the class RandomFSC")
-
-        fn = self.f / self.fnyquist
+        fn       = self.f / self.fnyquist
         fsc_obs  = np.asarray(self.FSC_obs).real
         fsc_rand = np.asarray(self.FSC_rand).real
         fsc_corr = np.asarray(self.FSC_corr).real
-        T = np.asarray(self.T)
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-
-        ax1.plot(fn, fsc_obs,  "-b",  label="FSC_obs")
-        ax1.plot(fn, fsc_rand, "-r",  label="FSC_rand")
-        ax1.plot(fn, fsc_corr, "-g",  label="FSC_corr")
-        ax1.plot(fn, T,        "--k", label="Threshold T")
-        ax1.axvline(
-            self.cutoff_shell / self.fnyquist,
-            color="purple",
-            linestyle=":",
-            label=f"Cutoff shell {self.cutoff_shell}",
-        )
-        ax1.set_xlim(0, 1)
-        ax1.set_ylim(-0.1, 1.1)
-        ax1.set_xlabel("Spatial frequency / Nyquist")
-        ax1.set_ylabel("FSC")
-        ax1.set_title("Phase-Randomization FSC Test")
-        ax1.legend(fontsize=8)
-        ax1.grid(True, linestyle="--", alpha=0.5)
-
-        bias = fsc_obs - fsc_rand
-        ax2.plot(fn, bias, "-m", label="FSC_obs − FSC_rand")
-        ax2.axhline(0.0, color="k", linestyle="--")
-        ax2.set_xlim(0, 1)
-        ax2.set_xlabel("Spatial frequency / Nyquist")
-        ax2.set_ylabel("Bias")
-        ax2.set_title("Overfitting bias (FSC_obs − FSC_rand)")
-        ax2.legend()
-        ax2.grid(True, linestyle="--", alpha=0.5)
-
-        fig.tight_layout()
-        fig.savefig("RandomFSC.png", bbox_inches="tight")
-        if isnotebook():
-            from IPython import display as _disp
-            _disp.display(fig)
-            plt.close(fig)
-        else:
-            plt.show(block=False)
-
+        T        = np.asarray(self.T)
+        cutoff_fn = self.cutoff_shell / self.fnyquist
+        show_random_fsc_curve(fn, fsc_obs, fsc_rand, fsc_corr, T, cutoff_fn, self.ndim)
         return fn, fsc_obs, fsc_rand, fsc_corr, T

@@ -21,7 +21,7 @@ from scipy.stats import norm as _norm
 
 # local
 from ..utils import tqdm
-from ..utils.plot_utils import plt, isnotebook
+from ..utils.plot_utils import show_resolution_map
 
 __all__ = ["LocalResolution"]
 
@@ -654,38 +654,15 @@ class LocalResolution:
         resolution_map : ndarray
             The ``resolution_map`` attribute (unchanged).
         """
-        rmap = self.resolution_map
-
-        if rmap.ndim == 3:
-            if slice_idx is None:
-                slice_idx = rmap.shape[axis] // 2
-            if axis == 0:
-                img = rmap[slice_idx, :, :]
-            elif axis == 1:
-                img = rmap[:, slice_idx, :]
-            else:
-                img = rmap[:, :, slice_idx]
-            title = f"Local Resolution Map (slice {slice_idx}, axis {axis})"
-        else:
-            img = rmap
-            title = "Local Resolution Map"
-
-        fig, ax = plt.subplots(figsize=(6, 5))
-        im = ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax, origin="lower")
-        cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label("Resolution (px)")
-        ax.set_title(title)
-        ax.set_xlabel("x (px)")
-        ax.set_ylabel("y (px)")
-        fig.tight_layout()
-
-        fname = "LocalResolution_map.png"
-        fig.savefig(fname, dpi=150)
-        print(f"[LocalResolution] Saved plot to {fname}")
-
-        if isnotebook():
-            plt.show()
-        else:
-            plt.close(fig)
-
+        show_resolution_map(
+            self.resolution_map,
+            self.vol.ndim,
+            title="LocalResolution map",
+            filename="LocalResolution_map.png",
+            slice_idx=slice_idx,
+            axis=axis,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
         return self.resolution_map

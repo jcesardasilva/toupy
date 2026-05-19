@@ -39,6 +39,9 @@ __all__ = [
     "show_figure",
     "show_fsc_images",
     "show_fsc_curve",
+    "show_ssnr_curve",
+    "show_random_fsc_curve",
+    "show_resolution_map",
     "RegisterPlot",
     "ShowProjections",
     "plot_checkangles",
@@ -110,6 +113,10 @@ def show_fsc_images(img1_apod, img2_apod):
 def show_fsc_curve(fn, FSC, T, snrt, ndim):
     """Plot the FSC and threshold curves, save to disk, and display.
 
+    Draws the FSC curve, the threshold, a vertical dashed line at the
+    estimated resolution crossing, and an informative title.  The figure
+    is saved to ``FSC_2D.png`` or ``FSC_3D.png`` and then displayed.
+
     Parameters
     ----------
     fn : ndarray
@@ -119,10 +126,18 @@ def show_fsc_curve(fn, FSC, T, snrt, ndim):
     T : ndarray
         Threshold curve.
     snrt : float
-        SNR threshold value (0.2071 → half-bit, 0.5 → one-bit).
+        SNR threshold value used to select the threshold label:
+        ``0.2071`` → ``"1/2 bit threshold"``,
+        ``0.5``    → ``"1 bit threshold"``,
+        anything else → ``f"Threshold SNR = {snrt:g}"``.
     ndim : int
         Number of dimensions of the original data (2 or 3).
+
+    Returns
+    -------
+    None
     """
+    suffix = "2D" if ndim == 2 else "3D"
     if isnotebook():
         fig = plt.figure(figsize=(8, 6))
     else:
@@ -131,24 +146,229 @@ def show_fsc_curve(fn, FSC, T, snrt, ndim):
     ax = fig.add_subplot(111)
     ax.plot(fn, FSC, "-b", label="FSC")
     if snrt == 0.2071:
-        ax.plot(fn, T, "--r", label="1/2 bit threshold")
+        thr_label = "1/2 bit threshold"
     elif snrt == 0.5:
-        ax.plot(fn, T, "--r", label="1 bit threshold")
+        thr_label = "1 bit threshold"
     else:
-        ax.plot(fn, T, "--r", label="Threshold SNR = %g" % snrt)
+        thr_label = f"Threshold SNR = {snrt:g}"
+    ax.plot(fn, T, "--r", label=thr_label)
+
+    # Resolution crossing: last index where FSC > T
+    above = np.asarray(FSC) > np.asarray(T)
+    if np.any(above):
+        last_above = int(np.where(above)[0][-1])
+        fn_res = float(fn[last_above])
+        ax.axvline(fn_res, color="k", linestyle="--", alpha=0.7,
+                   label=f"Resolution ≈ {fn_res:.3f} × Nyquist")
+
     ax.legend()
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1.1)
     ax.set_xlabel("Spatial frequency/Nyquist")
     ax.set_ylabel("Magnitude")
+    ax.set_title(f"Fourier {'Ring' if ndim == 2 else 'Shell'} Correlation ({suffix})")
     ax.grid(True, linestyle="--", alpha=0.5)
-    suffix = "2D" if ndim == 2 else "3D"
+    fig.tight_layout()
     fig.savefig(f"FSC_{suffix}.png", bbox_inches="tight")
-    if isnotebook():
-        display.display(fig)
-        plt.close(fig)
+    show_figure(fig)
+
+
+def show_ssnr_curve(fn, FSC, SSNR, SSNR_T, snrt, ndim):
+    """Plot the SSNR curve with its threshold, resolution line, and asymptote.
+
+    The figure shows the Spectral Signal-to-Noise Ratio (SSNR) and its
+    frequency-dependent threshold on a semi-logarithmic scale, together
+    with a horizontal dotted line at the asymptotic threshold value and a
+    vertical dashed line at the estimated resolution crossing.  The figure
+    is saved to ``SSNR_2D.png`` or ``SSNR_3D.png`` and then displayed.
+
+    Parameters
+    ----------
+    fn : ndarray
+        Spatial frequencies normalised by the Nyquist frequency.
+    FSC : ndarray
+        Fourier Shell/Ring Correlation curve (real part), included for
+        potential future use but not plotted directly.
+    SSNR : ndarray
+        Spectral Signal-to-Noise Ratio curve, derived from FSC via
+        ``SSNR = 2 * FSC / (1 - FSC)``.
+    SSNR_T : ndarray
+        Frequency-dependent SSNR threshold curve, derived from the FSC
+        threshold ``T`` via ``SSNR_T = 2 * T / (1 - T)``.
+    snrt : float
+        SNR threshold value used to compute the asymptote and select the
+        threshold name: ``0.2071`` → ``"half-bit"``, anything else →
+        ``"one-bit"``.
+    ndim : int
+        Number of dimensions of the original data (2 or 3).
+
+    Returns
+    -------
+    None
+    """
+    suffix = "2D" if ndim == 2 else "3D"
+    eps = np.spacing(1)
+    T_asymptote = snrt / (snrt + 1.0)
+    SSNR_asymp = 2.0 * T_asymptote / max(1.0 - T_asymptote, eps)
+    thr_name = "half-bit" if snrt == 0.2071 else "one-bit"
+
+    # Resolution crossing: last index where SSNR > SSNR_T
+    above = np.asarray(SSNR) > np.asarray(SSNR_T)
+    if np.any(above):
+        idx_res = int(np.where(above)[0][-1])
+        fn_res = float(fn[idx_res])
     else:
-        plt.show(block=False)
+        fn_res = None
+
+    fig = plt.figure(figsize=(8, 6))
+    plt.clf()
+    ax = fig.add_subplot(111)
+
+    ax.semilogy(fn, SSNR,   "-b", label="SSNR")
+    ax.semilogy(fn, SSNR_T, "-r", label=f"SSNR threshold ({thr_name})")
+    ax.axhline(SSNR_asymp, color="r", linestyle=":", alpha=0.6,
+               label=f"Asymptote = {SSNR_asymp:.3f}")
+    if fn_res is not None:
+        ax.axvline(fn_res, color="k", linestyle="--", alpha=0.7,
+                   label=f"Resolution ≈ {fn_res:.3f} × Nyquist")
+
+    ax.legend()
+    ax.set_xlim(0, 1)
+    ax.set_xlabel("Spatial frequency / Nyquist")
+    ax.set_ylabel("SSNR")
+    ax.set_title(f"Spectral Signal-to-Noise Ratio ({suffix})")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    fig.tight_layout()
+    fig.savefig(f"SSNR_{suffix}.png", bbox_inches="tight")
+    show_figure(fig)
+
+
+def show_random_fsc_curve(fn, fsc_obs, fsc_rand, fsc_corr, T, cutoff_fn, ndim):
+    """Plot the phase-randomization FSC test results and save to disk.
+
+    Left panel: ``FSC_obs``, ``FSC_rand``, ``FSC_corr``, the threshold ``T``,
+    and a vertical dotted line at the randomisation cutoff frequency.
+    Right panel: ``FSC_obs − FSC_rand`` (genuine signal above the cutoff),
+    with a horizontal dashed line at zero.
+
+    The figure is saved to ``RandomFSC.png`` and then displayed.
+
+    Parameters
+    ----------
+    fn : ndarray
+        Spatial frequencies normalised by the Nyquist frequency.
+    fsc_obs : ndarray
+        Observed (standard) FSC curve.
+    fsc_rand : ndarray
+        Phase-randomized FSC curve (noise floor).
+    fsc_corr : ndarray
+        Corrected FSC, defined as
+        ``(FSC_obs - FSC_rand) / (1 - FSC_rand)``.
+    T : ndarray
+        Threshold curve.
+    cutoff_fn : float
+        Normalised cutoff frequency (``cutoff_shell / fnyquist``) at which
+        phase randomisation begins.
+    ndim : int
+        Number of dimensions of the original data (2 or 3).  Currently used
+        only for potential future labelling.
+
+    Returns
+    -------
+    None
+    """
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+    ax1.plot(fn, fsc_obs,  "-b",  label="FSC_obs")
+    ax1.plot(fn, fsc_rand, "-r",  label="FSC_rand")
+    ax1.plot(fn, fsc_corr, "-g",  label="FSC_corr")
+    ax1.plot(fn, T,        "--k", label="Threshold T")
+    ax1.axvline(
+        cutoff_fn,
+        color="purple",
+        linestyle=":",
+        label=f"Cutoff fn = {cutoff_fn:.3f}",
+    )
+    ax1.set_xlim(0, 1)
+    ax1.set_ylim(-0.1, 1.1)
+    ax1.set_xlabel("Spatial frequency / Nyquist")
+    ax1.set_ylabel("FSC")
+    ax1.set_title("Phase-Randomization FSC Test")
+    ax1.legend(fontsize=8)
+    ax1.grid(True, linestyle="--", alpha=0.5)
+
+    bias = np.asarray(fsc_obs) - np.asarray(fsc_rand)
+    ax2.plot(fn, bias, "-m", label="FSC_obs − FSC_rand")
+    ax2.axhline(0.0, color="k", linestyle="--")
+    ax2.set_xlim(0, 1)
+    ax2.set_xlabel("Spatial frequency / Nyquist")
+    ax2.set_ylabel("FSC_obs − FSC_rand")
+    ax2.set_title("Genuine signal: FSC_obs − FSC_rand")
+    ax2.legend()
+    ax2.grid(True, linestyle="--", alpha=0.5)
+
+    fig.tight_layout()
+    fig.savefig("RandomFSC.png", bbox_inches="tight")
+    show_figure(fig)
+
+
+def show_resolution_map(rmap, ndim, title, filename,
+                        slice_idx=None, axis=0,
+                        cmap="viridis_r", vmin=None, vmax=None):
+    """Display a 2-D or 3-D local resolution map and save it to disk.
+
+    For a 3-D map a single slice is extracted along *axis* and shown as a
+    2-D image.  The slice index and axis are appended to the title.  For a
+    2-D map the full array is shown.  A colorbar labelled
+    ``"Local resolution (pixels)"`` is added, and the figure is saved to
+    *filename* before being displayed.
+
+    Parameters
+    ----------
+    rmap : ndarray
+        Local resolution map.  May be 2-D or 3-D.
+    ndim : int
+        Number of dimensions of the original data (2 or 3).  Must match
+        ``rmap.ndim``.
+    title : str
+        Base title string.  For 3-D data the slice information is appended
+        automatically.
+    filename : str
+        Output filename (e.g. ``"LocalFSC_resmap.png"``).  Saved with
+        ``bbox_inches='tight'``.
+    slice_idx : int or None, optional
+        Index of the slice to display along *axis*.  Defaults to the central
+        slice (``rmap.shape[axis] // 2``) when ``None``.  Ignored for 2-D
+        input.
+    axis : int, optional
+        Axis along which to extract the slice (3-D only).  Default ``0``.
+    cmap : str, optional
+        Matplotlib colormap name.  Default ``'viridis_r'``.
+    vmin : float or None, optional
+        Lower colour-scale limit.  ``None`` uses the data minimum.
+    vmax : float or None, optional
+        Upper colour-scale limit.  ``None`` uses the data maximum.
+
+    Returns
+    -------
+    None
+    """
+    if ndim == 3:
+        if slice_idx is None:
+            slice_idx = rmap.shape[axis] // 2
+        img = np.take(rmap, slice_idx, axis=axis)
+        title = title + f"  (axis={axis}, slice={slice_idx})"
+    else:
+        img = rmap
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax, origin="lower")
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label("Local resolution (pixels)")
+    ax.set_title(title)
+    fig.tight_layout()
+    fig.savefig(filename, bbox_inches="tight")
+    show_figure(fig)
 
 
 def isnotebook():
