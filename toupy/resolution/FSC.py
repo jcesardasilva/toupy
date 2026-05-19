@@ -6,14 +6,18 @@ FOURIER SHELL CORRELATION modules  (optimized)
 """
 
 # standard library
+import itertools
 import os
 import re
 import time
+import warnings
 
 # third party package
 import h5py
 import numpy as np
 from scipy.fft import fftshift, ifftshift
+from scipy.fft import fftn as _fftn, fftfreq as _fftfreq, ifftn as _ifftn
+from scipy.interpolate import RegularGridInterpolator
 from ..utils import tqdm
 
 # local packages
@@ -21,7 +25,7 @@ from ..utils.FFT_utils import fastfftn
 from ..utils.funcutils import checkhostname
 from ..utils.plot_utils import show_fsc_images, show_fsc_curve
 
-__all__ = ["FourierShellCorr", "FSCPlot", "FRCPlot", "SSNRPlot"]
+__all__ = ["FourierShellCorr", "FSCPlot", "FRCPlot", "SSNRPlot", "LocalFSC", "RandomFSC"]
 
 
 class FourierShellCorr:
@@ -669,3 +673,620 @@ class SSNRPlot(FourierShellCorr):
         else:
             plt.show(block=False)
         return fn, FSC, SSNR
+
+
+# ---------------------------------------------------------------------------
+# LocalFSC
+# ---------------------------------------------------------------------------
+
+class LocalFSC:
+    """
+    Local resolution estimation via block-wise FSC (3-D) or FRC (2-D).
+
+    Divides the volume into overlapping boxes, computes an independent
+    Fourier Shell/Ring Correlation within each box, and assembles a
+    spatial map of local resolution interpolated to the input shape.
+
+    Parameters
+    ----------
+    vol1 : ndarray
+        First independent half-reconstruction (2-D or 3-D).
+    vol2 : ndarray
+        Second independent half-reconstruction, same shape as *vol1*.
+    pixel_size : float, optional
+        Physical voxel size (any consistent unit). Default ``1.0``.
+    box_size : int, optional
+        Side length (in voxels) of the cubic (or square) analysis box.
+        Smaller boxes give finer spatial sampling but noisier estimates.
+        Default ``32``.
+    step : int or None, optional
+        Step size in voxels between adjacent box centres.
+        Default ``box_size // 2`` (50 % overlap).
+    threshold : float, optional
+        FSC/FRC threshold used to define the local resolution limit.
+        Default ``0.143`` (half-bit criterion).
+
+    Attributes
+    ----------
+    resolution_map : ndarray
+        Local resolution in pixels, same shape as *vol1*.
+    resolution_map_phys : ndarray
+        Local resolution in physical units (``resolution_map * pixel_size``).
+    resolution_median : float
+        Median local resolution in pixels.
+    resolution_mean : float
+        Mean local resolution in pixels.
+    resolution_std : float
+        Standard deviation of local resolution in pixels.
+    """
+
+    def __init__(self, vol1, vol2, pixel_size=1.0, box_size=32, step=None, threshold=0.143):
+        print("Calling the class LocalFSC")
+        vol1 = np.asarray(vol1, dtype=np.float64)
+        vol2 = np.asarray(vol2, dtype=np.float64)
+        if vol1.shape != vol2.shape:
+            raise ValueError("LocalFSC: vol1 and vol2 must have the same shape.")
+        if vol1.ndim not in (2, 3):
+            raise ValueError("LocalFSC: input must be 2-D or 3-D.")
+        self.vol1 = vol1
+        self.vol2 = vol2
+        self.shape = vol1.shape
+        self.ndim = vol1.ndim
+        self.pixel_size = float(pixel_size)
+        self.box_size = int(box_size)
+        self.step = int(step) if step is not None else self.box_size // 2
+        self.threshold = float(threshold)
+
+        self._compute()
+
+        print(f"  LocalFSC median resolution : {self.resolution_median:.2f} px  "
+              f"({self.resolution_median * self.pixel_size:.4g} physical units)")
+        print(f"  LocalFSC mean resolution   : {self.resolution_mean:.2f} ± "
+              f"{self.resolution_std:.2f} px")
+
+    def _make_window(self):
+        """
+        Build a Hanning window matching the analysis box shape.
+
+        Returns
+        -------
+        window : ndarray
+            Hanning window of shape ``(box_size,) * ndim``.
+        """
+        w1d = np.hanning(self.box_size)
+        window = w1d.copy()
+        for _ in range(self.ndim - 1):
+            window = np.multiply.outer(window, w1d)
+        return window
+
+    def _fsc_box(self, box1, box2, window):
+        """
+        Compute local resolution (pixels) from a pair of overlapping boxes.
+
+        Subtracts the mean, applies *window*, computes the FFT, builds
+        radial shells using ``scipy.fft.fftfreq``, and returns the local
+        resolution at the shell where FSC first drops below
+        ``self.threshold``.
+
+        Parameters
+        ----------
+        box1 : ndarray
+            First analysis box (shape ``(box_size,) * ndim``).
+        box2 : ndarray
+            Second analysis box, same shape as *box1*.
+        window : ndarray
+            Hanning window of shape ``(box_size,) * ndim``.
+
+        Returns
+        -------
+        resolution_px : float
+            Local resolution in pixels.  Returns ``box_size * 2.0`` when
+            the FSC never reaches ``self.threshold`` (bad estimate).
+        """
+        b = self.box_size
+        eps = np.finfo(np.float64).tiny
+
+        b1 = (box1 - box1.mean()) * window
+        b2 = (box2 - box2.mean()) * window
+
+        F1 = _fftn(b1)
+        F2 = _fftn(b2)
+
+        # Build radial coordinate grid in cycles/pixel (FFT layout)
+        freqs = [_fftfreq(b) for _ in range(self.ndim)]
+        grids = np.meshgrid(*freqs, indexing='ij')
+        R = np.sqrt(sum(g ** 2 for g in grids))
+
+        # Radial shells: integer bins in units of 1/box_size
+        shell_idx = np.round(R * b).astype(np.int32)
+        max_shell = b // 2
+
+        fsc_vals = []
+        for s in range(max_shell + 1):
+            mask = shell_idx == s
+            if not np.any(mask):
+                fsc_vals.append(0.0)
+                continue
+            f1 = F1[mask]
+            f2 = F2[mask]
+            cross = np.abs(np.vdot(f2, f1))
+            a1 = np.abs(np.vdot(f1, f1))
+            a2 = np.abs(np.vdot(f2, f2))
+            denom = np.sqrt(a1 * a2)
+            fsc_vals.append(float(cross / denom) if denom > eps else 0.0)
+
+        fsc_arr = np.array(fsc_vals)
+
+        # Find the highest shell where FSC >= threshold
+        above = np.where(fsc_arr[1:] >= self.threshold)[0] + 1  # skip DC
+        if len(above) == 0:
+            return float(b * 2.0)
+        r_res_shell = above[-1]
+        # Convert shell index to resolution in pixels: shell s = s/b cycles/pixel
+        r_cpx = r_res_shell / float(b)
+        if r_cpx < eps:
+            return float(b * 2.0)
+        return 1.0 / r_cpx
+
+    def _compute(self):
+        """
+        Iterate over the coarse grid, compute local FSC per box, and
+        interpolate the result to the full volume shape.
+
+        Stores
+        ------
+        resolution_map : ndarray
+        resolution_map_phys : ndarray
+        resolution_median : float
+        resolution_mean : float
+        resolution_std : float
+        """
+        vol1 = self.vol1
+        vol2 = self.vol2
+        shape = self.shape
+        ndim = self.ndim
+        b = self.box_size
+        step = self.step
+        half = b // 2
+        window = self._make_window()
+
+        # Coarse grid: centre positions
+        axes = [np.arange(half, shape[d] - half, step) for d in range(ndim)]
+
+        for d, ax in enumerate(axes):
+            if len(ax) < 2:
+                warnings.warn(
+                    f"LocalFSC: axis {d} has fewer than 2 grid points "
+                    f"(box_size={b} may be too large for dimension {shape[d]}).  "
+                    "Resolution map may be unreliable.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+        coarse_shape = tuple(len(ax) for ax in axes)
+        coarse_map = np.empty(coarse_shape, dtype=np.float64)
+
+        idx_ranges = [range(len(ax)) for ax in axes]
+        for grid_idx in itertools.product(*idx_ranges):
+            centres = tuple(int(axes[d][grid_idx[d]]) for d in range(ndim))
+            slices = tuple(
+                slice(max(0, centres[d] - half), min(shape[d], centres[d] + half))
+                for d in range(ndim)
+            )
+            box1 = vol1[slices]
+            box2 = vol2[slices]
+
+            # Pad to box_size if the box is smaller near the border
+            if box1.shape != (b,) * ndim:
+                pad1 = [(0, b - box1.shape[dd]) for dd in range(ndim)]
+                box1 = np.pad(box1, pad1)
+                box2 = np.pad(box2, pad1)
+
+            coarse_map[grid_idx] = self._fsc_box(box1, box2, window)
+
+        # Interpolate to full volume using RegularGridInterpolator
+        interp = RegularGridInterpolator(
+            axes,
+            coarse_map,
+            method='linear',
+            bounds_error=False,
+            fill_value=None,
+        )
+
+        # Build full meshgrid of integer coordinates
+        full_grids = np.mgrid[tuple(slice(0, shape[d]) for d in range(ndim))]
+        # full_grids shape: (ndim, *shape)
+        pts = np.stack([full_grids[d].ravel() for d in range(ndim)], axis=-1)
+        res_full = interp(pts).reshape(shape)
+
+        self.resolution_map = res_full
+        self.resolution_map_phys = res_full * self.pixel_size
+        self.resolution_median = float(np.median(res_full))
+        self.resolution_mean = float(np.mean(res_full))
+        self.resolution_std = float(np.std(res_full))
+
+    def plot(self, slice_idx=None, axis=0, cmap='viridis_r', vmin=None, vmax=None):
+        """
+        Display the local resolution map and save it to ``LocalFSC_resmap.png``.
+
+        For 3-D volumes the central slice (or the slice specified by
+        *slice_idx*) along *axis* is shown.  The colour bar is in pixels.
+
+        Parameters
+        ----------
+        slice_idx : int or None, optional
+            Slice index along *axis* to display.  Defaults to the central
+            slice.  Ignored for 2-D input.
+        axis : int, optional
+            Volume axis along which to slice.  Default ``0``.
+        cmap : str, optional
+            Matplotlib colourmap.  Default ``'viridis_r'``.
+        vmin : float or None, optional
+            Lower colour-scale limit.  ``None`` uses the data minimum.
+        vmax : float or None, optional
+            Upper colour-scale limit.  ``None`` uses the data maximum.
+
+        Returns
+        -------
+        resolution_map : ndarray
+            The full local-resolution map (same shape as the input volume).
+        """
+        from ..utils.plot_utils import plt, isnotebook
+
+        rmap = self.resolution_map
+        if self.ndim == 3:
+            if slice_idx is None:
+                slice_idx = self.shape[axis] // 2
+            rmap2d = np.take(rmap, slice_idx, axis=axis)
+            title = f"LocalFSC resolution map  (axis={axis}, slice={slice_idx})"
+        else:
+            rmap2d = rmap
+            title = "LocalFSC resolution map"
+
+        fig, ax = plt.subplots(figsize=(7, 6))
+        im = ax.imshow(rmap2d, cmap=cmap, vmin=vmin, vmax=vmax, origin='lower')
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label("Local resolution (pixels)")
+        ax.set_title(title)
+        fig.tight_layout()
+        fig.savefig("LocalFSC_resmap.png", bbox_inches="tight")
+        if isnotebook():
+            from IPython import display as _disp
+            _disp.display(fig)
+            plt.close(fig)
+        else:
+            plt.show(block=False)
+        return self.resolution_map
+
+
+# ---------------------------------------------------------------------------
+# RandomFSC
+# ---------------------------------------------------------------------------
+
+class RandomFSC(FourierShellCorr):
+    """
+    Phase-randomization test for FSC validation (Chen et al., 2013).
+
+    After computing the standard FSC, the Fourier phases of both
+    half-volumes are independently randomized above a chosen spatial
+    frequency *f*_cutoff (the shell where FSC_obs first drops below
+    ``fsc_cutoff``).  The FSC computed from the two phase-randomized
+    volumes (FSC_rand) is the noise floor expected from model bias or
+    overfitting.  A corrected FSC is then defined as:
+
+    .. math::
+
+        \\mathrm{FSC_{corr}}(r) =
+            \\frac{\\mathrm{FSC_{obs}}(r) - \\mathrm{FSC_{rand}}(r)}
+                  {1 - \\mathrm{FSC_{rand}}(r)}
+
+    If no overfitting is present, FSC_rand drops quickly to zero beyond
+    *f*_cutoff and FSC_corr ≈ FSC_obs.  An elevated FSC_rand indicates
+    that the two half-maps share information beyond *f*_cutoff via a
+    common external model used during iterative reconstruction.
+
+    Parameters
+    ----------
+    img1 : ndarray
+        First half-reconstruction (2-D or 3-D).
+    img2 : ndarray
+        Second half-reconstruction, same shape as *img1*.
+    threshold : str, optional
+        ``'halfbit'`` (default) or ``'onebit'``.
+    ring_thick : int, optional
+        Ring thickness in pixels. Default ``1``.
+    apod_width : int, optional
+        Apodization width in pixels. Default ``20``.
+    fsc_cutoff : float, optional
+        FSC value that defines the phase-randomization cut-off frequency.
+        Phases are randomized at all shells where FSC_obs < ``fsc_cutoff``.
+        Default ``0.8``.
+    random_seed : int or None, optional
+        Seed for the random phase generator (for reproducibility).
+        Default ``None`` (non-reproducible).
+
+    Attributes
+    ----------
+    FSC_obs : ndarray
+        Standard (observed) FSC curve.
+    FSC_rand : ndarray
+        FSC of the phase-randomized half-volumes.
+    FSC_corr : ndarray
+        Phase-randomization corrected FSC.
+    T : ndarray
+        Threshold curve (same as standard FSC).
+    f : ndarray
+        Shell indices.
+    fnyquist : float
+        Nyquist frequency in pixels.
+    cutoff_shell : int
+        Shell index used as the phase-randomization boundary.
+
+    References
+    ----------
+    .. [1] S. Chen, G. McMullan, A. R. Faruqi, G. N. Murshudov, J. M. Short,
+       S. H. Scheres, and R. Henderson, "High-resolution noise substitution to
+       measure overfitting and validate resolution in 3D structure determination
+       by single particle electron cryomicroscopy", Ultramicroscopy 135, 24-35
+       (2013). https://doi.org/10.1016/j.ultramic.2013.06.004
+    """
+
+    def __init__(
+        self,
+        img1,
+        img2,
+        threshold="halfbit",
+        ring_thick=1,
+        apod_width=20,
+        fsc_cutoff=0.8,
+        random_seed=None,
+    ):
+        print("Calling the class RandomFSC")
+        super().__init__(img1, img2, threshold, ring_thick, apod_width)
+        self.fsc_cutoff = float(fsc_cutoff)
+        self.random_seed = random_seed
+
+        # Compute observed FSC and threshold
+        self.FSC_obs, self.T = FourierShellCorr.fouriercorr(self)
+        self.f, self.fnyquist = FourierShellCorr.nyquist(self)
+
+        # Phase-randomization
+        self.cutoff_shell = self._find_cutoff_shell()
+        self._compute_randomized()
+
+        print(f"  Phase-randomization cutoff shell : {self.cutoff_shell}")
+        print(f"  f_cutoff (cycles/pixel)          : "
+              f"{self.cutoff_shell / self.fnyquist * 0.5:.4f}")
+
+    def _find_cutoff_shell(self):
+        """
+        Find the last shell index where ``FSC_obs >= fsc_cutoff``.
+
+        Returns
+        -------
+        cutoff_shell : int
+            Shell index used as the phase-randomization boundary.
+
+        Warns
+        -----
+        UserWarning
+            If ``FSC_obs`` never reaches ``fsc_cutoff``.
+        """
+        fsc = np.asarray(self.FSC_obs).real
+        above = np.where(fsc >= self.fsc_cutoff)[0]
+        if len(above) == 0:
+            shell = int(len(self.f) // 4)
+            warnings.warn(
+                f"RandomFSC: FSC_obs never reaches fsc_cutoff={self.fsc_cutoff}. "
+                f"Using shell index {shell} as fallback.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return shell
+        return int(above[-1])
+
+    def _build_radial_grid(self, shape):
+        """
+        Build a radial frequency grid in cycles/pixel for a volume of *shape*.
+
+        Parameters
+        ----------
+        shape : tuple of int
+            Shape of the volume.
+
+        Returns
+        -------
+        R : ndarray
+            Radial frequency array of the same shape as *shape*,
+            in cycles/pixel (FFT layout).
+        """
+        freqs = [_fftfreq(n) for n in shape]
+        grids = np.meshgrid(*freqs, indexing='ij')
+        return np.sqrt(sum(g ** 2 for g in grids))
+
+    def _randomize_phases_above(self, vol, f_cutoff_cpx, rng):
+        """
+        Randomize Fourier phases above *f_cutoff_cpx* cycles/pixel.
+
+        The amplitude spectrum is preserved; only the phase is replaced by
+        uniform random values in ``[-π, π]``.
+
+        Parameters
+        ----------
+        vol : ndarray
+            Real-space volume (2-D or 3-D).
+        f_cutoff_cpx : float
+            Radial frequency threshold in cycles/pixel.  Shells with
+            R > f_cutoff_cpx are phase-randomized.
+        rng : numpy.random.Generator
+            Random number generator.
+
+        Returns
+        -------
+        vol_rand : ndarray
+            Real-space volume with randomized phases above *f_cutoff_cpx*.
+        """
+        F = _fftn(vol)
+        R = self._build_radial_grid(vol.shape)
+        mask = R > f_cutoff_cpx
+        amp = np.abs(F)
+        phase_orig = np.angle(F)
+        rand_phase = rng.uniform(-np.pi, np.pi, size=F.shape)
+        new_phase = np.where(mask, rand_phase, phase_orig)
+        F_rand = amp * np.exp(1j * new_phase)
+        return np.real(_ifftn(F_rand))
+
+    def _fsc_from_arrays(self, vol1, vol2):
+        """
+        Compute FSC between *vol1* and *vol2* using the pre-computed window.
+
+        Does not call :meth:`fouriercorr` to avoid re-triggering the
+        apodization display and window recomputation.
+
+        Parameters
+        ----------
+        vol1 : ndarray
+            First volume (same shape as ``self.img1``).
+        vol2 : ndarray
+            Second volume (same shape as ``self.img2``).
+
+        Returns
+        -------
+        FSC : ndarray
+            Fourier Shell Correlation curve.
+        """
+        F1 = fastfftn(vol1 * self.window)
+        F2 = fastfftn(vol2 * self.window)
+
+        index = self.ringthickness()
+        f, fnyquist = self.nyquist()
+
+        index_flat = index.ravel()
+        F1_flat = F1.ravel()
+        F2_flat = F2.ravel()
+
+        sort_order = np.argsort(index_flat, kind="stable")
+        index_sorted = index_flat[sort_order]
+        F1_sorted = F1_flat[sort_order]
+        F2_sorted = F2_flat[sort_order]
+
+        C  = np.empty(len(f), dtype=np.float32)
+        C1 = np.empty(len(f), dtype=np.float32)
+        C2 = np.empty(len(f), dtype=np.float32)
+
+        half_thick = self.ring_thick / 2.0
+        use_thick = self.ring_thick > 1
+
+        for ii in f:
+            if use_thick:
+                lo = np.searchsorted(index_sorted, ii - half_thick, side="left")
+                hi = np.searchsorted(index_sorted, ii + half_thick, side="right")
+            else:
+                lo = np.searchsorted(index_sorted, ii,     side="left")
+                hi = np.searchsorted(index_sorted, ii + 1, side="left")
+
+            f1 = F1_sorted[lo:hi]
+            f2 = F2_sorted[lo:hi]
+
+            C[ii]  = abs(np.vdot(f2, f1))
+            C1[ii] = abs(np.vdot(f1, f1))
+            C2[ii] = abs(np.vdot(f2, f2))
+
+        eps = np.spacing(1)
+        FSC = C / np.sqrt(C1 * C2 + eps)
+        return FSC
+
+    def _compute_randomized(self):
+        """
+        Randomize phases above ``cutoff_shell`` and compute FSC_rand and FSC_corr.
+
+        Stores
+        ------
+        FSC_rand : ndarray
+        FSC_corr : ndarray
+        """
+        f_cutoff_cpx = self.cutoff_shell / self.fnyquist * 0.5
+        rng = np.random.default_rng(self.random_seed)
+
+        rand1 = self._randomize_phases_above(self.img1, f_cutoff_cpx, rng)
+        rand2 = self._randomize_phases_above(self.img2, f_cutoff_cpx, rng)
+
+        self.FSC_rand = self._fsc_from_arrays(rand1, rand2)
+
+        eps = np.finfo(np.float64).eps
+        fsc_obs = np.asarray(self.FSC_obs, dtype=np.float64)
+        fsc_rand = np.asarray(self.FSC_rand, dtype=np.float64)
+        fsc_corr = (fsc_obs - fsc_rand) / np.maximum(1.0 - fsc_rand, eps)
+        self.FSC_corr = np.clip(fsc_corr, -1.0, 1.0)
+
+    def plot(self):
+        """
+        Plot FSC_obs, FSC_rand, FSC_corr, and the bias (FSC_obs − FSC_rand).
+
+        Left panel: all three FSC curves and the threshold *T*.
+        Right panel: ``FSC_obs − FSC_rand`` (overfitting bias).
+
+        Saves ``RandomFSC.png``.
+
+        Returns
+        -------
+        fn : ndarray
+            Spatial frequencies normalised by the Nyquist frequency.
+        FSC_obs : ndarray
+            Standard FSC.
+        FSC_rand : ndarray
+            Phase-randomized FSC.
+        FSC_corr : ndarray
+            Corrected FSC.
+        T : ndarray
+            Threshold curve.
+        """
+        from ..utils.plot_utils import plt, isnotebook
+        print("Calling method plot from the class RandomFSC")
+
+        fn = self.f / self.fnyquist
+        fsc_obs  = np.asarray(self.FSC_obs).real
+        fsc_rand = np.asarray(self.FSC_rand).real
+        fsc_corr = np.asarray(self.FSC_corr).real
+        T = np.asarray(self.T)
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+        ax1.plot(fn, fsc_obs,  "-b",  label="FSC_obs")
+        ax1.plot(fn, fsc_rand, "-r",  label="FSC_rand")
+        ax1.plot(fn, fsc_corr, "-g",  label="FSC_corr")
+        ax1.plot(fn, T,        "--k", label="Threshold T")
+        ax1.axvline(
+            self.cutoff_shell / self.fnyquist,
+            color="purple",
+            linestyle=":",
+            label=f"Cutoff shell {self.cutoff_shell}",
+        )
+        ax1.set_xlim(0, 1)
+        ax1.set_ylim(-0.1, 1.1)
+        ax1.set_xlabel("Spatial frequency / Nyquist")
+        ax1.set_ylabel("FSC")
+        ax1.set_title("Phase-Randomization FSC Test")
+        ax1.legend(fontsize=8)
+        ax1.grid(True, linestyle="--", alpha=0.5)
+
+        bias = fsc_obs - fsc_rand
+        ax2.plot(fn, bias, "-m", label="FSC_obs − FSC_rand")
+        ax2.axhline(0.0, color="k", linestyle="--")
+        ax2.set_xlim(0, 1)
+        ax2.set_xlabel("Spatial frequency / Nyquist")
+        ax2.set_ylabel("Bias")
+        ax2.set_title("Overfitting bias (FSC_obs − FSC_rand)")
+        ax2.legend()
+        ax2.grid(True, linestyle="--", alpha=0.5)
+
+        fig.tight_layout()
+        fig.savefig("RandomFSC.png", bbox_inches="tight")
+        if isnotebook():
+            from IPython import display as _disp
+            _disp.display(fig)
+            plt.close(fig)
+        else:
+            plt.show(block=False)
+
+        return fn, fsc_obs, fsc_rand, fsc_corr, T
