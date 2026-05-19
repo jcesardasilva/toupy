@@ -504,6 +504,18 @@ class FSCPlot(FourierShellCorr):
         self.FSC, self.T = FourierShellCorr.fouriercorr(self)
         self.f, self.fnyquist = FourierShellCorr.nyquist(self)
 
+        # Resolution crossing: last shell where FSC > T
+        # fn_res   — normalised frequency [0, 1] (fraction of Nyquist)
+        # fn_res_cpx — in cycles/pixel; resolution = pixel_size / fn_res_cpx
+        above = self.FSC.real > self.T
+        if np.any(above):
+            idx = int(np.where(above)[0][-1])
+            self.fn_res     = float(self.f[idx] / self.fnyquist)
+            self.fn_res_cpx = self.fn_res * 0.5   # cycles/pixel
+        else:
+            self.fn_res     = None
+            self.fn_res_cpx = None
+
     def plot(self):
         """
         Plot the FSC and threshold curves and return the underlying data.
@@ -520,13 +532,17 @@ class FSCPlot(FourierShellCorr):
             Threshold curve (half-bit or one-bit).
         FSC : ndarray
             Real part of the Fourier Shell Correlation values.
+        fn_res_cpx : float or None
+            Resolution crossing frequency in cycles/pixel.
+            Divide ``pixel_size`` by this value to obtain the resolution
+            in physical units.  ``None`` if FSC never exceeds the threshold.
         """
         print("calling method plot from the class FSCplot")
         fn  = self.f / self.fnyquist
         FSC = self.FSC.real
         T   = self.T
         show_fsc_curve(fn, FSC, T, self.snrt, self.img1.ndim)
-        return fn, T, FSC
+        return fn, T, FSC, self.fn_res_cpx
 
 
 class FRCPlot(FSCPlot):
@@ -593,6 +609,10 @@ class FRCPlot(FSCPlot):
             Threshold curve (half-bit or one-bit).
         FRC : ndarray
             Fourier Ring Correlation curve (real part).
+        fn_res_cpx : float or None
+            Resolution crossing frequency in cycles/pixel.
+            Divide ``pixel_size`` by this value to obtain the resolution
+            in physical units.  ``None`` if FRC never exceeds the threshold.
         """
         print("Calling method plot from the class FRCPlot")
         fn  = self.f / self.fnyquist
@@ -600,7 +620,7 @@ class FRCPlot(FSCPlot):
         T   = self.T
         # Reuse show_fsc_curve but relabel via the ndim=2 path
         show_fsc_curve(fn, FRC, T, self.snrt, ndim=2)
-        return fn, T, FRC
+        return fn, T, FRC, self.fn_res_cpx
 
 
 class SSNRPlot(FourierShellCorr):
@@ -687,6 +707,18 @@ class SSNRPlot(FourierShellCorr):
         # Frequency-dependent SSNR threshold derived from T(r)
         self.SSNR_T = 2.0 * self.T / np.maximum(1.0 - self.T, eps)
 
+        # Resolution crossing: last shell where SSNR > SSNR_T
+        # fn_res_cpx in cycles/pixel; resolution = pixel_size / fn_res_cpx
+        fn    = self.f / self.fnyquist
+        above = self.SSNR > self.SSNR_T
+        if np.any(above):
+            idx = int(np.where(above)[0][-1])
+            self.fn_res     = float(fn[idx])
+            self.fn_res_cpx = self.fn_res * 0.5   # cycles/pixel
+        else:
+            self.fn_res     = None
+            self.fn_res_cpx = None
+
     def plot(self):
         """
         Plot the SSNR curve with its frequency-dependent threshold and return
@@ -713,6 +745,11 @@ class SSNRPlot(FourierShellCorr):
             Spectral Signal-to-Noise Ratio curve.
         SSNR_T : ndarray
             Frequency-dependent SSNR threshold curve.
+        fn_res_cpx : float or None
+            Resolution crossing frequency in cycles/pixel
+            (last frequency where ``SSNR > SSNR_T``).
+            Divide ``pixel_size`` by this value to obtain the resolution
+            in physical units.  ``None`` if SSNR never exceeds the threshold.
         """
         print("Calling method plot from the class SSNRPlot")
         fn     = self.f / self.fnyquist
@@ -720,7 +757,7 @@ class SSNRPlot(FourierShellCorr):
         SSNR   = self.SSNR
         SSNR_T = self.SSNR_T
         show_ssnr_curve(fn, FSC, SSNR, SSNR_T, self.snrt, self.ndim)
-        return fn, FSC, SSNR, SSNR_T
+        return fn, FSC, SSNR, SSNR_T, self.fn_res_cpx
 
 
 # ---------------------------------------------------------------------------
