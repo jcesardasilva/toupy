@@ -4,4 +4,5 @@
 # local packages
 from .FSC import *
 from .FSCtools import *
+from .MTF import *
 from .decorr import *
