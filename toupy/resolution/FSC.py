@@ -607,7 +607,26 @@ class SSNRPlot(FourierShellCorr):
 
         \\mathrm{SSNR}(r) = \\frac{2 \\cdot \\mathrm{FSC}(r)}{1 - \\mathrm{FSC}(r)}
 
-    The resolution limit is the spatial frequency where SSNR = 1.
+    The resolution limit is defined by a **frequency-dependent** SSNR
+    threshold curve obtained by applying the same transformation to the
+    half-bit (or one-bit) FSC threshold :math:`T(r)`:
+
+    .. math::
+
+        \\mathrm{SSNR}_T(r) = \\frac{2 \\cdot T(r)}{1 - T(r)}
+
+    This curve is *not* a horizontal line — it starts very high at low
+    spatial frequencies (few Fourier coefficients, large :math:`T`) and
+    asymptotes to a fixed value at high frequencies:
+
+    * **half-bit** threshold: asymptote :math:`\\approx 0.414`
+    * **one-bit**  threshold: asymptote :math:`= 1.0`
+
+    Using a horizontal line at SSNR = 1 as the resolution criterion is
+    therefore only correct for the one-bit case (two fully independent
+    measurements).  For a **split dataset** (``threshold='halfbit'``), the
+    correct criterion is the frequency-dependent :math:`\\mathrm{SSNR}_T(r)`
+    curve, whose asymptote is ≈ 0.414.
 
     Parameters
     ----------
@@ -622,21 +641,61 @@ class SSNRPlot(FourierShellCorr):
     apod_width : int, optional
         Apodization width in pixels.  Default ``20``.
 
+    Attributes
+    ----------
+    FSC : ndarray
+        Fourier Shell/Ring Correlation curve.
+    SSNR : ndarray
+        Spectral Signal-to-Noise Ratio curve.
+    SSNR_T : ndarray
+        Frequency-dependent SSNR threshold derived from the FSC threshold
+        curve :math:`T(r)`.
+    f : ndarray
+        Shell indices.
+    fnyquist : float
+        Nyquist frequency in pixels.
+
     References
     ----------
     .. [1] M. Unser, B. L. Trus, and A. C. Steven, "A new resolution
        criterion based on spectral signal-to-noise ratios",
        Ultramicroscopy 23, 39-52 (1987).
+    .. [2] M. van Heel and M. Schatz, "Fourier shell correlation threshold
+       criteria", Journal of Structural Biology 151, 250-262 (2005).
     """
 
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
         print("Calling the class SSNRPlot")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
-        self.f, self.fnyquist, self.FSC, self.SSNR = FourierShellCorr.ssnr(self)
+
+        # Compute FSC and the FSC threshold curve in a single call
+        self.FSC, self.T    = FourierShellCorr.fouriercorr(self)
+        self.f, self.fnyquist = FourierShellCorr.nyquist(self)
+
+        eps = np.spacing(1)
+        fsc = self.FSC.real
+
+        # SSNR from the FSC curve
+        self.SSNR   = 2.0 * fsc    / np.maximum(1.0 - fsc,    eps)
+
+        # Frequency-dependent SSNR threshold derived from T(r)
+        self.SSNR_T = 2.0 * self.T / np.maximum(1.0 - self.T, eps)
 
     def plot(self):
         """
-        Plot the SSNR curve and return the underlying data.
+        Plot the SSNR curve with its frequency-dependent threshold and return
+        the underlying data.
+
+        The plot shows:
+
+        * The SSNR curve (blue).
+        * The frequency-dependent SSNR threshold :math:`\\mathrm{SSNR}_T(r)`
+          (red solid curve), derived by transforming the FSC threshold
+          :math:`T(r)` through :math:`\\mathrm{SSNR}_T = 2T/(1-T)`.
+        * A dotted horizontal line at the asymptotic threshold value
+          (≈ 0.414 for half-bit, 1.0 for one-bit).
+        * A vertical dashed line at the estimated resolution (last frequency
+          where ``SSNR > SSNR_T``).
 
         Returns
         -------
@@ -646,25 +705,53 @@ class SSNRPlot(FourierShellCorr):
             Fourier Shell/Ring Correlation curve.
         SSNR : ndarray
             Spectral Signal-to-Noise Ratio curve.
+        SSNR_T : ndarray
+            Frequency-dependent SSNR threshold curve.
         """
         from ..utils.plot_utils import plt, isnotebook
         print("Calling method plot from the class SSNRPlot")
-        fn   = self.f / self.fnyquist
-        FSC  = self.FSC.real
-        SSNR = self.SSNR
+
+        fn     = self.f / self.fnyquist
+        FSC    = self.FSC.real
+        SSNR   = self.SSNR
+        SSNR_T = self.SSNR_T
         suffix = "2D" if self.ndim == 2 else "3D"
+
+        # Asymptotic threshold value: snrt / (1 + snrt)  →  SSNR = 2*T_∞/(1-T_∞)
+        eps          = np.spacing(1)
+        T_asymptote  = self.snrt / (self.snrt + 1.0)
+        SSNR_asymp   = 2.0 * T_asymptote / max(1.0 - T_asymptote, eps)
+        thr_name     = "half-bit" if self.snrt == 0.2071 else "one-bit"
+
+        # Resolution: last shell where SSNR exceeds the threshold curve
+        above = SSNR > SSNR_T
+        if np.any(above):
+            idx_res = int(np.where(above)[0][-1])
+            fn_res  = float(fn[idx_res])
+        else:
+            idx_res = None
+            fn_res  = None
 
         fig = plt.figure(figsize=(8, 6))
         plt.clf()
         ax = fig.add_subplot(111)
-        ax.semilogy(fn, SSNR, "-b", label="SSNR")
-        ax.axhline(1.0, color="r", linestyle="--", label="SSNR = 1 (resolution limit)")
+
+        ax.semilogy(fn, SSNR,   "-b", label="SSNR")
+        ax.semilogy(fn, SSNR_T, "-r",
+                    label=f"SSNR threshold ({thr_name})")
+        ax.axhline(SSNR_asymp, color="r", linestyle=":", alpha=0.6,
+                   label=f"Asymptote = {SSNR_asymp:.3f}")
+        if fn_res is not None:
+            ax.axvline(fn_res, color="k", linestyle="--", alpha=0.7,
+                       label=f"Resolution ≈ {fn_res:.3f} × Nyquist")
+
         ax.legend()
         ax.set_xlim(0, 1)
         ax.set_xlabel("Spatial frequency / Nyquist")
         ax.set_ylabel("SSNR")
         ax.set_title(f"Spectral Signal-to-Noise Ratio ({suffix})")
         ax.grid(True, linestyle="--", alpha=0.5)
+        fig.tight_layout()
         fig.savefig(f"SSNR_{suffix}.png", bbox_inches="tight")
         if isnotebook():
             from IPython import display
@@ -672,7 +759,8 @@ class SSNRPlot(FourierShellCorr):
             plt.close(fig)
         else:
             plt.show(block=False)
-        return fn, FSC, SSNR
+
+        return fn, FSC, SSNR, SSNR_T
 
 
 # ---------------------------------------------------------------------------
