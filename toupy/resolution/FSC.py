@@ -881,15 +881,29 @@ class LocalFSC:
     Attributes
     ----------
     resolution_map : ndarray
-        Local resolution in pixels, same shape as *vol1*.
+        Local full-period resolution in pixels (van Heel convention),
+        same shape as *vol1*.
     resolution_map_phys : ndarray
-        Local resolution in physical units (``resolution_map * pixel_size``).
+        Local full-period resolution in physical units
+        (``resolution_map * pixel_size``).
+    resolution_map_half : ndarray
+        Local half-period resolution in pixels (Rayleigh convention):
+        ``resolution_map / 2``.
+    resolution_map_phys_half : ndarray
+        Local half-period resolution in physical units:
+        ``resolution_map_phys / 2``.
     resolution_median : float
-        Median local resolution in pixels.
+        Median full-period local resolution in pixels.
     resolution_mean : float
-        Mean local resolution in pixels.
+        Mean full-period local resolution in pixels.
     resolution_std : float
-        Standard deviation of local resolution in pixels.
+        Standard deviation of full-period local resolution in pixels.
+    resolution_median_half : float
+        Median half-period local resolution in pixels.
+    resolution_mean_half : float
+        Mean half-period local resolution in pixels.
+    resolution_std_half : float
+        Standard deviation of half-period local resolution in pixels.
     """
 
     def __init__(self, vol1, vol2, pixel_size=1.0, box_size=32, step=None, threshold=0.143):
@@ -911,10 +925,15 @@ class LocalFSC:
 
         self._compute()
 
-        print(f"  LocalFSC median resolution : {self.resolution_median:.2f} px  "
-              f"({self.resolution_median * self.pixel_size:.4g} physical units)")
-        print(f"  LocalFSC mean resolution   : {self.resolution_mean:.2f} ± "
-              f"{self.resolution_std:.2f} px")
+        ps = self.pixel_size
+        print(f"  LocalFSC median resolution (full period) : "
+              f"{self.resolution_median:.2f} px "
+              f"({self.resolution_median * ps:.4g} physical units)")
+        print(f"  LocalFSC median resolution (half period) : "
+              f"{self.resolution_median_half:.2f} px "
+              f"({self.resolution_median_half * ps:.4g} physical units)")
+        print(f"  LocalFSC mean   resolution (full period) : "
+              f"{self.resolution_mean:.2f} ± {self.resolution_std:.2f} px")
 
     def _make_window(self):
         """
@@ -1071,11 +1090,17 @@ class LocalFSC:
         pts = np.stack([full_grids[d].ravel() for d in range(ndim)], axis=-1)
         res_full = interp(pts).reshape(shape)
 
-        self.resolution_map = res_full
-        self.resolution_map_phys = res_full * self.pixel_size
-        self.resolution_median = float(np.median(res_full))
-        self.resolution_mean = float(np.mean(res_full))
-        self.resolution_std = float(np.std(res_full))
+        self.resolution_map       = res_full
+        self.resolution_map_phys  = res_full * self.pixel_size
+        self.resolution_map_half  = res_full / 2.0
+        self.resolution_map_phys_half = self.resolution_map_phys / 2.0
+
+        self.resolution_median      = float(np.median(res_full))
+        self.resolution_mean        = float(np.mean(res_full))
+        self.resolution_std         = float(np.std(res_full))
+        self.resolution_median_half = self.resolution_median / 2.0
+        self.resolution_mean_half   = self.resolution_mean   / 2.0
+        self.resolution_std_half    = self.resolution_std    / 2.0
 
     def plot(self, slice_idx=None, axis=0, cmap='viridis_r', vmin=None, vmax=None):
         """

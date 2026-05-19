@@ -107,10 +107,17 @@ class LocalResolution:
     Attributes
     ----------
     resolution_map : ndarray
-        Local resolution in pixels (``NaN`` outside the sample mask).
-        Same shape as *vol*.
+        Local full-period resolution in pixels (van Heel convention,
+        ``NaN`` outside the sample mask), same shape as *vol*.
     resolution_map_phys : ndarray
-        Local resolution in physical units (``resolution_map * pixel_size``).
+        Local full-period resolution in physical units
+        (``resolution_map * pixel_size``).
+    resolution_map_half : ndarray
+        Local half-period resolution in pixels (Rayleigh convention):
+        ``resolution_map / 2``.
+    resolution_map_phys_half : ndarray
+        Local half-period resolution in physical units:
+        ``resolution_map_phys / 2``.
     sigma_noise : float
         Noise standard deviation used for the hypothesis test.
     freq_bands : ndarray
@@ -118,11 +125,19 @@ class LocalResolution:
     mask : ndarray of bool
         Binary sample mask (estimated or user-supplied).
     resolution_median : float
-        Median local resolution in pixels (within the mask).
+        Median full-period local resolution in pixels (within the mask).
     resolution_mean : float
-        Mean local resolution in pixels (within the mask).
+        Mean full-period local resolution in pixels (within the mask).
     resolution_std : float
-        Standard deviation of local resolution in pixels (within the mask).
+        Standard deviation of full-period local resolution in pixels
+        (within the mask).
+    resolution_median_half : float
+        Median half-period local resolution in pixels (within the mask).
+    resolution_mean_half : float
+        Mean half-period local resolution in pixels (within the mask).
+    resolution_std_half : float
+        Standard deviation of half-period local resolution in pixels
+        (within the mask).
 
     Notes
     -----
@@ -281,10 +296,20 @@ class LocalResolution:
         # Step 3–6: main computation
         self._compute()
 
+        ps = self.pixel_size
         print(
-            f"[LocalResolution] Median resolution = {self.resolution_median:.3f} px "
-            f"| Mean = {self.resolution_mean:.3f} px "
-            f"| Std = {self.resolution_std:.3f} px"
+            f"[LocalResolution] Median resolution (full period) = "
+            f"{self.resolution_median:.3f} px "
+            f"({self.resolution_median * ps:.4g} physical units)"
+        )
+        print(
+            f"[LocalResolution] Median resolution (half period) = "
+            f"{self.resolution_median_half:.3f} px "
+            f"({self.resolution_median_half * ps:.4g} physical units)"
+        )
+        print(
+            f"[LocalResolution] Mean = {self.resolution_mean:.3f} px "
+            f"| Std = {self.resolution_std:.3f} px  (full period)"
         )
 
     # ------------------------------------------------------------------
@@ -608,20 +633,26 @@ class LocalResolution:
             # Overwrite resolution map where test passes (resolution = 1/f_i px)
             resolution_map[decision] = 1.0 / f_i
 
-        self.resolution_map = resolution_map
-        self.resolution_map_phys = resolution_map * self.pixel_size
+        self.resolution_map           = resolution_map
+        self.resolution_map_phys      = resolution_map * self.pixel_size
+        self.resolution_map_half      = resolution_map / 2.0
+        self.resolution_map_phys_half = self.resolution_map_phys / 2.0
 
         # Summary statistics (masked voxels only, ignoring NaN)
         valid = resolution_map[self.mask]
         valid = valid[~np.isnan(valid)]
         if valid.size > 0:
-            self.resolution_median = float(np.median(valid))
-            self.resolution_mean = float(np.mean(valid))
-            self.resolution_std = float(np.std(valid))
+            self.resolution_median      = float(np.median(valid))
+            self.resolution_mean        = float(np.mean(valid))
+            self.resolution_std         = float(np.std(valid))
         else:
-            self.resolution_median = float("nan")
-            self.resolution_mean = float("nan")
-            self.resolution_std = float("nan")
+            self.resolution_median      = float("nan")
+            self.resolution_mean        = float("nan")
+            self.resolution_std         = float("nan")
+
+        self.resolution_median_half = self.resolution_median / 2.0
+        self.resolution_mean_half   = self.resolution_mean   / 2.0
+        self.resolution_std_half    = self.resolution_std    / 2.0
 
     # ------------------------------------------------------------------
     # Public interface
