@@ -119,24 +119,37 @@ class FourierShellCorr:
         """
         Evaluate the Nyquist frequency and the corresponding frequency array.
 
+        The Nyquist ring index is ``nmax // 2`` (integer division), where
+        ``nmax`` is the largest image dimension.  For an even-length DFT of
+        size N the highest unambiguous positive-frequency bin is exactly N/2,
+        so integer division gives the correct result for both even and odd N.
+
         Returns
         -------
         f : ndarray of int32
-            Integer frequency indices from ``0`` to ``fnyquist`` (inclusive).
-        fnyquist : float
-            Nyquist frequency in pixels (half the largest image dimension).
+            Integer ring indices from ``0`` (DC) to ``fnyquist`` (inclusive).
+        fnyquist : int
+            Ring index of the Nyquist frequency (``nmax // 2``).
         """
         nmax = np.max(self.n)
-        fnyquist = np.floor(nmax / 2.0)
-        f = np.arange(0, fnyquist + 1).astype(np.int32)
+        fnyquist = nmax // 2
+        f = np.arange(fnyquist + 1, dtype=np.int32)
         return f, fnyquist
 
     def ringthickness(self):
         """
         Compute the shell index for each voxel in Fourier space.
 
-        Uses broadcasting instead of ``np.meshgrid`` and a Python loop to
-        compute the sum of squares, avoiding large temporary arrays.
+        Each dimension's frequency axis is built with ``scipy.fft.fftfreq``
+        (which returns values in cycles/pixel, already in FFT layout) and
+        then scaled so that every dimension's Nyquist maps to the global
+        Nyquist ring index ``nmax // 2``.  This is equivalent to the
+        previous manual construction
+        ``ifftshift(np.arange(-fix(n/2), ceil(n/2))) * (nmax//2) / (n//2)``
+        but requires no ``ifftshift``, ``np.fix``, or ``np.ceil`` calls.
+
+        Uses broadcasting instead of ``np.meshgrid`` to avoid large
+        temporary arrays.
 
         Returns
         -------
@@ -146,24 +159,21 @@ class FourierShellCorr:
             for each voxel.
         """
         nmax = np.max(self.n)
+        fnyquist = nmax // 2  # global Nyquist ring index
 
         def _axis(n):
-            ax = (
-                np.arange(-np.fix(n / 2.0), np.ceil(n / 2.0))
-                * np.floor(nmax / 2.0)
-                / np.floor(n / 2.0)
-            )
-            return ifftshift(ax)
+            # fftfreq(n) * n  →  integer bin indices in FFT layout
+            # scaling by fnyquist / (n // 2) maps each dimension's
+            # Nyquist bin to the global fnyquist ring index.
+            return _fftfreq(n) * n * fnyquist / (n // 2)
 
         x = _axis(self.nc)
         y = _axis(self.nr)
 
         if self.ndim == 2:
-            # Broadcasting: y[:, None] + x[None, :] avoids meshgrid copies
             sumsquares = y[:, None] ** 2 + x[None, :] ** 2
         elif self.ndim == 3:
             z = _axis(self.ns)
-            # Shape: (ns, nr, nc) via broadcasting — no meshgrid needed
             sumsquares = (
                 z[:, None, None] ** 2
                 + y[None, :, None] ** 2
@@ -486,6 +496,31 @@ class FSCPlot(FourierShellCorr):
         window of the size of the data to the data before the Fourier
         transform calculations to attenuate the border effects. The
         default value is ``20``.
+    pixel_size : float, optional
+        Physical size of one pixel/voxel in any consistent unit (e.g. metres,
+        nanometres).  Used to compute :attr:`resolution_full` and
+        :attr:`resolution_half` in physical units.  Default ``1.0`` (result
+        in pixels).
+
+    Attributes
+    ----------
+    fn_res : float or None
+        Resolution crossing as a fraction of the Nyquist frequency
+        (dimensionless, range ``[0, 1]``).  ``None`` if FSC never exceeds
+        the threshold.
+    fn_res_cpx : float or None
+        Resolution crossing frequency in cycles/pixel
+        (``fn_res * 0.5``).  ``None`` if FSC never exceeds the threshold.
+    resolution_full : float or None
+        Full-period resolution in physical units (van Heel / FSC convention):
+        ``pixel_size / fn_res_cpx``.  This is the spatial period of the
+        finest resolvable grating — the standard quantity reported in FSC
+        analyses.  ``None`` if FSC never exceeds the threshold.
+    resolution_half : float or None
+        Half-period resolution in physical units (Rayleigh / feature-size
+        convention): ``resolution_full / 2``.  This equals the smallest
+        resolvable feature size and is the quantity most often reported in
+        optical microscopy.  ``None`` if FSC never exceeds the threshold.
 
     Returns
     -------
@@ -498,23 +533,31 @@ class FSCPlot(FourierShellCorr):
         A 1-dimensional array containing the threshold curve
     """
 
-    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
+    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20,
+                 pixel_size=1.0):
         print("calling the class FSCplot")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
+        self.pixel_size = float(pixel_size)
         self.FSC, self.T = FourierShellCorr.fouriercorr(self)
         self.f, self.fnyquist = FourierShellCorr.nyquist(self)
 
         # Resolution crossing: last shell where FSC > T
-        # fn_res   — normalised frequency [0, 1] (fraction of Nyquist)
-        # fn_res_cpx — in cycles/pixel; resolution = pixel_size / fn_res_cpx
+        # fn_res        — normalised frequency [0, 1] (fraction of Nyquist)
+        # fn_res_cpx    — in cycles/pixel  (= fn_res * 0.5)
+        # resolution_full — full grating period in physical units (van Heel convention)
+        # resolution_half — half-period / feature size in physical units (Rayleigh convention)
         above = self.FSC.real > self.T
         if np.any(above):
             idx = int(np.where(above)[0][-1])
-            self.fn_res     = float(self.f[idx] / self.fnyquist)
-            self.fn_res_cpx = self.fn_res * 0.5   # cycles/pixel
+            self.fn_res          = float(self.f[idx] / self.fnyquist)
+            self.fn_res_cpx      = self.fn_res * 0.5          # cycles/pixel
+            self.resolution_full = self.pixel_size / self.fn_res_cpx
+            self.resolution_half = self.resolution_full / 2.0
         else:
-            self.fn_res     = None
-            self.fn_res_cpx = None
+            self.fn_res          = None
+            self.fn_res_cpx      = None
+            self.resolution_full = None
+            self.resolution_half = None
 
     def plot(self):
         """
@@ -534,14 +577,20 @@ class FSCPlot(FourierShellCorr):
             Real part of the Fourier Shell Correlation values.
         fn_res_cpx : float or None
             Resolution crossing frequency in cycles/pixel.
-            Divide ``pixel_size`` by this value to obtain the resolution
-            in physical units.  ``None`` if FSC never exceeds the threshold.
+            Use :attr:`resolution_full` or :attr:`resolution_half` for
+            results already converted to physical units.
+            ``None`` if FSC never exceeds the threshold.
         """
         print("calling method plot from the class FSCplot")
         fn  = self.f / self.fnyquist
         FSC = self.FSC.real
         T   = self.T
         show_fsc_curve(fn, FSC, T, self.snrt, self.img1.ndim)
+        if self.fn_res_cpx is not None:
+            print(f"  Resolution (full period) : {self.resolution_full:.6g} "
+                  f"[in units of pixel_size]")
+            print(f"  Resolution (half period) : {self.resolution_half:.6g} "
+                  f"[in units of pixel_size]")
         return fn, T, FSC, self.fn_res_cpx
 
 
@@ -591,11 +640,12 @@ class FRCPlot(FSCPlot):
        criteria", Journal of Structural Biology 151, 250-262 (2005).
     """
 
-    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
+    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20,
+                 pixel_size=1.0):
         if np.asarray(img1).ndim != 2 or np.asarray(img2).ndim != 2:
             raise ValueError("FRCPlot requires 2-D images (use FSCPlot for 3-D).")
         print("Calling the class FRCPlot")
-        super().__init__(img1, img2, threshold, ring_thick, apod_width)
+        super().__init__(img1, img2, threshold, ring_thick, apod_width, pixel_size)
 
     def plot(self):
         """
@@ -611,8 +661,9 @@ class FRCPlot(FSCPlot):
             Fourier Ring Correlation curve (real part).
         fn_res_cpx : float or None
             Resolution crossing frequency in cycles/pixel.
-            Divide ``pixel_size`` by this value to obtain the resolution
-            in physical units.  ``None`` if FRC never exceeds the threshold.
+            Use :attr:`resolution_full` or :attr:`resolution_half` for
+            results already converted to physical units.
+            ``None`` if FRC never exceeds the threshold.
         """
         print("Calling method plot from the class FRCPlot")
         fn  = self.f / self.fnyquist
@@ -620,6 +671,11 @@ class FRCPlot(FSCPlot):
         T   = self.T
         # Reuse show_fsc_curve but relabel via the ndim=2 path
         show_fsc_curve(fn, FRC, T, self.snrt, ndim=2)
+        if self.fn_res_cpx is not None:
+            print(f"  Resolution (full period) : {self.resolution_full:.6g} "
+                  f"[in units of pixel_size]")
+            print(f"  Resolution (half period) : {self.resolution_half:.6g} "
+                  f"[in units of pixel_size]")
         return fn, T, FRC, self.fn_res_cpx
 
 
@@ -680,6 +736,23 @@ class SSNRPlot(FourierShellCorr):
         Shell indices.
     fnyquist : float
         Nyquist frequency in pixels.
+    fn_res : float or None
+        Resolution crossing as a fraction of the Nyquist frequency
+        (dimensionless, range ``[0, 1]``).  ``None`` if SSNR never exceeds
+        the threshold.
+    fn_res_cpx : float or None
+        Resolution crossing frequency in cycles/pixel
+        (``fn_res * 0.5``).  ``None`` if SSNR never exceeds the threshold.
+    resolution_full : float or None
+        Full-period resolution in physical units (van Heel / FSC convention):
+        ``pixel_size / fn_res_cpx``.  This is the spatial period of the
+        finest resolvable grating — the standard quantity reported in FSC
+        analyses.  ``None`` if SSNR never exceeds the threshold.
+    resolution_half : float or None
+        Half-period resolution in physical units (Rayleigh / feature-size
+        convention): ``resolution_full / 2``.  This equals the smallest
+        resolvable feature size and is the quantity most often reported in
+        optical microscopy.  ``None`` if SSNR never exceeds the threshold.
 
     References
     ----------
@@ -690,9 +763,11 @@ class SSNRPlot(FourierShellCorr):
        criteria", Journal of Structural Biology 151, 250-262 (2005).
     """
 
-    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
+    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20,
+                 pixel_size=1.0):
         print("Calling the class SSNRPlot")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
+        self.pixel_size = float(pixel_size)
 
         # Compute FSC and the FSC threshold curve in a single call
         self.FSC, self.T    = FourierShellCorr.fouriercorr(self)
@@ -708,16 +783,23 @@ class SSNRPlot(FourierShellCorr):
         self.SSNR_T = 2.0 * self.T / np.maximum(1.0 - self.T, eps)
 
         # Resolution crossing: last shell where SSNR > SSNR_T
-        # fn_res_cpx in cycles/pixel; resolution = pixel_size / fn_res_cpx
+        # fn_res        — normalised frequency [0, 1] (fraction of Nyquist)
+        # fn_res_cpx    — in cycles/pixel  (= fn_res * 0.5)
+        # resolution_full — full grating period in physical units (van Heel convention)
+        # resolution_half — half-period / feature size in physical units (Rayleigh convention)
         fn    = self.f / self.fnyquist
         above = self.SSNR > self.SSNR_T
         if np.any(above):
             idx = int(np.where(above)[0][-1])
-            self.fn_res     = float(fn[idx])
-            self.fn_res_cpx = self.fn_res * 0.5   # cycles/pixel
+            self.fn_res          = float(fn[idx])
+            self.fn_res_cpx      = self.fn_res * 0.5          # cycles/pixel
+            self.resolution_full = self.pixel_size / self.fn_res_cpx
+            self.resolution_half = self.resolution_full / 2.0
         else:
-            self.fn_res     = None
-            self.fn_res_cpx = None
+            self.fn_res          = None
+            self.fn_res_cpx      = None
+            self.resolution_full = None
+            self.resolution_half = None
 
     def plot(self):
         """
@@ -757,6 +839,11 @@ class SSNRPlot(FourierShellCorr):
         SSNR   = self.SSNR
         SSNR_T = self.SSNR_T
         show_ssnr_curve(fn, FSC, SSNR, SSNR_T, self.snrt, self.ndim)
+        if self.fn_res_cpx is not None:
+            print(f"  Resolution (full period) : {self.resolution_full:.6g} "
+                  f"[in units of pixel_size]")
+            print(f"  Resolution (half period) : {self.resolution_half:.6g} "
+                  f"[in units of pixel_size]")
         return fn, FSC, SSNR, SSNR_T, self.fn_res_cpx
 
 
@@ -1111,11 +1198,13 @@ class RandomFSC(FourierShellCorr):
         apod_width=20,
         fsc_cutoff=0.8,
         random_seed=None,
+        pixel_size=1.0,
     ):
         print("Calling the class RandomFSC")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
-        self.fsc_cutoff = float(fsc_cutoff)
+        self.fsc_cutoff  = float(fsc_cutoff)
         self.random_seed = random_seed
+        self.pixel_size  = float(pixel_size)
 
         # Compute observed FSC and threshold
         self.FSC_obs, self.T = FourierShellCorr.fouriercorr(self)
@@ -1125,9 +1214,29 @@ class RandomFSC(FourierShellCorr):
         self.cutoff_shell = self._find_cutoff_shell()
         self._compute_randomized()
 
+        # Resolution at the FSC_corr × T crossing (last shell where FSC_corr > T)
+        fsc_corr = np.asarray(self.FSC_corr).real
+        above    = fsc_corr > np.asarray(self.T)
+        if np.any(above):
+            idx = int(np.where(above)[0][-1])
+            self.fn_res          = float(self.f[idx] / self.fnyquist)
+            self.fn_res_cpx      = self.fn_res * 0.5
+            self.resolution_full = self.pixel_size / self.fn_res_cpx
+            self.resolution_half = self.resolution_full / 2.0
+        else:
+            self.fn_res          = None
+            self.fn_res_cpx      = None
+            self.resolution_full = None
+            self.resolution_half = None
+
         print(f"  Phase-randomization cutoff shell : {self.cutoff_shell}")
         print(f"  f_cutoff (cycles/pixel)          : "
               f"{self.cutoff_shell / self.fnyquist * 0.5:.4f}")
+        if self.fn_res_cpx is not None:
+            print(f"  Resolution FSC_corr (full period): {self.resolution_full:.6g} "
+                  f"[in units of pixel_size]")
+            print(f"  Resolution FSC_corr (half period): {self.resolution_half:.6g} "
+                  f"[in units of pixel_size]")
 
     def _find_cutoff_shell(self):
         """
