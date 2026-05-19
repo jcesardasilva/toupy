@@ -7,6 +7,7 @@ Single-image resolution estimation via decorrelation analysis.
 
 # standard library
 import time
+import warnings
 
 # third party
 import numpy as np
@@ -138,6 +139,9 @@ class ImageDecorr:
         self.resolution_px_median = None
         self.resolution_px_std    = None
 
+        # Warning flag: fire at most once per instance
+        self._tomo_warned = False
+
         p0 = time.time()
 
         if self.image.ndim == 2:
@@ -151,8 +155,52 @@ class ImageDecorr:
     # Top-level dispatch
     # ------------------------------------------------------------------
 
+    def _warn_if_tomo(self, img):
+        """
+        Emit a ``UserWarning`` if *img* looks like a tomographic slice.
+
+        The check tests whether the fraction of negative-valued pixels
+        exceeds 5 %.  Tomographic reconstructions (especially filtered
+        back-projection) typically contain many negative values due to
+        correlated noise, whereas raw 2-D microscopy images (for which
+        the decorrelation algorithm was designed) rarely do.
+
+        The warning is emitted at most **once per instance** — subsequent
+        calls after the first warning are silently ignored.
+
+        Parameters
+        ----------
+        img : ndarray
+            Two-dimensional array to test.
+
+        Warns
+        -----
+        UserWarning
+            If the negative-pixel fraction exceeds 0.05 and the warning
+            has not already been issued for this instance.
+        """
+        if self._tomo_warned:
+            return
+        neg_frac = float(np.sum(img < 0)) / img.size
+        if neg_frac > 0.05:
+            warnings.warn(
+                "ImageDecorr: the supplied image appears to be a tomographic "
+                "reconstruction slice (negative-pixel fraction = "
+                f"{neg_frac:.1%} > 5 %).  "
+                "The decorrelation algorithm was designed for raw 2-D "
+                "microscopy images; applied to reconstructed slices it gives "
+                "unreliable results because correlated noise biases the "
+                "ring-correlation toward low spatial frequencies.  "
+                "For tomographic resolution estimation use FSC/SSNR or "
+                "LocalFSC instead.",
+                UserWarning,
+                stacklevel=3,
+            )
+            self._tomo_warned = True
+
     def _run_2d(self, img2d):
         """Run the analysis on a single 2-D image and store results."""
+        self._warn_if_tomo(img2d)
         self.nr, self.nc = img2d.shape
         print(f"  Image size : {self.nr} × {self.nc} pixels")
         print(f"  Pixel size : {self.pixel_size}")
@@ -229,6 +277,14 @@ class ImageDecorr:
         )
         print(f"  Pixel size   : {self.pixel_size}")
         print(f"  Threshold    : {self.threshold}")
+
+        # Check the full volume for tomographic reconstruction characteristics
+        # before the per-slice loop; call _warn_if_tomo on the first slice so
+        # the per-slice loop skips subsequent warnings via the flag.
+        vol_neg_frac = float(np.sum(vol < 0)) / vol.size
+        if vol_neg_frac > 0.05 and not self._tomo_warned:
+            first_sl = np.take(vol, indices[0], axis=self.axis)
+            self._warn_if_tomo(first_sl)
 
         res_px_list = []
         for idx in indices:
