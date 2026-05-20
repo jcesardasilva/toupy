@@ -6,9 +6,7 @@ import time
 
 # third party packages
 from ..utils.plot_utils import plt
-import numexpr as nr
 import numpy as np
-import h5py
 
 
 # local packages
@@ -83,19 +81,21 @@ def get_probe_novort(img_phase, residues):
     n, m = residues.shape
     print("Getting vortice positions...")
     yres, xres = np.nonzero(np.abs(residues) > 0.1)
+    # Precompute coordinate grids once (outside the loop)
     X, Y = np.mgrid[: (m + 2), : (n + 2)]
     # X and Y need to be transposed
     X = X.T
     Y = Y.T
+    # Initialise output and accumulate corrections in-place
+    img_phase_novort = img_phase.copy()
     for ii in range(len(xres)):
         print("{} residues out of {}".format(ii + 1, len(xres)))
         s0 = time.time()
         yr = yres[ii]
         xr = xres[ii]
-        T = ne.evaluate("arctan2(Y - yr, X - xr)")
+        T = np.arctan2(Y - yr, X - xr)
         rr = residues[yr, xr]
-        expr = ne.evaluate("exp(-1j*T*rr)")
-        img_phase_novort = ne.evaluate("img_phase * expr")
+        img_phase_novort *= np.exp(-1j * T * rr)
         print("Time elapsed = {} s".format(time.time() - s0))
     return img_phase_novort, xres, yres
 
@@ -170,19 +170,21 @@ def get_object_novort(img_phase, residues):
     n, m = residues.shape
     print("Getting vortice positions...")
     yres, xres = np.nonzero(np.abs(residues) > 0.1)
+    # Precompute coordinate grids once (outside the loop)
     X, Y = np.mgrid[: (m + 2), : (n + 2)]
     # X and Y need to be transposed
     X = X.T
     Y = Y.T
+    # Initialise output and accumulate corrections in-place
+    img_phase_novort = img_phase.copy()
     for ii in range(len(xres)):
         print("{} residues out of {}".format(ii + 1, len(xres)))
         s0 = time.time()
         yr = yres[ii]
         xr = xres[ii]
-        T = ne.evaluate("arctan2(Y - yr, X - xr)")
+        T = np.arctan2(Y - yr, X - xr)
         rr = residues[yr, xr]
-        expr = ne.evaluate("exp(1j*T*rr)")
-        img_phase_novort = ne.evaluate("img_phase * expr")
+        img_phase_novort *= np.exp(1j * T * rr)
         print("Time elapsed = {} s".format(time.time() - s0))
 
     return img_phase_novort, xres, yres
@@ -288,7 +290,7 @@ def rmvortices_slow(img_in, to_ignore=100):
     n, m = img_res.shape
     x = np.arange(m)
     y = np.arange(n)
-    for idx, ii in enumerate(xrange(len(xres))):
+    for idx, ii in enumerate(range(len(xres))):
         print("{} residues out of {}".format(idx, len(xres)))
         s0 = time.time()
         X, Y = np.meshgrid(x - xres[ii], y - yres[ii])
