@@ -106,7 +106,8 @@ def _build_phasor(shape, agx, agy):
 # Public functions
 # ---------------------------------------------------------------------------
 
-def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1):
+def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
+                zero_air_phase=False):
     """
     Remove the linear phase ramp from a complex ptychographic image.
 
@@ -145,6 +146,19 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1):
         identified as air and used to refine the ramp estimate.  Useful
         when the initial estimate is coarse (e.g. ``weight=None`` with a
         large object).  Default ``1`` (single pass, no refinement).
+    zero_air_phase : bool, optional
+        If ``True``, apply a global phase offset after ramp removal so that
+        the **median** phase over the detected air/vacuum region is exactly
+        zero.  The air region is determined automatically:
+
+        * ``weight='auto'`` or a custom binary mask — the already-computed
+          mask is reused (no extra cost).
+        * All other cases — Otsu thresholding is applied to the corrected
+          amplitude to detect the air region.
+
+        This is equivalent to what :func:`rmlinearphase` does when a mask
+        is supplied, but without requiring the user to draw or supply one.
+        Default ``False``.
 
     Returns
     -------
@@ -161,13 +175,17 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1):
     Examples
     --------
     >>> b = rmphaseramp(image)
-    >>> b = rmphaseramp(image, weight='auto')      # automatic air detection
+    >>> b = rmphaseramp(image, weight='auto')
+    >>> b = rmphaseramp(image, weight='auto', zero_air_phase=True)
     >>> b, p = rmphaseramp(image, return_phaseramp=True)
-    >>> b = rmphaseramp(image, weight='auto', n_iter=3)  # iterative refinement
+    >>> b = rmphaseramp(image, weight='auto', n_iter=3, zero_air_phase=True)
     """
     a = np.asarray(a)
 
     # Resolve weight into an array or None (→ median)
+    # Also track whether we already have a binary air mask to reuse later.
+    air_mask_for_offset = None   # set below when a binary mask is available
+
     if weight is None or weight == 'median':
         w = None                           # use median estimator
     elif weight == 'abs':
@@ -176,6 +194,7 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1):
         amp = np.abs(a)
         thresh = _otsu_threshold(amp)
         w = (amp > thresh).astype(np.float64)
+        air_mask_for_offset = w.astype(bool)
         n_air = w.sum()
         n_total = w.size
         if n_air < 0.01 * n_total:
@@ -188,6 +207,8 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1):
             )
     else:
         w = np.asarray(weight, dtype=np.float64)
+        if np.array_equal(w, w.astype(bool)):
+            air_mask_for_offset = w.astype(bool)
 
     # Unit phasor
     absval = np.abs(a)
@@ -216,6 +237,18 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1):
         p_iter = _build_phasor(a.shape, agx, agy)
         a_work = a_work * p_iter
         p_total = p_total * p_iter
+
+    # Optional global phase offset so that median air phase = 0
+    if zero_air_phase:
+        if air_mask_for_offset is None:
+            # Detect air from the corrected amplitude via Otsu
+            amp_corr = np.abs(a_work)
+            thresh = _otsu_threshold(amp_corr)
+            air_mask_for_offset = amp_corr > thresh
+        median_phase = float(np.median(np.angle(a_work)[air_mask_for_offset]))
+        offset = np.exp(-1j * median_phase)
+        a_work = a_work * offset
+        p_total = p_total * offset
 
     if return_phaseramp:
         return a_work, p_total
