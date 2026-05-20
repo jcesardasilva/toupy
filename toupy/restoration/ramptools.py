@@ -10,137 +10,294 @@ from ..utils.funcutils import deprecated
 __all__ = ["rmphaseramp", "rmlinearphase", "rmair"]
 
 
-def rmphaseramp(a, weight=None, return_phaseramp=False):
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _otsu_threshold(arr):
     """
-    Auxiliary functions to attempt to remove the phase ramp in a
-    two-dimensional complex array ``a``.
+    Pure-NumPy Otsu threshold for a real-valued array.
+
+    Maximises the inter-class variance between two populations (here:
+    object and air/background pixels).
+
+    Parameters
+    ----------
+    arr : ndarray
+        1-D or N-D real array.
+
+    Returns
+    -------
+    float
+        Threshold value separating the two populations.
+    """
+    flat = arr.ravel().astype(np.float64)
+    hist, edges = np.histogram(flat, bins=256)
+    centers = (edges[:-1] + edges[1:]) * 0.5
+    dbin = edges[1] - edges[0]
+
+    # Cumulative weight and mean
+    w0 = np.cumsum(hist, dtype=np.float64) * dbin
+    w1 = 1.0 - w0
+    mu0 = np.cumsum(hist * centers, dtype=np.float64) * dbin / np.maximum(w0, 1e-12)
+    total_mean = (hist * centers).sum() * dbin
+    mu1 = (total_mean - np.cumsum(hist * centers, dtype=np.float64) * dbin) / np.maximum(w1, 1e-12)
+
+    sigma_b = w0 * w1 * (mu0 - mu1) ** 2
+    return centers[np.argmax(sigma_b)]
+
+
+def _estimate_ramp(ph, weight):
+    """
+    Estimate the mean phase-gradient slopes (agx, agy) from the unit
+    phasor ``ph``, optionally weighted.
+
+    Parameters
+    ----------
+    ph : ndarray, complex
+        Unit phasor array (|ph| == 1 everywhere).
+    weight : ndarray or None
+        * ``None`` — global median over all pixels (robust to < 50 %
+          object coverage).
+        * Binary (bool or 0/1) array — median over selected pixels.
+          Using median rather than masked mean avoids contamination by
+          large gradient values at the object/air boundary, which have
+          air-level amplitude but are not representative of the smooth
+          ramp.
+        * Continuous float array — modulus-weighted mean (appropriate for
+          ``weight='abs'`` where values vary smoothly).
+
+    Returns
+    -------
+    agx, agy : float
+        Mean phase gradient along rows and columns respectively.
+    """
+    gx_c, gy_c = np.gradient(ph)
+    ph_conj = ph.conj()
+    gx = np.imag(gx_c * ph_conj)
+    gy = np.imag(gy_c * ph_conj)
+
+    if weight is None:
+        # Global median — robust to up to 50 % object contamination
+        agx = float(np.median(gx))
+        agy = float(np.median(gy))
+    elif np.array_equal(weight, weight.astype(bool)):
+        # Binary mask: median within selected region — handles boundary
+        # gradient artefacts that a simple masked mean cannot reject
+        sel = weight.astype(bool)
+        agx = float(np.median(gx[sel]))
+        agy = float(np.median(gy[sel]))
+    else:
+        # Continuous weights (e.g. amplitude): weighted mean
+        nrm = weight.sum()
+        agx = float((gx * weight).sum() / nrm)
+        agy = float((gy * weight).sum() / nrm)
+
+    return agx, agy
+
+
+def _build_phasor(shape, agx, agy):
+    """Return the conjugate ramp phasor exp(-i*(agx*row + agy*col))."""
+    xx, yy = np.ogrid[:shape[0], :shape[1]]
+    return np.exp(-1j * (agx * xx + agy * yy))
+
+
+# ---------------------------------------------------------------------------
+# Public functions
+# ---------------------------------------------------------------------------
+
+def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1):
+    """
+    Remove the linear phase ramp from a complex ptychographic image.
 
     Parameters
     ----------
     a : array_like
-        Input image as complex 2D-array.
+        Input complex 2-D image.
+    weight : {None, 'median', 'abs', 'auto'} or array_like, optional
+        Strategy for estimating the ramp slope.
 
-    weight : array_like, str, optional
-        Pass weighting array or use ``'abs'`` for a modulus-weighted
-        phaseramp and ``None`` for no weights.
+        ``None``
+            Unweighted — uses the **median** phase gradient across all
+            pixels.  Robust to object contamination as long as air covers
+            more than 50 % of the image (replaces the old biased mean).
+
+        ``'median'``
+            Explicit alias for ``None``.
+
+        ``'abs'``
+            Modulus-weighted mean gradient (original behaviour).
+
+        ``'auto'``
+            Automatically detect the air region from the amplitude image
+            using Otsu thresholding (air = high amplitude).  Reliable even
+            when the air region is very small, provided the amplitude
+            contrast between air and object is detectable.
+
+        array_like
+            Custom weight array (same shape as ``a``).
 
     return_phaseramp : bool, optional
-        Use True to get also the phaseramp array ``p``.
+        If ``True``, also return the ramp phasor ``p``.  Default ``False``.
+    n_iter : int, optional
+        Number of self-consistent refinement iterations.  After the first
+        correction, pixels whose corrected phase is close to zero are
+        identified as air and used to refine the ramp estimate.  Useful
+        when the initial estimate is coarse (e.g. ``weight=None`` with a
+        large object).  Default ``1`` (single pass, no refinement).
 
     Returns
     -------
-    out : array_like
-        Modified 2D-array, ``out=a*p``
-    p : array_like, optional
-        Phaseramp if ``return_phaseramp = True``, otherwise omitted
+    out : ndarray, complex
+        Ramp-corrected image ``a * p``.
+    p : ndarray, complex
+        Ramp phasor (only when ``return_phaseramp=True``).
 
     Notes
     -----
-    Function forked from Ptypy.plot_utils (https://github.com/ptycho/ptypy)
-    and ported to Python 3.
+    Forked from Ptypy (https://github.com/ptycho/ptypy), ported to
+    Python 3, and extended with robust estimation strategies.
 
     Examples
     --------
     >>> b = rmphaseramp(image)
-    >>> b, p = rmphaseramp(image , return_phaseramp=True)
+    >>> b = rmphaseramp(image, weight='auto')      # automatic air detection
+    >>> b, p = rmphaseramp(image, return_phaseramp=True)
+    >>> b = rmphaseramp(image, weight='auto', n_iter=3)  # iterative refinement
     """
-    useweight = True
-    if weight is None:
-        useweight = False
-    elif weight == "abs":
-        weight = np.abs(a)
+    a = np.asarray(a)
 
-    # Extract phase as unit phasor via direct division — avoids the atan2
-    # round-trip (angle → exp) and is numerically equivalent.
+    # Resolve weight into an array or None (→ median)
+    if weight is None or weight == 'median':
+        w = None                           # use median estimator
+    elif weight == 'abs':
+        w = np.abs(a)
+    elif weight == 'auto':
+        amp = np.abs(a)
+        thresh = _otsu_threshold(amp)
+        w = (amp > thresh).astype(np.float64)
+        n_air = w.sum()
+        n_total = w.size
+        if n_air < 0.01 * n_total:
+            import warnings
+            warnings.warn(
+                "rmphaseramp 'auto': Otsu found < 1 % air pixels "
+                f"({int(n_air)}/{n_total}). "
+                "Consider passing an explicit mask or using weight='median'.",
+                UserWarning, stacklevel=2,
+            )
+    else:
+        w = np.asarray(weight, dtype=np.float64)
+
+    # Unit phasor
     absval = np.abs(a)
     ph = np.where(absval > 0, a / absval, np.ones_like(a))
-    [gx, gy] = np.gradient(ph)
-    # ph is a unit phasor (|ph|=1), so dividing by ph equals multiplying by
-    # conj(ph).  Also, -real(1j·z) = imag(z), so the two lines simplify to
-    # one complex multiply each — no division, no multiplication by 1j.
-    ph_conj = ph.conj()
-    gx = np.imag(gx * ph_conj)
-    gy = np.imag(gy * ph_conj)
 
-    if useweight:
-        nrm = weight.sum()
-        agx = (gx * weight).sum() / nrm
-        agy = (gy * weight).sum() / nrm
-    else:
-        agx = gx.mean()
-        agy = gy.mean()
+    # Iterative self-consistent ramp estimation
+    a_work = a.copy()
+    p_total = np.ones_like(a)
 
-    # np.ogrid gives 1-D broadcast-ready views instead of two full (M,N) arrays
-    xx, yy = np.ogrid[:a.shape[0], :a.shape[1]]
-    p = np.exp(-1j * (agx * xx + agy * yy))
+    for iteration in range(n_iter):
+        absval_w = np.abs(a_work)
+        ph_w = np.where(absval_w > 0, a_work / absval_w, np.ones_like(a_work))
+
+        # On iterations after the first, refine the air mask from the
+        # corrected-phase residual (pixels close to zero → air)
+        w_iter = w
+        if iteration > 0:
+            phase_residual = np.angle(a_work)
+            residual_std = phase_residual.std()
+            air_mask = np.abs(phase_residual) < residual_std
+            if air_mask.sum() > 0.01 * air_mask.size:
+                w_iter = air_mask.astype(np.float64)
+            # else keep original w
+
+        agx, agy = _estimate_ramp(ph_w, w_iter)
+        p_iter = _build_phasor(a.shape, agx, agy)
+        a_work = a_work * p_iter
+        p_total = p_total * p_iter
 
     if return_phaseramp:
-        return a * p, p
-    else:
-        return a * p
+        return a_work, p_total
+    return a_work
 
 
-def rmlinearphase(image, mask):
+def rmlinearphase(image, mask=None, weight='auto'):
     """
-    Removes linear phase from object
+    Remove the linear phase ramp from a complex ptychographic image
+    using a flat-region (air/vacuum) mask.
 
     Parameters
     ----------
     image : array_like
-        Input image
-    mask : bool
-        Boolean array with ones where the linear phase should be
-        computed from
+        Input complex image.
+    mask : array_like of bool, optional
+        Boolean array marking the air/vacuum region (``True`` = air).
+        If ``None`` (default), the mask is generated automatically via
+        Otsu thresholding of the amplitude — equivalent to passing
+        ``weight='auto'`` to :func:`rmphaseramp`.
+    weight : str, optional
+        Only used when ``mask=None``.  Passed as the ``weight`` argument
+        to :func:`rmphaseramp`.  Default ``'auto'``.
 
     Returns
     -------
-    im_output : array_like
-        Linear ramp corrected image
+    im_output : ndarray, complex
+        Linear-ramp-corrected image.
+
+    Notes
+    -----
+    When ``mask`` is supplied the function behaves as before: the ramp
+    slope is estimated from the masked (air) pixels only, and the output
+    phase is further corrected so that the mean phase over the mask is
+    zero.  Passing ``mask=None`` is a convenience shortcut that delegates
+    to :func:`rmphaseramp` with automatic air detection.
     """
+    image = np.asarray(image)
+
+    if mask is None:
+        # Delegate to rmphaseramp with automatic air detection
+        return rmphaseramp(image, weight=weight)
+
+    mask = np.asarray(mask, dtype=bool)
 
     absval = np.abs(image)
     ph = np.where(absval > 0, image / absval, np.ones_like(image))
-    [gx, gy] = np.gradient(ph)
     ph_conj = ph.conj()
-    gx = np.imag(gx * ph_conj)
-    gy = np.imag(gy * ph_conj)
+    gx_c, gy_c = np.gradient(ph)
+    gx = np.imag(gx_c * ph_conj)
+    gy = np.imag(gy_c * ph_conj)
 
     nrm = mask.sum()
-    agx = (gx * mask).sum() / nrm
-    agy = (gy * mask).sum() / nrm
+    agx = float((gx * mask).sum() / nrm)
+    agy = float((gy * mask).sum() / nrm)
 
     xx, yy = np.ogrid[:image.shape[0], :image.shape[1]]
-    p = np.exp(-1j * (agx * xx + agy * yy))  # ramp
-    ph_corr = ph * p  # correcting ramp
-    # taking the mask into account
+    p = np.exp(-1j * (agx * xx + agy * yy))
+    ph_corr = ph * p
+    # Zero-mean phase over the air mask
     ph_corr *= np.conj((ph_corr * mask).sum() / nrm)
 
-    # applying to the image
-    im_output = np.abs(image) * ph_corr
-    # ph_err = (mask * np.angle(ph_corr) ** 2).sum() / nrm
-
-    return im_output  # , ph_err
+    return np.abs(image) * ph_corr
 
 
 def rmair(image, mask):
     """
-    Correcting amplitude factor using the mask from the phase ramp
-    removal considering only pixels where mask is  unity, arrays have
-    center on center of array
+    Normalise an amplitude image so that the air/vacuum region has mean 1.
 
     Parameters
-    ---------
+    ----------
     image : array_like
-        Amplitude-contrast image
-    mask  : bool
-        Boolean array with indicating the locations from where the air
-        value should be obtained
+        Amplitude-contrast image.
+    mask : array_like of bool
+        Boolean array indicating the air/vacuum region.
 
     Returns
     -------
-    normalizedimage : array_like
-        Image normalized by the air values
+    normalizedimage : ndarray
+        Image divided by the mean air value.
     """
-    norm_val = np.sum(mask * image) / mask.sum()
+    mask = np.asarray(mask, dtype=bool)
+    norm_val = image[mask].mean()
     print("Normalization value: {}".format(norm_val))
     return image / norm_val
