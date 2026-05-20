@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# standard packages
-import time
-
 # third party packages
 import numpy as np
 
@@ -58,8 +55,12 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
     absval = np.abs(a)
     ph = np.where(absval > 0, a / absval, np.ones_like(a))
     [gx, gy] = np.gradient(ph)
-    gx = -np.real(1j * gx / ph)
-    gy = -np.real(1j * gy / ph)
+    # ph is a unit phasor (|ph|=1), so dividing by ph equals multiplying by
+    # conj(ph).  Also, -real(1j·z) = imag(z), so the two lines simplify to
+    # one complex multiply each — no division, no multiplication by 1j.
+    ph_conj = ph.conj()
+    gx = np.imag(gx * ph_conj)
+    gy = np.imag(gy * ph_conj)
 
     if useweight:
         nrm = weight.sum()
@@ -69,7 +70,8 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
         agx = gx.mean()
         agy = gy.mean()
 
-    (xx, yy) = np.indices(a.shape)
+    # np.ogrid gives 1-D broadcast-ready views instead of two full (M,N) arrays
+    xx, yy = np.ogrid[:a.shape[0], :a.shape[1]]
     p = np.exp(-1j * (agx * xx + agy * yy))
 
     if return_phaseramp:
@@ -99,14 +101,15 @@ def rmlinearphase(image, mask):
     absval = np.abs(image)
     ph = np.where(absval > 0, image / absval, np.ones_like(image))
     [gx, gy] = np.gradient(ph)
-    gx = -np.real(1j * gx / ph)
-    gy = -np.real(1j * gy / ph)
+    ph_conj = ph.conj()
+    gx = np.imag(gx * ph_conj)
+    gy = np.imag(gy * ph_conj)
 
     nrm = mask.sum()
     agx = (gx * mask).sum() / nrm
     agy = (gy * mask).sum() / nrm
 
-    (xx, yy) = np.indices(image.shape)
+    xx, yy = np.ogrid[:image.shape[0], :image.shape[1]]
     p = np.exp(-1j * (agx * xx + agy * yy))  # ramp
     ph_corr = ph * p  # correcting ramp
     # taking the mask into account
