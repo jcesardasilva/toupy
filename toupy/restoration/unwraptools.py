@@ -39,7 +39,6 @@ __all__ = [
     "chooseregiontounwrap",
     "unwrap_phase_2d",
     "unwrapping_phase"
-    # ~ u'goldstein_unwrap2D'
 ]
 
 
@@ -1272,48 +1271,3 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         # ~ )
 
     return stack_unwrap
-
-
-# TODO: fix function below
-# ~ def goldstein_unwrap2D(phimage,disp=0):
-# ~ """
-# ~ Implementation of Goldstein unwrap algorithm based on location of
-# ~ residues and introduction of branchcuts.
-# ~ Inputs:
-# ~ phimage = Wrapped phase image in radians, wrapped between (-pi,pi)
-# ~ disp (optional) = 1 to show progress (will slow down code)
-# ~ will also display the branch cuts
-# ~ Outputs:
-# ~ unwrap_phase =    Unwrapped phase ( = fase where phase could not be unwrapped)
-# ~ shadow    = 1 where phase could not be unwrapped
-# ~
-# ~ Inpired in the goldstein_unwrap2D.m by Manuel Guizar 31 August, 2010 - Acknowledge if used
-# ~ Please, cite: R. M. Goldstein, H. A. Zebker and C. L. Werner, Radio Science 23, 713-720 (1988).
-# ~ """
-# ~
-# ~ nr,nc = phimage.shape
-# ~ #position to start unwrapping. Typically faster at the center of the array
-# ~ #nrstart = np.round(nr/2.)
-# ~ #ncstart = np.round(nc/2.)
-# ~
-# ~ residues,_ = phaseresidues(phimage,disp=1)
-# ~
-# ~ ## Find residues
-# ~ pposr,pposc = np.where(np.round(residues)==1)
-# ~ respos = [pposr,pposc,np.ones_like(pposr)]
-# ~ ###respos= len(pposr)
-# ~ nposr,nposc = np.where(np.round(residues)==-1)
-# ~ resneg = [nposr,nposc,-np.ones_like(pposr)]
-# ~ ###resneg = len(nposr)
-# ~
-# ~ nres = len(respos[:][0])+len(resneg[:][0])
-# ~ ###nres = respos+resneg
-# ~ print('Found {} residues'.format(nres))
-# ~
-# ~ if nres == 0:
-# ~ print('No residues found. Unwrapping with standard unwrapping algorithm')
-# ~ unwrap_phase = np.unwrap(np.unwrap(phimage))
-# ~ shadow = np.zeros_like(unwrap_phase)
-# ~ else:
-# ~ print('Unwrapping with Goldstein algorithm')
-# ~ return unwrap_phase,shadow

@@ -4,7 +4,7 @@
 """
 Forward Radon transform (projection).
 
-GPU path  : CuPy + the CUDA kernel defined in iradon.py — no Silx / PyOpenCL.
+GPU path  : CuPy + the CUDA kernel defined in iradon.py
 CPU path  : skimage.transform.radon (unchanged fallback).
 
 Public API is unchanged:  projector()
@@ -29,7 +29,6 @@ def radon_cuda(recons, theta):
     """
     Forward Radon transform — CUDA/GPU path.
 
-    Replaces :func:`radonSilx` without any Silx/PyOpenCL dependency.
     Falls back to ``skimage.transform.radon`` automatically if CuPy is
     unavailable.
 
