@@ -6,6 +6,7 @@ import os
 
 # third party packages
 from ..utils.plot_utils import plt
+from joblib import Parallel, delayed, parallel_backend
 import numpy as np
 from scipy.fft import fftfreq, fft, ifft
 from ..utils import tqdm
@@ -47,19 +48,16 @@ def gradient_axis(x, axis=-1):
         Array of the same shape as ``x`` containing the forward finite
         differences along ``axis``.
     """
-    t1 = np.empty_like(x)
-    t2 = np.empty_like(x)
+    # Single output array: out[i] = x[i+1] - x[i], last slice = 0.
+    # Avoids allocating two full temporaries (t1, t2) of the same shape.
+    out = np.empty_like(x)
     if axis != 0:
-        t1[:, :-1] = x[:, 1:]
-        t1[:, -1] = 0
-        t2[:, :-1] = x[:, :-1]
-        t2[:, -1] = 0
+        out[:, :-1] = x[:, 1:] - x[:, :-1]
+        out[:, -1] = 0
     else:
-        t1[:-1, :] = x[1:, :]
-        t1[-1, :] = 0
-        t2[:-1, :] = x[:-1, :]
-        t2[-1, :] = 0
-    return t1 - t2
+        out[:-1, :] = x[1:, :] - x[:-1, :]
+        out[-1, :] = 0
+    return out
 
 
 def chooseregiontoderivatives(stack_array, **params):
@@ -141,7 +139,7 @@ def chooseregiontoderivatives(stack_array, **params):
     return roix, roiy
 
 
-def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
+def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier", n_cpus=1):
     """
     Compute projection derivatives
 
@@ -150,10 +148,13 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
     stack_array : array_like
         Input stack of arrays to calculate the derivatives
     roix, roiy : tuple
-            Limits of the area on which to calculate the derivatives
+        Limits of the area on which to calculate the derivatives
     shift_method : str
         Name of the shift method to use. For the available options, please
         see :class:`ShiftFunc()` in :mod:`toupy.registration`
+    n_cpus : int, optional
+        Number of CPU cores for parallel computation via joblib.
+        ``1`` (default) runs sequentially.  ``-1`` uses all available cores.
 
     Returns
     -------
@@ -161,10 +162,21 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier"):
         Stack of derivatives of the arrays along the horizontal direction
     """
     nprojs, nr, nc = stack_array.shape
-    aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
-    for ii in tqdm(range(nprojs), desc="Computing derivatives"):
-        img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
-        aligned_diff[ii] = derivatives(img, shift_method)
+    roi_stack = stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]]
+
+    if n_cpus == 1:
+        aligned_diff = np.empty_like(roi_stack)
+        for ii in tqdm(range(nprojs), desc="Computing derivatives"):
+            aligned_diff[ii] = derivatives(roi_stack[ii], shift_method)
+    else:
+        if n_cpus < 0:
+            n_cpus = os.cpu_count()
+        with parallel_backend("loky"):
+            results = Parallel(n_jobs=n_cpus)(
+                delayed(derivatives)(roi_stack[ii], shift_method)
+                for ii in tqdm(range(nprojs), desc="Computing derivatives")
+            )
+        aligned_diff = np.array(results)
 
     return aligned_diff
 
@@ -178,10 +190,15 @@ def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
     stack_array : array_like
         Input stack of arrays to calculate the derivatives
     roix, roiy : tuple
-            Limits of the area on which to calculate the derivatives
-    n_cpus: int
-        The number of cpus for parallel computing. If `n_cpus<0`, the number of cpus
-        will be determined by `os.cpu_counts()`
+        Limits of the area on which to calculate the derivatives
+    n_cpus : int, optional
+        Number of CPU cores for parallel computation.
+
+        * ``1``  — sequential; scipy FFT uses one thread per projection.
+        * ``-1`` (default) — joblib parallelises the outer projection loop
+          using all available cores; each scipy FFT worker is set to 1 to
+          avoid oversubscription.
+        * ``> 1`` — same as ``-1`` but limits the outer pool to ``n_cpus``.
 
     Returns
     -------
@@ -189,10 +206,25 @@ def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
         Stack of derivatives of the arrays along the horizontal direction
     """
     nprojs, nr, nc = stack_array.shape
-    aligned_diff = np.empty_like(stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]])
-    for ii in tqdm(range(nprojs), desc="Computing FFT derivatives"):
-        img = stack_array[ii, roiy[0] : roiy[-1], roix[0] : roix[-1]]
-        aligned_diff[ii] = derivatives_fft(img, n_cpus=n_cpus)
+    roi_stack = stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]]
+
+    if n_cpus == 1:
+        # Sequential path: give scipy all CPUs for its internal FFT workers
+        scipy_workers = os.cpu_count() or 1
+        aligned_diff = np.empty_like(roi_stack)
+        for ii in tqdm(range(nprojs), desc="Computing FFT derivatives"):
+            aligned_diff[ii] = derivatives_fft(roi_stack[ii], n_cpus=scipy_workers)
+    else:
+        # Parallel outer loop via joblib; keep scipy single-threaded to
+        # avoid oversubscription (process pool × scipy threads).
+        if n_cpus < 0:
+            n_cpus = os.cpu_count() or 1
+        with parallel_backend("loky"):
+            results = Parallel(n_jobs=n_cpus)(
+                delayed(derivatives_fft)(roi_stack[ii], n_cpus=1)
+                for ii in tqdm(range(nprojs), desc="Computing FFT derivatives")
+            )
+        aligned_diff = np.array(results)
 
     return aligned_diff
 
