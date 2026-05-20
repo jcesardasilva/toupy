@@ -282,11 +282,14 @@ def fdk_backproject(
     SDD = geometry.SDD
     p = geometry.effective_pixel_size
 
-    # Centred object-space coordinate grids (N x N)
+    # Centred object-space coordinate grids (N x N transaxial, n_v axial)
     coords = (np.arange(N) - (N - 1) / 2.0) * p
     x, y = np.meshgrid(coords, coords, indexing='xy')  # x varies along cols, y along rows
 
-    # Detector coordinate arrays (for interpolation grid)
+    # Object-space axial (z) coordinates — pitch is effective_pixel_size, not det_pixel_size
+    z_coords = (np.arange(n_v) - (n_v - 1) / 2.0) * p  # shape (n_v,)
+
+    # Detector coordinate arrays (used only as the interpolation grid)
     u_det = geometry.u_coords()   # shape (n_u,)
     v_det = geometry.v_coords()   # shape (n_v,)
 
@@ -305,11 +308,12 @@ def fdk_backproject(
         u_d_2d = (SDD / U) * (x * cos_th + y * sin_th)
 
         # Axial detector coordinate for each z-layer:
-        # v_d shape (n_v, N, N) via broadcasting
-        # v_det[:,None,None] * SDD/U[None,:,:]
+        #   v_d = (SDD / U) * z_object   [FDK formula]
+        # z_coords uses effective_pixel_size (object space), NOT det_pixel_size.
+        # Using v_det here would inflate v_d by the magnification factor.
         inv_U = SDD / U  # (N, N)
-        v_d = v_det[:, np.newaxis, np.newaxis] * inv_U[np.newaxis, :, :]  # (n_v, N, N)
-        u_d = u_d_2d[np.newaxis, :, :] * np.ones((n_v, 1, 1))             # (n_v, N, N)
+        v_d = z_coords[:, np.newaxis, np.newaxis] * inv_U[np.newaxis, :, :]  # (n_v, N, N)
+        u_d = u_d_2d[np.newaxis, :, :] * np.ones((n_v, 1, 1))                # (n_v, N, N)
 
         # Build interpolator for this projection
         # RegularGridInterpolator expects points as (rows, cols) = (v_det, u_det)
