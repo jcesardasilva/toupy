@@ -34,14 +34,17 @@ def _otsu_threshold(arr):
     flat = arr.ravel().astype(np.float64)
     hist, edges = np.histogram(flat, bins=256)
     centers = (edges[:-1] + edges[1:]) * 0.5
-    dbin = edges[1] - edges[0]
 
-    # Cumulative weight and mean
-    w0 = np.cumsum(hist, dtype=np.float64) * dbin
-    w1 = 1.0 - w0
-    mu0 = np.cumsum(hist * centers, dtype=np.float64) * dbin / np.maximum(w0, 1e-12)
-    total_mean = (hist * centers).sum() * dbin
-    mu1 = (total_mean - np.cumsum(hist * centers, dtype=np.float64) * dbin) / np.maximum(w1, 1e-12)
+    # Class probabilities (normalise by total pixel count, not bin width)
+    total = float(hist.sum())
+    w0 = np.cumsum(hist, dtype=np.float64) / total   # fraction of pixels in class 0
+    w1 = 1.0 - w0                                     # fraction in class 1
+
+    # Class means
+    cum_mean = np.cumsum(hist * centers, dtype=np.float64) / total
+    total_mean = cum_mean[-1]
+    mu0 = cum_mean / np.maximum(w0, 1e-12)
+    mu1 = (total_mean - cum_mean) / np.maximum(w1, 1e-12)
 
     sigma_b = w0 * w1 * (mu0 - mu1) ** 2
     return centers[np.argmax(sigma_b)]
@@ -223,30 +226,38 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
         ph_w = np.where(absval_w > 0, a_work / absval_w, np.ones_like(a_work))
 
         # On iterations after the first, refine the air mask from the
-        # corrected-phase residual (pixels close to zero → air)
+        # corrected-phase residual — but only when no prior mask is available.
+        # When weight='auto' or a custom mask was supplied, the original mask
+        # is already reliable; replacing it with a residual-derived mask can
+        # introduce instability (e.g. tilt the ramp estimate).
         w_iter = w
-        if iteration > 0:
+        if iteration > 0 and w is None:
             phase_residual = np.angle(a_work)
             residual_std = phase_residual.std()
             air_mask = np.abs(phase_residual) < residual_std
             if air_mask.sum() > 0.01 * air_mask.size:
                 w_iter = air_mask.astype(np.float64)
-            # else keep original w
+            # else keep original w (None → global median)
 
         agx, agy = _estimate_ramp(ph_w, w_iter)
         p_iter = _build_phasor(a.shape, agx, agy)
         a_work = a_work * p_iter
         p_total = p_total * p_iter
 
-    # Optional global phase offset so that median air phase = 0
+    # Optional global phase offset so that the mean air phase is zero.
+    # Uses the circular mean of unit phasors (rotation-invariant, matches
+    # rmlinearphase) rather than the median of scalar angles.
     if zero_air_phase:
         if air_mask_for_offset is None:
             # Detect air from the corrected amplitude via Otsu
             amp_corr = np.abs(a_work)
             thresh = _otsu_threshold(amp_corr)
             air_mask_for_offset = amp_corr > thresh
-        median_phase = float(np.median(np.angle(a_work)[air_mask_for_offset]))
-        offset = np.exp(-1j * median_phase)
+        ph_air = a_work[air_mask_for_offset]
+        ph_air = ph_air / np.abs(ph_air)          # unit phasors
+        mean_phasor = ph_air.mean()
+        mean_phasor /= np.abs(mean_phasor)        # normalise to unit circle
+        offset = mean_phasor.conj()               # rotate so mean → 1 (phase=0)
         a_work = a_work * offset
         p_total = p_total * offset
 
