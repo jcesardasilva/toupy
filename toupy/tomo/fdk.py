@@ -109,7 +109,19 @@ def fdk_weight(projections: ndarray, geometry: ConeBeamGeometry) -> ndarray:
     extension of the ``cos(γ)`` factor in the fan-beam Parker weighting
     to the 2-D detector case.
     """
-    raise NotImplementedError
+    if projections.shape[1:] != (geometry.n_v, geometry.n_u):
+        raise ValueError(
+            "projections.shape[1:] = {} does not match (n_v={}, n_u={}).".format(
+                projections.shape[1:], geometry.n_v, geometry.n_u
+            )
+        )
+    u = geometry.u_coords()  # shape (n_u,)
+    v = geometry.v_coords()  # shape (n_v,)
+    SOD = geometry.SOD
+    # weight map shape (n_v, n_u)
+    uu, vv = np.meshgrid(u, v, indexing='xy')
+    w = SOD / np.sqrt(SOD ** 2 + uu ** 2 + vv ** 2)
+    return projections * w[np.newaxis, :, :]
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +174,28 @@ def fdk_filter(
     mathematically identical to the FBP filtering step; only the
     geometry of the subsequent back-projection differs.
     """
-    raise NotImplementedError
+    from scipy.fft import fft, ifft
+    n_angles, n_v, n_u = projections_weighted.shape
+    # compute_filter returns shape (projection_size_padded, 1)
+    fourier_filter = compute_filter(n_u, filter_type=filter_type,
+                                   derivatives=False, freqcutoff=freqcutoff)
+    pad_size = fourier_filter.shape[0]  # next power of 2 >= 2*n_u
+
+    # Reshape all rows into a 2D array: (n_angles*n_v, n_u)
+    rows = projections_weighted.reshape(-1, n_u)
+
+    # Zero-pad each row to pad_size
+    pad_width = pad_size - n_u
+    rows_padded = np.pad(rows, ((0, 0), (0, pad_width)), mode='constant')
+
+    # Apply filter in frequency domain
+    rows_fft = fft(rows_padded, axis=1)                    # (n_angles*n_v, pad_size)
+    rows_fft *= fourier_filter.ravel()[np.newaxis, :]      # broadcast (1, pad_size)
+    rows_filtered = np.real(ifft(rows_fft, axis=1))        # (n_angles*n_v, pad_size)
+
+    # Trim back to n_u and reshape
+    result = rows_filtered[:, :n_u].reshape(n_angles, n_v, n_u)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +271,66 @@ def fdk_backproject(
     kernel (stub in :func:`fdk_reconstruct`) will use texture-memory
     interpolation for speed.
     """
-    raise NotImplementedError
+    from scipy.interpolate import RegularGridInterpolator
+
+    n_angles, n_v, n_u = projections_filtered.shape
+    if output_size is None:
+        output_size = geometry.n_u
+    N = output_size
+
+    SOD = geometry.SOD
+    SDD = geometry.SDD
+    p = geometry.effective_pixel_size
+
+    # Centred object-space coordinate grids (N x N)
+    coords = (np.arange(N) - (N - 1) / 2.0) * p
+    x, y = np.meshgrid(coords, coords, indexing='xy')  # x varies along cols, y along rows
+
+    # Detector coordinate arrays (for interpolation grid)
+    u_det = geometry.u_coords()   # shape (n_u,)
+    v_det = geometry.v_coords()   # shape (n_v,)
+
+    angles_rad = np.deg2rad(geometry.angles)
+
+    volume = np.zeros((n_v, N, N), dtype=np.float64)
+
+    for i_angle, theta in enumerate(angles_rad):
+        cos_th = np.cos(theta)
+        sin_th = np.sin(theta)
+
+        # Perspective-projection denominator, shape (N, N)
+        U = SOD + x * sin_th - y * cos_th
+
+        # Transaxial detector coordinate of each voxel (N, N)
+        u_d_2d = (SDD / U) * (x * cos_th + y * sin_th)
+
+        # Axial detector coordinate for each z-layer:
+        # v_d shape (n_v, N, N) via broadcasting
+        # v_det[:,None,None] * SDD/U[None,:,:]
+        inv_U = SDD / U  # (N, N)
+        v_d = v_det[:, np.newaxis, np.newaxis] * inv_U[np.newaxis, :, :]  # (n_v, N, N)
+        u_d = u_d_2d[np.newaxis, :, :] * np.ones((n_v, 1, 1))             # (n_v, N, N)
+
+        # Build interpolator for this projection
+        # RegularGridInterpolator expects points as (rows, cols) = (v_det, u_det)
+        interp = RegularGridInterpolator(
+            (v_det, u_det),
+            projections_filtered[i_angle],   # shape (n_v, n_u)
+            method='linear',
+            bounds_error=False,
+            fill_value=0.0,
+        )
+
+        # Query points shape (n_v*N*N, 2) — (v_query, u_query)
+        pts = np.stack([v_d.ravel(), u_d.ravel()], axis=-1)
+        vals = interp(pts).reshape(n_v, N, N)
+
+        # Accumulate with (SOD/U)^2 weight
+        weight = (SOD / U) ** 2  # (N, N)
+        volume += weight[np.newaxis, :, :] * vals
+
+    volume *= np.pi / n_angles
+    return volume
 
 
 # ---------------------------------------------------------------------------
@@ -312,21 +404,32 @@ def fdk_reconstruct(
     formula assumes 180°.
     """
     # Validate geometry
-    # geometry.validate()
+    geometry.validate()
+
+    if projections.ndim != 3:
+        raise ValueError(
+            "projections must be 3-D (n_angles, n_v, n_u), got ndim={}.".format(
+                projections.ndim
+            )
+        )
+    if projections.shape[1:] != (geometry.n_v, geometry.n_u):
+        raise ValueError(
+            "projections.shape[1:] = {} does not match geometry (n_v={}, n_u={}).".format(
+                projections.shape[1:], geometry.n_v, geometry.n_u
+            )
+        )
 
     # GPU path stub — mirrors mod_iradon_cuda fallback pattern
-    # if cuda:
-    #     if not CUDA_AVAILABLE:
-    #         warnings.warn(
-    #             "CuPy unavailable — falling back to CPU FDK.",
-    #             UserWarning, stacklevel=2,
-    #         )
-    #     else:
-    #         raise NotImplementedError("CUDA FDK back-projector not yet implemented.")
+    if cuda:
+        if not CUDA_AVAILABLE:
+            warnings.warn(
+                "CuPy unavailable — falling back to CPU FDK.",
+                UserWarning, stacklevel=2,
+            )
+        # else: CUDA FDK not yet implemented, fall through to CPU
 
     # CPU path
-    # projections_weighted = fdk_weight(projections, geometry)
-    # projections_filtered = fdk_filter(projections_weighted, filter_type, freqcutoff)
-    # volume = fdk_backproject(projections_filtered, geometry, output_size)
-    # return volume
-    raise NotImplementedError
+    projections_weighted = fdk_weight(projections, geometry)
+    projections_filtered = fdk_filter(projections_weighted, filter_type, freqcutoff)
+    volume = fdk_backproject(projections_filtered, geometry, output_size)
+    return volume

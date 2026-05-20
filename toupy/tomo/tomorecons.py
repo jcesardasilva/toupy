@@ -239,4 +239,43 @@ def fdk_tomo_recons(
     full_tomo_recons : Slice-by-slice parallel-beam full reconstruction.
     toupy.tomo.fdk.fdk_reconstruct : Bare FDK pipeline (no display/save).
     """
-    raise NotImplementedError
+    from ..utils import create_circle
+
+    filtertype  = params.get("filtertype",  "ram-lak")
+    freqcutoff  = params.get("freqcutoff",  1.0)
+    output_size = params.get("output_size", None)
+    cuda        = params.get("cuda",        False)
+    circle      = params.get("circle",      False)
+    showrecons  = params.get("showrecons",  False)
+    colormap    = params.get("colormap",    "bone")
+    vmin_plot   = params.get("vmin_plot",   None)
+    vmax_plot   = params.get("vmax_plot",   None)
+
+    geometry.validate()
+
+    if projections.ndim != 3:
+        raise ValueError(
+            "projections must be 3-D (n_angles, n_v, n_u), got ndim={}.".format(
+                projections.ndim
+            )
+        )
+
+    volume = fdk_reconstruct(
+        projections, geometry,
+        filter_type=filtertype,
+        freqcutoff=freqcutoff,
+        output_size=output_size,
+        cuda=cuda,
+    )
+
+    if circle:
+        # Apply cylindrical mask to each axial slice
+        central = volume[volume.shape[0] // 2]
+        mask = create_circle(central)
+        volume = volume * mask[np.newaxis, :, :]
+
+    if showrecons:
+        central = volume[volume.shape[0] // 2]
+        display_slice(central, colormap=colormap, vmin=vmin_plot, vmax=vmax_plot)
+
+    return volume

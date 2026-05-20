@@ -115,7 +115,7 @@ class ConeBeamGeometry:
         ZeroDivisionError
             If ``SOD`` is zero (caught earlier by :meth:`validate`).
         """
-        raise NotImplementedError
+        return self.SDD / self.SOD
 
     @property
     def effective_pixel_size(self) -> float:
@@ -131,7 +131,7 @@ class ConeBeamGeometry:
         float
             Effective voxel pitch in the same units as ``det_pixel_size``.
         """
-        raise NotImplementedError
+        return self.det_pixel_size / self.magnification
 
     # ------------------------------------------------------------------
     # Coordinate helpers
@@ -152,7 +152,7 @@ class ConeBeamGeometry:
         u : ndarray, shape (n_u,)
             Detector u-coordinates in physical units, centred on zero.
         """
-        raise NotImplementedError
+        return (np.arange(self.n_u) - (self.n_u - 1) / 2.0) * self.det_pixel_size
 
     def v_coords(self) -> ndarray:
         """
@@ -168,7 +168,7 @@ class ConeBeamGeometry:
         v : ndarray, shape (n_v,)
             Detector v-coordinates in physical units, centred on zero.
         """
-        raise NotImplementedError
+        return (np.arange(self.n_v) - (self.n_v - 1) / 2.0) * self.det_pixel_size
 
     # ------------------------------------------------------------------
     # Validation
@@ -196,4 +196,28 @@ class ConeBeamGeometry:
             * ``len(angles) == 0`` — at least one projection angle is
               required.
         """
-        raise NotImplementedError
+        if self.SOD <= 0:
+            raise ValueError("SOD must be strictly positive, got {}.".format(self.SOD))
+        if self.SDD <= 0:
+            raise ValueError("SDD must be strictly positive, got {}.".format(self.SDD))
+        if self.SOD >= self.SDD:
+            raise ValueError(
+                "SOD must be less than SDD (magnification > 1 required); "
+                "got SOD={}, SDD={}.".format(self.SOD, self.SDD)
+            )
+        if self.det_pixel_size <= 0:
+            raise ValueError(
+                "det_pixel_size must be strictly positive, got {}.".format(
+                    self.det_pixel_size
+                )
+            )
+        if self.n_u <= 0:
+            raise ValueError(
+                "n_u must be a positive integer, got {}.".format(self.n_u)
+            )
+        if self.n_v <= 0:
+            raise ValueError(
+                "n_v must be a positive integer, got {}.".format(self.n_v)
+            )
+        if len(self.angles) == 0:
+            raise ValueError("angles must contain at least one projection angle.")
