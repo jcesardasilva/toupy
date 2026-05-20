@@ -267,6 +267,201 @@ class ConeBeamRegistration:
         return shiftstack
 
     # ------------------------------------------------------------------
+    # Horizontal alignment via fan-to-parallel rebinning
+    # ------------------------------------------------------------------
+
+    def align_horizontal_from_parallel(
+        self,
+        projections: ndarray,
+        shiftstack: ndarray,
+        row: int | None = None,
+        **params,
+    ) -> ndarray:
+        """
+        Horizontal alignment using fan-to-parallel rebinning + FBP consistency.
+
+        Converts the selected detector row to a parallel-beam sinogram via
+        :func:`rebin_fan_to_parallel`, runs the full parallel-beam
+        tomographic-consistency alignment
+        (:func:`~toupy.registration.registration.alignprojections_horizontal`)
+        on the rebinned sinogram, then maps the resulting per-angle shifts
+        back to fan-beam detector-pixel shifts.
+
+        This approach is more accurate than the direct
+        :meth:`align_horizontal` method because:
+
+        * The FBP inner loop in
+          :func:`~toupy.registration.registration.alignprojections_horizontal`
+          expects sinusoidal feature traces, which are only present in a
+          parallel-beam sinogram.  After rebinning, every object feature
+          follows an exact sinusoid ``s(φ) = x₀ cos φ + y₀ sin φ``.
+        * Per-angle shifts (not just a global CoR estimate) are computed.
+        * Frequency-cutoff schedules and spatial multiresolution warm-starts
+          are available via ``params``.
+
+        **Unit conversion summary**
+
+        Let ``ds`` be the parallel-sinogram pixel pitch (mm) and
+        ``p`` be the fan-beam detector pixel size (mm).
+
+        *Fan → parallel (warm-start):*
+
+        .. math::
+
+            \\delta s_{\\text{par}}[j] =
+            \\delta u_{\\text{fan}}[i] \\;\\cdot\\;
+            \\frac{\\mathrm{SOD}}{\\mathrm{SDD}} \\;\\cdot\\; \\frac{p}{ds}
+
+        *Parallel → fan (final conversion):*
+
+        .. math::
+
+            \\delta u_{\\text{fan}} =
+            \\frac{\\mathrm{SDD}}{p}
+            \\tan\\!\\left(
+                \\arcsin\\!\\left(
+                    \\frac{\\delta s_{\\text{par}} \\cdot ds}{\\mathrm{SOD}}
+                \\right)
+            \\right)
+
+        Parameters
+        ----------
+        projections : ndarray, shape (n_angles, n_v, n_u)
+            Flat-field-corrected cone-beam projection stack.
+        shiftstack : ndarray, shape (2, n_angles)
+            Current shift estimates ``[vertical_shifts, horizontal_shifts]``
+            in fan-beam detector pixels.  Row 1 (horizontal) is updated
+            in-place and returned; row 0 (vertical) is unchanged.
+        row : int or None, optional
+            Detector row to use for the horizontal sinogram.  Defaults to
+            the central row ``n_v // 2``.
+        **params
+            All keyword arguments are forwarded to
+            :func:`~toupy.registration.registration.alignprojections_horizontal`.
+            Required keys:
+
+            maxit : int
+                Maximum iterations per frequency stage.
+            pixtol : float
+                Convergence tolerance in pixels.
+            freqcutoff : float
+                Low-pass sinogram cutoff (fraction of Nyquist).
+            shiftmeth : str
+                Sub-pixel shift method (``'linear'``, ``'fourier'``,
+                ``'spline'``).
+            circle : bool
+                Apply circular mask to the FBP reconstruction.
+            derivatives : bool
+                Set ``True`` for phase-gradient projections.
+            calc_derivatives : bool
+                Compute derivatives of the synthetic sinogram.
+
+        Returns
+        -------
+        shiftstack : ndarray, shape (2, n_angles)
+            Updated shift array with optimised fan-beam horizontal shifts
+            in row 1 (units: detector pixels).
+
+        See Also
+        --------
+        align_horizontal : Direct CoR-based horizontal alignment (no rebinning).
+        rebin_to_parallel : Standalone rebinning wrapper.
+        toupy.registration.registration.alignprojections_horizontal :
+            Parallel-beam alignment routine used internally.
+
+        Examples
+        --------
+        >>> shiftstack = np.zeros((2, len(geom.angles)))
+        >>> shiftstack = reg.align_horizontal_from_parallel(
+        ...     projections, shiftstack,
+        ...     maxit=20, pixtol=0.01,
+        ...     freqcutoff=0.8, shiftmeth='fourier',
+        ...     filtertype='ram-lak', circle=True,
+        ...     derivatives=False, calc_derivatives=False,
+        ... )
+        """
+        from toupy.registration.registration import alignprojections_horizontal
+        from scipy.ndimage import shift as ndimage_shift
+
+        geom     = self.geometry
+        n_angles, n_v, n_u = projections.shape
+
+        if row is None:
+            row = n_v // 2
+
+        # ── Step 1: apply current fan-beam shifts, extract the chosen row ──
+        central_row = np.empty((n_angles, n_u), dtype=np.float64)
+        for ia in range(n_angles):
+            src = projections[ia, row, :].astype(np.float64)
+            if shiftstack[1, ia] != 0.0:
+                src = ndimage_shift(src, [shiftstack[1, ia]], mode='nearest')
+            central_row[ia] = src
+
+        # ── Step 2: rebin to parallel beam ─────────────────────────────────
+        # Use n_phi = n_angles so each fan angle has a close parallel counterpart.
+        sino_par, s_coords, phi_deg = rebin_fan_to_parallel(
+            central_row, geom, n_s=n_u, n_phi=n_angles,
+        )
+        # sino_par : (n_u, n_angles)   — rows = s bins, columns = φ angles
+        phi_rad   = np.deg2rad(phi_deg)                    # (n_angles,) in [0, π)
+        theta_fan = np.deg2rad(geom.angles)                # (n_angles,) in [0, 2π)
+
+        # Parallel-sinogram pixel pitch [mm]
+        ds = float(s_coords[1] - s_coords[0])
+
+        # ── Step 3: warm-start — convert fan shifts → parallel shifts ──────
+        # The fan-beam source angle θ ≈ φ (mod π) for near-central rays
+        # (the fan angle γ is small, so the parallel angle φ ≈ θ).
+        # Scale: 1 fan pixel → SOD/SDD × (det_pixel_size/ds) parallel pixels.
+        fan_to_par = (geom.SOD / geom.SDD) * (geom.det_pixel_size / ds)
+
+        shiftstack_par = np.zeros((2, n_angles), dtype=np.float64)
+        if not np.all(shiftstack[1] == 0.0):
+            # Fold fan angles [0°, 360°) → [0°, π) by θ mod π
+            theta_mod_pi = theta_fan % np.pi               # (n_angles,)
+            # Sort so np.interp has a monotone x-axis
+            order        = np.argsort(theta_mod_pi)
+            theta_sorted = theta_mod_pi[order]
+            shift_sorted = shiftstack[1][order]
+            shiftstack_par[1] = (
+                np.interp(phi_rad, theta_sorted, shift_sorted) * fan_to_par
+            )
+
+        # ── Step 4: run parallel-beam alignment ────────────────────────────
+        # alignprojections_horizontal expects (sinogram, theta, shiftstack)
+        # with sinogram shape (nr, nc) = (n_u, n_angles).
+        params.setdefault("derivatives",      False)
+        params.setdefault("calc_derivatives", False)
+        params.setdefault("silent",           False)
+
+        shiftstack_par = alignprojections_horizontal(
+            sino_par, phi_rad, shiftstack_par, **params
+        )
+        # shiftstack_par[1] now holds per-φ shifts in parallel-sinogram pixels.
+
+        # ── Step 5: convert parallel shifts → fan-beam detector pixels ─────
+        # δs_mm = shift_par × ds   (parallel offset in mm)
+        # δu_mm = SDD × tan(arcsin(δs_mm / SOD))   (exact inverse formula)
+        # δu_px = δu_mm / det_pixel_size            (fan detector pixels)
+        delta_s_mm = shiftstack_par[1] * ds                # (n_angles,) [mm]
+
+        # Map from parallel angles φ back to fan angles θ via linear interpolation.
+        # Each fan angle θ takes its shift from the nearest parallel angle φ ≈ θ mod π.
+        theta_mod_pi   = theta_fan % np.pi
+        order          = np.argsort(phi_rad)
+        phi_sorted     = phi_rad[order]
+        ds_mm_sorted   = delta_s_mm[order]
+        delta_s_mm_fan = np.interp(theta_mod_pi, phi_sorted, ds_mm_sorted)
+
+        # Exact fan-beam conversion (handles large shifts without approximation)
+        s_safe      = np.clip(delta_s_mm_fan, -0.9999 * geom.SOD, 0.9999 * geom.SOD)
+        gamma_shift = np.arcsin(s_safe / geom.SOD)
+        delta_u_px  = geom.SDD * np.tan(gamma_shift) / geom.det_pixel_size
+
+        shiftstack[1] = delta_u_px
+        return shiftstack
+
+    # ------------------------------------------------------------------
     # Vertical alignment
     # ------------------------------------------------------------------
 
