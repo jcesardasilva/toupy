@@ -576,6 +576,301 @@ class ConeBeamRegistration:
         return shiftstack
 
     # ------------------------------------------------------------------
+    # Cone-beam vertical alignment (per-column centroid + tilt estimation)
+    # ------------------------------------------------------------------
+
+    def align_vertical_cone(
+        self,
+        projections: ndarray,
+        shiftstack: ndarray,
+        **params,
+    ) -> tuple[ndarray, float]:
+        """
+        Vertical alignment with per-column centroid and axis-tilt estimation.
+
+        Extends :meth:`align_vertical` with two cone-beam-specific
+        improvements:
+
+        **1. Per-column centroid decomposition**
+
+        Instead of collapsing the entire projection into a single vertical
+        mass centroid, the detector is divided into ``n_col_bins`` vertical
+        strips.  For each strip at horizontal position ``u_k`` a centroid
+        ``v_c(θ, u_k)`` is computed and the column-dependence is modelled as
+
+        .. math::
+
+            v_c(\\theta, u_k) = a(\\theta) + b(\\theta)\\,(u_k - u_0)
+
+        where ``u_0`` is the detector centre column.  A least-squares fit
+        over the column bins separates:
+
+        * ``a(θ)`` — global vertical position of the centre of mass
+          (mechanical drift + DC offset).
+        * ``b(θ)`` — slope due to rotation-axis tilt in the detector plane.
+          A tilt angle α gives ``b ≈ tan α / magnification``.
+
+        **2. Sinusoidal modulation removal**
+
+        For a sample whose centre of mass is at ``(x_c, y_c, z_c)`` in
+        object space, the expected centroid is
+
+        .. math::
+
+            a_{\\text{theory}}(\\theta) \\approx
+            \\frac{\\mathrm{SDD}}{\\mathrm{SOD}}\\,z_c \\left(
+            1 - \\frac{x_c\\sin\\theta - y_c\\cos\\theta}{\\mathrm{SOD}}
+            \\right)
+
+        The sinusoidal term ``B\\sin\\theta + C\\cos\\theta`` (whose
+        amplitude grows with off-axis horizontal position) is fitted and
+        removed from ``a(θ)`` before the drift estimate is computed.
+        This prevents a laterally displaced sample from being
+        misidentified as having per-angle vertical drift.
+
+        Parameters
+        ----------
+        projections : ndarray, shape (n_angles, n_v, n_u)
+            Flat-field-corrected cone-beam projection stack.
+        shiftstack : ndarray, shape (2, n_angles)
+            Current shift estimates ``[vertical_shifts, horizontal_shifts]``
+            in detector pixels.  Row 0 (vertical) is updated; row 1 is
+            used to pre-shift projections but is not changed.
+        **params
+            Algorithm control parameters.  Required keys:
+
+            maxit : int
+                Maximum outer iterations (default 20).
+            pixtol : float
+                Convergence tolerance in detector pixels (default 0.01).
+            polyorder : int
+                Polynomial order for the baseline model of the centroid
+                signal ``a(θ)`` (default ``0``).
+
+                * ``0`` — baseline = mean of ``a(θ)``.  The correction
+                  becomes ``det_v_centre − a(θ)``, which removes
+                  *every* trend (DC offset, linear ramp, sinusoidal
+                  drift).  **Recommended for circular-orbit scans.**
+                * ``1`` — baseline = best-fit line.  Only the mean and
+                  fast jitter are corrected; slow linear trends are
+                  treated as natural and left in the data.  Use this
+                  only if you deliberately want to preserve a slow
+                  linear vertical motion.
+
+            deltax : int
+                Horizontal margin in detector pixels to exclude from the
+                column-strip ROI (default 0).
+            limsy : list of int or None
+                Explicit ``[row_start, row_end]`` detector row limits.
+                ``None`` uses the full detector height.
+            n_col_bins : int
+                Number of equal-width vertical strips for the per-column
+                centroid estimate (default 8).  More bins give a more
+                robust tilt estimate but noisier per-strip centroids.
+                Must be ≥ 2.
+            remove_sinusoidal : bool
+                If ``True``, fit and remove the ``A + B·sinθ + C·cosθ``
+                component from ``a(θ)`` *before* drift estimation
+                (default ``False``).
+
+                This is designed to remove the tiny 1/U(θ) modulation
+                that arises when the sample's horizontal centre of mass
+                is far from the rotation axis.  **Do not enable this if
+                the scan has genuine sinusoidal drift**, because the fit
+                cannot distinguish the two: both have the same
+                frequency.  Only enable if you have independently
+                confirmed that the horizontal CoR offset is large (e.g.
+                from ``estimate_cor``) and that per-angle drift is
+                negligible.  Requires a full 360° scan.
+            apply_tilt_correction : bool
+                If ``True``, apply the estimated tilt as a per-column
+                vertical warp to each projection after drift correction
+                (default ``False``).  Setting this to ``True`` modifies
+                ``projections`` **in-place** because the tilt correction
+                cannot be represented as a scalar shift per projection.
+
+        Returns
+        -------
+        shiftstack : ndarray, shape (2, n_angles)
+            Updated array with optimised per-angle vertical shifts in
+            row 0 (detector pixels).
+        tilt_deg : float
+            Estimated rotation-axis tilt angle in **degrees** (in the
+            detector plane, i.e. the angle between the rotation axis and
+            the detector v-axis).  Positive tilt means the top of the
+            rotation axis leans toward positive u.  Pass this value to
+            :meth:`estimate_geometry` or use it as a diagnostic.
+
+        Notes
+        -----
+        The tilt correction (``apply_tilt_correction=True``) applies a
+        shear warp ``v → v − b·(u − u_0)`` to every projection using
+        ``scipy.ndimage.map_coordinates``.  This is an in-place
+        modification of the ``projections`` array and cannot be undone
+        without re-loading the raw data.  Only enable it when the tilt
+        estimate has converged and you are satisfied with the value.
+
+        See Also
+        --------
+        align_vertical : Simpler single-centroid vertical alignment.
+        align_horizontal_from_parallel : Horizontal alignment via rebinning.
+
+        Examples
+        --------
+        >>> shiftstack = np.zeros((2, len(geom.angles)))
+        >>> shiftstack, tilt_deg = reg.align_vertical_cone(
+        ...     projections, shiftstack,
+        ...     maxit=20, pixtol=0.01,
+        ...     polyorder=0, deltax=5,
+        ...     n_col_bins=8,
+        ...     remove_sinusoidal=False,
+        ...     apply_tilt_correction=False,
+        ... )
+        >>> print("Axis tilt: {:.3f} deg".format(tilt_deg))
+        """
+        from scipy.ndimage import shift as ndimage_shift, map_coordinates
+
+        # ── Parameters ────────────────────────────────────────────────────
+        maxit            = params.get("maxit",               20)
+        pixtol           = params.get("pixtol",              0.01)
+        polyorder        = params.get("polyorder",           0)
+        deltax           = params.get("deltax",              0)
+        limsy            = params.get("limsy",               None)
+        n_col_bins       = params.get("n_col_bins",          8)
+        remove_sinu      = params.get("remove_sinusoidal",   False)
+        apply_tilt       = params.get("apply_tilt_correction", False)
+
+        n_angles, n_v, n_u = projections.shape
+        geom = self.geometry
+
+        row_start = 0     if limsy is None else int(limsy[0])
+        row_end   = n_v   if limsy is None else int(limsy[1])
+        col_start = int(deltax)
+        col_end   = int(n_u - deltax)
+        n_col_roi = col_end - col_start
+
+        n_col_bins = max(2, min(int(n_col_bins), n_col_roi))
+
+        # Column-strip edges and centres (in full-image pixel coordinates)
+        bin_edges = np.linspace(col_start, col_end, n_col_bins + 1)
+        u_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])   # (n_col_bins,)
+        u0 = 0.5 * (col_start + col_end)                      # detector centre column
+
+        v_idx      = np.arange(row_start, row_end, dtype=np.float64)
+        angle_idx  = np.arange(n_angles,           dtype=np.float64)
+        thetas_rad = np.deg2rad(geom.angles)
+
+        # Design matrix for linear fit: v_c(θ,u) = a(θ) + b(θ)·(u − u0)
+        A_lin = np.vstack([np.ones(n_col_bins),
+                           u_centers - u0]).T          # (n_col_bins, 2)
+
+        # Design matrix for sinusoidal fit: a(θ) = A + B·sinθ + C·cosθ
+        A_sin = np.vstack([np.ones(n_angles),
+                           np.sin(thetas_rad),
+                           np.cos(thetas_rad)]).T      # (n_angles, 3)
+
+        tilt_estimates = []
+
+        for _iter in range(maxit):
+
+            # ── Apply current shifts ───────────────────────────────────
+            shifted = np.empty_like(projections, dtype=np.float64)
+            for ia in range(n_angles):
+                sv, su = float(shiftstack[0, ia]), float(shiftstack[1, ia])
+                if sv != 0.0 or su != 0.0:
+                    shifted[ia] = ndimage_shift(
+                        projections[ia].astype(np.float64),
+                        [sv, su], mode='nearest',
+                    )
+                else:
+                    shifted[ia] = projections[ia].astype(np.float64)
+
+            # ── Per-column-strip vertical centroid ─────────────────────
+            # v_centroid[ia, k] = intensity-weighted mean row index
+            # for strip k of projection ia.
+            v_centroid = np.empty((n_angles, n_col_bins), dtype=np.float64)
+            for ia in range(n_angles):
+                img_roi = shifted[ia, row_start:row_end, :]  # (n_v_roi, n_u)
+                for k in range(n_col_bins):
+                    c0 = int(np.round(bin_edges[k]))
+                    c1 = int(np.round(bin_edges[k + 1]))
+                    strip = img_roi[:, c0:c1].sum(axis=1)    # (n_v_roi,)
+                    total = strip.sum()
+                    if total == 0.0:
+                        v_centroid[ia, k] = 0.5 * (row_start + row_end)
+                    else:
+                        v_centroid[ia, k] = np.dot(v_idx, strip) / total
+
+            # ── Linear fit: separate global drift from axis tilt ───────
+            # Solve A_lin @ [a, b].T = v_centroid.T  (one solve for all angles)
+            coeffs, _, _, _ = np.linalg.lstsq(A_lin, v_centroid.T, rcond=None)
+            a_theta = coeffs[0]   # (n_angles,)  global vertical centroid
+            b_theta = coeffs[1]   # (n_angles,)  tilt coefficient [px/px]
+
+            tilt_px_per_px = float(np.median(b_theta))
+            tilt_estimates.append(tilt_px_per_px)
+
+            # ── Remove sinusoidal modulation from a(θ) ─────────────────
+            # Fit A + B·sinθ + C·cosθ and subtract it.
+            if remove_sinu:
+                sin_coeffs, _, _, _ = np.linalg.lstsq(
+                    A_sin, a_theta, rcond=None
+                )
+                a_sinusoidal = A_sin @ sin_coeffs     # (n_angles,)
+                a_residual   = a_theta - a_sinusoidal
+            else:
+                a_residual = a_theta.copy()
+
+            # ── Remove polynomial baseline (slow mechanical drift) ─────
+            poly_fit  = np.polyfit(angle_idx, a_residual, polyorder)
+            baseline  = np.polyval(poly_fit, angle_idx)
+            drift     = a_residual - baseline          # fast per-angle drift
+
+            # ── DC global offset (rotation axis not at detector centre) ─
+            det_v_center = 0.5 * (row_start + row_end)
+            dc_offset    = np.mean(a_theta) - det_v_center
+
+            # ── Per-angle correction ───────────────────────────────────
+            delta_v = -(dc_offset + drift)             # (n_angles,)
+            max_delta = float(np.max(np.abs(delta_v)))
+            shiftstack[0] += delta_v
+
+            if max_delta < pixtol:
+                break
+
+        # ── Tilt angle (average of last 3 estimates for stability) ────────
+        n_avg = min(3, len(tilt_estimates))
+        tilt_px_per_px = float(np.mean(tilt_estimates[-n_avg:]))
+        # Convert: the linear fit was in detector pixels per detector pixel.
+        # The physical tilt angle is arctan of this slope (already in the
+        # detector plane; no magnification needed because both v and u are
+        # measured in the same detector pixel units).
+        tilt_deg = float(np.rad2deg(np.arctan(tilt_px_per_px)))
+
+        print("Axis tilt estimate : {:.4f} detector px/px  "
+              "({:.4f} deg)".format(tilt_px_per_px, tilt_deg))
+
+        # ── Optional: apply tilt shear to every projection (in-place) ────
+        if apply_tilt and abs(tilt_px_per_px) > 1e-6:
+            print("Applying tilt correction (shear warp) in-place …")
+            u_grid = np.arange(n_u, dtype=np.float64)
+            v_grid = np.arange(n_v, dtype=np.float64)
+            uu, vv = np.meshgrid(u_grid, v_grid)          # (n_v, n_u)
+            # Warp: for each pixel (u, v) read the value at
+            #   v_src = v + tilt_px_per_px * (u − u0)
+            v_src = vv + tilt_px_per_px * (uu - u0)       # (n_v, n_u)
+            u_src = uu                                     # no horizontal warp
+            coords = np.array([v_src.ravel(), u_src.ravel()])  # (2, n_v*n_u)
+            for ia in range(n_angles):
+                projections[ia] = map_coordinates(
+                    projections[ia].astype(np.float64),
+                    coords, order=1, mode='nearest',
+                ).reshape(n_v, n_u)
+            print("  Tilt correction applied to {} projections.".format(n_angles))
+
+        return shiftstack, tilt_deg
+
+    # ------------------------------------------------------------------
     # Geometric calibration
     # ------------------------------------------------------------------
 
