@@ -192,41 +192,46 @@ def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
     roix, roiy : tuple
         Limits of the area on which to calculate the derivatives
     n_cpus : int, optional
-        Number of CPU cores for parallel computation.
-
-        * ``1``  — sequential; scipy FFT uses one thread per projection.
-        * ``-1`` (default) — joblib parallelises the outer projection loop
-          using all available cores; each scipy FFT worker is set to 1 to
-          avoid oversubscription.
-        * ``> 1`` — same as ``-1`` but limits the outer pool to ``n_cpus``.
+        Number of threads passed to ``scipy.fft`` via its ``workers``
+        parameter.  ``-1`` (default) uses all available CPU cores.
+        ``1`` runs single-threaded.
 
     Returns
     -------
     aligned_diff : array_like
         Stack of derivatives of the arrays along the horizontal direction
+
+    Notes
+    -----
+    The entire ROI stack is processed in a single pair of
+    :func:`scipy.fft.fft` / :func:`scipy.fft.ifft` calls.
+    ``scipy.fft`` treats the leading ``(nprojs, roi_rows)`` axes as
+    independent batch rows and distributes them across ``workers`` threads
+    internally — no Python-level loop or process pool is needed.
     """
-    nprojs, nr, nc = stack_array.shape
+    if n_cpus < 0:
+        n_cpus = os.cpu_count() or 1
+
     roi_stack = stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]]
 
-    if n_cpus == 1:
-        # Sequential path: give scipy all CPUs for its internal FFT workers
-        scipy_workers = os.cpu_count() or 1
-        aligned_diff = np.empty_like(roi_stack)
-        for ii in tqdm(range(nprojs), desc="Computing FFT derivatives"):
-            aligned_diff[ii] = derivatives_fft(roi_stack[ii], n_cpus=scipy_workers)
-    else:
-        # Parallel outer loop via joblib; keep scipy single-threaded to
-        # avoid oversubscription (process pool × scipy threads).
-        if n_cpus < 0:
-            n_cpus = os.cpu_count() or 1
-        with parallel_backend("loky"):
-            results = Parallel(n_jobs=n_cpus)(
-                delayed(derivatives_fft)(roi_stack[ii], n_cpus=1)
-                for ii in tqdm(range(nprojs), desc="Computing FFT derivatives")
-            )
-        aligned_diff = np.array(results)
+    # Frequency axis for the horizontal (column) direction
+    nc_roi = roi_stack.shape[2]
+    freqs = fftfreq(nc_roi)                        # shape (nc_roi,)
 
-    return aligned_diff
+    # Symmetric-difference filter kernel (same as derivatives_fft default)
+    kernel = (
+        np.exp( 1j * 2.0 * np.pi * freqs * 0.5)
+        - np.exp(-1j * 2.0 * np.pi * freqs * 0.5)
+    )                                              # shape (nc_roi,)
+
+    # Single FFT call over the entire (nprojs, roi_rows, nc_roi) array.
+    # scipy.fft parallelises across all rows of all projections at once
+    # using C-level threads that release the GIL — no joblib needed.
+    fft_all = fft(roi_stack, workers=n_cpus)       # FFT along axis=-1
+    fft_all *= kernel                              # broadcast (nc_roi,)
+    aligned_diff = ifft(fft_all, workers=n_cpus).real
+
+    return aligned_diff.astype(roi_stack.dtype)
 
 
 def derivatives(input_array, shift_method="fourier"):
