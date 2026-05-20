@@ -7,7 +7,6 @@ import heapq
 import os
 import sys
 from collections import deque
-from itertools import count
 
 # third party packages
 from joblib import Parallel, delayed, parallel_backend
@@ -223,11 +222,16 @@ def phaseresidues(phimage):
     .. [1] R. M. Goldstein, H. A. Zebker and C. L. Werner,
       Radio Science 23, 713-720 (1988).
     """
-    residues = wraptopi(phimage[2:, 1:-1] - phimage[1:-1, 1:-1])
-    residues += wraptopi(phimage[2:, 2:] - phimage[2:, 1:-1])
-    residues += wraptopi(phimage[1:-1, 2:] - phimage[2:, 2:])
-    residues += wraptopi(phimage[1:-1, 1:-1] - phimage[1:-1, 2:])
-    residues /= 2 * np.pi
+    # Stack all four loop increments into a single (4, nr-2, nc-2) array so
+    # that wraptopi is called once instead of four times, reducing Python
+    # overhead and allowing NumPy to process the full batch in one pass.
+    diffs = np.stack([
+        phimage[2:,   1:-1] - phimage[1:-1, 1:-1],
+        phimage[2:,   2:]   - phimage[2:,   1:-1],
+        phimage[1:-1, 2:]   - phimage[2:,   2:],
+        phimage[1:-1, 1:-1] - phimage[1:-1, 2:],
+    ])                                              # (4, nr-2, nc-2)
+    residues = np.sum(wraptopi(diffs), axis=0) / (2.0 * np.pi)
 
     respos, resneg, nres = _get_charge(residues)
     residues_charge = dict(pos=respos, neg=resneg)
@@ -309,12 +313,10 @@ def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
             )
         )
     print("Done")
-    # resmap = np.abs(np.array(residues)).sum(axis=0)
-    nproj = stack_array.shape[0]
-    resmap = 0
     print("Creating the map of residues")
-    for ii in range(nproj):
-        resmap += np.abs(residues[ii])
+    # Convert tuple of (nproj) residue arrays → (nproj, nr-2, nc-2) and
+    # sum absolute values in one vectorised call instead of a Python loop.
+    resmap = np.sum(np.abs(np.array(residues)), axis=0)
     del residues
     del residues_charge
     posres = np.where(resmap >= 1.0)
@@ -482,11 +484,25 @@ def _reliability_map(phase):
     nr, nc = phase.shape
     rel = np.zeros((nr, nc), dtype=np.float64)
 
-    # Second differences (interior pixels only)
-    H  = wraptopi(phase[1:-1, 2:]  - phase[1:-1, 1:-1]) - wraptopi(phase[1:-1, 1:-1] - phase[1:-1, :-2])
-    V  = wraptopi(phase[2:,  1:-1] - phase[1:-1, 1:-1]) - wraptopi(phase[1:-1, 1:-1] - phase[:-2,  1:-1])
-    D1 = wraptopi(phase[2:,  2:]   - phase[1:-1, 1:-1]) - wraptopi(phase[1:-1, 1:-1] - phase[:-2,  :-2])
-    D2 = wraptopi(phase[2:,  :-2]  - phase[1:-1, 1:-1]) - wraptopi(phase[1:-1, 1:-1] - phase[:-2,  2:])
+    # Second differences (interior pixels only).
+    # Stack all 8 first-order differences into a single (8, nr-2, nc-2)
+    # array so wraptopi is called once instead of eight times.
+    inner = phase[1:-1, 1:-1]
+    all_diffs = np.stack([
+        phase[1:-1, 2:]  - inner,   # H forward
+        inner - phase[1:-1, :-2],   # H backward
+        phase[2:,  1:-1] - inner,   # V forward
+        inner - phase[:-2,  1:-1],  # V backward
+        phase[2:,  2:]   - inner,   # D1 forward
+        inner - phase[:-2,  :-2],   # D1 backward
+        phase[2:,  :-2]  - inner,   # D2 forward
+        inner - phase[:-2,  2:],    # D2 backward
+    ])                              # (8, nr-2, nc-2)
+    w = wraptopi(all_diffs)         # single call
+    H  = w[0] - w[1]
+    V  = w[2] - w[3]
+    D1 = w[4] - w[5]
+    D2 = w[6] - w[7]
 
     D = np.sqrt(H ** 2 + V ** 2 + D1 ** 2 + D2 ** 2)
     # Avoid division by zero; zero D gives maximum reliability (flat region)
@@ -508,6 +524,20 @@ def _unwrap_herraez(phase):
     process pixel edges in decreasing order of edge reliability, where edge
     reliability = min(reliability[p1], reliability[p2]).
 
+    Compared with a naïve heap implementation this version reduces per-
+    element overhead by:
+
+    * Encoding each heap entry as a compact 3-tuple
+      ``(-edge_rel, flat_dst_idx, flat_src_idx)`` instead of a 6-tuple
+      with a monotone counter, saving the ``next(ctr)`` call and one
+      int per push.
+    * Inlining the neighbor-push logic to avoid a Python function call on
+      every visited pixel (the hot path).
+    * Caching local references to ``heapq.heappush`` / ``heapq.heappop``
+      to cut attribute-lookup time in the inner loop.
+    * Using ``divmod(flat, nc)`` to recover ``(row, col)`` in a single
+      C-level operation instead of two Python integer divisions.
+
     Parameters
     ----------
     phase : ndarray
@@ -521,34 +551,39 @@ def _unwrap_herraez(phase):
     nr, nc = phase.shape
     rel = _reliability_map(phase)
 
-    unwrapped = np.empty((nr, nc), dtype=np.float64)
+    unwrapped = phase.astype(np.float64).copy()
     visited = np.zeros((nr, nc), dtype=bool)
 
     # Seed from pixel (0, 0)
-    seed_r, seed_c = 0, 0
-    unwrapped[seed_r, seed_c] = phase[seed_r, seed_c]
-    visited[seed_r, seed_c] = True
+    visited[0, 0] = True
 
-    ctr = count()
-    heap = []
+    # Cache hot-path references to avoid per-call attribute lookup
+    _push = heapq.heappush
+    _pop  = heapq.heappop
+    heap  = []
 
-    def _push_neighbors(r, c):
-        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-            r2, c2 = r + dr, c + dc
-            if 0 <= r2 < nr and 0 <= c2 < nc and not visited[r2, c2]:
-                edge_rel = min(rel[r, c], rel[r2, c2])
-                heapq.heappush(heap, (-edge_rel, next(ctr), r2, c2, r, c))
-
-    _push_neighbors(seed_r, seed_c)
+    # Seed neighbours
+    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        r2, c2 = dr, dc
+        if 0 <= r2 < nr and 0 <= c2 < nc:
+            er = rel[r2, c2] if rel[r2, c2] < rel[0, 0] else rel[0, 0]
+            _push(heap, (-er, r2 * nc + c2, 0))
 
     while heap:
-        neg_rel, _cnt, r, c, src_r, src_c = heapq.heappop(heap)
+        neg_rel, flat2, flat1 = _pop(heap)
+        r, c = divmod(flat2, nc)
         if visited[r, c]:
             continue
         visited[r, c] = True
+        src_r, src_c = divmod(flat1, nc)
         d = wraptopi(phase[r, c] - unwrapped[src_r, src_c])
         unwrapped[r, c] = unwrapped[src_r, src_c] + d
-        _push_neighbors(r, c)
+        # Inline neighbour push
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            r2, c2 = r + dr, c + dc
+            if 0 <= r2 < nr and 0 <= c2 < nc and not visited[r2, c2]:
+                er = rel[r2, c2] if rel[r2, c2] < rel[r, c] else rel[r, c]
+                _push(heap, (-er, r2 * nc + c2, flat2))
 
     return unwrapped
 
