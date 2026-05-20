@@ -53,7 +53,10 @@ def rmphaseramp(a, weight=None, return_phaseramp=False):
     elif weight == "abs":
         weight = np.abs(a)
 
-    ph = np.exp(1j * np.angle(a))
+    # Extract phase as unit phasor via direct division — avoids the atan2
+    # round-trip (angle → exp) and is numerically equivalent.
+    absval = np.abs(a)
+    ph = np.where(absval > 0, a / absval, np.ones_like(a))
     [gx, gy] = np.gradient(ph)
     gx = -np.real(1j * gx / ph)
     gy = -np.real(1j * gy / ph)
@@ -93,7 +96,8 @@ def rmlinearphase(image, mask):
         Linear ramp corrected image
     """
 
-    ph = np.exp(1j * np.angle(image))
+    absval = np.abs(image)
+    ph = np.where(absval > 0, image / absval, np.ones_like(image))
     [gx, gy] = np.gradient(ph)
     gx = -np.real(1j * gx / ph)
     gy = -np.real(1j * gy / ph)
