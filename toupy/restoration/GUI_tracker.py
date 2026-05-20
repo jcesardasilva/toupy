@@ -571,7 +571,7 @@ class PhaseTracker(object):
         # mask = self.mask[self.ind,:,:]*self.X1[self.ind,:,:]
         # self.X1[self.ind,:,:] -= mask.astype(np.float).mean()
         self.X2[self.ind, :] = self.X1[
-            self.ind, np.int(self.X1.shape[1] / 2.0), :
+            self.ind, int(self.X1.shape[1] // 2), :
         ].copy()
         self.update()
 
@@ -592,7 +592,7 @@ class PhaseTracker(object):
             # mask = self.mask[self.ind,:,:]*self.X1[self.ind,:,:]
             # self.X1[self.ind,:,:] -= mask.astype(np.float).mean()
             self.X2[self.ind, :] = self.X1[
-                self.ind, np.int(self.X1.shape[1] / 2.0), :
+                self.ind, int(self.X1.shape[1] // 2), :
             ].copy()
             self.update()
         print("Done")
@@ -706,7 +706,7 @@ class AmpTracker(PhaseTracker):
                 rmair(imgin, mask)
             )  # remove air and apply log
             self.X2[self.ind, :] = self.X1[
-                self.ind, np.int(self.X1.shape[1] / 2.0), :
+                self.ind, int(self.X1.shape[1] // 2), :
             ].copy()
             self.done.append(self.ind)
             self.vmin = -0.5
@@ -732,7 +732,7 @@ class AmpTracker(PhaseTracker):
                 mask = self.mask[ii, :, :].copy()
                 # remove air and apply log
                 self.X1[ii, :, :] = np.log(rmair(imgin, mask))
-                self.X2[ii, :] = self.X1[ii, np.int(self.X1.shape[1] / 2.0), :].copy()
+                self.X2[ii, :] = self.X1[ii, int(self.X1.shape[1] // 2), :].copy()
                 self.done.append(self.ind)
             self.update()
         print("Done")
