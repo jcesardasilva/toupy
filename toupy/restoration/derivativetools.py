@@ -3,6 +3,7 @@
 
 # standard packages
 import os
+import warnings
 
 # third party packages
 from ..utils.plot_utils import plt
@@ -17,10 +18,10 @@ from ..utils import isnotebook
 
 __all__ = [
     "calculate_derivatives",
-    "calculate_derivatives_fft",
+    "calculate_derivatives_fft",   # deprecated alias — use calculate_derivatives
     "chooseregiontoderivatives",
     "derivatives",
-    "derivatives_fft",
+    "derivatives_fft",             # deprecated alias — use derivatives
     "derivatives_sino",
     "gradient_axis",
 ]
@@ -48,7 +49,7 @@ def gradient_axis(x, axis=-1):
         differences along ``axis``.
     """
     # Single output array: out[i] = x[i+1] - x[i], last slice = 0.
-    # Avoids allocating two full temporaries (t1, t2) of the same shape.
+    # Avoids allocating two full temporaries of the same shape.
     out = np.empty_like(x)
     if axis != 0:
         out[:, :-1] = x[:, 1:] - x[:, :-1]
@@ -116,7 +117,6 @@ def chooseregiontoderivatives(stack_array, **params):
                     stack_array[0].shape[0], stack_array[0].shape[1]
                 )
             )
-            # print(stack_array.shape)
             while True:
                 roiy = eval(input("Enter new range in y (top, bottom): "))
                 if isinstance(roiy, tuple):
@@ -130,7 +130,6 @@ def chooseregiontoderivatives(stack_array, **params):
                 )
                 if isinstance(deltax, int):
                     roix = range(deltax, stack_array.shape[2] - deltax)  # update roix
-                    # roix = range(valx, aligned.shape[2] - valx)  # update roix
                     break
                 else:
                     print("Wrong typing. Try it again.")
@@ -138,43 +137,130 @@ def chooseregiontoderivatives(stack_array, **params):
     return roix, roiy
 
 
-def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier", n_cpus=-1):
+def derivatives(input_array, shift_method="fourier", symmetric=True, n_cpus=-1):
     """
-    Compute projection derivatives
+    Calculate the horizontal derivative of a 2-D image.
 
     Parameters
     ----------
-    stack_array : array_like
-        Input stack of arrays to calculate the derivatives
-    roix, roiy : tuple
-        Limits of the area on which to calculate the derivatives
-    shift_method : str
-        Name of the shift method to use. For the available options, please
-        see :class:`ShiftFunc()` in :mod:`toupy.registration`.
-        When ``"fourier"`` (default), delegates to
-        :func:`calculate_derivatives_fft` for a fully vectorised,
-        loop-free implementation.
+    input_array : array_like
+        Input 2-D image.
+    shift_method : str, optional
+        Shift / differentiation method.
+
+        ``"fourier"`` (default)
+            Pure FFT symmetric-difference filter.  Applied directly via
+            :func:`scipy.fft.fft` — no ``ShiftFunc`` overhead.  Supports
+            the ``symmetric`` and ``n_cpus`` parameters.
+
+        ``"spline"``, ``"linear"``
+            Sub-pixel shift via :class:`~toupy.registration.shift.ShiftFunc`
+            (always symmetric ±0.5 px).  ``symmetric`` and ``n_cpus`` are
+            ignored for these methods.
+
+    symmetric : bool, optional
+        Only used when ``shift_method="fourier"``.  If ``True`` (default),
+        applies a symmetric ±½-pixel difference (filter
+        ``2i·sin(π f)``).  If ``False``, applies a forward 1-pixel
+        difference (filter ``exp(2πi f) − 1``).
     n_cpus : int, optional
-        Number of threads passed to :func:`calculate_derivatives_fft`
-        (only used when ``shift_method="fourier"``).
+        Number of threads passed to :func:`scipy.fft.fft`.
+        Only used when ``shift_method="fourier"``.
         ``-1`` (default) uses all available cores.
 
     Returns
     -------
-    aligned_diff : array_like
-        Stack of derivatives of the arrays along the horizontal direction
+    diffimg : ndarray
+        Derivative image (same shape as ``input_array``).
     """
     if shift_method == "fourier":
-        # The Fourier-shift derivative is mathematically identical to the
-        # FFT filter in calculate_derivatives_fft, which processes the
-        # full stack in a single vectorised scipy.fft call — no Python
-        # loop or process pool needed.
-        return calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=n_cpus)
+        if n_cpus < 0:
+            n_cpus = os.cpu_count() or 1
+        freqs = fftfreq(input_array.shape[1])
+        if symmetric:
+            rshift, lshift = 0.5, 0.5
+        else:
+            rshift, lshift = 1.0, 0.0
+        kernel = (
+            np.exp( 1j * 2.0 * np.pi * freqs * rshift)
+            - np.exp(-1j * 2.0 * np.pi * freqs * lshift)
+        )
+        return ifft(kernel * fft(input_array, workers=n_cpus),
+                    workers=n_cpus).real
 
-    # Non-fourier shift methods (spline, linear, …): each call goes into
-    # a GIL-releasing C extension that manages its own threading
-    # internally, so a sequential Python loop is sufficient.
-    roi_stack = stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]]
+    # Non-fourier methods use ShiftFunc (C extensions, GIL released)
+    S = ShiftFunc(shiftmeth=shift_method)
+    return S(input_array, [0, 0.5]) - S(input_array, [0, -0.5])
+
+
+def derivatives_fft(input_img, symmetric=True, n_cpus=-1):
+    """
+    .. deprecated::
+        Use :func:`derivatives` with ``shift_method="fourier"`` instead.
+    """
+    warnings.warn(
+        "derivatives_fft() is deprecated; use derivatives(shift_method='fourier') instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return derivatives(input_img, shift_method="fourier",
+                       symmetric=symmetric, n_cpus=n_cpus)
+
+
+def calculate_derivatives(stack_array, roiy, roix,
+                           shift_method="fourier", symmetric=True, n_cpus=-1):
+    """
+    Compute projection derivatives over a stack of images.
+
+    Parameters
+    ----------
+    stack_array : array_like, shape (nprojs, nr, nc)
+        Input stack of projection images.
+    roiy, roix : range or tuple
+        Row and column limits of the ROI.
+    shift_method : str, optional
+        Passed to :func:`derivatives`.  Default ``"fourier"``.
+    symmetric : bool, optional
+        Passed to :func:`derivatives` (fourier path only).
+        Default ``True``.
+    n_cpus : int, optional
+        Number of CPU cores / threads.
+
+        * ``"fourier"`` — passed as ``workers`` to :func:`scipy.fft.fft`,
+          which parallelises across **all** rows of all projections in a
+          single call (no Python loop).
+        * Other methods — ignored; each C extension manages its own
+          threading internally.
+
+        ``-1`` (default) uses all available cores.
+
+    Returns
+    -------
+    aligned_diff : ndarray, shape (nprojs, roi_nr, roi_nc)
+        Stack of derivative images.
+    """
+    roi_stack = stack_array[:, roiy[0]:roiy[-1], roix[0]:roix[-1]]
+
+    if shift_method == "fourier":
+        # Vectorise over the entire (nprojs, roi_rows, nc) array in one
+        # scipy.fft call — no Python-level loop needed.
+        if n_cpus < 0:
+            n_cpus = os.cpu_count() or 1
+        nc_roi = roi_stack.shape[2]
+        freqs = fftfreq(nc_roi)
+        if symmetric:
+            rshift, lshift = 0.5, 0.5
+        else:
+            rshift, lshift = 1.0, 0.0
+        kernel = (
+            np.exp( 1j * 2.0 * np.pi * freqs * rshift)
+            - np.exp(-1j * 2.0 * np.pi * freqs * lshift)
+        )                                              # shape (nc_roi,)
+        fft_all = fft(roi_stack, workers=n_cpus)       # axis=-1 by default
+        fft_all *= kernel                              # broadcast over leading axes
+        return ifft(fft_all, workers=n_cpus).real.astype(roi_stack.dtype)
+
+    # Non-fourier: sequential loop; C extensions handle their own threading
     aligned_diff = np.empty_like(roi_stack)
     for ii in tqdm(range(stack_array.shape[0]), desc="Computing derivatives"):
         aligned_diff[ii] = derivatives(roi_stack[ii], shift_method)
@@ -183,134 +269,35 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier", n_cpu
 
 def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
     """
-    Compute projection derivatives using FFTs
-
-    Parameters
-    ----------
-    stack_array : array_like
-        Input stack of arrays to calculate the derivatives
-    roix, roiy : tuple
-        Limits of the area on which to calculate the derivatives
-    n_cpus : int, optional
-        Number of threads passed to ``scipy.fft`` via its ``workers``
-        parameter.  ``-1`` (default) uses all available CPU cores.
-        ``1`` runs single-threaded.
-
-    Returns
-    -------
-    aligned_diff : array_like
-        Stack of derivatives of the arrays along the horizontal direction
-
-    Notes
-    -----
-    The entire ROI stack is processed in a single pair of
-    :func:`scipy.fft.fft` / :func:`scipy.fft.ifft` calls.
-    ``scipy.fft`` treats the leading ``(nprojs, roi_rows)`` axes as
-    independent batch rows and distributes them across ``workers`` threads
-    internally — no Python-level loop or process pool is needed.
+    .. deprecated::
+        Use :func:`calculate_derivatives` with ``shift_method="fourier"`` instead.
     """
-    if n_cpus < 0:
-        n_cpus = os.cpu_count() or 1
-
-    roi_stack = stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]]
-
-    # Frequency axis for the horizontal (column) direction
-    nc_roi = roi_stack.shape[2]
-    freqs = fftfreq(nc_roi)                        # shape (nc_roi,)
-
-    # Symmetric-difference filter kernel (same as derivatives_fft default)
-    kernel = (
-        np.exp( 1j * 2.0 * np.pi * freqs * 0.5)
-        - np.exp(-1j * 2.0 * np.pi * freqs * 0.5)
-    )                                              # shape (nc_roi,)
-
-    # Single FFT call over the entire (nprojs, roi_rows, nc_roi) array.
-    # scipy.fft parallelises across all rows of all projections at once
-    # using C-level threads that release the GIL — no joblib needed.
-    fft_all = fft(roi_stack, workers=n_cpus)       # FFT along axis=-1
-    fft_all *= kernel                              # broadcast (nc_roi,)
-    aligned_diff = ifft(fft_all, workers=n_cpus).real
-
-    return aligned_diff.astype(roi_stack.dtype)
-
-
-def derivatives(input_array, shift_method="fourier"):
-    """
-    Calculate the derivative of an image
-
-    Parameters
-    ----------
-    input_array: array_like
-        Input image to calculate the derivatives
-    shift_method: str
-        Name of the shift method to use. For the available options, please
-        see :class:`ShiftFunc()` in :mod:`toupy.registration`
-
-    Returns
-    -------
-    diffimg : array_like
-        Derivatives of the images along the row direction
-    """
-    S = ShiftFunc(shiftmeth=shift_method)
-    rshift = [0, 0.5]
-    lshift = [0, -0.5]
-    diffimg = S(input_array, rshift) - S(input_array, lshift)
-    # ~ if shift_method == 'phasor':
-    # ~ diffimg = np.angle(S(np.exp(1j*input_array),rshift,'reflect',True)*S(np.exp(-1j*input_array),lshift,'reflect',True))
-    return diffimg
-
-
-def derivatives_fft(input_img, symmetric=True, n_cpus=-1):
-    """
-    Calculate the derivative of an image using FFT along the horizontal direction
-
-    Parameters
-    ----------
-    input_array: array_like
-        Input image to calculate the derivatives
-    symmetric: bool
-        If `True`, symmetric difference is calculated
-    n_cpus: int
-        The number of cpus for parallel computing. If `n_cpus<0`, the number of cpus
-        will be determined by `os.cpu_counts()`
-
-    Returns
-    -------
-    diffimg : array_like
-        Derivatives of the images along the row direction
-    """
-    if n_cpus < 0:
-        n_cpus = os.cpu_count()
-    freqs = fftfreq(input_img.shape[1])
-    if symmetric:
-        rshift, lshift = 0.5, 0.5
-    else:
-        rshift, lshift = 1.0, 0.0
-    fftimg = (
-        np.exp(1j * 2 * np.pi * freqs * rshift)
-        - np.exp(-1j * 2 * np.pi * freqs * lshift)
-    ) * fft(input_img, workers=n_cpus)
-    return ifft(fftimg, workers=n_cpus).real
+    warnings.warn(
+        "calculate_derivatives_fft() is deprecated; "
+        "use calculate_derivatives(shift_method='fourier') instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return calculate_derivatives(stack_array, roiy, roix,
+                                 shift_method="fourier", n_cpus=n_cpus)
 
 
 def derivatives_sino(input_sino, shift_method="fourier"):
     """
-    Calculate the derivative of the sinogram
+    Calculate the derivative of the sinogram along the radial direction.
 
     Parameters
     ----------
-    input_array : array_like
-        Input sinogram to calculate the derivatives
-    shift_method : str
-        Name of the shift method to use. For the available options, please
-        see :class:`ShiftFunc()` in :mod:`toupy.registration`
+    input_sino : array_like
+        Input sinogram.
+    shift_method : str, optional
+        Passed to :func:`derivatives`.  Default ``"fourier"``.
 
     Returns
     -------
     diffsino : array_like
-        Derivatives of the sinogram along the radial direction
+        Derivative of the sinogram along the radial direction.
     """
-    rollsino = np.rollaxis(input_sino, 1)  # same as np.transpose(input_sino,1)
+    rollsino = np.rollaxis(input_sino, 1)  # (nc, nprojs) → derivative along rows
     rolldiff = derivatives(rollsino, shift_method)
-    diffsino = np.rollaxis(rolldiff, 1)  # same as np.transpose(rolldiff,1)
-    return diffsino
+    return np.rollaxis(rolldiff, 1)
