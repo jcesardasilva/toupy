@@ -29,7 +29,7 @@ from scipy.ndimage.fourier import fourier_shift
 from skimage.registration import phase_cross_correlation
 
 # local packages
-from ..restoration import derivatives, derivatives_sino
+from ..restoration import derivatives_sino
 from .shift import ShiftFunc
 from ..tomo import projector, tomo_recons
 from ..utils import (
