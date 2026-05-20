@@ -6,7 +6,6 @@ import os
 
 # third party packages
 from ..utils.plot_utils import plt
-from joblib import Parallel, delayed, parallel_backend
 import numpy as np
 from scipy.fft import fftfreq, fft, ifft
 from ..utils import tqdm
@@ -139,7 +138,7 @@ def chooseregiontoderivatives(stack_array, **params):
     return roix, roiy
 
 
-def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier", n_cpus=1):
+def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier", n_cpus=-1):
     """
     Compute projection derivatives
 
@@ -151,33 +150,34 @@ def calculate_derivatives(stack_array, roiy, roix, shift_method="fourier", n_cpu
         Limits of the area on which to calculate the derivatives
     shift_method : str
         Name of the shift method to use. For the available options, please
-        see :class:`ShiftFunc()` in :mod:`toupy.registration`
+        see :class:`ShiftFunc()` in :mod:`toupy.registration`.
+        When ``"fourier"`` (default), delegates to
+        :func:`calculate_derivatives_fft` for a fully vectorised,
+        loop-free implementation.
     n_cpus : int, optional
-        Number of CPU cores for parallel computation via joblib.
-        ``1`` (default) runs sequentially.  ``-1`` uses all available cores.
+        Number of threads passed to :func:`calculate_derivatives_fft`
+        (only used when ``shift_method="fourier"``).
+        ``-1`` (default) uses all available cores.
 
     Returns
     -------
     aligned_diff : array_like
         Stack of derivatives of the arrays along the horizontal direction
     """
-    nprojs, nr, nc = stack_array.shape
+    if shift_method == "fourier":
+        # The Fourier-shift derivative is mathematically identical to the
+        # FFT filter in calculate_derivatives_fft, which processes the
+        # full stack in a single vectorised scipy.fft call — no Python
+        # loop or process pool needed.
+        return calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=n_cpus)
+
+    # Non-fourier shift methods (spline, linear, …): each call goes into
+    # a GIL-releasing C extension that manages its own threading
+    # internally, so a sequential Python loop is sufficient.
     roi_stack = stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]]
-
-    if n_cpus == 1:
-        aligned_diff = np.empty_like(roi_stack)
-        for ii in tqdm(range(nprojs), desc="Computing derivatives"):
-            aligned_diff[ii] = derivatives(roi_stack[ii], shift_method)
-    else:
-        if n_cpus < 0:
-            n_cpus = os.cpu_count()
-        with parallel_backend("loky"):
-            results = Parallel(n_jobs=n_cpus)(
-                delayed(derivatives)(roi_stack[ii], shift_method)
-                for ii in tqdm(range(nprojs), desc="Computing derivatives")
-            )
-        aligned_diff = np.array(results)
-
+    aligned_diff = np.empty_like(roi_stack)
+    for ii in tqdm(range(stack_array.shape[0]), desc="Computing derivatives"):
+        aligned_diff[ii] = derivatives(roi_stack[ii], shift_method)
     return aligned_diff
 
 
