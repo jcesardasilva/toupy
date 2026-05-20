@@ -304,6 +304,6 @@ def cone_project(
         step_size = ray_length / (n_steps - 1)
         # np.trapz with default dx=1 integrates in index units;
         # multiply by the physical step size to get a physical line integral.
-        projections[i_angle] = np.trapz(vals, axis=0) * step_size
+        projections[i_angle] = np.trapezoid(vals, axis=0) * step_size
 
     return projections
