@@ -165,145 +165,73 @@ def cone_project(
         fill_value=0.0,
     )
 
+    # -----------------------------------------------------------------------
+    # Restrict ray sampling to the volume's bounding box
+    # -----------------------------------------------------------------------
+    # The full source-to-detector path is ~SDD long but the object occupies only
+    # a small central fraction.  Sampling the full ray with a fixed n_steps gives
+    # only a handful of samples inside the object, causing severe aliasing.
+    #
+    # Strategy: parameterise t in [0, 1] (source→detector), but restrict
+    # t_vals to [t_lo, t_hi] centred at the isocenter crossing (t ≈ SOD/SDD).
+    # The half-span covers the bounding-box diagonal of the volume, with a
+    # 20 % margin.  n_steps is chosen so that the physical step inside the
+    # object is ≈ effective_pixel_size (one sample per voxel).
+    # -----------------------------------------------------------------------
+    half_xy   = (N      - 1) / 2.0 * p            # object half-extent in x, y  [mm]
+    half_z    = (n_v_vol - 1) / 2.0 * p           # object half-extent in z      [mm]
+    half_diag = np.sqrt(2.0 * half_xy**2 + half_z**2)  # half of 3-D diagonal [mm]
+
+    t_center = SOD / SDD                           # isocenter crossing in t
+    t_span   = 1.2 * half_diag / SDD              # t-half-span with 20 % margin
+    t_lo     = max(0.0, t_center - t_span)
+    t_hi     = min(1.0, t_center + t_span)
+
+    # Step size ≈ p along the central ray (length ≈ SDD)
+    n_steps = max(int(np.ceil(2.0 * t_span * SDD / p)) + 1,
+                  max(N, n_v_vol) * 2)
+
     projections = np.zeros((n_angles, geometry.n_v, geometry.n_u), dtype=np.float64)
 
     for i_angle, theta in enumerate(angles_rad):
         cos_th = np.cos(theta)
         sin_th = np.sin(theta)
 
-        # For each detector pixel (j, i), find the object-space coordinates
-        # of the ray intersection at each z-layer.
-        # The perspective mapping is: u_d = SDD/U * (x*cos + y*sin),  v_d = SDD/U * z
-        # Inverse: for detector pixel (u_det[i], v_det[j]) at z = z_coords[k]:
-        #   U = SOD / (1 - (u_det[i]*sin_th - v_rot)/SDD)  -- not needed for forward
-        # Instead, for forward projection we sample the volume along each ray.
-        # For each detector pixel (u_det[i], v_det[j]), parameterise the ray and integrate.
-
-        # Build detector grid
-        uu, vv = np.meshgrid(u_det, v_det, indexing='xy')  # (n_v_det, n_u)
-
-        # Number of integration steps along the ray
-        n_steps = max(N, n_v_vol) * 2
-
-        # Source position in object space (rotated frame)
-        # Source is at: x_s = -SOD*sin_th,  y_s = SOD*cos_th,  z_s = 0
+        # Source position: S = (-SOD*sin_th, SOD*cos_th, 0)
+        # Verify: U(S) = SOD + (-SOD*sin_th)*sin_th - (SOD*cos_th)*cos_th = 0.  ✓
         x_src = -SOD * sin_th
         y_src =  SOD * cos_th
 
-        # For each detector pixel (uu, vv), the ray goes from source to detector.
-        # Detector pixel in 3D: (x_d, y_d, z_d) in lab frame:
-        #   x_d = SDD*sin_th + uu*cos_th  (approx flat-panel at SDD along beam axis)
-        # Actually for a flat detector perpendicular to the beam at SDD from source:
-        # The detector normal is along (sin_th, -cos_th, 0) (source to isocenter dir).
-        # Detector pixel at (u, v) in detector frame maps to 3D lab frame:
-        #   x_d = (SDD - SOD)*sin_th + uu*cos_th  ... but it's simpler to use:
-        # The source is at (-SOD*sin_th, SOD*cos_th, 0).
-        # The detector centre is at ((SDD-SOD)*sin_th, -(SDD-SOD)*cos_th, 0).
-        # Actually: source is at distance SOD from origin, detector at SDD from source.
-        # Source position: (-SOD*sin_th, SOD*cos_th, 0)
-        # Detector centre: (SDD-SOD)*sin_th * (-1,...) — let's be precise:
-        # The beam axis direction from source toward detector: (sin_th, -cos_th, 0)
-        # Detector centre = source + SDD * beam_dir
-        #                 = (-SOD*sin_th + SDD*sin_th, SOD*cos_th - SDD*cos_th, 0)
-        #                 = ((SDD-SOD)*sin_th, (SOD-SDD)*cos_th, 0)
-        # Detector u-axis: (cos_th, sin_th, 0), v-axis: (0, 0, 1)
-        # Detector pixel 3D position:
-        x_det_3d = (SDD - SOD) * sin_th + uu * cos_th   # (n_v_det, n_u)
-        y_det_3d = (SOD - SDD) * cos_th + uu * sin_th   # (n_v_det, n_u)  # wait, let me recalc
-        # beam direction: from source (-SOD*sin, SOD*cos, 0) toward object origin.
-        # Actually canonical: source is at (0, -SOD, 0) in the rotating frame, but
-        # let's use the formulation consistent with fdk_backproject:
-        # U = SOD + x*sin_th - y*cos_th (where x,y are object coords)
-        # This means source projects at: source pos = (-SOD*sin_th, SOD*cos_th, 0)
-        # For a ray through detector point (u_d, v_d):
-        #   Direction from source: d = (u_d*cos_th - SOD*sin_th - (-SOD*sin_th), ...) -- need full 3D
-
-        # Simpler: parameterise ray by t in [0, 1] from source to detector edge.
-        # Ray: P(t) = source + t*(detector_point - source)
-        # At t=SOD/SDD the ray passes through the isocenter plane (U=SOD).
-
-        # Source: (x_s, y_s, z_s) = (-SOD*sin_th, SOD*cos_th, 0)
-        # Detector pixel 3D: from the perspective formula:
-        #   u_d = SDD/U * (x*cos_th + y*sin_th)  => x*cos_th + y*sin_th = u_d * U/SDD
-        #   v_d = SDD/U * z                       => z = v_d * U/SDD
-        # But we want the 3D position of the detector pixel, not the object point.
-        # The detector is at perpendicular distance SDD from source along beam axis.
-        # detector pixel at (u, v):
-        #   lab_x = -SOD*sin_th + (SDD)*sin_th + u*cos_th ... no.
-        # Correct formulation:
-        # The source is at S = (-SOD*sin_th, SOD*cos_th, 0).
-        # The beam axis direction (source to det centre): d_beam = (sin_th, -cos_th, 0)
-        # Detector centre: D_c = S + SDD * d_beam = (-SOD*sin_th + SDD*sin_th, SOD*cos_th - SDD*cos_th, 0)
-        # Detector u-axis: e_u = (cos_th, sin_th, 0)
+        # Build detector pixel grid in 3-D lab frame.
+        # Beam axis direction (source → isocenter): d = (sin_th, -cos_th, 0)
+        # Detector centre: isocenter + (SDD-SOD)*d
+        # Detector u-axis: e_u = (cos_th, sin_th, 0)   [perpendicular to d in xy]
         # Detector v-axis: e_v = (0, 0, 1)
-        # Detector pixel 3D: P_det = D_c + u*e_u + v*e_v
-        #   x_det = (SDD-SOD)*sin_th + u*cos_th
-        #   y_det = (SOD-SDD)*cos_th + u*sin_th  — note: beam goes in -y dir when th=0
-        # Wait, when th=0: beam axis = (0,-1,0)? No: sin(0)=0, cos(0)=1 => d_beam=(0,-1,0).
-        # Source at (0, SOD, 0), detector centre at (0, SOD-SDD, 0). That looks wrong.
-        # Let me reconsider. In the FDK convention used in fdk_backproject:
-        # Source is at distance SOD from origin along the y-axis (when theta=0).
-        # The source moves in a circle. At angle theta:
-        # Looking at U = SOD + x*sin_th - y*cos_th:
-        # When x=0, y=0: U = SOD. So origin is at distance SOD from source along beam.
-        # The source position: source is "behind" by SOD along the beam axis.
-        # The beam direction from source to isocenter: at theta=0, beam goes in +y direction.
-        # Source pos at theta: S = (-SOD*sin_th, -SOD*cos_th... let's verify:
-        # At theta=0: U = SOD - y*1 = SOD at y=0. If source is at y=-SOD, beam travels +y.
-        # => source at (0, -SOD, 0) when theta=0.
-        # At general theta: S = (SOD*sin_th, -SOD*cos_th, 0).
-        # Beam direction: toward origin = (-sin_th, cos_th, 0).
-        # Hmm, let's re-derive from U = SOD + x*sin - y*cos:
-        # U is the distance from source to voxel along the beam axis.
-        # If source is at S, then for a voxel at (x,y,z):
-        # U = SOD + <(x,y) - S_xy, beam_dir> where beam_dir points from source to detector.
-        # Actually U = SOD + x*sin_th - y*cos_th suggests:
-        # S_xy = (0,0), beam_dir = (sin_th, -cos_th, 0)? No.
-        # The perspective formula u_d = SDD/U * (x*cos_th + y*sin_th) maps (x,y) to u_d.
-        # When x = r*cos_th, y = r*sin_th (a point at radius r in direction theta from origin):
-        # u_d = SDD/SOD * r. That makes sense for a point on the source-to-detector axis.
-        # The source is at angle theta+180 from origin, at distance SOD.
-        # Source position: S = (-SOD*sin_th + 0, SOD*cos_th + 0, 0)?
-        # Let's check: U for source = SOD + (-SOD*sin_th)*sin_th - (SOD*cos_th)*cos_th
-        #            = SOD - SOD*sin²_th - SOD*cos²_th = SOD - SOD = 0.
-        # So source is at x_s = -SOD*sin_th, y_s = SOD*cos_th (confirmed).
-
-        # Detector normal direction (from source toward detector):
-        # At theta=0: source at (0, SOD). Detector centre at (0, SOD - SDD)? No...
-        # Beam goes from source at (-SOD*sin, SOD*cos) toward the isocenter (0,0).
-        # Beyond isocenter the detector is at distance (SDD-SOD) from isocenter along beam.
-        # Beam direction (from source): (SOD*sin_th, -SOD*cos_th)/SOD = (sin_th, -cos_th).
-        # Detector centre: isocenter + (SDD-SOD)*(sin_th, -cos_th, 0)
-        #               = ((SDD-SOD)*sin_th, -(SDD-SOD)*cos_th, 0).
-        # Detector u-axis: perpendicular to beam in xy-plane = (cos_th, sin_th, 0).
-        # Detector v-axis: (0, 0, 1).
-        # Detector pixel: D(u,v) = D_c + u*e_u + v*e_v
+        uu, vv = np.meshgrid(u_det, v_det, indexing='xy')  # (n_v_det, n_u)
         x_det = (SDD - SOD) * sin_th + uu * cos_th    # (n_v_det, n_u)
         y_det = -(SDD - SOD) * cos_th + uu * sin_th   # (n_v_det, n_u)
         z_det = vv                                      # (n_v_det, n_u)
 
-        # Ray direction: from source to detector pixel
+        # Ray direction vector (source → detector pixel)
         dx = x_det - x_src   # (n_v_det, n_u)
         dy = y_det - y_src   # (n_v_det, n_u)
-        dz = z_det - 0.0     # (n_v_det, n_u), z_src=0
+        dz = z_det            # (n_v_det, n_u),  z_src = 0
 
-        # Sample along ray from t=0 (source) to t=1 (detector)
-        t_vals = np.linspace(0.0, 1.0, n_steps)  # (n_steps,)
+        # Sample only within the volume's bounding-box region [t_lo, t_hi]
+        t_vals = np.linspace(t_lo, t_hi, n_steps)  # (n_steps,)
 
-        # Sample points shape (n_steps, n_v_det, n_u, 3)
         x_ray = x_src + t_vals[:, np.newaxis, np.newaxis] * dx[np.newaxis, :, :]
         y_ray = y_src + t_vals[:, np.newaxis, np.newaxis] * dy[np.newaxis, :, :]
-        z_ray = 0.0  + t_vals[:, np.newaxis, np.newaxis] * dz[np.newaxis, :, :]
+        z_ray =         t_vals[:, np.newaxis, np.newaxis] * dz[np.newaxis, :, :]
 
         # Query volume interpolator: points = (z, y, x)
-        pts = np.stack([z_ray.ravel(), y_ray.ravel(), x_ray.ravel()], axis=-1)
+        pts  = np.stack([z_ray.ravel(), y_ray.ravel(), x_ray.ravel()], axis=-1)
         vals = vol_interp(pts).reshape(n_steps, geometry.n_v, geometry.n_u)
 
-        # Integrate via trapezoidal rule: step size = ray length / (n_steps - 1)
-        ray_length = np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)  # (n_v_det, n_u)
-        step_size = ray_length / (n_steps - 1)
-        # np.trapz with default dx=1 integrates in index units;
-        # multiply by the physical step size to get a physical line integral.
+        # Trapezoidal integration: physical step = |ray_dir| * Δt
+        ray_length = np.sqrt(dx**2 + dy**2 + dz**2)       # (n_v_det, n_u) [mm]
+        dt         = (t_hi - t_lo) / (n_steps - 1)
+        step_size  = ray_length * dt                        # (n_v_det, n_u) [mm]
         projections[i_angle] = np.trapezoid(vals, axis=0) * step_size
 
     return projections
