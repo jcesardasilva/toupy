@@ -112,8 +112,7 @@ def full_tomo_recons(input_stack, theta, **params):
     params["calc_derivatives"] : bool
         Calculate derivatives of the sinogram if not done yet.
     params["opencl"] : bool
-        Implement the tomographic reconstruction in opencl as implemented
-        in Silx
+        Implement the tomographic reconstruction in CUDA
     params["autosave"] : bool
         Save the data at the end without asking
     params["vmin_plot"] : float

@@ -1558,10 +1558,14 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
             params_refine.pop("freqcutoff_schedule", None)
             params_refine["multiresolution"] = False
 
+            print("\n================================================")
             print("Starting the refinement of the alignment")
+            print("================================================")
             shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params_refine)
         elif str(a) == "n":
+            print("\n================================================")
             print("No further refinement done")
+            print("================================================")
             break
         else:
             print("You should answer 'y' or 'n' or accept the default answer.")

@@ -4,7 +4,7 @@
 """
 Filtered Back-Projection and SART reconstruction.
 
-GPU path  : CuPy + a custom CUDA kernel — no Silx / PyOpenCL dependency.
+GPU path  : CuPy + a custom CUDA kernel
 CPU path  : pure NumPy/SciPy, identical to the original mod_iradon.
 
 The public API is unchanged:
@@ -374,7 +374,6 @@ def mod_iradon_cuda(
     """
     Inverse Radon transform — CUDA/GPU path.
 
-    Drop-in replacement for :func:`mod_iradonSilx` (removed Silx dependency).
     Falls back to :func:`mod_iradon` automatically if CuPy is unavailable.
 
     Parameters
