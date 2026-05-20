@@ -22,6 +22,12 @@ differences are:
    detector tilt, CoR offset).
    :meth:`ConeBeamRegistration.estimate_geometry` fits this trajectory.
 
+4. **Fan-to-parallel rebinning** — the central detector row can be exactly
+   rebinned from fan-beam to parallel-beam coordinates
+   (:func:`rebin_fan_to_parallel`), after which the full parallel-beam
+   registration toolbox in :mod:`toupy.registration.registration` applies
+   without modification.
+
 All methods follow the NumPy docstring convention used throughout toupy.
 """
 
@@ -36,7 +42,7 @@ from numpy import ndarray
 # local
 from ..tomo.geometry import ConeBeamGeometry
 
-__all__ = ["ConeBeamRegistration"]
+__all__ = ["ConeBeamRegistration", "rebin_fan_to_parallel"]
 
 
 class ConeBeamRegistration:
@@ -531,3 +537,307 @@ class ConeBeamRegistration:
             n_v=init_geometry.n_v,
             angles=angles,
         )
+
+    # ------------------------------------------------------------------
+    # Fan-to-parallel rebinning
+    # ------------------------------------------------------------------
+
+    def rebin_to_parallel(
+        self,
+        projections_central: ndarray,
+        n_s: int | None = None,
+        n_phi: int | None = None,
+        average_redundant: bool = True,
+    ) -> tuple[ndarray, ndarray, ndarray]:
+        """
+        Rebin the central fan-beam row to a parallel-beam sinogram.
+
+        Thin wrapper around :func:`rebin_fan_to_parallel` that reads the
+        geometry from ``self.geometry``.  After rebinning, the returned
+        sinogram can be passed directly to the parallel-beam registration
+        functions in :mod:`toupy.registration.registration`.
+
+        Parameters
+        ----------
+        projections_central : ndarray, shape (n_angles, n_u)
+            Central detector row (v = 0) of the cone-beam projection stack.
+        n_s : int or None, optional
+            Number of output parallel-beam detector bins.
+            Defaults to ``geometry.n_u``.
+        n_phi : int or None, optional
+            Number of output parallel-beam angles in ``[0°, 180°)``.
+            Defaults to ``len(geometry.angles)``.
+        average_redundant : bool, optional
+            If ``True`` (default), average the two redundant views available
+            in a full 360° scan (each ray is measured from both sides).
+            Set to ``False`` to use only the primary view.
+
+        Returns
+        -------
+        sino_parallel : ndarray, shape (n_s, n_phi)
+            Parallel-beam sinogram compatible with
+            :func:`~toupy.tomo.iradon.mod_iradon` and
+            :func:`~toupy.registration.registration.estimate_rot_axis`.
+        s_coords : ndarray, shape (n_s,)
+            Centred physical detector coordinates of the parallel-beam grid
+            in mm.
+        phi_angles : ndarray, shape (n_phi,)
+            Projection angles in degrees, uniformly distributed in
+            ``[0°, 180°)``.
+
+        See Also
+        --------
+        rebin_fan_to_parallel : Standalone version of this function.
+        toupy.registration.registration.estimate_rot_axis :
+            Interactive parallel-beam CoR estimation (works directly on the
+            returned sinogram).
+        toupy.registration.registration.alignprojections_horizontal :
+            Parallel-beam horizontal alignment (works on the returned
+            sinogram after extracting shiftstack).
+        """
+        return rebin_fan_to_parallel(
+            projections_central,
+            self.geometry,
+            n_s=n_s,
+            n_phi=n_phi,
+            average_redundant=average_redundant,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Standalone fan-to-parallel rebinning
+# ---------------------------------------------------------------------------
+
+def rebin_fan_to_parallel(
+    projections_central: ndarray,
+    geometry: ConeBeamGeometry,
+    n_s: int | None = None,
+    n_phi: int | None = None,
+    average_redundant: bool = True,
+) -> tuple[ndarray, ndarray, ndarray]:
+    """
+    Exactly rebin a central-row fan-beam sinogram to parallel-beam.
+
+    For a flat-panel detector the fan-to-parallel mapping for the central
+    detector row (v = 0) is an exact geometric identity (not an
+    approximation).  Each cone ray from the source through detector column
+    ``u`` at source angle ``θ`` corresponds to a unique parallel-beam ray
+    characterised by:
+
+    .. math::
+
+        s   = \\frac{\\mathrm{SOD}\\,u}{\\sqrt{\\mathrm{SDD}^2 + u^2}}
+              = \\mathrm{SOD}\\sin\\gamma
+
+    .. math::
+
+        \\phi = \\left(\\theta + \\gamma - \\frac{\\pi}{2}\\right)
+                \\bmod \\pi
+
+    where :math:`\\gamma = \\arctan(u / \\mathrm{SDD})` is the fan angle,
+    :math:`s` is the perpendicular distance from the rotation axis to the
+    ray, and :math:`\\phi` is the parallel-beam projection angle in the
+    convention used by :func:`~toupy.tomo.iradon.mod_iradon`.
+
+    The inverse mapping (used for output-driven interpolation) is:
+
+    .. math::
+
+        \\gamma = \\arcsin(s / \\mathrm{SOD}),\\quad
+        u = \\mathrm{SDD}\\tan\\gamma,\\quad
+        \\theta = \\phi - \\gamma - \\frac{\\pi}{2} \\pmod{2\\pi}
+
+    For a full 360° acquisition each parallel ray is measured twice (from
+    opposite source positions, ``θ`` and ``θ + π``).  When
+    ``average_redundant=True`` these two measurements are averaged, improving
+    SNR and suppressing ring artefacts from detector inhomogeneities.
+
+    Parameters
+    ----------
+    projections_central : ndarray, shape (n_angles, n_u)
+        Central detector row (v = 0) at each projection angle.
+        ``projections_central[k, i]`` is the value at source angle
+        ``geometry.angles[k]`` and detector column ``i``.
+    geometry : ConeBeamGeometry
+        Validated acquisition geometry.
+    n_s : int or None, optional
+        Number of output parallel-beam detector bins.
+        Defaults to ``geometry.n_u``.
+    n_phi : int or None, optional
+        Number of output parallel-beam angles uniformly distributed in
+        ``[0°, 180°)``.  Defaults to ``len(geometry.angles)``.
+    average_redundant : bool, optional
+        Average the two views of each parallel ray available in a 360°
+        scan.  Default ``True``.
+
+    Returns
+    -------
+    sino_parallel : ndarray, shape (n_s, n_phi)
+        Rebinned parallel-beam sinogram, directly compatible with
+        :func:`~toupy.tomo.iradon.mod_iradon` and the registration
+        functions in :mod:`toupy.registration.registration`.
+    s_coords : ndarray, shape (n_s,)
+        Physical detector coordinates of the parallel-beam grid in mm.
+        The centre of the array (index ``n_s // 2``) corresponds to
+        s = 0 (the rotation axis).
+    phi_angles : ndarray, shape (n_phi,)
+        Parallel-beam projection angles in degrees in ``[0°, 180°)``.
+
+    Raises
+    ------
+    ValueError
+        If ``projections_central`` shape does not match ``geometry``.
+
+    Notes
+    -----
+    **Why rebinning enables parallel-beam tools**
+
+    Registration algorithms such as
+    :func:`~toupy.registration.registration.estimate_rot_axis` rely on the
+    fact that a point object at ``(x₀, y₀)`` traces a sinusoid
+    ``s(φ) = x₀ cos φ + y₀ sin φ`` in the parallel-beam sinogram.  In a
+    fan-beam sinogram the trace is a distorted sinusoid, so the parallel-beam
+    tools do not apply directly.  After rebinning, the sinusoidal structure
+    is restored and the full parallel-beam registration toolbox becomes valid.
+
+    **Jacobian note**
+
+    The rebinned sinogram is not multiplied by the Jacobian
+    :math:`\\partial(u, \\theta) / \\partial(s, \\phi)` of the coordinate
+    change.  This is intentional: the Jacobian is only required when the
+    rebinned data will be used for quantitative *reconstruction* (the
+    Jacobian is 1 to first order near the central ray and is commonly
+    omitted).  For *registration*, only the positions of features matter, not
+    their amplitudes.
+
+    Examples
+    --------
+    Extract the central row, rebin to parallel, then run parallel-beam CoR
+    estimation and display:
+
+    >>> import numpy as np
+    >>> from toupy.registration.cone_registration import (
+    ...     ConeBeamRegistration, rebin_fan_to_parallel)
+    >>> from toupy.tomo.geometry import ConeBeamGeometry
+    >>>
+    >>> geom = ConeBeamGeometry(
+    ...     SOD=500.0, SDD=1000.0, det_pixel_size=0.5,
+    ...     n_u=128, n_v=96,
+    ...     angles=np.linspace(0, 360, 180, endpoint=False),
+    ... )
+    >>> geom.validate()
+    >>>
+    >>> # projections shape (n_angles, n_v, n_u)
+    >>> central_row = projections[:, geom.n_v // 2, :]   # (n_angles, n_u)
+    >>>
+    >>> sino_par, s_coords, phi_deg = rebin_fan_to_parallel(central_row, geom)
+    >>> # sino_par shape (n_u, n_angles), s_coords in mm, phi_deg in [0, 180)
+    >>>
+    >>> # Use directly with mod_iradon for the central slice:
+    >>> from toupy.tomo.iradon import mod_iradon
+    >>> recon_central = mod_iradon(sino_par, phi_deg)
+    >>>
+    >>> # Or use with parallel-beam registration to estimate CoR:
+    >>> # from toupy.registration.registration import estimate_rot_axis
+    >>> # estimate_rot_axis(sino_par, ...)
+
+    See Also
+    --------
+    ConeBeamRegistration.rebin_to_parallel : OOP wrapper.
+    ConeBeamRegistration.estimate_cor : CoR estimation directly in
+        detector space (no rebinning required).
+    toupy.tomo.iradon.mod_iradon : Parallel-beam FBP reconstruction.
+    toupy.registration.registration.estimate_rot_axis :
+        Interactive sinogram-based CoR estimation.
+    """
+    from scipy.interpolate import RegularGridInterpolator
+
+    if projections_central.shape != (len(geometry.angles), geometry.n_u):
+        raise ValueError(
+            "projections_central shape {} does not match "
+            "(n_angles={}, n_u={}).".format(
+                projections_central.shape, len(geometry.angles), geometry.n_u
+            )
+        )
+
+    SOD = geometry.SOD
+    SDD = geometry.SDD
+    theta_fan = np.deg2rad(geometry.angles)   # (n_angles,) radians, uniform in [0, 2π)
+    u_fan     = geometry.u_coords()           # (n_u,) mm, centred
+
+    if n_s is None:
+        n_s = geometry.n_u
+    if n_phi is None:
+        n_phi = len(theta_fan)
+
+    # ------------------------------------------------------------------ #
+    # Output parallel-beam grids
+    # ------------------------------------------------------------------ #
+    gamma_max = np.arctan(np.abs(u_fan).max() / SDD)   # maximum fan half-angle [rad]
+    s_max     = SOD * np.sin(gamma_max)                 # maximum parallel offset [mm]
+
+    s_coords  = np.linspace(-s_max, s_max, n_s)        # (n_s,) [mm]
+    phi_out   = np.linspace(0.0, np.pi, n_phi,
+                            endpoint=False)              # (n_phi,) [0, π) rad
+
+    # ------------------------------------------------------------------ #
+    # Per-s precomputation
+    # ------------------------------------------------------------------ #
+    # Clip to avoid arcsin domain errors at the very edge of the detector
+    s_safe  = np.clip(s_coords, -s_max * 0.9999, s_max * 0.9999)
+    gamma_s = np.arcsin(s_safe / SOD)        # fan angle for each s-bin (n_s,)
+    u_s     = SDD * np.tan(gamma_s)          # detector coord for each s-bin (n_s,)
+
+    # ------------------------------------------------------------------ #
+    # Fan-beam interpolator with periodic extension
+    # ------------------------------------------------------------------ #
+    # Extend the theta grid by one step at each boundary so that modulo-wrapped
+    # queries near 0 or 2π are still within the interpolation domain.
+    theta_ext = np.concatenate([
+        [theta_fan[-1] - 2.0 * np.pi],
+        theta_fan,
+        [theta_fan[0]  + 2.0 * np.pi],
+    ])                                                   # (n_angles + 2,)
+    sino_ext  = np.vstack([
+        projections_central[-1:],
+        projections_central,
+        projections_central[:1],
+    ])                                                   # (n_angles + 2, n_u)
+
+    interp = RegularGridInterpolator(
+        (theta_ext, u_fan),
+        sino_ext,
+        method='linear',
+        bounds_error=False,
+        fill_value=0.0,
+    )
+
+    # ------------------------------------------------------------------ #
+    # Inverse mapping: for each output (φ, s) find the fan-beam sample
+    # ------------------------------------------------------------------ #
+    sino_parallel = np.zeros((n_s, n_phi), dtype=np.float64)
+
+    for j, phi in enumerate(phi_out):
+        # ---- Primary view -----------------------------------------------
+        # The parallel angle φ = θ + γ  ⟹  θ = φ − γ  (mod 2π)
+        theta_prim = (phi - gamma_s) % (2.0 * np.pi)
+        pts_prim   = np.stack([theta_prim, u_s], axis=-1)     # (n_s, 2)
+        vals_prim  = interp(pts_prim)
+
+        if average_redundant:
+            # ---- Redundant view -----------------------------------------
+            # In a 360° scan the same undirected line (φ, s) also appears as
+            # (φ+π, −s) in the extended Radon convention.  The fan-beam sample
+            # capturing that conjugate line has:
+            #   γ_red = −γ  →  u_red = −u_s
+            #   θ_red + γ_red = φ + π  →  θ_red = φ + γ + π  (mod 2π)
+            theta_red = (phi + gamma_s + np.pi) % (2.0 * np.pi)
+            pts_red   = np.stack([theta_red, -u_s], axis=-1)  # (n_s, 2)
+            vals_red  = interp(pts_red)
+            sino_parallel[:, j] = 0.5 * (vals_prim + vals_red)
+        else:
+            sino_parallel[:, j] = vals_prim
+
+    phi_angles = np.rad2deg(phi_out)   # (n_phi,) degrees in [0°, 180°)
+
+    return sino_parallel, s_coords, phi_angles
