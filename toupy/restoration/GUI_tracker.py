@@ -848,9 +848,13 @@ class _MaskPainter:
 
         ax.imshow(self.image, cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
         ax.axis("tight")
+        # Note: "press Enter" is intentionally omitted — in Jupyter the
+        # keyboard focus stays on the cell, so Enter never reaches the
+        # figure.  Click the first vertex to close, or just click
+        # 'Add region' / 'Finish' directly (they pick up drawn vertices).
         fig.text(
             0.5, 0.99,
-            "Left-click: add vertex  |  Click first vertex or Enter: close"
+            "Left-click: add vertices  |  Click first vertex to close polygon"
             "  |  'Add region' to store  |  'Finish' when done",
             ha="center", va="top", fontsize=9, color="0.4",
         )
@@ -883,7 +887,7 @@ class _MaskPainter:
 
     # ------------------------------------------------------------------
     def _on_poly(self, verts):
-        """Called by PolygonSelector when the polygon is closed."""
+        """Called by PolygonSelector when the polygon is formally closed."""
         self._poly_verts = list(verts)
         print(
             "Polygon with {} vertices ready — "
@@ -892,13 +896,51 @@ class _MaskPainter:
         )
 
     # ------------------------------------------------------------------
-    def _rasterise(self):
-        """Return a boolean mask for the current polygon (internal helper)."""
-        if len(self._poly_verts) < 3:
-            return None
+    def _current_verts(self):
+        """
+        Return the best available vertex list for the current polygon.
+
+        Three-level fallback to handle the common Jupyter case where the
+        polygon is drawn but never *formally* closed (Enter does not reach
+        the figure's key-press handler when focus is on the notebook cell,
+        so ``_on_poly`` is never called):
+
+        1. ``self._poly_verts`` — set by ``_on_poly``; the clean path.
+        2. ``self._selector.verts`` — the public PolygonSelector property;
+           works once the polygon has been completed in some backends.
+        3. ``self._selector._xs / _ys`` — internal lists that are built up
+           *as the user clicks*, before any formal completion.  The last
+           element is always a repeated copy of the first vertex (for the
+           visual closing line), so we drop it with ``[:-1]``.
+        """
+        if len(self._poly_verts) >= 3:
+            return list(self._poly_verts)
+        if self._selector is None:
+            return []
+        # Level 2: public .verts property
+        try:
+            verts = list(self._selector.verts)
+            if len(verts) >= 3:
+                return verts
+        except Exception:
+            pass
+        # Level 3: internal _xs / _ys (drop the repeated closing vertex)
+        try:
+            xs = list(self._selector._xs)
+            ys = list(self._selector._ys)
+            verts = list(zip(xs[:-1], ys[:-1]))
+            if len(verts) >= 3:
+                return verts
+        except Exception:
+            pass
+        return []
+
+    # ------------------------------------------------------------------
+    def _rasterise(self, verts):
+        """Rasterise *verts* onto the image grid; return a bool mask."""
         x, y = np.meshgrid(np.arange(self._nx), np.arange(self._ny))
         pts  = np.vstack((x.ravel(), y.ravel())).T
-        path = mplPath.Path(self._poly_verts)
+        path = mplPath.Path(verts)
         return path.contains_points(pts).reshape(self._ny, self._nx)
 
     # ------------------------------------------------------------------
@@ -906,25 +948,27 @@ class _MaskPainter:
         """
         Add the current polygon to the cumulative mask.
 
-        Overlays a permanent red outline on the image so already-added
-        regions remain visible, then resets the selector for the next
-        polygon.
+        Picks up vertices via ``_current_verts()`` so it works whether the
+        polygon was formally closed (``_on_poly`` fired) or not (Jupyter
+        keyboard-focus issue).  Overlays a permanent dashed outline on the
+        image, then resets the selector for the next polygon.
         """
-        if len(self._poly_verts) < 3:
-            print("No polygon drawn yet — draw one first.", flush=True)
+        verts = self._current_verts()
+        if len(verts) < 3:
+            print("No polygon with ≥ 3 vertices yet — draw one first.",
+                  flush=True)
             return
-        region = self._rasterise()
+        region = self._rasterise(verts)
         self.mask |= region
         self.n_regions += 1
-        # Permanent outline of the just-added region
-        xs = [v[0] for v in self._poly_verts] + [self._poly_verts[0][0]]
-        ys = [v[1] for v in self._poly_verts] + [self._poly_verts[0][1]]
+        # Permanent dashed outline so already-added regions stay visible
+        xs = [v[0] for v in verts] + [verts[0][0]]
+        ys = [v[1] for v in verts] + [verts[0][1]]
         self.ax.add_line(plt.Line2D(xs, ys, color="r", linewidth=1.5,
                                     linestyle="--"))
         self.ax.figure.canvas.draw_idle()
         print(
-            "Region {} added: {} px.  "
-            "Total mask: {} px.  "
+            "Region {} added: {} px.  Total mask: {} px.  "
             "Draw the next region or click 'Finish'.".format(
                 self.n_regions, int(region.sum()), int(self.mask.sum())),
             flush=True,
@@ -938,12 +982,12 @@ class _MaskPainter:
         """
         Finalise the mask and close the figure.
 
-        If a polygon has been drawn but not yet added (i.e. the user forgot
-        to click **Add region**), it is added automatically before closing.
+        Any polygon drawn but not yet added (user forgot 'Add region', or
+        polygon was not formally closed in Jupyter) is added automatically.
         """
-        if len(self._poly_verts) >= 3:
-            # Auto-add any pending polygon
-            region = self._rasterise()
+        verts = self._current_verts()
+        if len(verts) >= 3:
+            region = self._rasterise(verts)
             self.mask |= region
             self.n_regions += 1
             print(
