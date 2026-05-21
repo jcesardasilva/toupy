@@ -7,7 +7,7 @@ import numpy as np
 # local packages
 from ..utils.funcutils import deprecated
 
-__all__ = ["rmphaseramp", "rmlinearphase", "rmair"]
+__all__ = ["rmphaseramp", "rmlinearphase", "rmair", "normalize_projections_phase"]
 
 
 # ---------------------------------------------------------------------------
@@ -393,3 +393,86 @@ def rmair(image, mask):
     norm_val = image[mask].mean()
     print("Normalization value: {}".format(norm_val))
     return image / norm_val
+
+
+def normalize_projections_phase(stack, border=0):
+    """
+    Remove residual per-projection phase offsets from a stack of complex
+    ptychographic projections.
+
+    After :func:`rmphaseramp`, individual projections may still carry
+    small projection-to-projection phase variations that appear as
+    vertical stripes in sinograms.  This function corrects them in a
+    second pass using the sinogram itself:
+
+    * Rows that are **consistently air at all angles** have low phase
+      variance across the stack (object rows vary strongly with angle).
+    * Otsu thresholding on the per-row standard-deviation separates
+      air rows (low std) from object rows (high std) automatically.
+    * For each projection the residual offset is the median phase over
+      the detected air rows; this is subtracted so that all projections
+      share the same air phase reference.
+
+    Parameters
+    ----------
+    stack : array_like, complex, shape (nprojs, nr, nc)
+        Stack of ramp-corrected complex projections (output of
+        :func:`rmphaseramp` applied to each projection).
+    border : int, optional
+        Number of pixels to exclude from each edge — should match the
+        ``border`` value used in :func:`rmphaseramp`.  Default ``0``.
+
+    Returns
+    -------
+    normalized : ndarray, complex, shape (nprojs, nr, nc)
+        Stack with per-projection offsets removed.
+    offsets : ndarray, float, shape (nprojs,)
+        Per-projection phase offsets that were subtracted (radians).
+        Relative to the stack median, so their mean is approximately zero.
+
+    Examples
+    --------
+    >>> # Step 1: per-projection ramp + constant correction
+    >>> corrected = np.array([
+    ...     rmphaseramp(proj, weight='auto', zero_air_phase=True, border=30)
+    ...     for proj in stack
+    ... ])
+    >>> # Step 2: remove residual projection-to-projection oscillations
+    >>> corrected, offsets = normalize_projections_phase(corrected, border=30)
+    """
+    stack = np.asarray(stack)
+    nprojs, nr, nc = stack.shape
+    b = border
+
+    # Interior slice — exclude noisy scan-boundary pixels
+    rslice = slice(b, nr - b) if b > 0 else slice(None)
+    cslice = slice(b, nc - b) if b > 0 else slice(None)
+
+    # Phase of interior: shape (nprojs, nr_int, nc_int)
+    phase_int = np.angle(stack[:, rslice, cslice])
+
+    # Detect air rows: those with small phase variance across projections.
+    # Object rows vary strongly with angle; air rows stay approximately
+    # constant (any residual is the per-projection offset we want to find).
+    row_std = phase_int.std(axis=(0, 2))          # shape (nr_int,)
+    thresh = _otsu_threshold(row_std)
+    air_row_mask = row_std < thresh               # True = consistently air
+
+    if air_row_mask.sum() < 3:
+        # Fallback: use top and bottom 10 % of interior rows
+        n_fallback = max(3, (nr - 2 * b) // 10)
+        air_row_mask[:] = False
+        air_row_mask[:n_fallback] = True
+        air_row_mask[-n_fallback:] = True
+
+    # Per-projection offset: median phase over detected air rows
+    # shape: (nprojs, n_air_rows * nc_int)
+    air_phases = phase_int[:, air_row_mask, :].reshape(nprojs, -1)
+    offsets = np.median(air_phases, axis=1)       # (nprojs,)
+
+    # Make offsets relative to the stack median so the absolute phase
+    # level is preserved (only projection-to-projection variation removed)
+    offsets -= np.median(offsets)
+
+    normalized = stack * np.exp(-1j * offsets[:, np.newaxis, np.newaxis])
+    return normalized, offsets
