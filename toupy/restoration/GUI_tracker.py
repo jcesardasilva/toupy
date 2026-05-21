@@ -865,9 +865,6 @@ class _MaskPainter:
         self._btn_add.on_clicked(self._on_add)
         self._btn_finish.on_clicked(self._on_finish)
 
-        # Synchronous draw so the figure is fully rendered before returning
-        fig.canvas.draw()
-
     # ------------------------------------------------------------------
     def _attach_selector(self):
         """Create (or recreate) a fresh PolygonSelector on the image axes."""
@@ -1050,6 +1047,10 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
     if isnotebook():
         if _is_interactive_notebook():
             plt.show(block=False)
+            # draw() must come *after* plt.show(): the WebAgg/ipympl backend
+            # creates canvas.manager only when plt.show() is called; calling
+            # draw() before that raises AttributeError: 'NoneType'.refresh_all
+            painter.fig.canvas.draw()
             print(
                 "Draw a polygon region, close it (click first vertex or Enter),\n"
                 "click 'Add region' — repeat for every region you need.\n"
