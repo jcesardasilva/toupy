@@ -6,6 +6,7 @@ import os
 import warnings
 
 # third party packages
+from matplotlib.widgets import Button
 from ..utils.plot_utils import plt
 import numpy as np
 from scipy.fft import fftfreq, fft, ifft
@@ -60,12 +61,191 @@ def gradient_axis(x, axis=-1):
     return out
 
 
+class _DerivROIPicker:
+    """
+    Interactive GUI for selecting the derivative ROI.
+
+    Click two corners of the desired rectangle on the first projection:
+
+    1. **Top-left** corner  → sets the left X margin (``deltax``) and the
+       top row limit (``roiy[0]``).
+    2. **Bottom-right** corner → sets the bottom row limit (``roiy[-1]``);
+       the right X margin mirrors ``deltax`` symmetrically.
+
+    Then click **Confirm** to accept, or **Reset** to start over.
+
+    The ROI is:
+
+    - ``roix = range(deltax, width - deltax)``
+    - ``roiy = range(y_top, y_bottom)``
+
+    Terminal / Jupyter two-cell workflow
+    ------------------------------------
+    Used internally by :func:`chooseregiontoderivatives`.  In Jupyter access
+    ``picker.roix`` and ``picker.roiy`` in the **next** cell after clicking
+    Confirm.
+    """
+
+    _STEPS = [
+        "Step 1/2: click the TOP-LEFT corner of the derivative region",
+        "Step 2/2: click the BOTTOM-RIGHT corner of the derivative region",
+    ]
+
+    def __init__(self, stack_array, deltax_init, limsy_init):
+        nr, nc = stack_array[0].shape
+        self._nc   = nc
+        self._step = 0
+        self._tl   = None   # top-left (x, y) click
+        self._done = False
+
+        # public results — pre-populated with the params defaults
+        self.roix = range(deltax_init, nc - deltax_init)
+        self.roiy = range(limsy_init[0], limsy_init[1])
+
+        # ---- figure ----
+        plt.close("all")
+        fig, ax = plt.subplots(figsize=(9, 7))
+        self.fig = fig
+        self.ax  = ax
+
+        ax.imshow(stack_array[0], cmap="bone", aspect="auto")
+        # draw the initial ROI
+        self._rect_lines = []
+        self._draw_rect(deltax_init, limsy_init[0], nc - deltax_init, limsy_init[1])
+        ax.axis("tight")
+        ax.set_title(
+            "First projection — current ROI shown in red\n"
+            "Image: {} rows × {} cols".format(nr, nc),
+            fontsize=9,
+        )
+
+        self._status_txt = fig.text(
+            0.5, 0.975, self._STEPS[0],
+            ha="center", va="top", fontsize=10,
+            color="steelblue", fontweight="bold",
+        )
+        self._info_txt = fig.text(
+            0.5, 0.935, "Current: deltax={}, y=[{}, {}]".format(
+                deltax_init, limsy_init[0], limsy_init[1]
+            ),
+            ha="center", va="top", fontsize=9, color="0.35",
+        )
+
+        ax_reset   = fig.add_axes([0.25, 0.01, 0.2,  0.055])
+        ax_confirm = fig.add_axes([0.55, 0.01, 0.2,  0.055])
+        self._btn_reset   = Button(ax_reset,   "Reset")
+        self._btn_confirm = Button(ax_confirm, "Confirm")
+        self._btn_confirm.ax.set_facecolor("0.85")
+        self._btn_reset.on_clicked(self._on_reset)
+        self._btn_confirm.on_clicked(self._on_confirm)
+
+        self._cid = fig.canvas.mpl_connect("button_press_event", self._on_click)
+        print(self._STEPS[0], flush=True)
+
+    # ------------------------------------------------------------------ helpers
+
+    def _clear_rect(self):
+        for ln in self._rect_lines:
+            try: ln.remove()
+            except Exception: pass
+        self._rect_lines = []
+
+    def _draw_rect(self, x0, y0, x1, y1):
+        self._clear_rect()
+        kw = dict(color="r", linewidth=1.5, linestyle="-")
+        for xs, ys in [([x0, x1], [y0, y0]), ([x0, x1], [y1, y1]),
+                       ([x0, x0], [y0, y1]), ([x1, x1], [y0, y1])]:
+            ln, = self.ax.plot(xs, ys, **kw)
+            self._rect_lines.append(ln)
+
+    def _set_info(self, msg):
+        self._info_txt.set_text(msg)
+        self.fig.canvas.draw_idle()
+
+    # ------------------------------------------------------------------ events
+
+    def _on_click(self, event):
+        if event.button != 1 or event.inaxes is not self.ax:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+        if self._done or self._step >= 2:
+            return
+
+        x, y = event.xdata, event.ydata
+
+        if self._step == 0:
+            self._tl = (x, y)
+            deltax = max(0, int(round(x)))
+            dot, = self.ax.plot(x, y, "bs", markersize=7)
+            self._rect_lines.append(dot)
+            self.fig.canvas.draw_idle()
+            self._step = 1
+            self._status_txt.set_text(self._STEPS[1])
+            self._set_info(
+                "Top-left: ({:.0f}, {:.0f})  →  deltax={}".format(x, y, deltax)
+            )
+            print("  Top-left: ({:.0f}, {:.0f})  deltax={}".format(x, y, deltax),
+                  flush=True)
+            print(self._STEPS[1], flush=True)
+
+        elif self._step == 1:
+            x0, y0 = self._tl
+            x1, y1 = x, y
+            # enforce ordering
+            if y1 < y0: y0, y1 = y1, y0
+            deltax  = max(0, int(round(min(x0, x1))))
+            y_top   = int(round(y0))
+            y_bot   = int(round(y1))
+            self.roix = range(deltax, self._nc - deltax)
+            self.roiy = range(y_top, y_bot)
+            self._draw_rect(deltax, y_top, self._nc - deltax, y_bot)
+            self._step = 2
+            self._status_txt.set_text(
+                "All set — click  Confirm  to accept  |  Reset  to redo"
+            )
+            self._btn_confirm.ax.set_facecolor("limegreen")
+            info = "deltax={}  y=[{}, {}]  → roix len={}, roiy len={}".format(
+                deltax, y_top, y_bot, len(self.roix), len(self.roiy)
+            )
+            self._set_info(info)
+            print("  " + info, flush=True)
+            print("All set — click  Confirm  to accept, or  Reset  to redo.",
+                  flush=True)
+
+    def _on_reset(self, event):
+        self._step = 0
+        self._tl   = None
+        self.roix  = None
+        self.roiy  = None
+        self._btn_confirm.ax.set_facecolor("0.85")
+        self._status_txt.set_text(self._STEPS[0])
+        self._set_info("")
+        print("Reset — " + self._STEPS[0], flush=True)
+
+    def _on_confirm(self, event):
+        if self._step < 2:
+            print("Not ready yet — complete both clicks first.", flush=True)
+            return
+        self._done = True
+        try: self.fig.canvas.mpl_disconnect(self._cid)
+        except Exception: pass
+        print(
+            "Confirmed — roix=[{}, {}]  roiy=[{}, {}]".format(
+                self.roix[0], self.roix[-1], self.roiy[0], self.roiy[-1]
+            ),
+            flush=True,
+        )
+        plt.close(self.fig)
+
+
 def chooseregiontoderivatives(stack_array, **params):
     """
     Interactively choose the region of interest for derivative computation.
 
-    Displays the first projection with the current ROI boundaries overlaid
-    and lets the user refine the limits before returning.
+    Opens a GUI figure showing the first projection with the current ROI
+    (from ``params``) overlaid in red.  Click two corners to redefine the
+    rectangle, then click **Confirm**.
 
     Parameters
     ----------
@@ -75,66 +255,45 @@ def chooseregiontoderivatives(stack_array, **params):
         Must contain:
 
         deltax : int
-            Horizontal margin in pixels to exclude from the left and right
-            edges of the image.
+            Initial horizontal margin (pixels) from the left/right edges.
         limsy : tuple of int
-            ``(row_start, row_end)`` vertical limits passed to
-            :func:`range` via tuple unpacking.
+            Initial ``(row_start, row_end)`` vertical limits.
 
     Returns
     -------
-    roix : range
-        Horizontal index range selected by the user.
-    roiy : range
-        Vertical index range selected by the user.
+    Terminal mode
+        ``(roix, roiy)`` — both are :class:`range` objects, ready to use.
+    Jupyter mode  (two-cell workflow)
+        ``picker`` (:class:`_DerivROIPicker`) — access ``picker.roix`` and
+        ``picker.roiy`` in the **next** cell after clicking Confirm.
     """
-    # horizontal ROI
-    deltax = params["deltax"]
-    roix = range(deltax, stack_array.shape[2] - deltax)  # update roix
-    roiy = range(*params["limsy"])  # tuple unpacking
+    deltax_init = params["deltax"]
+    limsy_init  = params["limsy"]
 
-    # Display the projections
-    while True:
-        plt.close("all")
-        fig = plt.figure(5)
-        ax1 = fig.add_subplot(111)
-        im1 = ax1.imshow(stack_array[0], cmap="bone")
-        ax1 = _plotdelimiters(ax1, roiy, roix)
-        ax1.axis("tight")
-        if isnotebook():
-            from IPython import display
-            display.display(fig)
-            plt.close(fig)
-        else:
+    picker = _DerivROIPicker(stack_array, deltax_init, limsy_init)
+
+    if isnotebook():
+        try:
+            import matplotlib as _mpl
+            _interactive = "inline" not in _mpl.get_backend().lower()
+        except Exception:
+            _interactive = False
+        if _interactive:
             plt.show(block=False)
-
-        ans = input("Are you happy with the boundaries? ([y]/n)").lower()
-        if str(ans) == "" or str(ans) == "y":
-            break
-        else:
+            picker.fig.canvas.draw()
             print(
-                "The array dimensions are {} x {}".format(
-                    stack_array[0].shape[0], stack_array[0].shape[1]
-                )
+                "\nJupyter two-cell workflow:\n"
+                "  Interact with the figure, then in the NEXT cell:\n"
+                "      roix, roiy = picker.roix, picker.roiy",
+                flush=True,
             )
-            while True:
-                roiy = eval(input("Enter new range in y (top, bottom): "))
-                if isinstance(roiy, tuple):
-                    roiy = range(roiy[0], roiy[-1])
-                    break
-                else:
-                    print("Wrong typing. Try it again.")
-            while True:
-                deltax = eval(
-                    input("Enter new value from edge of region to edge of image in x: ")
-                )
-                if isinstance(deltax, int):
-                    roix = range(deltax, stack_array.shape[2] - deltax)  # update roix
-                    break
-                else:
-                    print("Wrong typing. Try it again.")
-
-    return roix, roiy
+        else:
+            from IPython import display as _ipy_display
+            _ipy_display.display(picker.fig)
+        return picker
+    else:
+        plt.show(block=True)
+        return picker.roix, picker.roiy
 
 
 def derivatives(input_array, shift_method="fourier", symmetric=True, n_cpus=-1):

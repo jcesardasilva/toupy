@@ -124,11 +124,10 @@ def checkhostname(func):
             print("You are working on the GPU: {}".format(hostname))
         else:
             print("You running in the machine {}".format(hostname))
-            a = input("Do you have enough memory? (y/[n])").lower()
-            if str(a) == "" or str(a) == "n":
-                raise SystemExit("You must use more powerfull machines")
-            if str(a) == "y":
-                print("Ok, you assume all the risks!!!!")
+            print(
+                "Warning: unrecognised machine — proceeding, but make sure "
+                "you have enough memory for this computation."
+            )
         return func(*args, **kwargs)
 
     return new_func

@@ -155,18 +155,24 @@ def full_tomo_recons(input_stack, theta, **params):
 
     # estimate the total number of slices
     nslices = input_stack.shape[1]
-    print("The total number of slices is {}".format(nslices))
+    print(
+        "The total number of slices is {}.  Starting full reconstruction …".format(
+            nslices
+        ),
+        flush=True,
+    )
+    print(
+        "Tip: interrupt the kernel at any time to abort.  "
+        "Adjust params['vmin_plot'] / params['vmax_plot'] if the preview "
+        "colour scale needs changing before re-running.",
+        flush=True,
+    )
 
-    # actual wrapper for the reconstruction
-    a = input("Do you want to start the full reconstruction? ([y]/n): ").lower()
-    if str(a) == "" or str(a) == "y":
-        plt.close("all")
-        tomogram = np.zeros((nslices, nr, nc), dtype=np.float32)
-        for ii in tqdm(range(nslices), desc="Reconstructing slices"):
-            sinogram = np.transpose(input_stack[:, ii, :])
-            tomogram[ii] = tomo_recons(sinogram, theta, **params)
-    elif str(a) == "n":
-        raise ValueError("The full tomographic reconstrucion has not been done.")
+    plt.close("all")
+    tomogram = np.zeros((nslices, nr, nc), dtype=np.float32)
+    for ii in tqdm(range(nslices), desc="Reconstructing slices"):
+        sinogram = np.transpose(input_stack[:, ii, :])
+        tomogram[ii] = tomo_recons(sinogram, theta, **params)
 
     return tomogram
 
