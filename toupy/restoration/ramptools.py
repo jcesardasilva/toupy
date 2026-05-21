@@ -110,7 +110,7 @@ def _build_phasor(shape, agx, agy):
 # ---------------------------------------------------------------------------
 
 def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
-                zero_air_phase=False):
+                zero_air_phase=False, border=0):
     """
     Remove the linear phase ramp from a complex ptychographic image.
 
@@ -151,8 +151,8 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
         large object).  Default ``1`` (single pass, no refinement).
     zero_air_phase : bool, optional
         If ``True``, apply a global phase offset after ramp removal so that
-        the **median** phase over the detected air/vacuum region is exactly
-        zero.  The air region is determined automatically:
+        the mean phase over the detected air/vacuum region is exactly zero.
+        The air region is determined automatically:
 
         * ``weight='auto'`` or a custom binary mask — the already-computed
           mask is reused (no extra cost).
@@ -162,6 +162,14 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
         This is equivalent to what :func:`rmlinearphase` does when a mask
         is supplied, but without requiring the user to draw or supply one.
         Default ``False``.
+    border : int, optional
+        Number of pixels to exclude from each edge before computing the
+        Otsu threshold, gradient estimation, and phase-offset correction.
+        In ptychography, scan positions at the image boundary often lack
+        proper overlap, producing strong noise artefacts that corrupt the
+        ramp estimate.  Setting ``border`` to the beam-diameter / scan-step
+        ratio (in pixels) removes these artefacts entirely.  Default ``0``
+        (no exclusion).
 
     Returns
     -------
@@ -180,36 +188,51 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
     >>> b = rmphaseramp(image)
     >>> b = rmphaseramp(image, weight='auto')
     >>> b = rmphaseramp(image, weight='auto', zero_air_phase=True)
+    >>> b = rmphaseramp(image, weight='auto', zero_air_phase=True, border=30)
     >>> b, p = rmphaseramp(image, return_phaseramp=True)
     >>> b = rmphaseramp(image, weight='auto', n_iter=3, zero_air_phase=True)
     """
     a = np.asarray(a)
+
+    # Build an interior mask that excludes noisy scan-boundary pixels.
+    # All subsequent weight/mask computations are restricted to this region.
+    if border > 0:
+        interior = np.zeros(a.shape, dtype=bool)
+        interior[border:-border, border:-border] = True
+    else:
+        interior = np.ones(a.shape, dtype=bool)
 
     # Resolve weight into an array or None (→ median)
     # Also track whether we already have a binary air mask to reuse later.
     air_mask_for_offset = None   # set below when a binary mask is available
 
     if weight is None or weight == 'median':
-        w = None                           # use median estimator
+        # Restrict global median to interior pixels when border > 0
+        w = interior.astype(np.float64) if border > 0 else None
+        if border > 0:
+            air_mask_for_offset = interior
     elif weight == 'abs':
-        w = np.abs(a)
+        w = np.abs(a) * interior
     elif weight == 'auto':
         amp = np.abs(a)
-        thresh = _otsu_threshold(amp)
-        w = (amp > thresh).astype(np.float64)
+        # Compute Otsu threshold on interior pixels only
+        thresh = _otsu_threshold(amp[interior])
+        w = ((amp > thresh) & interior).astype(np.float64)
         air_mask_for_offset = w.astype(bool)
         n_air = w.sum()
-        n_total = w.size
+        n_total = interior.sum()
         if n_air < 0.01 * n_total:
             import warnings
             warnings.warn(
                 "rmphaseramp 'auto': Otsu found < 1 % air pixels "
-                f"({int(n_air)}/{n_total}). "
+                f"({int(n_air)}/{int(n_total)}). "
                 "Consider passing an explicit mask or using weight='median'.",
                 UserWarning, stacklevel=2,
             )
     else:
         w = np.asarray(weight, dtype=np.float64)
+        if border > 0:
+            w = w * interior          # zero out border in custom mask too
         if np.array_equal(w, w.astype(bool)):
             air_mask_for_offset = w.astype(bool)
 
@@ -235,6 +258,8 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
             phase_residual = np.angle(a_work)
             residual_std = phase_residual.std()
             air_mask = np.abs(phase_residual) < residual_std
+            if border > 0:
+                air_mask &= interior
             if air_mask.sum() > 0.01 * air_mask.size:
                 w_iter = air_mask.astype(np.float64)
             # else keep original w (None → global median)
@@ -249,10 +274,10 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
     # rmlinearphase) rather than the median of scalar angles.
     if zero_air_phase:
         if air_mask_for_offset is None:
-            # Detect air from the corrected amplitude via Otsu
+            # Detect air from the corrected amplitude via Otsu on interior
             amp_corr = np.abs(a_work)
-            thresh = _otsu_threshold(amp_corr)
-            air_mask_for_offset = amp_corr > thresh
+            thresh = _otsu_threshold(amp_corr[interior])
+            air_mask_for_offset = (amp_corr > thresh) & interior
         ph_air = a_work[air_mask_for_offset]
         ph_air = ph_air / np.abs(ph_air)          # unit phasors
         mean_phasor = ph_air.mean()
