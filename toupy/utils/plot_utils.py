@@ -565,16 +565,10 @@ def _createcanvashorizontal(
     ax31.axis("tight")
     ax31.set_title("Object position")
     ax32 = fig3.add_subplot(212)
-    im32 = ax32.plot(metric_error, "bo-")
+    (im32,) = ax32.plot(metric_error, "bo-")
     ax32.axis("tight")
-    ax32.set_title("Error metric")
+    ax32.set_title("Error metric — iter 0")
     fig3.tight_layout()
-    if isnotebook():
-        display.display(fig3)
-    else:
-        fig3.canvas.draw_idle()
-
-    plt.pause(0.001)
 
     fig_array = [fig1, fig2, fig3]
     im_array = [im11, im21, im22, im23, im31, im32]
@@ -634,10 +628,6 @@ def _createcanvasvertical(
     ax11.axis("image")
     ax11 = _plotdelimiters(ax11, limrow, limcol)
     fig1.tight_layout()
-    if isnotebook():
-        display.display(fig1)
-    else:
-        fig1.canvas.draw_idle()
 
     # display vertical fluctuations as 2D images
     fig2 = plt.figure(num=2, figsize=figsize)
@@ -655,13 +645,9 @@ def _createcanvasvertical(
     ax22.set_xlabel("Projection")
     ax22.set_ylabel("y [pixels]")
     fig2.tight_layout()
-    if isnotebook():
-        display.display(fig2)
-    else:
-        fig2.canvas.draw_idle()
 
     # display vertical fluctuations as plots
-    fig3 = plt.figure(num=3)#, figsize=figsize)
+    fig3 = plt.figure(num=3)
     plt.clf()
     ax31 = fig3.add_subplot(211)
     im31 = ax31.plot(vertfluctinit)
@@ -676,34 +662,23 @@ def _createcanvasvertical(
     (im32a,) = ax32.plot(vertfluctcurr.mean(axis=1), "r", linewidth=2.5)
     (im32b,) = ax32.plot(vertfluctcurr.mean(axis=1), "--w", linewidth=1.5)
     ax32.axis("tight")
-    ax32.set_title("Current Integral in x")
+    ax32.set_title("Current Integral in x — iter 0")
     ax32.set_xlabel("Vertical coordinates [pixels]")
     ax32.set_ylabel("y [pixels]")
     fig3.tight_layout()
-    if isnotebook():
-        display.display(fig3)
-    else:
-        fig3.canvas.draw_idle()
 
-    # shifts
+    # shifts and error metric
     fig4 = plt.figure(num=4)
     plt.clf()
     ax41 = fig4.add_subplot(211)
     im41 = ax41.plot(deltastack)
     ax41.axis("tight")
     ax41.set_title("Object position")
-    # metric_error
     ax42 = fig4.add_subplot(212)
     (im42,) = ax42.plot(metric_error, "bo-")
     ax42.axis("tight")
-    ax42.set_title("Error metric")
+    ax42.set_title("Error metric — iter 0")
     fig4.tight_layout()
-    if isnotebook():
-        display.display(fig4)
-    else:
-        fig4.canvas.draw_idle()
-
-    plt.pause(0.001)
 
     fig_array = [fig1, fig2, fig3, fig4]
     im_array = [im11, im21, im22, im31, im31a, im31b, im32, im32a, im32b, im41, im42]
@@ -759,8 +734,9 @@ class RegisterPlot:
         # else:
         #     figsize = (6, np.round(6 * nr / nc))
 
-        if self.count == 0 and not isnotebook():
-            # Preparing the canvas for the figures
+        if self.count == 0:
+            # Create all four figures once and store every artist reference.
+            # Single path for both terminal and %matplotlib widget.
             fig_array, im_array, ax_array = _createcanvasvertical(
                 self.proj,
                 self.lims,
@@ -775,155 +751,89 @@ class RegisterPlot:
             self.fig3 = fig_array[2]
             self.fig4 = fig_array[3]
 
-            self.im11 = im_array[0]  # im11
-            self.im21 = im_array[1]  # im21
-            self.im22 = im_array[2]  # im22
-            self.im31 = im_array[3]  # im31
-            self.im31a = im_array[4]  # im31a
-            self.im31b = im_array[5]  # im31b
-            self.im32 = im_array[6]  # im32
-            self.im32a = im_array[7]  # im32a
-            self.im32b = im_array[8]  # im32b
-            self.im41 = im_array[9]  # im41
-            self.im42 = im_array[10]  # im51
+            self.im11  = im_array[0]   # AxesImage: projection with ROI delimiters
+            self.im21  = im_array[1]   # AxesImage: initial vertical fluctuation (fixed)
+            self.im22  = im_array[2]   # AxesImage: current vertical fluctuation
+            self.im31  = im_array[3]   # list[Line2D]: initial integral lines (fixed)
+            self.im31a = im_array[4]   # Line2D: initial average (fixed)
+            self.im31b = im_array[5]   # Line2D: initial average dashed (fixed)
+            self.im32  = im_array[6]   # list[Line2D]: current integral lines
+            self.im32a = im_array[7]   # Line2D: current average
+            self.im32b = im_array[8]   # Line2D: current average dashed
+            self.im41  = im_array[9]   # list[Line2D]: shift curves
+            self.im42  = im_array[10]  # Line2D: growing error-metric curve
 
-            self.ax11 = ax_array[0]  # ax11
-            self.ax21 = ax_array[1]  # ax21
-            self.ax22 = ax_array[2]  # ax22
-            self.ax31 = ax_array[3]  # ax31
-            self.ax32 = ax_array[4]  # ax32
-            self.ax41 = ax_array[5]  # ax41
-            self.ax42 = ax_array[6]  # ax51
-            self.updatevertical()
-        elif self.count == 0 and isnotebook():
-            # display one projection with limits
-            limrow, limcol = lims
-            fig1 = plt.figure(num=1)
-            plt.clf()
-            ax11 = fig1.add_subplot(111)
-            im11 = ax11.imshow(proj, cmap="bone")
-            ax11.set_title("Projection")
-            ax11.axis("image")
-            ax11 = _plotdelimiters(ax11, limrow, limcol)
-            fig1.tight_layout()
-            display.display(fig1)
-            #display.clear_output(wait=False)
+            self.ax11 = ax_array[0]
+            self.ax21 = ax_array[1]
+            self.ax22 = ax_array[2]
+            self.ax31 = ax_array[3]
+            self.ax32 = ax_array[4]
+            self.ax41 = ax_array[5]
+            self.ax42 = ax_array[6]
 
-            # display vertical fluctuations as 2D images
-            fig2 = plt.figure(num=2)
-            plt.clf()
-            ax21 = fig2.add_subplot(211)
-            im21 = ax21.imshow(self.vertfluctinit, cmap="jet", interpolation="none")
-            ax21.axis("tight")
-            ax21.set_title("Initial Integral in x")
-            ax21.set_xlabel("Projection")
-            ax21.set_ylabel("y [pixels]")
-            ax22 = fig2.add_subplot(212)
-            im22 = ax22.imshow(self.vertfluctcurr, cmap="jet", interpolation="none")
-            ax22.axis("tight")
-            ax22.set_title("Current Integral in x")
-            ax22.set_xlabel("Projection")
-            ax22.set_ylabel("y [pixels]")
-            fig2.tight_layout()
-            display.display(fig2)
-            #display.clear_output(wait=False)
+            if isnotebook():
+                display.display(self.fig1)
+                display.display(self.fig2)
+                display.display(self.fig3)
+                display.display(self.fig4)
+            else:
+                for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
+                    fig.canvas.draw_idle()
+            plt.pause(0.001)
         else:
             self.updatevertical()
 
     @interativesession
     def updatevertical(self):
         """
-        Update the plot canvas during vertical registration
+        Update the plot canvas during vertical registration.
+
+        Uses in-place artist updates on the figures created at iteration 0,
+        so no new outputs are spawned in Jupyter.  Works identically in
+        terminal and ``%matplotlib widget`` backends.
+
+        Evolution tracking
+        ------------------
+        * **Fig 2** – current vertical-fluctuation image updated each iter;
+          initial image stays fixed for direct comparison.
+        * **Fig 3** – current integral line plot updated each iter;
+          initial integral panel stays fixed.
+        * **Fig 4** – shift curves updated each iter; error-metric curve
+          *grows* (one point per iteration) so the full convergence
+          history is always visible.
         """
-        # checking if code runs in notebook
-        # notebooks don't support iterative plots
-        if isnotebook():
-            # display vertical fluctuations as 2D images
-            fig2 = plt.figure(num=2)
-            plt.clf()
-            ax21 = fig2.add_subplot(211)
-            im21 = ax21.imshow(self.vertfluctinit, cmap="jet", interpolation="none")
-            ax21.axis("tight")
-            ax21.set_title("Initial Integral in x")
-            ax21.set_xlabel("Projection")
-            ax21.set_ylabel("y [pixels]")
-            ax22 = fig2.add_subplot(212)
-            im22 = ax22.imshow(self.vertfluctcurr, cmap="jet", interpolation="none")
-            ax22.axis("tight")
-            ax22.set_title("Current Integral in x")
-            ax22.set_xlabel("Projection")
-            ax22.set_ylabel("y [pixels]")
-            fig2.tight_layout()
-            fig2.canvas.draw_idle()
-            #display.display(fig2)
-            #display.display(fig2.canvas)
-            #display.clear_output(wait=False)
-        else:
-            self.im21.set_data(self.vertfluctinit)
-            self.im22.set_data(self.vertfluctcurr)
+        # --- Fig 2: current vertical fluctuation image ---
+        self.im22.set_data(self.vertfluctcurr)
+        self.im22.autoscale()
+        self.ax22.set_title("Current Integral in x — iter {}".format(self.count))
 
-            self.ax21.axes.figure.canvas.draw()
-            self.ax22.axes.figure.canvas.draw()
+        # --- Fig 3: current integral line plot and averages ---
+        curr = self.vertfluctcurr          # shape (n_rows, n_proj)
+        for idx, line in enumerate(self.im32):
+            line.set_ydata(curr[:, idx] if curr.ndim > 1 else curr)
+        self.im32a.set_ydata(self.vertfluctcurr_avg)
+        self.im32b.set_ydata(self.vertfluctcurr_avg)
+        self.ax32.relim()
+        self.ax32.autoscale_view()
+        self.ax32.set_title("Current Integral in x — iter {}".format(self.count))
 
+        # --- Fig 4: shift curves + growing error-metric curve ---
+        delta = self.deltastack            # shape (nproj, ncurves)
+        for idx, line in enumerate(self.im41):
+            line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
+        self.ax41.relim()
+        self.ax41.autoscale_view()
 
-        # display vertical fluctuations as plots
-        fig3 = plt.figure(num=3)
-        plt.clf()
-        ax31 = fig3.add_subplot(211)
-        im31 = ax31.plot(self.vertfluctinit)
-        (im31a,) = ax31.plot(self.vertfluctinit_avg, "r", linewidth=2.5)
-        (im31b,) = ax31.plot(self.vertfluctinit_avg, "--w", linewidth=1.5)
-        ax31.axis("tight")
-        ax31.set_title("Initial Integral in x")
-        ax31.set_xlabel("Vertical coordinates [pixels]")
-        ax31.set_ylabel("y [pixels]")
-        ax32 = fig3.add_subplot(212)
-        im32 = ax32.plot(self.vertfluctcurr)
-        (im32a,) = ax32.plot(self.vertfluctcurr_avg, "r", linewidth=2.5)
-        (im32b,) = ax32.plot(self.vertfluctcurr_avg, "--w", linewidth=1.5)
-        ax32.axis("tight")
-        ax32.set_title("Current Integral in x")
-        ax32.set_xlabel("Vertical coordinates [pixels]")
-        ax32.set_ylabel("y [pixels]")
-        fig3.tight_layout()
-        fig3.canvas.draw_idle()
-        # if isnotebook():
-#             display.display(fig3)
-#             #display.display(fig3.canvas)
-#             #display.clear_output(wait=False)
-#         else:
-#             fig3.canvas.draw_idle()
+        n = len(self.metric_error)
+        self.im42.set_xdata(range(n))
+        self.im42.set_ydata(self.metric_error)
+        self.ax42.relim()
+        self.ax42.autoscale_view()
+        self.ax42.set_title("Error metric — iter {}".format(self.count))
 
-        # shifts
-        fig4 = plt.figure(num=4)
-        plt.clf()
-        ax41 = fig4.add_subplot(211)
-        im41 = ax41.plot(self.deltastack)
-        ax41.axis("tight")
-        ax41.set_title("Object position")
-        # metric_error
-        ax42 = fig4.add_subplot(212)
-        (im42,) = ax42.plot(self.metric_error, "bo-")
-        ax42.axis("tight")
-        ax42.set_title("Error metric")
-        fig4.tight_layout()
-        fig4.canvas.draw_idle()
-        # if isnotebook():
-#             display.display(fig4)
-#             #display.display(fig4.canvas)
-#             #display.clear_output(wait=False)
-#         else:
-#             fig4.canvas.draw_idle()
-
-        # TOCHECK: Find out why this does not work
-        # ~ for lnum,line in enumerate(self.im32):
-        # ~ line.set_ydata(self.vertfluctcurr[lnum])
-        # ~ autoscale_y(self.ax41)
-        # ~ self.im32a.set_ydata(self.vertfluctcurr.mean(axis=0))
-        # ~ self.im32b.set_ydata(self.vertfluctcurr.mean(axis=0))
-        # ~ for lnum,line in enumerate(self.im41):
-        # ~ line.set_ydata(self.deltastack[ii])
-        # ~ autoscale_y(self.ax41)
+        # Flush all four canvases in one pass
+        for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
+            fig.canvas.draw_idle()
         plt.pause(0.001)
 
     @interativesession
@@ -941,8 +851,9 @@ class RegisterPlot:
         self.metric_error = metric_error
         self.count = count
 
-        if self.count == 0 and not isnotebook():
-            # Preparing the canvas for the figures
+        if self.count == 0:
+            # Create all three figures once and store every artist reference.
+            # This single path works for both terminal and %matplotlib widget.
             fig_array, im_array, ax_array = _createcanvashorizontal(
                 self.recons,
                 self.sinoorig,
@@ -957,148 +868,85 @@ class RegisterPlot:
             self.fig2 = fig_array[1]
             self.fig3 = fig_array[2]
 
-            self.im11 = im_array[0]  # im11
-            self.im21 = im_array[1]  # im21
-            self.im22 = im_array[2]  # im22
-            self.im23 = im_array[3]  # im23
-            self.im31 = im_array[4]  # im31
-            self.im32 = im_array[5]  # im32
+            self.im11 = im_array[0]   # AxesImage: reconstructed slice
+            self.im21 = im_array[1]   # AxesImage: original sinogram (never updated)
+            self.im22 = im_array[2]   # AxesImage: current sinogram
+            self.im23 = im_array[3]   # AxesImage: synthetic sinogram
+            self.im31 = im_array[4]   # list[Line2D]: shift curves
+            self.im32 = im_array[5]   # Line2D: growing error-metric curve
 
-            self.ax11 = ax_array[0]  # ax11
-            self.ax21 = ax_array[1]  # ax21
-            self.ax22 = ax_array[2]  # ax22
-            self.ax23 = ax_array[3]  # ax23
-            self.ax31 = ax_array[4]  # ax31
-            self.ax32 = ax_array[5]  # ax32
-        elif self.count == 0 and isnotebook():
-            slicenum = self.params["slicenum"]
-            cmax = self.params["sinohigh"]
-            cmin = self.params["sinolow"]
-            # Display one reconstructed slice
-            fig1 = plt.figure(num=1,figsize=(12,5))
-            plt.clf()
-            ax11 = fig1.add_subplot(111)
-            im11 = ax11.imshow(self.recons, cmap="jet")
-            ax11.axis("image")
-            ax11.set_title("Slice number: {}".format(slicenum))
-            ax11.set_xlabel("x [pixels]")
-            ax11.set_ylabel("y [pixels]")
-            fig1.tight_layout()
-            display.display(fig1)
+            self.ax11 = ax_array[0]
+            self.ax21 = ax_array[1]
+            self.ax22 = ax_array[2]
+            self.ax23 = ax_array[3]
+            self.ax31 = ax_array[4]
+            self.ax32 = ax_array[5]
 
-            # Display initial, current and synthetic sinograms
-            fig2 = plt.figure(num=2, figsize=(6, 10))
-            plt.clf()
-            ax21 = fig2.add_subplot(311)
-            im21 = ax21.imshow(self.sinoorig, cmap="bone", vmin=cmin, vmax=cmax)
-            ax21.axis("tight")
-            ax21.set_title("Initial sinogram")
-            ax21.set_xlabel("Projection")
-            ax21.set_ylabel("x [pixels]")
-            ax22 = fig2.add_subplot(312)
-            im22 = ax22.imshow(self.sinocurr, cmap="bone", vmin=cmin, vmax=cmax)
-            ax22.axis("tight")
-            ax22.set_title("Current sinogram")
-            ax22.set_xlabel("Projection")
-            ax22.set_ylabel("x [pixels]")
-            ax23 = fig2.add_subplot(313)
-            im23 = ax23.imshow(self.sinocomp, cmap="bone", vmin=cmin, vmax=cmax)
-            ax23.axis("tight")
-            ax23.set_title("Synthetic sinogram")
-            ax23.set_xlabel("Projection")
-            ax23.set_ylabel("x [pixels]")
-            fig2.tight_layout()
-            display.display(fig2)
-            #display.clear_output(wait=True)
+            if isnotebook():
+                # Embed all three figures as interactive widgets in the cell output.
+                # Subsequent iterations update the data in-place; the widgets
+                # refresh without spawning new outputs.
+                display.display(self.fig1)
+                display.display(self.fig2)
+                display.display(self.fig3)
+            else:
+                self.fig1.canvas.draw_idle()
+                self.fig2.canvas.draw_idle()
+                self.fig3.canvas.draw_idle()
+            plt.pause(0.001)
         else:
             self.updatehorizontal()
 
     @interativesession
     def updatehorizontal(self):
         """
-        Update the plot canvas during horizontal registration
+        Update the plot canvas during horizontal registration.
+
+        Uses in-place artist updates (set_data / set_ydata) on the figures
+        created at iteration 0, so no new outputs are spawned in Jupyter.
+        Works identically in terminal and ``%matplotlib widget`` backends.
+
+        Evolution tracking
+        ------------------
+        * **Fig 1** – reconstructed slice updated each iteration so you
+          can see it sharpening as alignment improves.
+        * **Fig 2** – current and synthetic sinograms updated each
+          iteration; the original sinogram panel stays fixed for comparison.
+        * **Fig 3** – shift curves updated each iteration; the error-metric
+          curve *grows* (one point added per iteration) so the full
+          convergence history is always visible.
         """
-        # checking if code runs in notebook
-        # notebooks don't support iterative plots
-        if isnotebook():
-            slicenum = self.params["slicenum"]
-            cmax = self.params["sinohigh"]
-            cmin = self.params["sinolow"]
-            # Display one reconstructed slice
-            fig1 = plt.figure(num=1,figsize=(12,5))
-            plt.clf()
-            ax11 = fig1.add_subplot(111)
-            im11 = ax11.imshow(self.recons, cmap="jet")
-            ax11.axis("image")
-            ax11.set_title("Slice number: {}".format(slicenum))
-            ax11.set_xlabel("x [pixels]")
-            ax11.set_ylabel("y [pixels]")
-            fig1.tight_layout()
-            fig1.canvas.draw_idle()
-            #display.display(fig1)
-            #display.display(fig1.canvas)
-            
-            # Display initial, current and synthetic sinograms
-            fig2 = plt.figure(num=2, figsize=(6, 10))
-            plt.clf()
-            ax21 = fig2.add_subplot(311)
-            im21 = ax21.imshow(self.sinoorig, cmap="bone", vmin=cmin, vmax=cmax)
-            ax21.axis("tight")
-            ax21.set_title("Initial sinogram")
-            ax21.set_xlabel("Projection")
-            ax21.set_ylabel("x [pixels]")
-            ax22 = fig2.add_subplot(312)
-            im22 = ax22.imshow(self.sinocurr, cmap="bone", vmin=cmin, vmax=cmax)
-            ax22.axis("tight")
-            ax22.set_title("Current sinogram")
-            ax22.set_xlabel("Projection")
-            ax22.set_ylabel("x [pixels]")
-            ax23 = fig2.add_subplot(313)
-            im23 = ax23.imshow(self.sinocomp, cmap="bone", vmin=cmin, vmax=cmax)
-            ax23.axis("tight")
-            ax23.set_title("Synthetic sinogram")
-            ax23.set_xlabel("Projection")
-            ax23.set_ylabel("x [pixels]")
-            fig2.tight_layout()
-            fig2.canvas.draw_idle()
-            #display.display(fig2)
-            #display.display(fig2.canvas)
-            #display.clear_output(wait=True)
-        else:
-            self.im11.set_data(self.recons)
-            self.im22.set_data(self.sinocurr)
-            self.im23.set_data(self.sinocomp)
+        # --- Fig 1: reconstructed slice ---
+        self.im11.set_data(self.recons)
+        self.im11.autoscale()
+        self.ax11.set_title(
+            "Reconstructed slice — iteration {}".format(self.count)
+        )
 
-            self.ax11.set_title("Reconstruced slice. Iteration {}".format(self.count))
-            self.ax11.axes.figure.canvas.draw()
-            self.ax22.axes.figure.canvas.draw()
-            self.ax23.axes.figure.canvas.draw()
+        # --- Fig 2: current and synthetic sinograms ---
+        self.im22.set_data(self.sinocurr)
+        self.im23.set_data(self.sinocomp)
 
-        # shifts and error metric
-        fig3 = plt.figure(num=3)
-        plt.clf()
-        ax31 = fig3.add_subplot(211)
-        im31 = ax31.plot(self.deltaslice)
-        ax31.axis("tight")
-        ax31.set_title("Object position")
-        ax32 = fig3.add_subplot(212)
-        im32 = ax32.plot(self.metric_error, "bo-")
-        ax32.axis("tight")
-        ax32.set_title("Error metric")
-        fig3.tight_layout()
-        fig3.canvas.draw_idle()
-        
-        # if isnotebook():
-#             display.display(fig3)
-#             display.display(fig3.canvas)
-#         else:
-#             fig3.canvas.draw_idle()
+        # --- Fig 3: shift curves + growing error-metric curve ---
+        # im31 is a list of Line2D (one per column of deltaslice)
+        delta = self.deltaslice          # shape (nproj, ncurves)
+        for idx, line in enumerate(self.im31):
+            line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
+        self.ax31.relim()
+        self.ax31.autoscale_view()
 
-        # ~ self.im31.set_ydata(deltaslice.T)
-        # ~ self.im32.set_ydata(metric_error)
-        # ~ autoscale_y(self.im31)
-        # ~ autoscale_y(self.im32)
-        # ~ plt.draw()
+        # im32 is a single Line2D; metric_error grows by one element each iter
+        n = len(self.metric_error)
+        self.im32.set_xdata(range(n))
+        self.im32.set_ydata(self.metric_error)
+        self.ax32.relim()
+        self.ax32.autoscale_view()
+        self.ax32.set_title("Error metric — iter {}".format(self.count))
+
+        # Flush all three canvases in one pass
+        self.fig1.canvas.draw_idle()
+        self.fig2.canvas.draw_idle()
+        self.fig3.canvas.draw_idle()
         plt.pause(0.001)
 
 
