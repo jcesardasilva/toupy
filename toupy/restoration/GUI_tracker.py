@@ -239,19 +239,21 @@ def gui_plotamp(stack_objs, **params):
     cmap_title.set_axis_off()
     cmap_title.text(0, 0, "Colormap", fontsize=14)
 
-    # --- Prev / Next / Play ---
+    # --- Prev / Next / Play / Stop ---
     axprev = plt.axes([0.28, 0.05, 0.05, 0.06])
     axnext = plt.axes([0.35, 0.05, 0.05, 0.06])
-    axplay = plt.axes([0.445, 0.05, 0.1, 0.06])
+    axplay = plt.axes([0.42, 0.05, 0.08, 0.06])
+    axstop = plt.axes([0.51, 0.05, 0.08, 0.06])
     bprev = Button(axprev, "<"   ); bprev.on_clicked(tracker.down)
     bnext = Button(axnext, ">"   ); bnext.on_clicked(tracker.up)
     bplay = Button(axplay, "play"); bplay.on_clicked(tracker.play)
+    bstop = Button(axstop, "stop"); bstop.on_clicked(tracker.stop_play)
 
     # Store all widget references on the tracker to prevent GC
     tracker._widgets = [
         bdraw, bclose, badd, bapply, bmaskall, bapplyall,
         bremove, bremoveall, bsave, bload,
-        tbprojn, tbvmin, tbvmax, bprev, bnext, bplay,
+        tbprojn, tbvmin, tbvmax, bprev, bnext, bplay, bstop,
     ]
 
     fig.canvas.mpl_connect("scroll_event",    tracker.onscroll)
@@ -362,20 +364,22 @@ def gui_plotphase(stack_objs, **params):
     cmap_title.set_axis_off()
     cmap_title.text(0, 0, "Colormap", fontsize=14)
 
-    # --- Prev / Next / Play ---
+    # --- Prev / Next / Play / Stop ---
     axprev = plt.axes([0.28, 0.05, 0.05, 0.06])
     axnext = plt.axes([0.35, 0.05, 0.05, 0.06])
-    axplay = plt.axes([0.445, 0.05, 0.1,  0.06])
+    axplay = plt.axes([0.42, 0.05, 0.08, 0.06])
+    axstop = plt.axes([0.51, 0.05, 0.08, 0.06])
     bprev = Button(axprev, "<"   ); bprev.on_clicked(tracker.down)
     bnext = Button(axnext, ">"   ); bnext.on_clicked(tracker.up)
     bplay = Button(axplay, "play"); bplay.on_clicked(tracker.play)
+    bstop = Button(axstop, "stop"); bstop.on_clicked(tracker.stop_play)
 
     # Store all widget references on the tracker to prevent GC
     tracker._widgets = [
         bdraw, bclose, badd, bapply, bmaskall, bapplyall,
         bremove, brmramp, bremoveall, brmrampall,
         bsave, bunwrap, bload, bunwrapall,
-        tbprojn, tbvmin, tbvmax, bprev, bnext, bplay,
+        tbprojn, tbvmin, tbvmax, bprev, bnext, bplay, bstop,
     ]
 
     fig.canvas.mpl_connect("scroll_event",    tracker.onscroll)
@@ -401,8 +405,15 @@ class PhaseTracker(object):
         self.fig = fig
         self.ax1 = ax1
         self.ax2 = ax2
-        ax1.set_title(
-            "Use scroll wheel or left/right arrows to navigate images"
+        # Centered hint line at the top of the *figure* (not ax1).
+        # ax1.set_title() would centre over ax1 only (~60 % of the figure
+        # width), making the text appear left-shifted.  fig.text() with
+        # x=0.5 centres it over the full figure canvas.
+        fig.text(
+            0.5, 0.975,
+            "Scroll wheel or ← / → arrows to navigate   |   "
+            "< / > buttons or 'Goto #' to jump",
+            ha="center", va="top", fontsize=9, color="0.45",
         )
 
         self.X1 = X1.copy()
@@ -418,6 +429,8 @@ class PhaseTracker(object):
         # Polygon state — populated by draw_mask / _on_poly_select
         self._poly_verts = []
         self._poly_selector = None
+        # Play-loop stop flag — set True by stop_play(); checked each frame
+        self._stop_play = False
         self.vmin = params["vmin"]
         self.vmax = params["vmax"]
         self.colormap = params["colormap"]
@@ -505,20 +518,34 @@ class PhaseTracker(object):
     def play(self, event):
         """Play through all projections from the current index.
 
+        Click **stop** (or press the stop button) to halt the animation at
+        the current frame.
+
         Each frame is rendered synchronously so the animation is actually
         visible.  ``draw_idle()`` (used by ``update()``) schedules an
         async repaint that never fires inside a tight Python loop; we
         force a synchronous ``draw()`` + ``flush_events()`` after each
-        frame to push the data to the screen.
+        frame to push the data to the screen.  ``flush_events()`` also
+        pumps the GUI event queue so the stop button callback can fire
+        mid-loop.
         """
-        print("Playing from projection {} …".format(self.ind + 1))
+        self._stop_play = False
+        print("Playing from projection {} …  (click 'stop' to halt)".format(self.ind + 1),
+              flush=True)
         canvas = self.ax1.figure.canvas
         for ii in range(self.ind, self.projs):
+            if self._stop_play:
+                print("Stopped at projection {}.".format(self.ind + 1), flush=True)
+                return
             self.ind = ii
             self.update()
             canvas.draw()           # synchronous render
             canvas.flush_events()   # process GUI events so the frame shows
-        print("Play finished at projection {}.".format(self.ind + 1))
+        print("Play finished at projection {}.".format(self.ind + 1), flush=True)
+
+    def stop_play(self, event):
+        """Request that the play loop stop at the current frame."""
+        self._stop_play = True
 
     # ------------------------------------------------------------------ mask
     def draw_mask(self, event):
@@ -583,8 +610,8 @@ class PhaseTracker(object):
 
     def add_mask(self, event):
         """Apply the drawn polygon to the current projection's mask."""
-        print("Adding mask to projection {} … ".format(self.ind + 1), end="", flush=True)
         roi = self._get_roi_mask()
+        print("Adding mask to projection {} …".format(self.ind + 1), flush=True)
         self.mask[self.ind] |= roi
         # Overlay the closed polygon outline on ax1
         if len(self._poly_verts) >= 2:
@@ -592,42 +619,42 @@ class PhaseTracker(object):
             ys = [v[1] for v in self._poly_verts] + [self._poly_verts[0][1]]
             self.ax1.add_line(plt.Line2D(xs, ys, color="r"))
         self.update()
-        print("done  ({} masked pixels).".format(int(roi.sum())))
+        print("→ done  ({} masked pixels).".format(int(roi.sum())), flush=True)
 
     def mask_all(self, event):
         """Copy the current polygon to every projection."""
-        print("Copying mask to all {} projections … ".format(self.projs), end="", flush=True)
+        print("Copying mask to all {} projections …".format(self.projs), flush=True)
         mask = self._get_roi_mask()
         self.mask |= np.broadcast_to(mask, self.mask.shape).copy()
         self.update()
-        print("done.")
+        print("→ done.", flush=True)
 
     def remove_mask(self, event):
         """Remove the drawn polygon from the current projection's mask."""
-        print("Removing mask from projection {} … ".format(self.ind + 1), end="", flush=True)
+        print("Removing mask from projection {} …".format(self.ind + 1), flush=True)
         self.mask[self.ind] &= ~self._get_roi_mask()
         self.update()
-        print("done.")
+        print("→ done.", flush=True)
 
     def remove_all_mask(self, event):
         """Remove the drawn polygon from every projection's mask."""
-        print("Removing mask from all {} projections … ".format(self.projs), end="", flush=True)
+        print("Removing mask from all {} projections …".format(self.projs), flush=True)
         mask = self._get_roi_mask()
         self.mask &= ~np.broadcast_to(mask, self.mask.shape).copy()
         self.update()
-        print("done.")
+        print("→ done.", flush=True)
 
     # ------------------------------------------------------------------ correction
     def apply_mask(self, event):
         """Remove phase ramp from the current projection using its mask."""
-        print("Applying phase ramp correction to projection {} … ".format(self.ind + 1),
-              end="", flush=True)
+        print("Applying phase ramp correction to projection {} …".format(self.ind + 1),
+              flush=True)
         self.X1[self.ind] = _removing_phaseramp(
             self.X1[self.ind], self.mask[self.ind]
         )
         self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
-        print("done.")
+        print("→ done.", flush=True)
 
     def apply_all_masks(self, event):
         """Remove phase ramp from all projections using their masks."""
@@ -643,13 +670,13 @@ class PhaseTracker(object):
 
     def remove_ramp(self, event):
         """Remove linear phase ramp from the current projection (no mask)."""
-        print("Removing ramp from projection {} … ".format(self.ind + 1), end="", flush=True)
+        print("Removing ramp from projection {} …".format(self.ind + 1), flush=True)
         self.X1[self.ind] = np.angle(
             rmphaseramp(np.exp(1j * self.X1[self.ind]), weight=None)
         )
         self.X2[self.ind] = self.X1[self.ind, int(self.X1.shape[1] // 2), :].copy()
         self.update()
-        print("done.")
+        print("→ done.", flush=True)
 
     def remove_rampall(self, event):
         """Remove linear phase ramp from all projections (no mask)."""
@@ -665,13 +692,13 @@ class PhaseTracker(object):
 
     def unwrapping_phase(self, event):
         """Unwrap phase of the current projection."""
-        print("Unwrapping projection {} … ".format(self.ind + 1), end="", flush=True)
+        print("Unwrapping projection {} …".format(self.ind + 1), flush=True)
         self.X1[self.ind] = _unwrapping_phase(
             self.X1[self.ind], self.mask[self.ind]
         )
         self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
-        print("done.")
+        print("→ done.", flush=True)
 
     def unwrapping_all(self, event):
         """Unwrap phase of all projections."""
@@ -686,16 +713,16 @@ class PhaseTracker(object):
     # ------------------------------------------------------------------ I/O
     def load_masks(self, event):
         """Load masks from ``masks.h5``."""
-        print("Loading masks from masks.h5 … ", end="", flush=True)
+        print("Loading masks from masks.h5 …", flush=True)
         self.mask = LoadData.loadmasks("masks.h5", **self.params)
         self.update()
-        print("done.")
+        print("→ done.", flush=True)
 
     def save_masks(self, event):
         """Save masks to ``masks.h5``."""
-        print("Saving masks to masks.h5 … ", end="", flush=True)
+        print("Saving masks to masks.h5 …", flush=True)
         SaveData.savemasks("masks.h5", self.mask, **self.params)
-        print("done.")
+        print("→ done.", flush=True)
 
     # ------------------------------------------------------------------ display
     def update(self):
@@ -733,10 +760,10 @@ class AmpTracker(PhaseTracker):
     def apply_mask(self, event):
         """Normalise air, apply log; guards against double-correction."""
         if self.ind in self.done:
-            print("Projection {} already corrected — skipping.".format(self.ind + 1))
+            print("Projection {} already corrected — skipping.".format(self.ind + 1), flush=True)
         else:
-            print("Applying air correction + log to projection {} … ".format(self.ind + 1),
-                  end="", flush=True)
+            print("Applying air correction + log to projection {} …".format(self.ind + 1),
+                  flush=True)
             imgin = self.X1[self.ind].copy()
             mask  = self.mask[self.ind].copy()
             self.X1[self.ind] = np.log(rmair(imgin, mask))
@@ -744,7 +771,7 @@ class AmpTracker(PhaseTracker):
             self.done.append(self.ind)
             self.vmin = -0.5
             self.vmax =  0.1
-            print("done.")
+            print("→ done.", flush=True)
         self.update()
 
     def apply_all_masks(self, event):
