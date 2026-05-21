@@ -161,8 +161,15 @@ def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"
     return input_stack
 
 
-def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="linear"):
-    """Horizontal-only in-place alignment."""
+def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="linear", **kwargs):
+    """Horizontal-only in-place alignment.
+
+    ``**kwargs`` absorbs any extra keys when called as
+    ``compute_aligned_horizontal_special(..., **params)``.
+    ``shift_method`` is read from ``params["shiftmeth"]`` if present and
+    not overridden by a positional argument.
+    """
+    shift_method = kwargs.get("shiftmeth", shift_method)
     deltashift = np.zeros_like(shiftstack)
     deltashift[1] = shiftstack[1].copy()
     return compute_aligned_stack_special(input_stack, shiftstack, shift_method=shift_method)
@@ -195,8 +202,15 @@ def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
     return output_sino
 
 
-def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear"):
-    """Horizontal-only alignment (copy variant)."""
+def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear", **kwargs):
+    """Horizontal-only alignment (copy variant).
+
+    ``**kwargs`` absorbs any extra keys when called as
+    ``compute_aligned_horizontal(..., **params)``.
+    ``shift_method`` defaults to ``params["shiftmeth"]`` if that key is
+    present and ``shift_method`` was not supplied explicitly.
+    """
+    shift_method = kwargs.get("shiftmeth", shift_method)
     deltashift = np.zeros_like(shiftstack)
     deltashift[1] = shiftstack[1].copy()
     return compute_aligned_stack(input_stack, deltashift, shift_method=shift_method)
@@ -1721,26 +1735,23 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     shiftxrefine_avg = shiftxrefine.mean(axis=0)
 
     plt.close("all")
-    fig = plt.figure(num=6, figsize=(14, 8))
-    ax1 = fig.add_subplot(211)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), constrained_layout=True)
     ax1.imshow(shiftxrefine, interpolation="none", cmap="jet")
     ax1.axis("tight")
     ax1.set_xlabel("Projection number")
     ax1.set_ylabel("Slice number")
-    ax1.set_title("Displacements in x")
-    ax2 = fig.add_subplot(212)
+    ax1.set_title("Displacements in x per slice")
     ax2.plot(shiftxrefine_avg, "b-", label="average")
     ax2.plot(shiftslice_prev[0], "r--", label="previous")
     ax2.legend()
     ax2.axis("tight")
     ax2.set_xlim([0, len(shiftxrefine_avg)])
-    ax2.set_title("Average displacements in x")
+    ax2.set_title("Average displacements in x  —  blue=new average, red=previous")
     ax2.set_xlabel("Projection number")
-    plt.tight_layout()
     if isnotebook():
         from IPython import display
         display.display(fig)
-        plt.close(fig)
+        # do NOT close — widget backend needs the figure to stay alive to render
     else:
         plt.show(block=False)
 
