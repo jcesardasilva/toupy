@@ -10,6 +10,7 @@ from collections import deque
 
 # third party packages
 from joblib import Parallel, delayed, parallel_backend
+from matplotlib.widgets import Button
 from ..utils.plot_utils import plt
 import multiprocessing
 import numpy as np
@@ -327,9 +328,249 @@ def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
     return resmap, posres, nres
 
 
+class _RegionPicker:
+    """
+    Interactive GUI for selecting the unwrap region and an air pixel.
+
+    Three sequential clicks on the image define the region:
+
+    1. Top-left corner of the rectangular unwrap region.
+    2. Bottom-right corner  (blue rectangle drawn + residue count printed).
+    3. A pixel in air/vacuum (must fall inside the rectangle).
+
+    Then click **Confirm** to accept, or **Reset** to start over.
+
+    Terminal usage
+    --------------
+    This class is not meant to be used directly; use :func:`chooseregiontounwrap`.
+
+    Jupyter two-cell workflow
+    -------------------------
+    The picker is returned immediately; access results in the **next** cell::
+
+        # Cell 1
+        picker = chooseregiontounwrap(stack_array, ...)
+        # Cell 2 — run AFTER clicking Confirm
+        rx, ry, airpix = picker.rx, picker.ry, picker.airpix
+    """
+
+    _STEPS = [
+        "Step 1/3: click the TOP-LEFT corner of the unwrap region",
+        "Step 2/3: click the BOTTOM-RIGHT corner of the unwrap region",
+        "Step 3/3: click a pixel in AIR / vacuum (inside the rectangle)",
+    ]
+
+    def __init__(self, stack_array, resmap, xres, yres):
+        self._stack   = stack_array
+        self._resmap  = resmap
+        self._xres    = xres
+        self._yres    = yres
+
+        # public results
+        self.rx     = None
+        self.ry     = None
+        self.airpix = None
+        self._done  = False
+
+        # internal state
+        self._step       = 0   # 0=TL, 1=BR, 2=air, 3=ready
+        self._corners    = []  # (x, y) world-coord tuples
+        self._rect_lines = []  # rectangle artist handles
+        self._air_dot    = None
+
+        # ---- figure ----
+        fig, ax = plt.subplots(figsize=(9, 7))
+        self.fig = fig
+        self.ax  = ax
+
+        ax.imshow(stack_array[0], cmap="bone", aspect="auto")
+        ax.plot(xres, yres, "or", markersize=3, alpha=0.6, label="residues")
+        ax.axis("tight")
+        ax.set_title(
+            "First projection — red dots = phase residues\n"
+            "Image size: {} rows × {} cols".format(
+                stack_array[0].shape[0], stack_array[0].shape[1]
+            ),
+            fontsize=9,
+        )
+
+        # step-instruction banner (centred over full figure)
+        self._status_txt = fig.text(
+            0.5, 0.975, self._STEPS[0],
+            ha="center", va="top", fontsize=10,
+            color="steelblue", fontweight="bold",
+        )
+        # secondary info line (residue count, coordinates, warnings)
+        self._info_txt = fig.text(
+            0.5, 0.935, "",
+            ha="center", va="top", fontsize=9, color="0.35",
+        )
+
+        # buttons
+        ax_reset   = fig.add_axes([0.25, 0.01, 0.2,  0.055])
+        ax_confirm = fig.add_axes([0.55, 0.01, 0.2,  0.055])
+        self._btn_reset   = Button(ax_reset,   "Reset")
+        self._btn_confirm = Button(ax_confirm, "Confirm")
+        self._btn_confirm.ax.set_facecolor("0.85")   # greyed out until ready
+        self._btn_reset.on_clicked(self._on_reset)
+        self._btn_confirm.on_clicked(self._on_confirm)
+
+        self._cid = fig.canvas.mpl_connect("button_press_event", self._on_click)
+        print(self._STEPS[0], flush=True)
+
+    # ------------------------------------------------------------------ helpers
+
+    def _clear_overlays(self):
+        for ln in self._rect_lines:
+            try:
+                ln.remove()
+            except Exception:
+                pass
+        self._rect_lines = []
+        if self._air_dot is not None:
+            try:
+                self._air_dot.remove()
+            except Exception:
+                pass
+            self._air_dot = None
+
+    def _draw_rect(self, x0, y0, x1, y1):
+        """Draw blue rectangle from top-left (x0,y0) to bottom-right (x1,y1)."""
+        self._clear_overlays()
+        kw = dict(color="b", linewidth=1.5, linestyle="-")
+        for xs, ys in [
+            ([x0, x1], [y0, y0]),
+            ([x0, x1], [y1, y1]),
+            ([x0, x0], [y0, y1]),
+            ([x1, x1], [y0, y1]),
+        ]:
+            ln, = self.ax.plot(xs, ys, **kw)
+            self._rect_lines.append(ln)
+
+    def _set_info(self, msg):
+        self._info_txt.set_text(msg)
+        self.fig.canvas.draw_idle()
+
+    def _set_status(self, msg):
+        self._status_txt.set_text(msg)
+
+    # ------------------------------------------------------------------ events
+
+    def _on_click(self, event):
+        if event.button != 1 or event.inaxes is not self.ax:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+        if self._done or self._step >= 3:
+            return
+
+        x, y = event.xdata, event.ydata
+
+        if self._step == 0:
+            # ---- step 1: top-left corner ----
+            self._corners = [(x, y)]
+            self._clear_overlays()
+            dot, = self.ax.plot(x, y, "bs", markersize=7)
+            self._rect_lines.append(dot)
+            self._step = 1
+            self._set_status(self._STEPS[1])
+            self._set_info("Top-left: ({:.0f}, {:.0f})".format(x, y))
+            print("  Top-left corner: ({:.0f}, {:.0f})".format(x, y), flush=True)
+            print(self._STEPS[1], flush=True)
+
+        elif self._step == 1:
+            # ---- step 2: bottom-right corner — enforce ordering ----
+            x0, y0 = self._corners[0]
+            x0, x1 = (x0, x) if x0 <= x else (x, x0)
+            y0, y1 = (y0, y) if y0 <= y else (y, y0)
+            self._corners = [(x0, y0), (x1, y1)]
+            self._draw_rect(x0, y0, x1, y1)
+            rx = range(int(round(x0)), int(round(x1)) + 1)
+            ry = range(int(round(y0)), int(round(y1)) + 1)
+            nres = int(np.round(
+                self._resmap[ry[0]:ry[-1], rx[0]:rx[-1]].sum()
+            ))
+            self._step = 2
+            self._set_status(self._STEPS[2])
+            info = (
+                "Region: x=[{}, {}]  y=[{}, {}]   {} residues inside"
+            ).format(rx[0], rx[-1], ry[0], ry[-1], nres)
+            self._set_info(info)
+            print("  " + info, flush=True)
+            print(self._STEPS[2], flush=True)
+
+        elif self._step == 2:
+            # ---- step 3: air pixel (must be inside the rectangle) ----
+            (x0, y0), (x1, y1) = self._corners
+            rx = range(int(round(x0)), int(round(x1)) + 1)
+            ry = range(int(round(y0)), int(round(y1)) + 1)
+            if not (rx[0] <= x <= rx[-1] and ry[0] <= y <= ry[-1]):
+                msg = "Air pixel must be inside the blue rectangle — try again."
+                self._set_info(msg)
+                print("  WARNING: " + msg, flush=True)
+                return
+            self._air_dot, = self.ax.plot(x, y, "ob", markersize=8)
+            self.rx     = rx
+            self.ry     = ry
+            self.airpix = (int(round(x)), int(round(y)))
+            self._step  = 3   # waiting for Confirm
+            self._set_status(
+                "All set — click  Confirm  to accept  |  Reset  to start over"
+            )
+            self._btn_confirm.ax.set_facecolor("limegreen")
+            self._set_info("Air pixel: ({}, {})".format(*self.airpix))
+            print("  Air pixel: ({}, {})".format(*self.airpix), flush=True)
+            print(
+                "All set — click  Confirm  to accept, or  Reset  to redo.",
+                flush=True,
+            )
+
+    def _on_reset(self, event):
+        self._clear_overlays()
+        self._corners = []
+        self._step    = 0
+        self.rx       = None
+        self.ry       = None
+        self.airpix   = None
+        self._btn_confirm.ax.set_facecolor("0.85")
+        self._set_status(self._STEPS[0])
+        self._set_info("")
+        print("Reset — " + self._STEPS[0], flush=True)
+
+    def _on_confirm(self, event):
+        if self._step < 3:
+            print(
+                "Not ready yet — complete all 3 clicks first.", flush=True
+            )
+            return
+        self._done = True
+        try:
+            self.fig.canvas.mpl_disconnect(self._cid)
+        except Exception:
+            pass
+        print(
+            "Confirmed — rx=[{}, {}]  ry=[{}, {}]  airpix={}".format(
+                self.rx[0], self.rx[-1],
+                self.ry[0], self.ry[-1],
+                self.airpix,
+            ),
+            flush=True,
+        )
+        plt.close(self.fig)
+
+
 def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     """
-    Choose the region to be unwrapped
+    Choose the region to be unwrapped interactively.
+
+    A GUI figure opens showing the first projection overlaid with
+    phase-residue locations (red dots).  Click three points in order:
+
+    1. Top-left corner of the rectangular unwrap region.
+    2. Bottom-right corner of the unwrap region.
+    3. A pixel in air / vacuum (must be inside the rectangle).
+
+    Then click **Confirm** to accept, or **Reset** to start over.
 
     Parameters
     ----------
@@ -337,125 +578,85 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
         A 3-dimensional array containing the stack of projections
         to be unwrapped.
     threshold : int, optional
-        The threshold of the number of acceptable phase residues. (Default = 5000)
+        Threshold for the number of acceptable phase residues. (Default = 5000)
     parallel : bool, optional
-        If `True`, multiprocessing and threading will be used. (Default = `False`)
+        If ``True``, multiprocessing is used for residue computation.
+        (Default = ``False``)
+    ncores : int, optional
+        Number of cores for parallel computation. (Default = 1)
 
     Returns
     -------
-    rx, ry : tuple
-        Limits of the area to be unwrapped
-    airpix : tuple
-        Position of the pixel which should contains only air/vacuum
+    Terminal mode
+        ``(rx, ry, airpix)`` — ranges and air-pixel tuple, ready to use.
+    Jupyter mode  (two-cell workflow)
+        ``picker`` — :class:`_RegionPicker` instance.  Access
+        ``picker.rx``, ``picker.ry``, ``picker.airpix`` in the **next**
+        cell after clicking Confirm.
     """
-    # checking for residues
-    print("Checking for phase residues")
+    # ---- residue computation ----
+    print("Checking for phase residues …", flush=True)
     if ncores == 1:
         parallel = False
     if parallel:
         if ncores == -1:
             try:
                 ncores = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
-            except:
+            except Exception:
                 ncores = multiprocessing.cpu_count()
         if ncores == 1:
-            print(f"{ncores} used: parallel calculations are not possible")
+            print("{} core used: parallel calculations are not possible".format(ncores))
         resmap, posres, nres = phaseresiduesStack_parallel(
             stack_array, threshold, ncores
         )
     else:
         resmap, posres, nres = phaseresiduesStack(stack_array, threshold)
     yres, xres = posres
+    print("→ residue map done.", flush=True)
 
-    # display the residues
-    plt.close("all")
-    plt.ion()
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.imshow(stack_array[0], cmap="bone")
-    # plt.imshow(resmap, cmap="jet")
-    ax.axis("tight")
-    ax.plot(xres, yres, "or")
-    if isnotebook():
-        from IPython import display
-        display.display(fig)
-        plt.close(fig)
-    else:
-        plt.show(block=False)
-
-    # choosing the are for the unwrapping
-    while True:
+    # warn about projections with too many residues
+    wrong = np.where(np.array(nres) > threshold)[0]
+    if len(wrong) > 0:
         print(
-            "The array dimensions are {} x {}".format(
-                stack_array[0].shape[0], stack_array[0].shape[1]
-            )
+            "The following projections exceed the residue threshold: {}".format(wrong)
         )
-        print("Please, choose an area for the unwrapping:")
-        # while loops in each question to avoid mistapying problems
-        while True:
-            deltax = eval(input("From edge of region to edge of image in x: "))
-            if isinstance(deltax, int):
-                rx = range(deltax, stack_array.shape[2] - deltax)
-                break
-            else:
-                print("Wrong typing. Try it again.")
-        while True:
-            ry = eval(input("Range in y (top, bottom): "))
-            if isinstance(ry, tuple):
-                ry = range(ry[0], ry[-1])
-                break
-            else:
-                print("Wrong typing. Try it again.")
-        while True:
-            airpix = eval(input("Pixel in air (x,y) or (col,row): "))
-            if isinstance(airpix, tuple):
-                # check if air pixel is inside the image
-                if (
-                    airpix[0] < rx[0]
-                    or airpix[0] > rx[-1]
-                    or airpix[1] < ry[0]
-                    or airpix[1] > ry[-1]
-                ):
-                    print("Pixel of air is outside of region of unwrapping")
-                    print("Wrong typing. Try it again.")
-                else:
-                    break
-            else:
-                print("Wrong typing. Try it again.")
 
-        # couting residues
-        num_residues = int(np.round(resmap[ry[0] : ry[-1], rx[0] : rx[-1]].sum()))
-        print("Chosen region contains {} residues in total".format(num_residues))
+    # ---- interactive picker ----
+    plt.close("all")
+    picker = _RegionPicker(stack_array, resmap, xres, yres)
 
-        # update images with boudaries
-        # ax1 = _plotdelimiters(ax1, ry, rx, airpix) # TODO: fixme
+    if isnotebook():
+        try:
+            import matplotlib as _mpl
+            _interactive = "inline" not in _mpl.get_backend().lower()
+        except Exception:
+            _interactive = False
 
-        fig = plt.figure(2)
-        plt.clf()
-        ax1 = fig.add_subplot(111)
-        im1 = ax1.imshow(stack_array[0], cmap="bone")
-        ax1.plot(xres, yres, "or")
-        ax1.axis("tight")
-        # plt.show(block=False)
-        ax1.plot([rx[0], rx[-1]], [ry[0], ry[0]], "b")
-        ax1.plot([rx[0], rx[-1]], [ry[-1], ry[-1]], "b-")
-        ax1.plot([rx[0], rx[0]], [ry[0], ry[-1]], "b-")
-        ax1.plot([rx[-1], rx[-1]], [ry[0], ry[-1]], "b-")
-        if airpix != []:
-            ax1.plot(airpix[0], airpix[1], "ob")
-        ax1.set_title("First projection with boundaries")
-        if isnotebook():
-            display.display(fig)
-            plt.close(fig)
-        else:
+        if _interactive:
             plt.show(block=False)
-
-        ans = input("Are you happy with the boundaries?([y]/n)").lower()
-        if str(ans) == "" or str(ans) == "y":
-            plt.close("all")
-            break
-
-    return rx, ry, airpix
+            picker.fig.canvas.draw()
+            print(
+                "\nJupyter two-cell workflow:\n"
+                "  Interact with the figure above (3 clicks + Confirm),\n"
+                "  then run in the NEXT cell:\n"
+                "      rx, ry, airpix = picker.rx, picker.ry, picker.airpix",
+                flush=True,
+            )
+        else:
+            import warnings
+            from IPython import display as _ipy_display
+            _ipy_display.display(picker.fig)
+            warnings.warn(
+                "Interactive region picking requires a non-inline backend.\n"
+                "Add  %matplotlib widget  as the first notebook cell\n"
+                "and run  pip install ipympl  once, then restart the kernel.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return picker
+    else:
+        plt.show(block=True)   # blocks until Confirm closes the figure
+        return picker.rx, picker.ry, picker.airpix
 
 
 # ---------------------------------------------------------------------------
