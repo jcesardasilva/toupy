@@ -269,20 +269,43 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
         a_work = a_work * p_iter
         p_total = p_total * p_iter
 
-    # Optional global phase offset so that the mean air phase is zero.
-    # Uses the circular mean of unit phasors (rotation-invariant, matches
-    # rmlinearphase) rather than the median of scalar angles.
+    # Optional global phase offset so that the air phase is zero.
+    #
+    # Strategy: find the offset from the MODE of the interior phase histogram.
+    # Air pixels all share the same (nearly constant) phase after ramp removal
+    # → they form a sharp dominant peak in the histogram.  Object and artefact
+    # pixels have diverse phases → spread broadly across all bins.  The peak
+    # is the air offset regardless of amplitude contrast or Otsu accuracy, and
+    # it works even when air covers less than 50 % of the interior (because the
+    # peak count per bin beats the per-bin object count).  The histogram is
+    # smoothed with a circular (wrap-around) boxcar to handle the ±π boundary.
     if zero_air_phase:
-        if air_mask_for_offset is None:
-            # Detect air from the corrected amplitude via Otsu on interior
-            amp_corr = np.abs(a_work)
-            thresh = _otsu_threshold(amp_corr[interior])
-            air_mask_for_offset = (amp_corr > thresh) & interior
-        ph_air = a_work[air_mask_for_offset]
-        ph_air = ph_air / np.abs(ph_air)          # unit phasors
-        mean_phasor = ph_air.mean()
-        mean_phasor /= np.abs(mean_phasor)        # normalise to unit circle
-        offset = mean_phasor.conj()               # rotate so mean → 1 (phase=0)
+        phase_int = np.angle(a_work)[interior]
+        n_bins = 512
+        bin_width = 2.0 * np.pi / n_bins
+        hist, edges = np.histogram(phase_int, bins=n_bins, range=(-np.pi, np.pi))
+        centers = (edges[:-1] + edges[1:]) * 0.5
+        # Step 1: smooth with a circular (wrap-around) boxcar to suppress
+        # isolated noise spikes and locate the approximate peak region.
+        sw = 9
+        padded = np.concatenate([hist[-sw // 2:], hist, hist[:sw // 2]])
+        smoothed = np.convolve(padded, np.ones(sw) / sw, mode='valid')
+        pk_approx = int(np.argmax(smoothed))
+        # Step 2: refine — find the bin with the highest RAW count within
+        # ±sw of the smoothed peak.  Parabolic interpolation on the raw
+        # histogram gives sub-bin precision even when the smoothed peak is
+        # flat-topped (e.g. when air pixels all share the exact same phase).
+        lo = max(0, pk_approx - sw)
+        hi = min(n_bins, pk_approx + sw + 1)
+        pk = lo + int(np.argmax(hist[lo:hi]))
+        if 0 < pk < n_bins - 1:
+            dl, dc, dr = float(hist[pk - 1]), float(hist[pk]), float(hist[pk + 1])
+            denom = dl - 2.0 * dc + dr
+            frac = 0.5 * (dl - dr) / denom if abs(denom) > 1e-12 else 0.0
+            peak_phase = float(centers[pk]) + frac * bin_width
+        else:
+            peak_phase = float(centers[pk])
+        offset = np.exp(-1j * peak_phase)
         a_work = a_work * offset
         p_total = p_total * offset
 
