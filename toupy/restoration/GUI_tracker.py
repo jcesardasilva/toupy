@@ -826,8 +826,10 @@ class _MaskPainter:
     Attributes
     ----------
     mask : ndarray of bool, shape (ny, nx)
-        Boolean mask produced when the user clicks **Done — store mask**.
-        All-False until the button is clicked.
+        Cumulative boolean mask built by OR-ing every region added with
+        **Add region**.  All-False until at least one region is added.
+    n_regions : int
+        Number of polygon regions added so far.
     """
 
     def __init__(self, image, cmap="gray", vmin=None, vmax=None,
@@ -836,7 +838,9 @@ class _MaskPainter:
         ny, nx = self.image.shape[:2]
         self._ny, self._nx = ny, nx
         self.mask = np.zeros((ny, nx), dtype=bool)
+        self.n_regions = 0
         self._poly_verts = []
+        self._selector = None
 
         fig, ax = plt.subplots(figsize=figsize)
         self.fig = fig
@@ -846,50 +850,119 @@ class _MaskPainter:
         ax.axis("tight")
         fig.text(
             0.5, 0.99,
-            "Left-click: add vertex  |  Click first vertex or press Enter: "
-            "close polygon  |  then click Done",
+            "Left-click: add vertex  |  Click first vertex or Enter: close"
+            "  |  'Add region' to store  |  'Finish' when done",
             ha="center", va="top", fontsize=9, color="0.4",
         )
 
-        _props = dict(color="r", linewidth=1.5, alpha=0.8)
-        try:
-            self._selector = PolygonSelector(ax, self._on_poly, props=_props)
-        except TypeError:                           # matplotlib < 3.5
-            self._selector = PolygonSelector(ax, self._on_poly,
-                                             lineprops=_props)
+        self._attach_selector()
 
-        # "Done" button — stored on self so it is not garbage-collected
-        ax_done = fig.add_axes([0.35, 0.01, 0.3, 0.05])
-        self._btn = Button(ax_done, "Done — store mask")
-        self._btn.on_clicked(self._on_done)
+        # Two buttons — stored on self to prevent GC
+        ax_add    = fig.add_axes([0.25, 0.01, 0.25, 0.055])
+        ax_finish = fig.add_axes([0.55, 0.01, 0.2,  0.055])
+        self._btn_add    = Button(ax_add,    "Add region")
+        self._btn_finish = Button(ax_finish, "Finish")
+        self._btn_add.on_clicked(self._on_add)
+        self._btn_finish.on_clicked(self._on_finish)
 
-        # Force a synchronous draw so the figure is fully populated before
-        # plt.show() or display() hands control back to the user.
+        # Synchronous draw so the figure is fully rendered before returning
         fig.canvas.draw()
 
     # ------------------------------------------------------------------
+    def _attach_selector(self):
+        """Create (or recreate) a fresh PolygonSelector on the image axes."""
+        if self._selector is not None:
+            try:
+                self._selector.disconnect_events()
+            except Exception:
+                pass
+        _props = dict(color="r", linewidth=1.5, alpha=0.8)
+        try:
+            self._selector = PolygonSelector(
+                self.ax, self._on_poly, props=_props)
+        except TypeError:                           # matplotlib < 3.5
+            self._selector = PolygonSelector(
+                self.ax, self._on_poly, lineprops=_props)
+
+    # ------------------------------------------------------------------
     def _on_poly(self, verts):
-        """Called when the polygon is closed."""
+        """Called by PolygonSelector when the polygon is closed."""
         self._poly_verts = list(verts)
         print(
-            "Polygon with {} vertices recorded — click 'Done — store mask'.".format(
-                len(verts)),
+            "Polygon with {} vertices ready — "
+            "click 'Add region' to include it in the mask.".format(len(verts)),
             flush=True,
         )
 
     # ------------------------------------------------------------------
-    def _on_done(self, event):
-        """Rasterise the polygon and store the mask."""
+    def _rasterise(self):
+        """Return a boolean mask for the current polygon (internal helper)."""
         if len(self._poly_verts) < 3:
-            print("No polygon drawn yet — draw one first.", flush=True)
-            return
+            return None
         x, y = np.meshgrid(np.arange(self._nx), np.arange(self._ny))
         pts  = np.vstack((x.ravel(), y.ravel())).T
         path = mplPath.Path(self._poly_verts)
-        self.mask = path.contains_points(pts).reshape(self._ny, self._nx)
+        return path.contains_points(pts).reshape(self._ny, self._nx)
+
+    # ------------------------------------------------------------------
+    def _on_add(self, event):
+        """
+        Add the current polygon to the cumulative mask.
+
+        Overlays a permanent red outline on the image so already-added
+        regions remain visible, then resets the selector for the next
+        polygon.
+        """
+        if len(self._poly_verts) < 3:
+            print("No polygon drawn yet — draw one first.", flush=True)
+            return
+        region = self._rasterise()
+        self.mask |= region
+        self.n_regions += 1
+        # Permanent outline of the just-added region
+        xs = [v[0] for v in self._poly_verts] + [self._poly_verts[0][0]]
+        ys = [v[1] for v in self._poly_verts] + [self._poly_verts[0][1]]
+        self.ax.add_line(plt.Line2D(xs, ys, color="r", linewidth=1.5,
+                                    linestyle="--"))
+        self.ax.figure.canvas.draw_idle()
         print(
-            "Mask stored: {} pixels selected.  "
-            "Access it via  painter.mask".format(int(self.mask.sum())),
+            "Region {} added: {} px.  "
+            "Total mask: {} px.  "
+            "Draw the next region or click 'Finish'.".format(
+                self.n_regions, int(region.sum()), int(self.mask.sum())),
+            flush=True,
+        )
+        # Reset for the next polygon
+        self._poly_verts = []
+        self._attach_selector()
+
+    # ------------------------------------------------------------------
+    def _on_finish(self, event):
+        """
+        Finalise the mask and close the figure.
+
+        If a polygon has been drawn but not yet added (i.e. the user forgot
+        to click **Add region**), it is added automatically before closing.
+        """
+        if len(self._poly_verts) >= 3:
+            # Auto-add any pending polygon
+            region = self._rasterise()
+            self.mask |= region
+            self.n_regions += 1
+            print(
+                "Auto-added pending region {}: {} px.".format(
+                    self.n_regions, int(region.sum())),
+                flush=True,
+            )
+        if self._selector is not None:
+            try:
+                self._selector.disconnect_events()
+            except Exception:
+                pass
+        print(
+            "Mask finalised: {} region(s), {} pixels total.  "
+            "Access it via  painter.mask".format(
+                self.n_regions, int(self.mask.sum())),
             flush=True,
         )
         plt.close(self.fig)
@@ -897,24 +970,35 @@ class _MaskPainter:
 
 def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
     """
-    Interactively draw a polygon on *image* and return a boolean mask.
+    Interactively draw one or more polygon regions on *image* and return
+    a cumulative boolean mask.
 
-    Opens a figure showing *image* with a :class:`PolygonSelector` and a
-    **Done — store mask** button.  Draw the polygon (left-click to add
-    vertices, click the first vertex again or press **Enter** to close),
-    then click the button to rasterise it.
+    Opens a figure with the image and two buttons:
+
+    * **Add region** — rasterises the current polygon and OR's it into
+      the mask; a permanent dashed outline marks the added region;
+      a fresh selector is attached so you can draw the next one.
+    * **Finish** — closes the figure (any unsaved polygon is added
+      automatically).
+
+    Draw each polygon by left-clicking vertices and closing it by clicking
+    the first vertex again or pressing **Enter**.
 
     This is the lightweight notebook alternative to the full
-    :func:`gui_plotphase` / :func:`gui_plotamp` GUI, which is better
-    suited to terminal use.  ``make_air_mask`` works with:
+    :func:`gui_plotphase` / :func:`gui_plotamp` GUI (which is better
+    suited to terminal use).
 
-    * **Terminal / IPython** — blocks at ``plt.show(block=True)``; mask
-      is ready as soon as the figure closes.
-    * **Jupyter** ``%matplotlib notebook`` (NbAgg, built-in, no extra
-      package) or ``%matplotlib widget`` (ipympl) — non-blocking; access
-      the mask in the **next** cell.
-    * **Jupyter** ``%matplotlib inline`` — not interactive; a
-      :class:`UserWarning` is raised and a static preview is shown.
+    Backend requirements
+    --------------------
+    * **Terminal / IPython** — works with any backend; blocks until the
+      figure is closed.
+    * **JupyterLab** — requires ``%matplotlib widget``
+      (``pip install ipympl``).  Put it as the first cell of your
+      notebook and restart the kernel.
+    * **Classic Jupyter Notebook** — ``%matplotlib widget`` (preferred)
+      or ``%matplotlib notebook`` (built-in, no install).
+    * **``%matplotlib inline``** — not interactive; a
+      :class:`UserWarning` explains how to switch.
 
     Parameters
     ----------
@@ -931,33 +1015,31 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
     -------
     painter : _MaskPainter
         Object whose ``.mask`` attribute (``ndarray`` of bool, shape
-        ``(ny, nx)``) holds the rasterised polygon after the **Done**
-        button has been clicked.
+        ``(ny, nx)``) is the union of all added regions.
+        ``.n_regions`` counts how many polygons were added.
 
     Examples
     --------
     **Terminal / IPython**::
 
-        from toupy.restoration import make_air_mask
-        from toupy.restoration import rmphaseramp
+        from toupy.restoration import make_air_mask, rmphaseramp
         import numpy as np
 
         painter = make_air_mask(stack[0], vmin=-1.6, vmax=1.6)
-        # ← figure blocks here; draw polygon and click Done
+        # ← draw as many regions as needed, click 'Finish' when done
         air_mask = painter.mask.copy()
 
-        # Apply to every projection
         corrected = np.stack([
             np.angle(rmphaseramp(np.exp(1j * proj),
                                  weight=air_mask, zero_air_phase=True))
             for proj in stack
         ])
 
-    **Jupyter notebook** (``%matplotlib notebook`` or ``%matplotlib widget``
-    at the top of the notebook)::
+    **JupyterLab** (first cell: ``%matplotlib widget``,
+    ``pip install ipympl`` once)::
 
         painter = make_air_mask(stack[0], vmin=-1.6, vmax=1.6)
-        # ← draw polygon in the figure above, click Done
+        # ← draw regions, click 'Finish'
 
         # ── next cell ──
         air_mask = painter.mask.copy()
@@ -969,29 +1051,26 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
         if _is_interactive_notebook():
             plt.show(block=False)
             print(
-                "Draw the polygon on the image above, close it "
-                "(click first vertex or press Enter),\n"
-                "then click 'Done — store mask'.\n"
+                "Draw a polygon region, close it (click first vertex or Enter),\n"
+                "click 'Add region' — repeat for every region you need.\n"
+                "Click 'Finish' when done.\n"
                 "Access the result in the next cell via:\n"
                 "    air_mask = painter.mask.copy()",
                 flush=True,
             )
         else:
-            # Static inline backend — interaction is impossible.
-            # Show a preview and guide the user to switch backend.
             from IPython import display as ipy_display
             ipy_display.display(painter.fig)
             warnings.warn(
                 "Interactive mask drawing requires a non-inline backend.\n"
-                "Add one of the following at the top of your notebook "
-                "and restart the kernel:\n"
-                "    %matplotlib notebook   # built-in, no extra package\n"
-                "    %matplotlib widget     # requires ipympl",
+                "For JupyterLab add  %matplotlib widget  as the first cell\n"
+                "and run  pip install ipympl  once, then restart the kernel.\n"
+                "For classic Jupyter Notebook you can also use "
+                "%matplotlib notebook  (no install needed).",
                 UserWarning,
                 stacklevel=2,
             )
     else:
-        # Terminal / IPython: block until Done closes the figure.
         plt.show(block=True)
 
     return painter
