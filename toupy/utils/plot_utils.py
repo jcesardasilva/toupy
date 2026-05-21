@@ -773,13 +773,14 @@ class RegisterPlot:
             self.ax42 = ax_array[6]
 
             # In %matplotlib widget, plt.figure() already auto-displays each
-            # figure in the cell output.  Calling display.display() again
-            # would create a duplicate widget entry and make figures appear
-            # twice (and oversized).  draw_idle() + plt.pause() is correct
-            # for all backends: terminal, inline, and widget.
+            # figure in the cell output.  draw_idle() schedules a redraw on
+            # all backends.  plt.pause() must NOT be called in notebook mode:
+            # it internally calls show(block=False) which re-displays the
+            # active figure (fig4) as a new widget output every iteration.
             for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
                 fig.canvas.draw_idle()
-            plt.pause(0.001)
+            if not isnotebook():
+                plt.pause(0.001)
         else:
             self.updatevertical()
 
@@ -831,10 +832,13 @@ class RegisterPlot:
         self.ax42.autoscale_view()
         self.ax42.set_title("Error metric — iter {}".format(self.count))
 
-        # Flush all four canvases in one pass
+        # Flush all four canvases in one pass.
+        # plt.pause() is skipped in notebook mode: it calls show(block=False)
+        # which re-displays the active figure as a new widget each iteration.
         for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
             fig.canvas.draw_idle()
-        plt.pause(0.001)
+        if not isnotebook():
+            plt.pause(0.001)
 
     @interativesession
     def plotshorizontal(
@@ -887,12 +891,14 @@ class RegisterPlot:
             self.ax32 = ax_array[5]
 
             # In %matplotlib widget, plt.figure() already auto-displays the
-            # figure in the cell output.  Calling display.display() again would
-            # create a duplicate widget entry (causing the "huge first figure"
-            # problem).  draw_idle() flushes pending redraws on all backends.
+            # figure in the cell output.  draw_idle() schedules a redraw on
+            # all backends.  plt.pause() must NOT be called in notebook mode:
+            # it internally calls show(block=False) which re-displays the
+            # active figure as a new widget output every iteration.
             for fig in (self.fig1, self.fig2, self.fig3):
                 fig.canvas.draw_idle()
-            plt.pause(0.001)
+            if not isnotebook():
+                plt.pause(0.001)
         else:
             self.updatehorizontal()
 
@@ -942,11 +948,14 @@ class RegisterPlot:
         self.ax32.autoscale_view()
         self.ax32.set_title("Error metric — iter {}".format(self.count))
 
-        # Flush all three canvases in one pass
+        # Flush all three canvases in one pass.
+        # plt.pause() is skipped in notebook mode: it calls show(block=False)
+        # which re-displays the active figure as a new widget each iteration.
         self.fig1.canvas.draw_idle()
         self.fig2.canvas.draw_idle()
         self.fig3.canvas.draw_idle()
-        plt.pause(0.001)
+        if not isnotebook():
+            plt.pause(0.001)
 
 
 @interativesession
