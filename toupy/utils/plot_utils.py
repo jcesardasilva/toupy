@@ -734,9 +734,10 @@ class RegisterPlot:
         # else:
         #     figsize = (6, np.round(6 * nr / nc))
 
-        if self.count == 0:
-            # Create all four figures once and store every artist reference.
-            # Single path for both terminal and %matplotlib widget.
+        if not hasattr(self, 'fig1'):
+            # First ever call — create all four figures and store artist refs.
+            # Do NOT test count==0: _alignprojections_vertical increments
+            # count to 1 before the first call, so count==0 never fires.
             fig_array, im_array, ax_array = _createcanvasvertical(
                 self.proj,
                 self.lims,
@@ -771,14 +772,13 @@ class RegisterPlot:
             self.ax41 = ax_array[5]
             self.ax42 = ax_array[6]
 
-            if isnotebook():
-                display.display(self.fig1)
-                display.display(self.fig2)
-                display.display(self.fig3)
-                display.display(self.fig4)
-            else:
-                for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
-                    fig.canvas.draw_idle()
+            # In %matplotlib widget, plt.figure() already auto-displays each
+            # figure in the cell output.  Calling display.display() again
+            # would create a duplicate widget entry and make figures appear
+            # twice (and oversized).  draw_idle() + plt.pause() is correct
+            # for all backends: terminal, inline, and widget.
+            for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
+                fig.canvas.draw_idle()
             plt.pause(0.001)
         else:
             self.updatevertical()
@@ -851,9 +851,13 @@ class RegisterPlot:
         self.metric_error = metric_error
         self.count = count
 
-        if self.count == 0:
-            # Create all three figures once and store every artist reference.
-            # This single path works for both terminal and %matplotlib widget.
+        if not hasattr(self, 'fig1'):
+            # First ever call — create all three figures and store artist refs.
+            # Do NOT test count==0: _alignprojections_horizontal increments
+            # count to 1 before the first plotshorizontal call, so count==0
+            # never fires inside the loop.  When multiresolution=True the
+            # coarse warm-start phase calls this before the outer count=0
+            # setup call, compounding the problem.
             fig_array, im_array, ax_array = _createcanvashorizontal(
                 self.recons,
                 self.sinoorig,
@@ -882,17 +886,12 @@ class RegisterPlot:
             self.ax31 = ax_array[4]
             self.ax32 = ax_array[5]
 
-            if isnotebook():
-                # Embed all three figures as interactive widgets in the cell output.
-                # Subsequent iterations update the data in-place; the widgets
-                # refresh without spawning new outputs.
-                display.display(self.fig1)
-                display.display(self.fig2)
-                display.display(self.fig3)
-            else:
-                self.fig1.canvas.draw_idle()
-                self.fig2.canvas.draw_idle()
-                self.fig3.canvas.draw_idle()
+            # In %matplotlib widget, plt.figure() already auto-displays the
+            # figure in the cell output.  Calling display.display() again would
+            # create a duplicate widget entry (causing the "huge first figure"
+            # problem).  draw_idle() flushes pending redraws on all backends.
+            for fig in (self.fig1, self.fig2, self.fig3):
+                fig.canvas.draw_idle()
             plt.pause(0.001)
         else:
             self.updatehorizontal()
