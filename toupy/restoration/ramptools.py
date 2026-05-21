@@ -114,6 +114,11 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
     """
     Remove the linear phase ramp from a complex ptychographic image.
 
+    This is the single entry point for all phase-ramp correction tasks,
+    including the role previously filled by :func:`rmlinearphase`.  Pass a
+    boolean mask as ``weight`` together with ``zero_air_phase=True`` to
+    replicate the old ``rmlinearphase(image, mask=mask)`` call exactly.
+
     Parameters
     ----------
     a : array_like
@@ -121,76 +126,106 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
     weight : {None, 'median', 'abs', 'auto'} or array_like, optional
         Strategy for estimating the ramp slope.
 
-        ``None``
-            Unweighted — uses the **median** phase gradient across all
-            pixels.  Robust to object contamination as long as air covers
-            more than 50 % of the image (replaces the old biased mean).
-
-        ``'median'``
-            Explicit alias for ``None``.
+        ``None`` / ``'median'``
+            Global **median** phase gradient.  Robust to object
+            contamination as long as air covers more than 50 % of the
+            image.
 
         ``'abs'``
-            Modulus-weighted mean gradient (original behaviour).
+            Amplitude-weighted mean gradient (original Ptypy behaviour).
 
         ``'auto'``
             Automatically detect the air region from the amplitude image
             using Otsu thresholding (air = high amplitude).  Reliable even
-            when the air region is very small, provided the amplitude
-            contrast between air and object is detectable.
+            when the air region is small, provided amplitude contrast
+            between air and object is detectable.
 
-        array_like
-            Custom weight array (same shape as ``a``).
+        array_like (boolean or float)
+            **Custom mask / weight array** (same shape as ``a``).  A
+            boolean or 0/1 integer array is treated as a binary air mask:
+            ramp slope is estimated via the median within the mask, and
+            ``zero_air_phase=True`` uses the circular mean over those
+            pixels to zero the air phase.  A continuous float array uses a
+            modulus-weighted mean instead.
+
+            *Replacing* :func:`rmlinearphase` *with a mask*:
+            ``rmlinearphase(image, mask=mask)``
+            → ``rmphaseramp(image, weight=mask, zero_air_phase=True)``
 
     return_phaseramp : bool, optional
-        If ``True``, also return the ramp phasor ``p``.  Default ``False``.
+        If ``True``, also return the total correction phasor ``p``.
+        Default ``False``.
     n_iter : int, optional
-        Number of self-consistent refinement iterations.  After the first
-        correction, pixels whose corrected phase is close to zero are
-        identified as air and used to refine the ramp estimate.  Useful
-        when the initial estimate is coarse (e.g. ``weight=None`` with a
-        large object).  Default ``1`` (single pass, no refinement).
+        Number of self-consistent refinement iterations.  Only active
+        when ``weight`` is ``None`` / ``'median'`` (no prior mask
+        supplied).  After the first correction, pixels whose corrected
+        phase is close to zero are identified as air and used to refine
+        the ramp estimate.  Default ``1`` (single pass, no refinement).
     zero_air_phase : bool, optional
-        If ``True``, apply a global phase offset after ramp removal so that
-        the mean phase over the detected air/vacuum region is exactly zero.
-        The air region is determined automatically:
+        If ``True``, apply a global phase offset after ramp removal so
+        that the mean phase over the air/vacuum region is exactly zero.
 
-        * ``weight='auto'`` or a custom binary mask — the already-computed
-          mask is reused (no extra cost).
-        * All other cases — Otsu thresholding is applied to the corrected
-          amplitude to detect the air region.
+        The air phase offset is estimated by two strategies, chosen
+        automatically:
 
-        This is equivalent to what :func:`rmlinearphase` does when a mask
-        is supplied, but without requiring the user to draw or supply one.
+        * **Circular mean** (used when ``weight='auto'`` or a binary mask
+          is supplied): the already-computed air mask is reused.  Fast
+          and precise when the mask correctly identifies the air region.
+        * **Phase histogram mode** (fallback for ``weight=None/'median'/
+          'abs'``): finds the dominant peak in the interior phase
+          histogram via a two-step smoothed + raw argmax + parabolic
+          interpolation.  Robust even without an explicit mask, and
+          tolerant of bright reconstruction artefacts inside the image
+          border.
+
         Default ``False``.
     border : int, optional
-        Number of pixels to exclude from each edge before computing the
-        Otsu threshold, gradient estimation, and phase-offset correction.
-        In ptychography, scan positions at the image boundary often lack
-        proper overlap, producing strong noise artefacts that corrupt the
-        ramp estimate.  Setting ``border`` to the beam-diameter / scan-step
-        ratio (in pixels) removes these artefacts entirely.  Default ``0``
-        (no exclusion).
+        Number of pixels to exclude from each edge before computing
+        the Otsu threshold, gradient estimation, and phase-offset
+        correction.  In ptychography, scan positions at the image
+        boundary often lack proper overlap, producing strong noise
+        artefacts that corrupt the ramp estimate.  Set this to
+        approximately (beam diameter) / (scan step) pixels to remove
+        these artefacts entirely.  Default ``0`` (no exclusion).
 
     Returns
     -------
     out : ndarray, complex
-        Ramp-corrected image ``a * p``.
+        Ramp-corrected image.
     p : ndarray, complex
-        Ramp phasor (only when ``return_phaseramp=True``).
+        Total correction phasor (only returned when
+        ``return_phaseramp=True``).
 
     Notes
     -----
     Forked from Ptypy (https://github.com/ptycho/ptypy), ported to
     Python 3, and extended with robust estimation strategies.
 
+    :func:`rmlinearphase` is now a deprecated wrapper around this
+    function and will be removed in a future version.
+
     Examples
     --------
-    >>> b = rmphaseramp(image)
-    >>> b = rmphaseramp(image, weight='auto')
+    **Fully automatic (no mask needed):**
+
     >>> b = rmphaseramp(image, weight='auto', zero_air_phase=True)
-    >>> b = rmphaseramp(image, weight='auto', zero_air_phase=True, border=30)
-    >>> b, p = rmphaseramp(image, return_phaseramp=True)
-    >>> b = rmphaseramp(image, weight='auto', n_iter=3, zero_air_phase=True)
+
+    **With border exclusion (ptychography scan-boundary noise):**
+
+    >>> b = rmphaseramp(image, weight='auto', zero_air_phase=True, border=55)
+
+    **With a hand-drawn air mask (replaces rmlinearphase):**
+
+    >>> b = rmphaseramp(image, weight=air_mask, zero_air_phase=True)
+
+    **Also return the correction phasor:**
+
+    >>> b, p = rmphaseramp(image, weight='auto', zero_air_phase=True,
+    ...                    return_phaseramp=True)
+
+    **Iterative refinement (coarse initial estimate):**
+
+    >>> b = rmphaseramp(image, n_iter=3)
     """
     a = np.asarray(a)
 
@@ -271,40 +306,55 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
 
     # Optional global phase offset so that the air phase is zero.
     #
-    # Strategy: find the offset from the MODE of the interior phase histogram.
-    # Air pixels all share the same (nearly constant) phase after ramp removal
-    # → they form a sharp dominant peak in the histogram.  Object and artefact
-    # pixels have diverse phases → spread broadly across all bins.  The peak
-    # is the air offset regardless of amplitude contrast or Otsu accuracy, and
-    # it works even when air covers less than 50 % of the interior (because the
-    # peak count per bin beats the per-bin object count).  The histogram is
-    # smoothed with a circular (wrap-around) boxcar to handle the ±π boundary.
+    # Two strategies depending on whether a reliable air mask is available:
+    #
+    # A) Binary mask known (weight='auto' or custom binary array):
+    #    Circular mean of phasors over the mask pixels — wrap-safe and
+    #    precise.  The mask already identifies the air region, so no
+    #    further detection is needed.
+    #
+    # B) No mask (weight=None/'median'/'abs'):
+    #    Phase histogram mode over interior pixels.  Air pixels form a
+    #    sharp dominant peak; object and artefact pixels spread broadly.
+    #    The peak is located via a two-step smoothed-then-raw argmax with
+    #    parabolic sub-bin interpolation, using a circular (wrap-around)
+    #    boxcar to handle the ±π boundary.
     if zero_air_phase:
-        phase_int = np.angle(a_work)[interior]
-        n_bins = 512
-        bin_width = 2.0 * np.pi / n_bins
-        hist, edges = np.histogram(phase_int, bins=n_bins, range=(-np.pi, np.pi))
-        centers = (edges[:-1] + edges[1:]) * 0.5
-        # Step 1: smooth with a circular (wrap-around) boxcar to suppress
-        # isolated noise spikes and locate the approximate peak region.
-        sw = 9
-        padded = np.concatenate([hist[-sw // 2:], hist, hist[:sw // 2]])
-        smoothed = np.convolve(padded, np.ones(sw) / sw, mode='valid')
-        pk_approx = int(np.argmax(smoothed))
-        # Step 2: refine — find the bin with the highest RAW count within
-        # ±sw of the smoothed peak.  Parabolic interpolation on the raw
-        # histogram gives sub-bin precision even when the smoothed peak is
-        # flat-topped (e.g. when air pixels all share the exact same phase).
-        lo = max(0, pk_approx - sw)
-        hi = min(n_bins, pk_approx + sw + 1)
-        pk = lo + int(np.argmax(hist[lo:hi]))
-        if 0 < pk < n_bins - 1:
-            dl, dc, dr = float(hist[pk - 1]), float(hist[pk]), float(hist[pk + 1])
-            denom = dl - 2.0 * dc + dr
-            frac = 0.5 * (dl - dr) / denom if abs(denom) > 1e-12 else 0.0
-            peak_phase = float(centers[pk]) + frac * bin_width
+        if air_mask_for_offset is not None:
+            # --- Strategy A: circular mean over the known air mask ---
+            phases_air = np.angle(a_work[air_mask_for_offset])
+            peak_phase = float(np.angle(np.exp(1j * phases_air).mean()))
         else:
-            peak_phase = float(centers[pk])
+            # --- Strategy B: histogram mode over interior pixels ---
+            phase_int = np.angle(a_work)[interior]
+            n_bins = 512
+            bin_width = 2.0 * np.pi / n_bins
+            hist, edges = np.histogram(phase_int, bins=n_bins,
+                                       range=(-np.pi, np.pi))
+            centers = (edges[:-1] + edges[1:]) * 0.5
+            # Step 1: smooth with a circular (wrap-around) boxcar to
+            # suppress isolated noise spikes and locate the approximate
+            # peak region.
+            sw = 9
+            padded = np.concatenate([hist[-sw // 2:], hist, hist[:sw // 2]])
+            smoothed = np.convolve(padded, np.ones(sw) / sw, mode='valid')
+            pk_approx = int(np.argmax(smoothed))
+            # Step 2: refine — find the bin with the highest RAW count
+            # within ±sw of the smoothed peak.  Parabolic interpolation
+            # on the raw histogram gives sub-bin precision even when the
+            # smoothed peak is flat-topped.
+            lo = max(0, pk_approx - sw)
+            hi = min(n_bins, pk_approx + sw + 1)
+            pk = lo + int(np.argmax(hist[lo:hi]))
+            if 0 < pk < n_bins - 1:
+                dl = float(hist[pk - 1])
+                dc = float(hist[pk])
+                dr = float(hist[pk + 1])
+                denom = dl - 2.0 * dc + dr
+                frac = 0.5 * (dl - dr) / denom if abs(denom) > 1e-12 else 0.0
+                peak_phase = float(centers[pk]) + frac * bin_width
+            else:
+                peak_phase = float(centers[pk])
         offset = np.exp(-1j * peak_phase)
         a_work = a_work * offset
         p_total = p_total * offset
@@ -316,8 +366,22 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
 
 def rmlinearphase(image, mask=None, weight='auto'):
     """
-    Remove the linear phase ramp from a complex ptychographic image
-    using a flat-region (air/vacuum) mask.
+    .. deprecated::
+        Use :func:`rmphaseramp` instead — it covers all cases and has
+        additional features (``border``, ``n_iter``, ``return_phaseramp``).
+
+        Migration guide:
+
+        +-----------------------------------------+--------------------------------------------------+
+        | Old call                                | New equivalent                                   |
+        +=========================================+==================================================+
+        | ``rmlinearphase(image)``                | ``rmphaseramp(image, weight='auto')``            |
+        +-----------------------------------------+--------------------------------------------------+
+        | ``rmlinearphase(image, mask=mask)``     | ``rmphaseramp(image, weight=mask,                |
+        |                                         | zero_air_phase=True)``                           |
+        +-----------------------------------------+--------------------------------------------------+
+
+    Remove the linear phase ramp from a complex ptychographic image.
 
     Parameters
     ----------
@@ -325,52 +389,30 @@ def rmlinearphase(image, mask=None, weight='auto'):
         Input complex image.
     mask : array_like of bool, optional
         Boolean array marking the air/vacuum region (``True`` = air).
-        If ``None`` (default), the mask is generated automatically via
-        Otsu thresholding of the amplitude — equivalent to passing
-        ``weight='auto'`` to :func:`rmphaseramp`.
+        If ``None``, air is detected automatically via Otsu thresholding.
     weight : str, optional
-        Only used when ``mask=None``.  Passed as the ``weight`` argument
-        to :func:`rmphaseramp`.  Default ``'auto'``.
+        Only used when ``mask=None``.  Passed to :func:`rmphaseramp`.
+        Default ``'auto'``.
 
     Returns
     -------
     im_output : ndarray, complex
         Linear-ramp-corrected image.
-
-    Notes
-    -----
-    When ``mask`` is supplied the function behaves as before: the ramp
-    slope is estimated from the masked (air) pixels only, and the output
-    phase is further corrected so that the mean phase over the mask is
-    zero.  Passing ``mask=None`` is a convenience shortcut that delegates
-    to :func:`rmphaseramp` with automatic air detection.
     """
-    image = np.asarray(image)
-
+    import warnings
+    warnings.warn(
+        "rmlinearphase() is deprecated and will be removed in a future "
+        "version.  Use rmphaseramp() instead:\n"
+        "  rmlinearphase(image)           "
+        "→ rmphaseramp(image, weight='auto')\n"
+        "  rmlinearphase(image, mask=mask)"
+        "→ rmphaseramp(image, weight=mask, zero_air_phase=True)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if mask is None:
-        # Delegate to rmphaseramp with automatic air detection
         return rmphaseramp(image, weight=weight)
-
-    mask = np.asarray(mask, dtype=bool)
-
-    absval = np.abs(image)
-    ph = np.where(absval > 0, image / absval, np.ones_like(image))
-    ph_conj = ph.conj()
-    gx_c, gy_c = np.gradient(ph)
-    gx = np.imag(gx_c * ph_conj)
-    gy = np.imag(gy_c * ph_conj)
-
-    nrm = mask.sum()
-    agx = float((gx * mask).sum() / nrm)
-    agy = float((gy * mask).sum() / nrm)
-
-    xx, yy = np.ogrid[:image.shape[0], :image.shape[1]]
-    p = np.exp(-1j * (agx * xx + agy * yy))
-    ph_corr = ph * p
-    # Zero-mean phase over the air mask
-    ph_corr *= np.conj((ph_corr * mask).sum() / nrm)
-
-    return np.abs(image) * ph_corr
+    return rmphaseramp(image, weight=mask, zero_air_phase=True)
 
 
 def rmair(image, mask):
