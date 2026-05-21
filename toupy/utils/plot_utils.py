@@ -528,7 +528,7 @@ def _createcanvashorizontal(
     if isnotebook():
         display.display(fig1)
     else:
-        fig1.show()
+        fig1.canvas.draw_idle()
 
     # Display initial, current and synthetic sinograms
     fig2 = plt.figure(num=2, figsize=(6, 10))
@@ -555,7 +555,7 @@ def _createcanvashorizontal(
     if isnotebook():
         display.display(fig2)
     else:
-        fig2.show()
+        fig2.canvas.draw_idle()
 
     # Display deltaslice and metric_error
     fig3 = plt.figure(num=3)
@@ -572,7 +572,7 @@ def _createcanvashorizontal(
     if isnotebook():
         display.display(fig3)
     else:
-        fig3.show()
+        fig3.canvas.draw_idle()
 
     plt.pause(0.001)
 
@@ -637,7 +637,7 @@ def _createcanvasvertical(
     if isnotebook():
         display.display(fig1)
     else:
-        fig1.show()
+        fig1.canvas.draw_idle()
 
     # display vertical fluctuations as 2D images
     fig2 = plt.figure(num=2, figsize=figsize)
@@ -658,7 +658,7 @@ def _createcanvasvertical(
     if isnotebook():
         display.display(fig2)
     else:
-        fig2.show()
+        fig2.canvas.draw_idle()
 
     # display vertical fluctuations as plots
     fig3 = plt.figure(num=3)#, figsize=figsize)
@@ -683,7 +683,7 @@ def _createcanvasvertical(
     if isnotebook():
         display.display(fig3)
     else:
-        fig3.show()
+        fig3.canvas.draw_idle()
 
     # shifts
     fig4 = plt.figure(num=4)
@@ -701,7 +701,7 @@ def _createcanvasvertical(
     if isnotebook():
         display.display(fig4)
     else:
-        fig4.show()
+        fig4.canvas.draw_idle()
 
     plt.pause(0.001)
 
@@ -854,7 +854,7 @@ class RegisterPlot:
             ax22.set_xlabel("Projection")
             ax22.set_ylabel("y [pixels]")
             fig2.tight_layout()
-            fig2.show()
+            fig2.canvas.draw_idle()
             #display.display(fig2)
             #display.display(fig2.canvas)
             #display.clear_output(wait=False)
@@ -886,13 +886,13 @@ class RegisterPlot:
         ax32.set_xlabel("Vertical coordinates [pixels]")
         ax32.set_ylabel("y [pixels]")
         fig3.tight_layout()
-        fig3.show()
+        fig3.canvas.draw_idle()
         # if isnotebook():
 #             display.display(fig3)
 #             #display.display(fig3.canvas)
 #             #display.clear_output(wait=False)
 #         else:
-#             fig3.show()
+#             fig3.canvas.draw_idle()
 
         # shifts
         fig4 = plt.figure(num=4)
@@ -907,13 +907,13 @@ class RegisterPlot:
         ax42.axis("tight")
         ax42.set_title("Error metric")
         fig4.tight_layout()
-        fig4.show()
+        fig4.canvas.draw_idle()
         # if isnotebook():
 #             display.display(fig4)
 #             #display.display(fig4.canvas)
 #             #display.clear_output(wait=False)
 #         else:
-#             fig4.show()
+#             fig4.canvas.draw_idle()
 
         # TOCHECK: Find out why this does not work
         # ~ for lnum,line in enumerate(self.im32):
@@ -1034,7 +1034,7 @@ class RegisterPlot:
             ax11.set_xlabel("x [pixels]")
             ax11.set_ylabel("y [pixels]")
             fig1.tight_layout()
-            fig1.show()
+            fig1.canvas.draw_idle()
             #display.display(fig1)
             #display.display(fig1.canvas)
             
@@ -1060,7 +1060,7 @@ class RegisterPlot:
             ax23.set_xlabel("Projection")
             ax23.set_ylabel("x [pixels]")
             fig2.tight_layout()
-            fig2.show()
+            fig2.canvas.draw_idle()
             #display.display(fig2)
             #display.display(fig2.canvas)
             #display.clear_output(wait=True)
@@ -1086,13 +1086,13 @@ class RegisterPlot:
         ax32.axis("tight")
         ax32.set_title("Error metric")
         fig3.tight_layout()
-        fig3.show()
+        fig3.canvas.draw_idle()
         
         # if isnotebook():
 #             display.display(fig3)
 #             display.display(fig3.canvas)
 #         else:
-#             fig3.show()
+#             fig3.canvas.draw_idle()
 
         # ~ self.im31.set_ydata(deltaslice.T)
         # ~ self.im32.set_ydata(metric_error)
@@ -1165,7 +1165,7 @@ def iterative_show(
     if delimiters:
         ax1 = _plotdelimiters(ax1, limrow, limcol, airpixel)
     ax1.set_title("Projection: {}".format(1))
-    fig.show()
+    fig.canvas.draw_idle()
     plt.pause(0.001)
     for ii in range(nproj):
         print("Projection: {}".format(ii + 1), end="\r")
@@ -1176,7 +1176,7 @@ def iterative_show(
             display.clear_output(wait=True)
             display.display(fig)
         else:
-            fig.show()
+            fig.canvas.draw_idle()
         plt.pause(0.001)
 
 
@@ -1389,7 +1389,7 @@ class ShowProjections:
             # ~ norm = mpl.colors.Normalize(-np.pi,np.pi)
             # ~ cmap = mpl.cm.colors.hsv_to_rgb # TO BE FIXED
             # ~ fig.colorbar(im3,ax=ax3,cmap=mpl.cm.get_cmap('hsv'),norm=norm) # TO BE FIXED
-            self.fig.show()
+            self.fig.canvas.draw_idle()
             plt.pause(0.001)
         else:
             self.update_show()
@@ -1411,7 +1411,7 @@ class ShowProjections:
         self.im3.set_data(self.probergb)
         self.im3.set_interpolation(u"none")
         self.ax3.set_title("Probe (1st mode) - projection {}".format(self.idxp + 1))
-        self.fig.show()
+        self.fig.canvas.draw_idle()
         plt.pause(0.001)
 
     @staticmethod
@@ -1449,7 +1449,7 @@ def plot_checkangles(angles):
     ax2.set_ylabel("Angular spacing")
     ax2.axis("tight")
     plt.tight_layout()
-    fig.show()
+    fig.canvas.draw_idle()
 
 
 def show_linearphase(image, mask, *args):
