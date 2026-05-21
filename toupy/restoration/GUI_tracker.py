@@ -1007,18 +1007,35 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
 
     Opens a figure with the image and two buttons:
 
-    * **Add region** — rasterises the current polygon and OR's it into
-      the mask; a permanent dashed outline marks the added region;
-      a fresh selector is attached so you can draw the next one.
-    * **Finish** — closes the figure (any unsaved polygon is added
-      automatically).
+    * **Add region** — commits the current polygon to the mask; a
+      permanent dashed outline marks it; you can immediately draw the
+      next polygon.
+    * **Finish** — closes the figure (any in-progress polygon with ≥ 3
+      vertices is committed automatically).
 
-    Draw each polygon by left-clicking vertices and closing it by clicking
-    the first vertex again or pressing **Enter**.
+    Draw each polygon by **left-clicking** vertices directly on the image.
+    The polygon closes visually once you have ≥ 3 points.  Click
+    **Add region** to store it, then draw the next one.  No Enter key or
+    precise "click first vertex to close" is needed.
 
     This is the lightweight notebook alternative to the full
     :func:`gui_plotphase` / :func:`gui_plotamp` GUI (which is better
     suited to terminal use).
+
+    .. important::
+
+       **Jupyter notebook — two-cell workflow.**
+       ``make_air_mask`` returns *immediately* (non-blocking) so that the
+       figure widget can be displayed.  Do **not** put ``painter.mask``
+       access in the same cell — the cell will have finished executing
+       before you interact with the figure, and the mask will be empty.
+       Always use two separate cells::
+
+           # Cell 1 — show the figure and draw
+           painter = make_air_mask(stack[0], vmin=-1.6, vmax=1.6)
+
+           # Cell 2 — run AFTER clicking Finish in the figure above
+           air_mask = painter.mask.copy()
 
     Backend requirements
     --------------------
@@ -1052,14 +1069,13 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
 
     Examples
     --------
-    **Terminal / IPython**::
+    **Terminal / IPython** (single cell, blocks until Finish is clicked)::
 
         from toupy.restoration import make_air_mask, rmphaseramp
         import numpy as np
 
         painter = make_air_mask(stack[0], vmin=-1.6, vmax=1.6)
-        # ← draw as many regions as needed, click 'Finish' when done
-        air_mask = painter.mask.copy()
+        air_mask = painter.mask.copy()   # available immediately after return
 
         corrected = np.stack([
             np.angle(rmphaseramp(np.exp(1j * proj),
@@ -1067,13 +1083,13 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
             for proj in stack
         ])
 
-    **JupyterLab** (first cell: ``%matplotlib widget``,
-    ``pip install ipympl`` once)::
+    **JupyterLab** (``%matplotlib widget`` + ``pip install ipympl`` once,
+    **two separate cells**)::
 
+        # ── Cell 1 ── draw the mask (returns immediately)
         painter = make_air_mask(stack[0], vmin=-1.6, vmax=1.6)
-        # ← draw regions, click 'Finish'
 
-        # ── next cell ──
+        # ── Cell 2 ── run after clicking Finish in the figure above
         air_mask = painter.mask.copy()
     """
     painter = _MaskPainter(image, cmap=cmap, vmin=vmin, vmax=vmax,
@@ -1087,10 +1103,11 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
             # draw() before that raises AttributeError: 'NoneType'.refresh_all
             painter.fig.canvas.draw()
             print(
-                "Draw a polygon region, close it (click first vertex or Enter),\n"
-                "click 'Add region' — repeat for every region you need.\n"
+                "Left-click on the image to add vertices — polygon closes at 3+.\n"
+                "Click 'Add region' to store it, then draw the next one.\n"
                 "Click 'Finish' when done.\n"
-                "Access the result in the next cell via:\n"
+                "\n"
+                "IMPORTANT: access the mask in the NEXT cell (not this one):\n"
                 "    air_mask = painter.mask.copy()",
                 flush=True,
             )
