@@ -614,13 +614,6 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     yres, xres = posres
     print("→ residue map done.", flush=True)
 
-    # warn about projections with too many residues
-    wrong = np.where(np.array(nres) > threshold)[0]
-    if len(wrong) > 0:
-        print(
-            "The following projections exceed the residue threshold: {}".format(wrong)
-        )
-
     # ---- interactive picker ----
     plt.close("all")
     picker = _RegionPicker(stack_array, resmap, xres, yres)
