@@ -772,14 +772,20 @@ class RegisterPlot:
             self.ax41 = ax_array[5]
             self.ax42 = ax_array[6]
 
-            # In %matplotlib widget, plt.figure() already auto-displays each
-            # figure in the cell output.  draw_idle() schedules a redraw on
-            # all backends.  plt.pause() must NOT be called in notebook mode:
-            # it internally calls show(block=False) which re-displays the
-            # active figure (fig4) as a new widget output every iteration.
-            for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
-                fig.canvas.draw_idle()
-            if not isnotebook():
+            # Display each figure exactly once.
+            # In %matplotlib widget (ipympl), display.display(fig.canvas) embeds
+            # the widget in the current cell output AND sets canvas._shown=True.
+            # That flag prevents plt.show() / plt.pause() from re-displaying it
+            # in later iterations.  In terminal mode we use draw_idle()+pause()
+            # to pump the event loop so the windows actually appear.
+            if isnotebook():
+                display.display(self.fig1.canvas)
+                display.display(self.fig2.canvas)
+                display.display(self.fig3.canvas)
+                display.display(self.fig4.canvas)
+            else:
+                for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
+                    fig.canvas.draw_idle()
                 plt.pause(0.001)
         else:
             self.updatevertical()
@@ -832,12 +838,17 @@ class RegisterPlot:
         self.ax42.autoscale_view()
         self.ax42.set_title("Error metric — iter {}".format(self.count))
 
-        # Flush all four canvases in one pass.
-        # plt.pause() is skipped in notebook mode: it calls show(block=False)
-        # which re-displays the active figure as a new widget each iteration.
-        for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
-            fig.canvas.draw_idle()
-        if not isnotebook():
+        # Redraw all four canvases in one pass.
+        # In notebook mode: canvas.draw() is synchronous — it pushes the
+        # updated image to the browser immediately without spawning a new
+        # widget output (the figures were embedded once in the init branch).
+        # In terminal mode: draw_idle() + pause() pumps the GUI event loop.
+        if isnotebook():
+            for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
+                fig.canvas.draw()
+        else:
+            for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
+                fig.canvas.draw_idle()
             plt.pause(0.001)
 
     @interativesession
@@ -890,14 +901,19 @@ class RegisterPlot:
             self.ax31 = ax_array[4]
             self.ax32 = ax_array[5]
 
-            # In %matplotlib widget, plt.figure() already auto-displays the
-            # figure in the cell output.  draw_idle() schedules a redraw on
-            # all backends.  plt.pause() must NOT be called in notebook mode:
-            # it internally calls show(block=False) which re-displays the
-            # active figure as a new widget output every iteration.
-            for fig in (self.fig1, self.fig2, self.fig3):
-                fig.canvas.draw_idle()
-            if not isnotebook():
+            # Display each figure exactly once.
+            # In %matplotlib widget (ipympl), display.display(fig.canvas) embeds
+            # the widget in the current cell output AND sets canvas._shown=True.
+            # That flag prevents plt.show() / plt.pause() from re-displaying it
+            # in later iterations.  In terminal mode we use draw_idle()+pause()
+            # to pump the event loop so the windows actually appear.
+            if isnotebook():
+                display.display(self.fig1.canvas)
+                display.display(self.fig2.canvas)
+                display.display(self.fig3.canvas)
+            else:
+                for fig in (self.fig1, self.fig2, self.fig3):
+                    fig.canvas.draw_idle()
                 plt.pause(0.001)
         else:
             self.updatehorizontal()
@@ -948,13 +964,19 @@ class RegisterPlot:
         self.ax32.autoscale_view()
         self.ax32.set_title("Error metric — iter {}".format(self.count))
 
-        # Flush all three canvases in one pass.
-        # plt.pause() is skipped in notebook mode: it calls show(block=False)
-        # which re-displays the active figure as a new widget each iteration.
-        self.fig1.canvas.draw_idle()
-        self.fig2.canvas.draw_idle()
-        self.fig3.canvas.draw_idle()
-        if not isnotebook():
+        # Redraw all three canvases in one pass.
+        # In notebook mode: canvas.draw() is synchronous — it pushes the
+        # updated image to the browser immediately without spawning a new
+        # widget output (the figures were embedded once in the init branch).
+        # In terminal mode: draw_idle() + pause() pumps the GUI event loop.
+        if isnotebook():
+            self.fig1.canvas.draw()
+            self.fig2.canvas.draw()
+            self.fig3.canvas.draw()
+        else:
+            self.fig1.canvas.draw_idle()
+            self.fig2.canvas.draw_idle()
+            self.fig3.canvas.draw_idle()
             plt.pause(0.001)
 
 
