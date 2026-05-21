@@ -491,20 +491,26 @@ def _createcanvashorizontal(
     recons, sinoorig, sinocurr, sinocomp, deltaslice, metric_error, **params
 ):
     """
-    Create the initial matplotlib canvas for horizontal alignment plots.
+    Create the unified 6-panel figure for horizontal alignment diagnostics.
+
+    The figure is laid out as a 3 × 2 grid::
+
+        Row 0 (tall):   reconstructed slice  |  initial sinogram (fixed)
+        Row 1 (medium): shifts               |  synthetic sinogram
+        Row 2 (medium): error metric         |  current sinogram
 
     Parameters
     ----------
     recons : ndarray
         Current reconstructed slice.
     sinoorig : ndarray
-        Original (unaligned) sinogram.
+        Original (unaligned) sinogram — shown once, never updated.
     sinocurr : ndarray
         Current aligned sinogram.
     sinocomp : ndarray
         Synthetic sinogram computed from the reconstruction.
     deltaslice : ndarray
-        Current horizontal shift estimates.
+        Current horizontal shift estimates (already transposed by caller).
     metric_error : list of float
         Error metric history.
     **params
@@ -513,77 +519,111 @@ def _createcanvashorizontal(
 
     Returns
     -------
-    fig_array : list of Figure
-        Figures ``[fig1, fig2, fig3]``.
-    im_array : list
-        Image/line artist objects for later updates.
-    ax_array : list of Axes
-        Axes objects for later updates.
+    fig_main : Figure
+        Unified 6-panel diagnostic figure.
+    arts : dict
+        Named artist references for later in-place updates.
+    axd : dict
+        Named axes for later rescaling.
     """
     slicenum = params["slicenum"]
     cmax = params["sinohigh"]
     cmin = params["sinolow"]
 
-    # Display one reconstructed slice
-    if isnotebook(): fig1 = plt.figure(num=1,figsize=(12,5))
-    else: fig1 = plt.figure(num=1)
-    plt.clf()
-    ax11 = fig1.add_subplot(111)
-    im11 = ax11.imshow(recons, cmap="jet")
-    ax11.axis("image")
-    ax11.set_title("Initial slice number: {}".format(slicenum))
-    ax11.set_xlabel("x [pixels]")
-    ax11.set_ylabel("y [pixels]")
-    fig1.tight_layout()
+    fig_main = plt.figure(figsize=(12, 12))
+    gs = fig_main.add_gridspec(
+        3, 2, height_ratios=[3, 2, 2], hspace=0.45, wspace=0.3
+    )
 
-    # Display initial, current and synthetic sinograms
-    fig2 = plt.figure(num=2, figsize=(6, 10))
-    plt.clf()
-    ax21 = fig2.add_subplot(311)
-    im21 = ax21.imshow(sinoorig, cmap="bone", vmin=cmin, vmax=cmax)
-    ax21.axis("tight")
-    ax21.set_title("Initial sinogram")
-    ax21.set_xlabel("Projection")
-    ax21.set_ylabel("x [pixels]")
-    ax22 = fig2.add_subplot(312)
-    im22 = ax22.imshow(sinocurr, cmap="bone", vmin=cmin, vmax=cmax)
-    ax22.axis("tight")
-    ax22.set_title("Current sinogram")
-    ax22.set_xlabel("Projection")
-    ax22.set_ylabel("x [pixels]")
-    ax23 = fig2.add_subplot(313)
-    im23 = ax23.imshow(sinocomp, cmap="bone", vmin=cmin, vmax=cmax)
-    ax23.axis("tight")
-    ax23.set_title("Synthetic sinogram")
-    ax23.set_xlabel("Projection")
-    ax23.set_ylabel("x [pixels]")
-    fig2.tight_layout()
+    ax_recon     = fig_main.add_subplot(gs[0, 0])
+    ax_initsino  = fig_main.add_subplot(gs[0, 1])
+    ax_shifts    = fig_main.add_subplot(gs[1, 0])
+    ax_synthsino = fig_main.add_subplot(gs[1, 1])
+    ax_error     = fig_main.add_subplot(gs[2, 0])
+    ax_currsino  = fig_main.add_subplot(gs[2, 1])
 
-    # Display deltaslice and metric_error
-    fig3 = plt.figure(num=3)
-    plt.clf()
-    ax31 = fig3.add_subplot(211)
-    im31 = ax31.plot(deltaslice)
-    ax31.axis("tight")
-    ax31.set_title("Object position")
-    ax32 = fig3.add_subplot(212)
-    (im32,) = ax32.plot(metric_error, "bo-")
-    ax32.axis("tight")
-    ax32.set_title("Error metric — iter 0")
-    fig3.tight_layout()
+    # Reconstructed slice (updated each iteration)
+    im_recon = ax_recon.imshow(recons, cmap="jet", aspect="auto")
+    ax_recon.set_title("Reconstructed slice (slice {})".format(slicenum))
+    ax_recon.set_xlabel("x [pixels]")
+    ax_recon.set_ylabel("y [pixels]")
 
-    fig_array = [fig1, fig2, fig3]
-    im_array = [im11, im21, im22, im23, im31, im32]
-    ax_array = [ax11, ax21, ax22, ax23, ax31, ax32]
+    # Initial sinogram (fixed — never updated after iter 0)
+    im_initsino = ax_initsino.imshow(
+        sinoorig, cmap="bone", vmin=cmin, vmax=cmax, aspect="auto"
+    )
+    ax_initsino.set_title("Initial sinogram (fixed)")
+    ax_initsino.set_xlabel("Projection")
+    ax_initsino.set_ylabel("x [pixels]")
 
-    return (fig_array, im_array, ax_array)
+    # Shifts (updated each iteration)
+    im_shifts_lines = ax_shifts.plot(deltaslice)
+    ax_shifts.axis("tight")
+    ax_shifts.set_title("Object position (shifts)")
+    ax_shifts.set_xlabel("Projection")
+    ax_shifts.set_ylabel("Shift [pixels]")
+
+    # Synthetic sinogram (updated each iteration)
+    im_synthsino = ax_synthsino.imshow(
+        sinocomp, cmap="bone", vmin=cmin, vmax=cmax, aspect="auto"
+    )
+    ax_synthsino.set_title("Synthetic sinogram")
+    ax_synthsino.set_xlabel("Projection")
+    ax_synthsino.set_ylabel("x [pixels]")
+
+    # Error metric — grows one point per iteration
+    (im_error,) = ax_error.plot(metric_error, "bo-")
+    ax_error.axis("tight")
+    ax_error.set_title("Error metric")
+    ax_error.set_xlabel("Iteration")
+    ax_error.set_ylabel("Error")
+
+    # Current sinogram (updated each iteration)
+    im_currsino = ax_currsino.imshow(
+        sinocurr, cmap="bone", vmin=cmin, vmax=cmax, aspect="auto"
+    )
+    ax_currsino.set_title("Current sinogram")
+    ax_currsino.set_xlabel("Projection")
+    ax_currsino.set_ylabel("x [pixels]")
+
+    fig_main.suptitle(
+        "Horizontal alignment — Iter 0 | slice {}".format(slicenum), fontsize=13
+    )
+
+    arts = {
+        "im_recon":        im_recon,
+        "im_initsino":     im_initsino,
+        "im_shifts_lines": im_shifts_lines,
+        "im_synthsino":    im_synthsino,
+        "im_error":        im_error,
+        "im_currsino":     im_currsino,
+    }
+    axd = {
+        "recon":     ax_recon,
+        "initsino":  ax_initsino,
+        "shifts":    ax_shifts,
+        "synthsino": ax_synthsino,
+        "error":     ax_error,
+        "currsino":  ax_currsino,
+    }
+
+    return fig_main, arts, axd
 
 
 def _createcanvasvertical(
     proj, lims, vertfluctinit, vertfluctcurr, deltastack, metric_error, **params
 ):
     """
-    Create the initial matplotlib canvas for vertical alignment plots.
+    Create the static projection figure and unified 6-panel diagnostic figure
+    for vertical alignment.
+
+    The diagnostic figure uses :func:`~matplotlib.pyplot.subplot_mosaic` with
+    the following layout::
+
+        [ init2d  |  init2d ]   ← full-width: initial 2-D integral (fixed)
+        [ curr2d  |  curr2d ]   ← full-width: current 2-D integral (updated)
+        [ init1d  |  curr1d ]   ← initial 1-D profiles (fixed) | current (updated)
+        [ shifts  |  error  ]   ← shifts (updated) | error metric (updated)
 
     Parameters
     ----------
@@ -591,133 +631,168 @@ def _createcanvasvertical(
         First projection image (for the ROI overlay panel).
     lims : tuple of array_like
         ``(limrow, limcol)`` ROI limits.
-    vertfluctinit : ndarray, shape (n, n_rows_roi)
-        Initial vertical fluctuation signals.
-    vertfluctcurr : ndarray, shape (n, n_rows_roi)
-        Current vertical fluctuation signals.
-    deltastack : ndarray, shape (2, n)
-        Current shift estimates.
+    vertfluctinit : ndarray
+        Initial vertical fluctuation signals (already transposed by caller,
+        shape ``(n_rows_roi, n_projections)``).
+    vertfluctcurr : ndarray
+        Current vertical fluctuation signals (same shape, transposed).
+    deltastack : ndarray
+        Current shift estimates (already transposed by caller).
     metric_error : list of float
         Error metric history.
     **params
-        Additional display parameters (unused directly; forwarded for
-        consistency with ``plotsvertical``).
+        Additional display parameters (forwarded for API consistency).
 
     Returns
     -------
-    fig_array : list of Figure
-        Figures ``[fig1, fig2, fig3, fig4]``.
-    im_array : list
-        Image/line artist objects for later updates.
-    ax_array : list of Axes
-        Axes objects for later updates.
+    fig_proj : Figure
+        Small static figure showing the projection with the ROI overlay.
+        Displayed once at initialisation, never updated.
+    fig_main : Figure
+        Unified 6-panel diagnostic figure (updated each iteration).
+    arts : dict
+        Named artist references for later in-place updates.
+    axd : dict
+        Named axes (from ``subplot_mosaic``) for later rescaling.
     """
     limrow, limcol = lims
 
-    # figures display
-    nr, nc = vertfluctinit.shape  # for the image display
-    if nc > nr:
-        figsize = (np.round(6 * nc / nr), 6)
-    else:
-        figsize = (6, np.round(6 * nr / nc))
+    # ------------------------------------------------------------------ #
+    # fig_proj: projection + ROI overlay — shown once, never updated
+    # ------------------------------------------------------------------ #
+    fig_proj = plt.figure(figsize=(5, 4))
+    ax_proj = fig_proj.add_subplot(111)
+    im_proj = ax_proj.imshow(proj, cmap="bone")
+    ax_proj.set_title("Projection with ROI")
+    ax_proj.axis("image")
+    _plotdelimiters(ax_proj, limrow, limcol)
+    fig_proj.tight_layout()
 
-    # display one projection with limits
-    fig1 = plt.figure(num=1)
-    plt.clf()
-    ax11 = fig1.add_subplot(111)
-    im11 = ax11.imshow(proj, cmap="bone")
-    ax11.set_title("Projection")
-    ax11.axis("image")
-    ax11 = _plotdelimiters(ax11, limrow, limcol)
-    fig1.tight_layout()
+    # ------------------------------------------------------------------ #
+    # fig_main: unified 6-panel diagnostic figure
+    # ------------------------------------------------------------------ #
+    mosaic = [
+        ["init2d", "init2d"],   # full width: initial 2-D integral (fixed)
+        ["curr2d", "curr2d"],   # full width: current 2-D integral (updated)
+        ["init1d", "curr1d"],   # initial 1-D profiles | current 1-D profiles
+        ["shifts", "error"],    # shifts (updated) | error metric (updated)
+    ]
+    fig_main, axd = plt.subplot_mosaic(
+        mosaic,
+        figsize=(12, 14),
+        gridspec_kw={"height_ratios": [2, 2, 3, 3]},
+    )
 
-    # display vertical fluctuations as 2D images
-    fig2 = plt.figure(num=2, figsize=figsize)
-    plt.clf()
-    ax21 = fig2.add_subplot(211)
-    im21 = ax21.imshow(vertfluctinit, cmap="jet", interpolation="none")
-    ax21.axis("tight")
-    ax21.set_title("Initial Integral in x")
-    ax21.set_xlabel("Projection")
-    ax21.set_ylabel("y [pixels]")
-    ax22 = fig2.add_subplot(212)
-    im22 = ax22.imshow(vertfluctcurr, cmap="jet", interpolation="none")
-    ax22.axis("tight")
-    ax22.set_title("Current Integral in x")
-    ax22.set_xlabel("Projection")
-    ax22.set_ylabel("y [pixels]")
-    fig2.tight_layout()
+    # init2d: initial 2-D integral (fixed after iter 0)
+    im_init2d = axd["init2d"].imshow(
+        vertfluctinit, cmap="jet", interpolation="none", aspect="auto"
+    )
+    axd["init2d"].set_title("Initial Integral in x")
+    axd["init2d"].set_xlabel("Projection")
+    axd["init2d"].set_ylabel("y [pixels]")
 
-    # display vertical fluctuations as plots
-    fig3 = plt.figure(num=3)
-    plt.clf()
-    ax31 = fig3.add_subplot(211)
-    im31 = ax31.plot(vertfluctinit)
-    (im31a,) = ax31.plot(vertfluctinit.mean(axis=1), "r", linewidth=2.5)
-    (im31b,) = ax31.plot(vertfluctinit.mean(axis=1), "--w", linewidth=1.5)
-    ax31.axis("tight")
-    ax31.set_title("Initial Integral in x")
-    ax31.set_xlabel("Vertical coordinates [pixels]")
-    ax31.set_ylabel("y [pixels]")
-    ax32 = fig3.add_subplot(212)
-    im32 = ax32.plot(vertfluctcurr)
-    (im32a,) = ax32.plot(vertfluctcurr.mean(axis=1), "r", linewidth=2.5)
-    (im32b,) = ax32.plot(vertfluctcurr.mean(axis=1), "--w", linewidth=1.5)
-    ax32.axis("tight")
-    ax32.set_title("Current Integral in x — iter 0")
-    ax32.set_xlabel("Vertical coordinates [pixels]")
-    ax32.set_ylabel("y [pixels]")
-    fig3.tight_layout()
+    # curr2d: current 2-D integral (updated each iteration)
+    im_curr2d = axd["curr2d"].imshow(
+        vertfluctcurr, cmap="jet", interpolation="none", aspect="auto"
+    )
+    axd["curr2d"].set_title("Current Integral in x")
+    axd["curr2d"].set_xlabel("Projection")
+    axd["curr2d"].set_ylabel("y [pixels]")
 
-    # shifts and error metric
-    fig4 = plt.figure(num=4)
-    plt.clf()
-    ax41 = fig4.add_subplot(211)
-    im41 = ax41.plot(deltastack)
-    ax41.axis("tight")
-    ax41.set_title("Object position")
-    ax42 = fig4.add_subplot(212)
-    (im42,) = ax42.plot(metric_error, "bo-")
-    ax42.axis("tight")
-    ax42.set_title("Error metric — iter 0")
-    fig4.tight_layout()
+    # init1d: initial 1-D profiles per projection (fixed after iter 0)
+    im_init1d_lines = axd["init1d"].plot(vertfluctinit)
+    avg_init = vertfluctinit.mean(axis=1)
+    (im_init1d_avg,)  = axd["init1d"].plot(avg_init, "r",   linewidth=2.5)
+    (im_init1d_avg2,) = axd["init1d"].plot(avg_init, "--w", linewidth=1.5)
+    axd["init1d"].axis("tight")
+    axd["init1d"].set_title("Initial Integral in x (1D)")
+    axd["init1d"].set_xlabel("y [pixels]")
+    axd["init1d"].set_ylabel("Intensity")
 
-    fig_array = [fig1, fig2, fig3, fig4]
-    im_array = [im11, im21, im22, im31, im31a, im31b, im32, im32a, im32b, im41, im42]
-    ax_array = [ax11, ax21, ax22, ax31, ax32, ax41, ax42]
+    # curr1d: current 1-D profiles per projection (updated each iteration)
+    im_curr1d_lines = axd["curr1d"].plot(vertfluctcurr)
+    avg_curr = vertfluctcurr.mean(axis=1)
+    (im_curr1d_avg,)  = axd["curr1d"].plot(avg_curr, "r",   linewidth=2.5)
+    (im_curr1d_avg2,) = axd["curr1d"].plot(avg_curr, "--w", linewidth=1.5)
+    axd["curr1d"].axis("tight")
+    axd["curr1d"].set_title("Current Integral in x (1D)")
+    axd["curr1d"].set_xlabel("y [pixels]")
+    axd["curr1d"].set_ylabel("Intensity")
 
-    return (fig_array, im_array, ax_array)
+    # shifts: object position per projection (updated each iteration)
+    im_shifts_lines = axd["shifts"].plot(deltastack)
+    axd["shifts"].axis("tight")
+    axd["shifts"].set_title("Object position (shifts)")
+    axd["shifts"].set_xlabel("Projection")
+    axd["shifts"].set_ylabel("Shift [pixels]")
+
+    # error: convergence history — grows one point per iteration
+    (im_error,) = axd["error"].plot(metric_error, "bo-")
+    axd["error"].axis("tight")
+    axd["error"].set_title("Error metric")
+    axd["error"].set_xlabel("Iteration")
+    axd["error"].set_ylabel("Error")
+
+    fig_main.suptitle("Vertical alignment — Iter 0", fontsize=13)
+    fig_main.tight_layout()
+
+    arts = {
+        "im_proj":         im_proj,
+        "im_init2d":       im_init2d,
+        "im_curr2d":       im_curr2d,
+        "im_init1d_lines": im_init1d_lines,
+        "im_init1d_avg":   im_init1d_avg,
+        "im_init1d_avg2":  im_init1d_avg2,
+        "im_curr1d_lines": im_curr1d_lines,
+        "im_curr1d_avg":   im_curr1d_avg,
+        "im_curr1d_avg2":  im_curr1d_avg2,
+        "im_shifts_lines": im_shifts_lines,
+        "im_error":        im_error,
+    }
+
+    return fig_proj, fig_main, arts, axd
 
 
 class RegisterPlot:
     """
     Manage live plot updates during tomographic projection alignment.
 
-    Provides two high-level methods — :meth:`plotsvertical` and
-    :meth:`plotshorizontal` — that create and update the alignment
-    diagnostic figures in both Jupyter (``%matplotlib widget``) and
-    terminal environments.
+    Provides two high-level entry points:
+
+    * :meth:`plotsvertical`  — vertical shift alignment diagnostics
+    * :meth:`plotshorizontal` — horizontal (sinogram) alignment diagnostics
+
+    Architecture
+    ------------
+    **Vertical alignment**
+        * ``fig_proj``  — small static figure (projection + ROI), shown
+          *once* at initialisation and never updated.
+        * ``fig_main``  — unified 6-panel diagnostic figure, updated every
+          iteration via its ``_out_main`` :class:`~ipywidgets.Output` widget.
+
+    **Horizontal alignment**
+        * ``fig_main``  — unified 6-panel diagnostic figure (single figure).
 
     Display strategy
     ----------------
-    **Jupyter / %matplotlib widget**
-        Figures are rendered to PNG via :meth:`~matplotlib.figure.Figure.savefig`
-        (which requires no figure manager) and shown inside
+    **Jupyter / ``%matplotlib widget``**
+        Figures are rendered to PNG bytes via
+        :meth:`~matplotlib.figure.Figure.savefig` (requires no figure
+        manager; safe for all ipympl versions) and shown inside
         :class:`ipywidgets.Output` containers.  On the first call the
-        containers are created and embedded in the cell output; on every
-        subsequent call :meth:`ipywidgets.Output.clear_output` replaces
-        the PNG in-place without spawning a new cell output.  This avoids
-        all issues with ``canvas.draw()``, ``canvas.manager``, and
-        ipympl's ``_shown`` flag.
+        containers are embedded in the cell output; subsequent calls
+        call :meth:`~ipywidgets.Output.clear_output` and replace the PNG
+        in-place — no new cell outputs are created, and verbose text printed
+        by the alignment loop appears *below* the figure area.
 
     **Terminal**
-        Figures are updated via ``canvas.draw_idle()`` + ``plt.pause()``.
+        Figures are redrawn via ``canvas.draw_idle()`` + ``plt.pause()``.
 
     Parameters
     ----------
     **params
-        Algorithm parameters forwarded to the underlying canvas helpers.
-        Must include at least ``'slicenum'``, ``'sinohigh'``, and
+        Algorithm parameters forwarded to the canvas helpers.
+        Must contain at least ``'slicenum'``, ``'sinohigh'``, and
         ``'sinolow'``.
     """
 
@@ -727,87 +802,86 @@ class RegisterPlot:
         plt.close("all")
 
     # ------------------------------------------------------------------ #
-    # Internal display helpers
+    # PNG helper
     # ------------------------------------------------------------------ #
 
     @staticmethod
     def _fig_to_png(fig):
-        """Render *fig* to a PNG byte-string using the Agg renderer.
+        """Render *fig* to PNG bytes via the Agg renderer.
 
-        Works without a figure manager, so it is safe for all matplotlib
-        backends including ``%matplotlib widget`` (ipympl).
+        Uses :meth:`~matplotlib.figure.Figure.savefig` which requires no
+        figure manager — safe for ``%matplotlib widget`` (ipympl) where
+        ``canvas.manager`` is ``None``.
         """
         buf = _io.BytesIO()
         fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
         buf.seek(0)
         return buf.read()
 
-    def _nb_init(self, figs):
-        """Create one ``ipywidgets.Output`` container per figure, display
-        all containers in the current cell, then populate each with a PNG
-        of its figure.
+    # ------------------------------------------------------------------ #
+    # Output-widget helpers
+    # ------------------------------------------------------------------ #
 
-        Containers are stored in ``self._nb_outs`` so that ``_nb_update``
-        can refresh them in-place on later iterations.
+    def _make_output(self):
+        """Create, embed in the current cell, and return an Output widget.
+
+        Returns ``None`` when ipywidgets is unavailable.
         """
         try:
             from ipywidgets import Output
-        except ImportError:
-            # ipywidgets not available — plain display fallback
-            for fig in figs:
-                display.display(display.Image(self._fig_to_png(fig)))
-            self._nb_outs = None
-            return
-
-        self._nb_outs = [Output() for _ in figs]
-        # Embed all containers now so they appear in document order
-        for out in self._nb_outs:
+            out = Output()
             display.display(out)
-        # Fill each container with its figure's initial render
-        for fig, out in zip(figs, self._nb_outs):
-            with out:
-                display.display(display.Image(self._fig_to_png(fig)))
+            return out
+        except ImportError:
+            return None
 
-    def _nb_update(self, figs):
-        """Replace each Output container's content with a fresh PNG render.
+    def _out_init(self, fig, attr):
+        """Create an Output widget, store it as ``self.<attr>``, fill with PNG.
 
-        ``clear_output(wait=True)`` swaps the old image for the new one
-        in-place — no new cell output is created.
+        In notebook mode an Output widget is created and embedded *at the
+        current cursor position* in the cell output (so figures appear in
+        the order they are initialised), then populated with a PNG of *fig*.
+
+        In terminal mode this method is a no-op; the caller handles display
+        via :meth:`_term_show`.
         """
-        if not hasattr(self, "_nb_outs") or self._nb_outs is None:
-            # Fallback: plain display
-            for fig in figs:
-                display.display(display.Image(self._fig_to_png(fig)))
+        if not isnotebook():
             return
-        for fig, out in zip(figs, self._nb_outs):
+        out = self._make_output()
+        setattr(self, attr, out)
+        png = display.Image(self._fig_to_png(fig))
+        if out is not None:
+            with out:
+                display.display(png)
+        else:
+            display.display(png)
+
+    def _out_update(self, fig, attr):
+        """Replace the content of ``self.<attr>`` Output with a fresh PNG.
+
+        ``clear_output(wait=True)`` swaps the image in-place — no new
+        cell output is created.
+
+        In terminal mode this method is a no-op; the caller handles display
+        via :meth:`_term_show`.
+        """
+        if not isnotebook():
+            return
+        out = getattr(self, attr, None)
+        png = display.Image(self._fig_to_png(fig))
+        if out is not None:
             out.clear_output(wait=True)
             with out:
-                display.display(display.Image(self._fig_to_png(fig)))
+                display.display(png)
+        else:
+            display.display(png)
 
     @staticmethod
     def _term_show(figs):
-        """Redraw figures in a terminal GUI event loop."""
+        """Redraw *figs* in a terminal GUI event loop."""
         for fig in figs:
             fig.canvas.draw_idle()
         plt.pause(0.001)
-
-    def _show(self, figs, init=False):
-        """Backend-agnostic show/update dispatcher.
-
-        Parameters
-        ----------
-        figs : tuple of Figure
-        init : bool
-            True on the very first call (creates Output containers in
-            notebook mode).
-        """
-        if isnotebook():
-            if init:
-                self._nb_init(figs)
-            else:
-                self._nb_update(figs)
-        else:
-            self._term_show(figs)
 
     # ------------------------------------------------------------------ #
     # Vertical alignment
@@ -817,19 +891,20 @@ class RegisterPlot:
     def plotsvertical(
         self, proj, lims, vertfluctinit, vertfluctcurr, deltastack, metric_error, count
     ):
-        """Display or update the four vertical-alignment diagnostic figures.
+        """Display or update the vertical-alignment diagnostic figures.
 
-        On the first call the figures are created via
-        :func:`_createcanvasvertical` and displayed.  On every subsequent
-        call the existing artists are updated in-place by
-        :meth:`updatevertical`.
+        **First call** — creates ``fig_proj`` (static, shown once) and
+        ``fig_main`` (unified 6-panel, updated each iteration).
+
+        **Subsequent calls** — delegates to :meth:`updatevertical` which
+        updates artists in-place and refreshes only ``fig_main``.
 
         Parameters
         ----------
         proj : ndarray
-            Current projection image.
+            Current projection image (displayed once as ROI overlay).
         lims : tuple
-            ``(limrow, limcol)`` ROI limits.
+            ``(limrow, limcol)`` ROI boundary indices.
         vertfluctinit : ndarray
             Initial vertical fluctuations (fixed reference).
         vertfluctcurr : ndarray
@@ -841,8 +916,9 @@ class RegisterPlot:
         count : int
             Current iteration number.
         """
-        self.proj = proj
-        self.lims = lims
+        # Store data (transposed to match display convention)
+        self.proj              = proj
+        self.lims              = lims
         self.vertfluctinit     = vertfluctinit.T
         self.vertfluctinit_avg = self.vertfluctinit.mean(axis=1)
         self.vertfluctcurr     = vertfluctcurr.T
@@ -851,11 +927,11 @@ class RegisterPlot:
         self.metric_error      = metric_error
         self.count             = count
 
-        if not hasattr(self, "fig1"):
-            # First call — create all four figures.
-            # In notebook mode the figure creation is wrapped in a throwaway
-            # Output so any stray auto-display from plt.figure() is captured
-            # and discarded; we then display our own PNG Output containers.
+        if not hasattr(self, "fig_proj"):
+            # First call: create figures.
+            # Wrap plt.figure() calls in a throwaway Output so any stray
+            # auto-display from ipympl is captured and discarded here; we
+            # then display our own controlled PNG Output containers below.
             if isnotebook():
                 try:
                     from ipywidgets import Output as _Out
@@ -866,74 +942,80 @@ class RegisterPlot:
                 _cap = _NullContext()
 
             with _cap:
-                fig_array, im_array, ax_array = _createcanvasvertical(
+                (self.fig_proj, self.fig_main,
+                 self._v_arts, self._v_axd) = _createcanvasvertical(
                     self.proj, self.lims,
                     self.vertfluctinit, self.vertfluctcurr,
                     self.deltastack, self.metric_error,
                     **self.params
                 )
 
-            # Store figure references
-            self.fig1, self.fig2, self.fig3, self.fig4 = fig_array
-
-            # Store artist references
-            (self.im11, self.im21, self.im22,
-             self.im31, self.im31a, self.im31b,
-             self.im32, self.im32a, self.im32b,
-             self.im41, self.im42) = im_array
-
-            # Store axes references
-            (self.ax11, self.ax21, self.ax22,
-             self.ax31, self.ax32,
-             self.ax41, self.ax42) = ax_array
-
-            self._show((self.fig1, self.fig2, self.fig3, self.fig4), init=True)
+            if isnotebook():
+                # Embed projection figure first (static, shown once)
+                self._out_init(self.fig_proj, "_out_proj")
+                # Embed main diagnostic figure (updated each iteration)
+                self._out_init(self.fig_main, "_out_main")
+            else:
+                self._term_show([self.fig_proj, self.fig_main])
         else:
             self.updatevertical()
 
     @interativesession
     def updatevertical(self):
-        """Update the four vertical-alignment figures in-place.
+        """Update the vertical-alignment diagnostic figure in-place.
 
-        Modifies existing artist objects (no new figures or axes created)
-        and re-renders via PNG for notebook or ``draw_idle`` for terminal.
+        Modifies existing artist objects — no new figures or axes are
+        created.  Only ``fig_main`` is refreshed; ``fig_proj`` is static.
 
-        Evolution tracking
-        ------------------
-        * **Fig 2** – current vertical-fluctuation image; initial image fixed.
-        * **Fig 3** – current integral line plot; initial panel fixed.
-        * **Fig 4** – shift curves updated; error-metric curve *grows* one
-          point per iteration so the full convergence history is visible.
+        Panels updated
+        --------------
+        * **curr2d** — current 2-D integral image.
+        * **curr1d** — current 1-D integral line plots and mean overlay.
+        * **shifts** — shift curves for all projections.
+        * **error**  — error-metric curve (grows one point per iteration).
+        * ``fig_main.suptitle`` — iteration counter and latest error value.
         """
-        # Fig 2: current vertical-fluctuation image
-        self.im22.set_data(self.vertfluctcurr)
-        self.im22.autoscale()
-        self.ax22.set_title("Current Integral in x — iter {}".format(self.count))
+        arts = self._v_arts
+        axd  = self._v_axd
 
-        # Fig 3: current integral lines + averages
+        # curr2d: update 2-D image
+        arts["im_curr2d"].set_data(self.vertfluctcurr)
+        arts["im_curr2d"].autoscale()
+
+        # curr1d: update individual profiles and mean overlay
         curr = self.vertfluctcurr
-        for idx, line in enumerate(self.im32):
+        for idx, line in enumerate(arts["im_curr1d_lines"]):
             line.set_ydata(curr[:, idx] if curr.ndim > 1 else curr)
-        self.im32a.set_ydata(self.vertfluctcurr_avg)
-        self.im32b.set_ydata(self.vertfluctcurr_avg)
-        self.ax32.relim()
-        self.ax32.autoscale_view()
-        self.ax32.set_title("Current Integral in x — iter {}".format(self.count))
+        arts["im_curr1d_avg"].set_ydata(self.vertfluctcurr_avg)
+        arts["im_curr1d_avg2"].set_ydata(self.vertfluctcurr_avg)
+        axd["curr1d"].relim()
+        axd["curr1d"].autoscale_view()
 
-        # Fig 4: shift curves + growing error-metric
+        # shifts: update all shift curves
         delta = self.deltastack
-        for idx, line in enumerate(self.im41):
+        for idx, line in enumerate(arts["im_shifts_lines"]):
             line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
-        self.ax41.relim()
-        self.ax41.autoscale_view()
-        n = len(self.metric_error)
-        self.im42.set_xdata(range(n))
-        self.im42.set_ydata(self.metric_error)
-        self.ax42.relim()
-        self.ax42.autoscale_view()
-        self.ax42.set_title("Error metric — iter {}".format(self.count))
+        axd["shifts"].relim()
+        axd["shifts"].autoscale_view()
 
-        self._show((self.fig1, self.fig2, self.fig3, self.fig4))
+        # error: grow the convergence curve by one point
+        n = len(self.metric_error)
+        arts["im_error"].set_xdata(range(n))
+        arts["im_error"].set_ydata(self.metric_error)
+        axd["error"].relim()
+        axd["error"].autoscale_view()
+
+        # Update suptitle with current iteration and error value
+        err_val = self.metric_error[-1] if self.metric_error else float("nan")
+        self.fig_main.suptitle(
+            "Vertical alignment — Iter {} | E = {:.3e}".format(self.count, err_val),
+            fontsize=13,
+        )
+
+        if isnotebook():
+            self._out_update(self.fig_main, "_out_main")
+        else:
+            self._term_show([self.fig_main])
 
     # ------------------------------------------------------------------ #
     # Horizontal alignment
@@ -943,23 +1025,23 @@ class RegisterPlot:
     def plotshorizontal(
         self, recons, sinoorig, sinocurr, sinocomp, deltaslice, metric_error, count
     ):
-        """Display or update the three horizontal-alignment diagnostic figures.
+        """Display or update the horizontal-alignment diagnostic figure.
 
-        On the first call the figures are created via
-        :func:`_createcanvashorizontal` and displayed.  On every subsequent
-        call the existing artists are updated in-place by
-        :meth:`updatehorizontal`.
+        **First call** — creates the unified 6-panel ``fig_main``.
+
+        **Subsequent calls** — delegates to :meth:`updatehorizontal` which
+        updates artists in-place and refreshes ``fig_main``.
 
         Parameters
         ----------
         recons : ndarray
             Current reconstructed slice.
         sinoorig : ndarray
-            Original sinogram (fixed reference).
+            Original sinogram (fixed reference, never updated after iter 0).
         sinocurr : ndarray
             Current aligned sinogram.
         sinocomp : ndarray
-            Synthetic sinogram from reconstruction.
+            Synthetic sinogram computed from the reconstruction.
         deltaslice : ndarray
             Current horizontal shift estimates.
         metric_error : list of float
@@ -967,6 +1049,7 @@ class RegisterPlot:
         count : int
             Current iteration number.
         """
+        # Store data (transposed to match display convention)
         self.recons       = recons
         self.sinoorig     = sinoorig
         self.sinocurr     = sinocurr
@@ -975,7 +1058,8 @@ class RegisterPlot:
         self.metric_error = metric_error
         self.count        = count
 
-        if not hasattr(self, "fig1"):
+        if not hasattr(self, "fig_main"):
+            # First call: create the unified figure.
             if isnotebook():
                 try:
                     from ipywidgets import Output as _Out
@@ -986,61 +1070,78 @@ class RegisterPlot:
                 _cap = _NullContext()
 
             with _cap:
-                fig_array, im_array, ax_array = _createcanvashorizontal(
+                (self.fig_main,
+                 self._h_arts, self._h_axd) = _createcanvashorizontal(
                     self.recons, self.sinoorig, self.sinocurr, self.sinocomp,
                     self.deltaslice, self.metric_error,
                     **self.params
                 )
 
-            self.fig1, self.fig2, self.fig3 = fig_array
-
-            (self.im11, self.im21, self.im22,
-             self.im23, self.im31, self.im32) = im_array
-
-            (self.ax11, self.ax21, self.ax22,
-             self.ax23, self.ax31, self.ax32) = ax_array
-
-            self._show((self.fig1, self.fig2, self.fig3), init=True)
+            if isnotebook():
+                self._out_init(self.fig_main, "_out_main")
+            else:
+                self._term_show([self.fig_main])
         else:
             self.updatehorizontal()
 
     @interativesession
     def updatehorizontal(self):
-        """Update the three horizontal-alignment figures in-place.
+        """Update the horizontal-alignment diagnostic figure in-place.
 
-        Modifies existing artist objects and re-renders via PNG (notebook)
-        or ``draw_idle`` (terminal).
+        Modifies existing artist objects — no new figures or axes are created.
 
-        Evolution tracking
-        ------------------
-        * **Fig 1** – reconstructed slice sharpens as alignment improves.
-        * **Fig 2** – current and synthetic sinograms updated; original fixed.
-        * **Fig 3** – shift curves updated; error-metric curve *grows* one
-          point per iteration.
+        Panels updated
+        --------------
+        * **recon**     — reconstructed slice (sharpens as alignment improves).
+        * **synthsino** — synthetic sinogram.
+        * **currsino**  — current sinogram.
+        * **shifts**    — shift curves for all projections.
+        * **error**     — error-metric curve (grows one point per iteration).
+        * ``fig_main.suptitle`` — iteration counter and latest error value.
         """
-        # Fig 1: reconstructed slice
-        self.im11.set_data(self.recons)
-        self.im11.autoscale()
-        self.ax11.set_title("Reconstructed slice — iteration {}".format(self.count))
+        arts = self._h_arts
+        axd  = self._h_axd
 
-        # Fig 2: current and synthetic sinograms (original stays fixed)
-        self.im22.set_data(self.sinocurr)
-        self.im23.set_data(self.sinocomp)
+        # recon: update reconstructed slice
+        arts["im_recon"].set_data(self.recons)
+        arts["im_recon"].autoscale()
+        axd["recon"].set_title(
+            "Reconstructed slice — Iter {} (slice {})".format(
+                self.count, self.params.get("slicenum", "?")
+            )
+        )
 
-        # Fig 3: shift curves + growing error-metric
+        # synthsino and currsino: update sinograms
+        arts["im_synthsino"].set_data(self.sinocomp)
+        arts["im_currsino"].set_data(self.sinocurr)
+
+        # shifts: update all shift curves
         delta = self.deltaslice
-        for idx, line in enumerate(self.im31):
+        for idx, line in enumerate(arts["im_shifts_lines"]):
             line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
-        self.ax31.relim()
-        self.ax31.autoscale_view()
-        n = len(self.metric_error)
-        self.im32.set_xdata(range(n))
-        self.im32.set_ydata(self.metric_error)
-        self.ax32.relim()
-        self.ax32.autoscale_view()
-        self.ax32.set_title("Error metric — iter {}".format(self.count))
+        axd["shifts"].relim()
+        axd["shifts"].autoscale_view()
 
-        self._show((self.fig1, self.fig2, self.fig3))
+        # error: grow the convergence curve by one point
+        n = len(self.metric_error)
+        arts["im_error"].set_xdata(range(n))
+        arts["im_error"].set_ydata(self.metric_error)
+        axd["error"].relim()
+        axd["error"].autoscale_view()
+
+        # Update suptitle with current iteration and error value
+        err_val = self.metric_error[-1] if self.metric_error else float("nan")
+        self.fig_main.suptitle(
+            "Horizontal alignment — Iter {} | E = {:.3e} | slice {}".format(
+                self.count, err_val, self.params.get("slicenum", "?")
+            ),
+            fontsize=13,
+        )
+
+        if isnotebook():
+            self._out_update(self.fig_main, "_out_main")
+        else:
+            self._term_show([self.fig_main])
 
 
 @interativesession
