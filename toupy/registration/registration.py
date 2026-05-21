@@ -17,6 +17,7 @@ gradient-based update rule.  All other helper functions are unchanged.
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from matplotlib.widgets import Button, TextBox
 
 # third party packages
 from ..utils.plot_utils import plt
@@ -75,7 +76,7 @@ _H_MAX_STEP   = 50.0 # max horizontal Newton step (pixels); generous so the
 # Unchanged public helpers
 # ============================================================================
 
-def register_2Darrays(image1, image2):
+def register_2Darrays(image1, image2, subpixel=False):
     """
     Image registration using phase cross-correlations.
 
@@ -85,6 +86,9 @@ def register_2Darrays(image1, image2):
         Reference image.
     image2 : array_like
         Image to be shifted relative to image1.
+    subpixel : bool, optional
+        If ``False`` (default) use pixel-precision registration.
+        If ``True`` use sub-pixel precision (upsample factor = 100).
 
     Returns
     -------
@@ -95,30 +99,22 @@ def register_2Darrays(image1, image2):
     offset_image2 : array_like
         Shifted image2 aligned to image1.
     """
-    precision = input(
-        "Do you want to use pixel(1) or subpixel(2) precision registration?[1] "
-    )
-    if precision == str(1) or precision == "":
-        print("\nCalculating the pixel precision image registration ...")
-        start = time.time()
-        shift, error, diffphase = phase_cross_correlation(image1.copy(), image2.copy())
-        print(diffphase)
-        end = time.time()
-        print("Time elapsed: {:g} s".format(end - start))
-        print("Detected pixel offset [y,x]: [{:g}, {:g}]".format(shift[0], shift[1]))
-    elif precision == str(2):
+    if subpixel:
         print("\nCalculating the subpixel image registration ...")
         start = time.time()
         shift, error, diffphase = phase_cross_correlation(
             image1.copy(), image2.copy(), 100
         )
         print(diffphase)
-        end = time.time()
-        print("Time elapsed: {:g} s".format(end - start))
+        print("Time elapsed: {:g} s".format(time.time() - start))
         print("Detected subpixel offset [y,x]: [{:g}, {:g}]".format(shift[0], shift[1]))
     else:
-        print("You must choose between 1 and 2")
-        raise SystemExit
+        print("\nCalculating the pixel precision image registration ...")
+        start = time.time()
+        shift, error, diffphase = phase_cross_correlation(image1.copy(), image2.copy())
+        print(diffphase)
+        print("Time elapsed: {:g} s".format(time.time() - start))
+        print("Detected pixel offset [y,x]: [{:g}, {:g}]".format(shift[0], shift[1]))
 
     print("\nCorrecting the shift of image2 by using subpixel precision...")
     offset_image2 = ifft2(fourier_shift(fft2(image2.copy()), shift))
@@ -1515,78 +1511,62 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
 def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
     """
-    Interactively refine horizontal alignment.
+    Run one refinement pass of horizontal alignment.
 
-    Refinement always runs a single pass at the current ``freqcutoff``
-    (ignoring ``freqcutoff_schedule`` and ``multiresolution`` if set) because
-    the input shifts are already a good warm-start and do not need the
-    full multi-stage pipeline.  Use ``params["rtol"]`` (e.g. 1e-3) to stop
-    early when the improvement per iteration becomes negligible.
+    Refinement uses the current ``freqcutoff`` only — ``freqcutoff_schedule``
+    and ``multiresolution`` are ignored because the input shifts are already a
+    good warm-start.  Use ``params["rtol"]`` (e.g. 1e-3) to stop early when
+    the improvement per iteration becomes negligible.
+
+    To run multiple refinement passes or change parameters between passes,
+    update ``params`` in your script/notebook and call this function again.
+
+    Parameters
+    ----------
+    input_stack : ndarray, shape (n, nr, nc)
+        Stack of derivative projections.
+    theta : ndarray
+        Projection angles.
+    shiftstack : ndarray, shape (2, n)
+        Current shift array (modified in-place and returned).
+    **params
+        Alignment parameters forwarded to :func:`alignprojections_horizontal`.
+
+    Returns
+    -------
+    shiftstack : ndarray
+    params : dict
     """
     params.setdefault("correct_bad", False)
-    while True:
-        a = input("Do you want to refine further the alignment? ([y]/n): ").lower()
-        if str(a) in ("", "y"):
-            a1 = input("Do you want to use the same parameters? ([y]/n): ").lower()
-            if a1 == "n":
-                a1 = input("Slice number (e.g. {}): ".format(params["slicenum"]))
-                if a1 != "":
-                    params["slicenum"] = eval(a1)
-                a2 = input("Pixel tolerance (e.g. {}): ".format(params["pixtol"]))
-                if a2 != "":
-                    params["pixtol"] = eval(a2)
-                a3 = input("Filter Tomo cutoff (e.g. {}): ".format(params["freqcutoff"]))
-                if a3 != "":
-                    params["freqcutoff"] = eval(a3)
-                a4 = input("Number of iterations (e.g. {}): ".format(params["maxit"]))
-                if a4 != "":
-                    params["maxit"] = eval(a4)
-                a5 = input("Apply a circle (e.g. {}): ".format(params["circle"]))
-                if a5 != "":
-                    params["circle"] = eval(a5)
-                a6 = input("Clipping high (e.g. {}): ".format(params["cliphigh"]))
-                if a6 != "":
-                    params["cliphigh"] = eval(a6)
+    sinogram = np.transpose(input_stack[:, params["slicenum"], :])
+    if params["correct_bad"]:
+        sinogram = replace_bad(sinogram, list_bad=params["bad_projs"], temporary=False)
 
-            sinogram = np.transpose(input_stack[:, params["slicenum"], :])
-            if params["correct_bad"]:
-                sinogram = replace_bad(sinogram, list_bad=params["bad_projs"], temporary=False)
+    # Refinement uses the current freqcutoff only — no multi-stage
+    # pipeline and no spatial downsampling (shifts are already good).
+    params_refine = dict(params)
+    params_refine.pop("freqcutoff_schedule", None)
+    params_refine["multiresolution"] = False
 
-            # Refinement uses the current freqcutoff only — no multi-stage
-            # pipeline and no spatial downsampling (shifts are already good).
-            params_refine = dict(params)
-            params_refine.pop("freqcutoff_schedule", None)
-            params_refine["multiresolution"] = False
-
-            print("\n================================================")
-            print("Starting the refinement of the alignment")
-            print("================================================")
-            shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params_refine)
-        elif str(a) == "n":
-            print("\n================================================")
-            print("No further refinement done")
-            print("================================================")
-            break
-        else:
-            print("You should answer 'y' or 'n' or accept the default answer.")
+    print("\n================================================")
+    print("Starting the refinement of the alignment")
+    print("================================================")
+    shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params_refine)
     return shiftstack, params
 
 
 def oneslicefordisplay(sinogram, theta, **params):
-    """Reconstruct and display one slice (unchanged)."""
-    a = input(
-        "Do you want to reconstruct the slice with different parameters? ([y]/n) :"
-    ).lower()
-    if str(a) in ("", "y"):
-        freqcutoff = input("freqcutoff (current: {}) = ".format(params["freqcutoff"]))
-        if freqcutoff != "":
-            params["freqcutoff"] = eval(freqcutoff)
-        filtertype = str(
-            input("filtertype (current: {}) = ".format(params["filtertype"])).lower()
-        )
-        if filtertype != "":
-            params["filtertype"] = str(filtertype)
-        print("Calculating a tomographic slice")
+    """Reconstruct and display one tomographic slice.
+
+    Pass updated values via ``params`` (e.g. ``params["freqcutoff"] = 0.5``)
+    and re-call to change reconstruction settings.
+    """
+    print(
+        "Reconstructing slice with freqcutoff={}, filtertype='{}' …".format(
+            params.get("freqcutoff", "?"), params.get("filtertype", "?")
+        ),
+        flush=True,
+    )
     _oneslicefordisplay(sinogram, theta, **params)
 
 
@@ -1764,71 +1744,212 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     else:
         plt.show(block=False)
 
-    a = input(
-        "Are you happy with the tomographic consistency alignment? ([y]/n) "
-    ).lower()
-    if a in ("", "y"):
+    use_average = params.get("use_average", True)
+    if use_average:
         shiftstack[1] = shiftxrefine_avg.copy()
-        print("Using the average of all shiftstack")
+        print(
+            "Applying averaged shifts from tomographic consistency.  "
+            "Set params['use_average']=False to keep the previous shifts instead.",
+            flush=True,
+        )
     else:
         shiftstack[1] = shiftslice_prev[0].copy()
-        print("Keeping previous shiftstack")
+        print("Keeping previous shiftstack (use_average=False).", flush=True)
     return shiftstack
 
 
-def estimate_rot_axis(input_array, theta, **params):
-    """Initial estimate of the rotation axis (unchanged)."""
-    try:
-        params["sinocmap"]
-    except KeyError:
-        params["sinocmap"] = params["colormap"]
+class _RotAxisPicker:
+    """
+    Interactive GUI for estimating the rotation-axis offset.
 
-    theta -= theta.min()
-    slicenum = params["slicenum"]
-    rot_axis_offset = params["rot_axis_offset"]
+    Displays the reconstructed slice (left) and sinogram (right) for the
+    current offset.  A text box lets you try a new integer offset value;
+    clicking **Update** recomputes and refreshes both panels.  Click
+    **Confirm** to accept the current value and close the figure.
 
-    while True:
+    Terminal usage
+    --------------
+    Used internally by :func:`estimate_rot_axis` — not meant to be called
+    directly.
+
+    Jupyter two-cell workflow
+    -------------------------
+    ::
+
+        # Cell 1
+        picker = estimate_rot_axis(valigndiff, theta, **params)
+        # Cell 2 — after clicking Confirm
+        params["rot_axis_offset"] = picker.rot_axis_offset
+    """
+
+    def __init__(self, input_array, theta, **params):
+        self._array  = input_array
+        self._theta  = theta
+        self._params = params
+        self.rot_axis_offset = params["rot_axis_offset"]
+        self._done   = False
+
+        params.setdefault("sinocmap", params.get("colormap", "bone"))
+
+        # ---- initial reconstruction ----
+        slicenum = params["slicenum"]
         sinogram = np.transpose(input_array[:, slicenum, :])
-        sinogram = _offset_sinogram(sinogram, rot_axis_offset)
-
-        print("Calculating a tomographic slice")
+        sinogram = _offset_sinogram(sinogram, self.rot_axis_offset)
+        print("Computing initial slice (offset={}) …".format(self.rot_axis_offset), flush=True)
         p0 = time.time()
         tomogram = tomo_recons(sinogram, theta, **params)
-        print("Time elapsed: {} s".format(time.time() - p0))
+        print("Done in {:.1f} s.".format(time.time() - p0), flush=True)
 
+        # ---- figure ----
         plt.close("all")
-        fig1 = plt.figure(num=5, figsize=(12, 4))
-        ax1 = fig1.add_subplot(121)
-        im1 = ax1.imshow(
+        fig = plt.figure(num=5, figsize=(12, 5))
+        # leave room at the bottom for the TextBox + buttons
+        fig.subplots_adjust(bottom=0.22)
+
+        ax1 = fig.add_subplot(121)
+        self._im1 = ax1.imshow(
             tomogram, cmap=params["colormap"], interpolation="none",
             vmin=params["cliplow"], vmax=params["cliphigh"],
         )
-        ax1.set_title("Slice {}".format(slicenum))
-        fig1.colorbar(im1)
-        ax2 = fig1.add_subplot(122)
-        im2 = ax2.imshow(
+        self._ax1 = ax1
+        ax1.set_title("Slice {} — offset {}".format(slicenum, self.rot_axis_offset))
+        fig.colorbar(self._im1, ax=ax1)
+
+        ax2 = fig.add_subplot(122)
+        self._im2 = ax2.imshow(
             sinogram, cmap=params["sinocmap"], interpolation="none",
             vmin=params["sinolow"], vmax=params["sinohigh"],
         )
         ax2.axis("tight")
-        ax2.set_title("Sinogram - Slice {}".format(slicenum))
-        fig1.colorbar(im2)
-        if isnotebook():
-            from IPython import display
-            display.display(fig1)
-            plt.close(fig1)
-            display.clear_output(wait=True)
-        else:
+        ax2.set_title("Sinogram — slice {}".format(slicenum))
+        fig.colorbar(self._im2, ax=ax2)
+
+        # status text
+        self._status = fig.text(
+            0.5, 0.97,
+            "Enter a new offset → Update, or Confirm to accept current value.",
+            ha="center", va="top", fontsize=9, color="steelblue",
+        )
+
+        # TextBox for offset value
+        ax_box    = fig.add_axes([0.25, 0.04, 0.20, 0.07])
+        ax_update = fig.add_axes([0.50, 0.04, 0.12, 0.07])
+        ax_conf   = fig.add_axes([0.65, 0.04, 0.12, 0.07])
+        self._textbox = TextBox(ax_box, "Offset: ", initial=str(self.rot_axis_offset))
+        self._btn_update  = Button(ax_update,  "Update")
+        self._btn_confirm = Button(ax_conf,    "Confirm")
+        self._btn_update.on_clicked(self._on_update)
+        self._btn_confirm.on_clicked(self._on_confirm)
+        self.fig = fig
+
+        print(
+            "Inspect the slice.  Enter a new offset value in the text box "
+            "and click  Update  to recompute, then  Confirm  to accept.",
+            flush=True,
+        )
+
+    # ------------------------------------------------------------------ events
+
+    def _on_update(self, event):
+        try:
+            new_offset = int(float(self._textbox.text.strip()))
+        except ValueError:
+            self._status.set_text("Invalid offset — enter an integer.")
+            self.fig.canvas.draw_idle()
+            return
+
+        self.rot_axis_offset = new_offset
+        slicenum = self._params["slicenum"]
+        sinogram = np.transpose(self._array[:, slicenum, :])
+        sinogram = _offset_sinogram(sinogram, new_offset)
+
+        self._status.set_text("Computing slice (offset={}) …".format(new_offset))
+        self.fig.canvas.draw_idle()
+        print("Computing slice (offset={}) …".format(new_offset), flush=True)
+
+        p0 = time.time()
+        tomogram = tomo_recons(sinogram, self._theta, **self._params)
+        print("Done in {:.1f} s.".format(time.time() - p0), flush=True)
+
+        self._im1.set_data(tomogram)
+        self._im1.autoscale()
+        self._ax1.set_title("Slice {} — offset {}".format(slicenum, new_offset))
+        self._im2.set_data(sinogram)
+        self._status.set_text(
+            "Offset {} — click Confirm to accept or enter another value.".format(new_offset)
+        )
+        self.fig.canvas.draw_idle()
+
+    def _on_confirm(self, event):
+        self._done = True
+        print(
+            "Confirmed rotation-axis offset: {}".format(self.rot_axis_offset),
+            flush=True,
+        )
+        plt.close(self.fig)
+
+
+def estimate_rot_axis(input_array, theta, **params):
+    """
+    Interactively estimate the rotation-axis offset.
+
+    Opens a GUI figure showing the reconstructed slice and sinogram for
+    the current offset (``params["rot_axis_offset"]``).  Enter a new
+    integer value in the text box and click **Update** to recompute.
+    Click **Confirm** when satisfied.
+
+    Parameters
+    ----------
+    input_array : ndarray, shape (n, nr, nc)
+        Stack of derivative projections.
+    theta : ndarray
+        Projection angles (degrees).
+    **params
+        Must contain: ``slicenum``, ``rot_axis_offset``, ``colormap``,
+        ``cliplow``, ``cliphigh``, ``sinolow``, ``sinohigh``, ``filtertype``,
+        ``freqcutoff``, ``circle``, ``algorithm``, ``derivatives``,
+        ``calc_derivatives``.
+
+    Returns
+    -------
+    Terminal mode
+        ``rot_axis_offset`` (int) — the confirmed offset value.
+    Jupyter mode (two-cell workflow)
+        ``picker`` (:class:`_RotAxisPicker`) — access
+        ``picker.rot_axis_offset`` in the **next** cell after clicking Confirm.
+    """
+    params.setdefault("sinocmap", params.get("colormap", "bone"))
+    theta = theta - theta.min()
+
+    picker = _RotAxisPicker(input_array, theta, **params)
+
+    if isnotebook():
+        try:
+            import matplotlib as _mpl
+            _interactive = "inline" not in _mpl.get_backend().lower()
+        except Exception:
+            _interactive = False
+        if _interactive:
             plt.show(block=False)
-
-        a = input("Are you happy with the rotation axis?([y]/n)").lower()
-        if a in ("", "y"):
-            break
+            picker.fig.canvas.draw()
+            print(
+                "\nJupyter two-cell workflow:\n"
+                "  Interact with the figure, then in the NEXT cell:\n"
+                "      params['rot_axis_offset'] = picker.rot_axis_offset",
+                flush=True,
+            )
         else:
-            rot_axis_offset = eval(input("Enter new rotation axis estimate: "))
-
-    print("Initial estimate of rotation axis offset: {}".format(rot_axis_offset))
-    return rot_axis_offset
+            from IPython import display as _ipy_display
+            _ipy_display.display(picker.fig)
+        return picker
+    else:
+        plt.show(block=True)
+        print(
+            "Initial estimate of rotation axis offset: {}".format(
+                picker.rot_axis_offset
+            )
+        )
+        return picker.rot_axis_offset
 
 
 @deprecated

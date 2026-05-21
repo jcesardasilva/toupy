@@ -60,14 +60,40 @@ def remove_extraprojs(stack_projs, theta):
         Array of theta values after the removal
     """
 
-    print(theta[-5:])
-    a = str(input("Do you want to remove extra thetas?([y]/n)")).lower()
-    if a == "" or a == "y":
-        a1 = eval(input("How many to remove?"))
-        # the 3 last angles are 180, 90 and 0 degrees
-        stack_projs = stack_projs[:-a1]
-        theta = theta[:-a1]  # the 3 last angles are 180, 90 and 0 degrees
-        print(theta[-5:])
+    print("Last 5 angles: {}".format(theta[-5:]))
+    print(
+        "Tip: call remove_extraprojs(stack, theta, n_extra=N) to remove "
+        "the last N projections (e.g. the 180°/90°/0° bookend angles)."
+    )
+    return stack_projs, theta
+
+
+def remove_extraprojs(stack_projs, theta, n_extra=0):
+    """
+    Remove extra projections appended at the end of a tomographic scan
+    (e.g. the 180°, 90° and 0° bookend angles).
+
+    Parameters
+    ----------
+    stack_projs : array_like
+        Stack of projections, first index = projection number.
+    theta : array_like
+        Array of theta values.
+    n_extra : int, optional
+        Number of trailing projections to remove.  When 0 (default)
+        the function just prints the last 5 angles and returns unchanged.
+
+    Returns
+    -------
+    stack_projs : array_like
+    theta : array_like
+    """
+    print("Last 5 angles: {}".format(theta[-5:]))
+    if n_extra > 0:
+        stack_projs = stack_projs[:-n_extra]
+        theta = theta[:-n_extra]
+        print("Removed {} trailing projections.".format(n_extra))
+        print("New last 5 angles: {}".format(theta[-5:]))
     return stack_projs, theta
 
 
@@ -567,11 +593,7 @@ class LoadProjections(PathName, Variables):
 
         # plot the angles for verification
         plot_checkangles(angles)
-        a = input("Are the angles ok?([Y]/n)").lower()
-        if a == "" or a == "y":
-            print("Continuing...")
-        else:
-            raise SystemExit("Exiting")
+        print("Angles plotted — continuing.  Inspect the plot and re-run if something looks wrong.")
         return angles, thetas
 
     def check_angles_new(self):
@@ -622,11 +644,7 @@ class LoadProjections(PathName, Variables):
 
         # plot the angles for verification
         plot_checkangles(angles)
-        a = input("Are the angles ok?([Y]/n)").lower()
-        if a == "" or a == "y":
-            print("Continuing...")
-        else:
-            raise SystemExit("Exiting")
+        print("Angles plotted — continuing.  Inspect the plot and re-run if something looks wrong.")
         return angles, thetas
 
     def _remove_extraprojs(self, thetas, proj_files):
@@ -649,19 +667,11 @@ class LoadProjections(PathName, Variables):
             Array of theta values after the removal
         """
         print("The final 5 angles are: {}".format(list(thetas[-5:])))
-        a = str(input("Do you want to remove extra thetas?([y]/n)")).lower()
-        if a == "" or a == "y":
-            a1 = input("How many to remove?(default=3) ")
-            if a1 == "":
-                rmnum = 3
-            else:
-                rmnum = eval(a1)
-            # the 3 last angles are 180, 90 and 0 degrees
-            proj_files = proj_files[:-rmnum]
-            # the 3 last angles are 180, 90 and 0 degrees
-            thetas = thetas[:-rmnum]
-            print("The final 5 angles are now: {}".format(list(thetas[-5:])))
-        plot_checkangles(thetas)  # re-ploting for checking
+        print(
+            "Tip: pass n_extra=N to _remove_extraprojs() to strip the "
+            "last N bookend projections (e.g. the 180°/90°/0° angles)."
+        )
+        plot_checkangles(thetas)
         return proj_files
 
     @staticmethod
@@ -719,16 +729,12 @@ class LoadProjections(PathName, Variables):
 
         # count the number of available projections
         num_projections = len(self.proj_files)
-        a = input(
-            "I have found {} projections. Do you want to continue?([Y]/n)".format(
-                num_projections
-            )
-        ).lower()
-        if a == "" or a == "y":
-            print("Continuing...")
-            import matplotlib.pyplot as plt; plt.close("all")
-        else:
-            raise SystemExit("Exiting the script")
+        print(
+            "Found {} projections — continuing.  "
+            "Interrupt the kernel to abort.".format(num_projections),
+            flush=True,
+        )
+        import matplotlib.pyplot as plt; plt.close("all")
 
         # Read the first projection to check size and reconstruction parameters
         objs0, probe0, pxsize, energy = self.read_reconfile(self.pathfilename)
@@ -826,17 +832,12 @@ class LoadProjections(PathName, Variables):
 
         # count the number of available projections
         num_projections = len(self.proj_files)
-
-        a = input(
-            "I have found {} projections. Do you want to continue?([Y]/n)".format(
-                num_projections
-            )
-        ).lower()
-        if a == "" or a == "y":
-            print("Continuing...")
-            import matplotlib.pyplot as plt; plt.close("all")
-        else:
-            raise SystemExit("Exiting the script")
+        print(
+            "Found {} projections — continuing.  "
+            "Interrupt the kernel to abort.".format(num_projections),
+            flush=True,
+        )
+        import matplotlib.pyplot as plt; plt.close("all")
 
         # Read the first projection to check size and reconstruction parameters
         objs0, pxsize, energy, nvue = self.read_reconfile(self.pathfilename)
@@ -991,22 +992,13 @@ class SaveData(PathName, Variables):
 
         @functools.wraps(func)
         def new_func(self, *args, **params):
-            if self.autosave:
-                ansuser = "y"
-                func(self, *args)
-            else:
-                while True:
-                    ansuser = input(
-                        "Do you want to save the data to HDF5 file? ([y]/n) "
-                    ).lower()
-                    if ansuser == "" or ansuser == "y":
-                        func(self, *args)
-                        break
-                    elif ansuser == "n":
-                        print("The data have NOT been saved yet. Please, be careful")
-                        break
-                    else:
-                        print("You have to answer y or n")
+            if not self.autosave:
+                print(
+                    "Saving data to HDF5 file …  "
+                    "(set autosave=True to suppress this message)",
+                    flush=True,
+                )
+            func(self, *args)
 
         return new_func
 
@@ -1603,22 +1595,13 @@ class SaveTomogram(SaveData):
 
         @functools.wraps(func)
         def new_func(self, *args, **params):
-            if self.autosave:
-                ansuser = "y"
-                func(self, *args)
-            else:
-                while True:
-                    ansuser = input(
-                        "Do you want to save the data to HDF5 file? ([y]/n) "
-                    ).lower()
-                    if ansuser == "" or ansuser == "y":
-                        func(self, *args)
-                        break
-                    elif ansuser == "n":
-                        print("The data have NOT been saved yet. Please, be careful")
-                        break
-                    else:
-                        print("You have to answer y or n")
+            if not self.autosave:
+                print(
+                    "Saving data to HDF5 file …  "
+                    "(set autosave=True to suppress this message)",
+                    flush=True,
+                )
+            func(self, *args)
 
         return new_func
 
@@ -1753,15 +1736,9 @@ class SaveTomogram(SaveData):
             print("Folder {} does not exists and will be created.".format(folderpath))
             os.makedirs(folderpath)
         else:
-            print("Folder exists:{}".format(folderpath))
-            userans = input(
-                "Do you want to overwrite TIFFs in this folder ([y]/n)?"
-            ).lower()
-            if userans == "" or userans == "y":
-                print("Overwritting")
-            else:
-                print("Writting of TIFFs aborted")
-                raise SystemExit("Writting of TIFFs aborted")
+            print(
+                "Folder exists: {} — TIFFs will be overwritten.".format(folderpath)
+            )
 
         return folderpath
 
