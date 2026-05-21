@@ -397,8 +397,7 @@ def rmair(image, mask):
 
 def normalize_projections_phase(stack, border=0):
     """
-    Remove residual per-projection phase offsets from a stack of complex
-    ptychographic projections.
+    Remove residual per-projection phase offsets from a stack of projections.
 
     After :func:`rmphaseramp`, individual projections may still carry
     small projection-to-projection phase variations that appear as
@@ -409,25 +408,37 @@ def normalize_projections_phase(stack, border=0):
       variance across the stack (object rows vary strongly with angle).
     * Otsu thresholding on the per-row standard-deviation separates
       air rows (low std) from object rows (high std) automatically.
-    * For each projection the residual offset is the median phase over
-      the detected air rows; this is subtracted so that all projections
-      share the same air phase reference.
+    * For each projection the residual offset is the circular mean phase
+      over the detected air rows; this is subtracted so that all
+      projections share the same air phase reference.
 
     Parameters
     ----------
-    stack : array_like, complex, shape (nprojs, nr, nc)
-        Stack of ramp-corrected complex projections (output of
-        :func:`rmphaseramp` applied to each projection).
+    stack : array_like, shape (nprojs, nr, nc)
+        Stack of ramp-corrected projections.  Accepted types:
+
+        * **complex** — direct output of :func:`rmphaseramp`.  The
+          function returns a complex array; extract the phase sinogram
+          with ``np.angle(normalized)``.
+        * **real (float)** — phase values already extracted via
+          ``np.angle()``.  The function returns a float array of the same
+          dtype; use it directly as the sinogram.
+
+        .. warning::
+            Do **not** pass ``np.real(rmphaseramp(...))``.  That gives
+            the real part of the complex projection (``amplitude·cos φ``),
+            not the phase.  Use ``np.angle(rmphaseramp(...))`` or pass
+            the complex array directly.
+
     border : int, optional
         Number of pixels to exclude from each edge — should match the
         ``border`` value used in :func:`rmphaseramp`.  Default ``0``.
 
     Returns
     -------
-    normalized : ndarray, complex, shape (nprojs, nr, nc)
-        Stack with per-projection offsets removed.  To obtain the phase
-        sinogram (float array) use ``np.angle(normalized)``, **not**
-        ``np.real(normalized)``.
+    normalized : ndarray, shape (nprojs, nr, nc)
+        Stack with per-projection offsets removed.  Same dtype as
+        ``stack`` (complex if complex in, float if float in).
     offsets : ndarray, float, shape (nprojs,)
         Per-projection phase offsets that were subtracted (radians).
         Relative to the stack circular mean, so they sum to approximately
@@ -435,15 +446,23 @@ def normalize_projections_phase(stack, border=0):
 
     Examples
     --------
-    >>> # Step 1: per-projection ramp + constant correction
+    **Option A — complex stack (direct output of rmphaseramp):**
+
     >>> corrected = np.array([
     ...     rmphaseramp(proj, weight='auto', zero_air_phase=True, border=30)
     ...     for proj in stack
-    ... ])
-    >>> # Step 2: remove residual projection-to-projection oscillations
+    ... ])                                         # complex, shape (N, nr, nc)
     >>> corrected, offsets = normalize_projections_phase(corrected, border=30)
-    >>> # Step 3: extract phase sinogram
-    >>> sinogram = np.angle(corrected)
+    >>> sinogram = np.angle(corrected)             # float sinogram
+
+    **Option B — float phase stack:**
+
+    >>> phase_stack = np.array([
+    ...     np.angle(rmphaseramp(proj, weight='auto', zero_air_phase=True, border=30))
+    ...     for proj in stack
+    ... ])                                         # float, shape (N, nr, nc)
+    >>> phase_stack, offsets = normalize_projections_phase(phase_stack, border=30)
+    >>> sinogram = phase_stack                     # already float
     """
     stack = np.asarray(stack)
     nprojs, nr, nc = stack.shape
@@ -453,15 +472,29 @@ def normalize_projections_phase(stack, border=0):
     rslice = slice(b, nr - b) if b > 0 else slice(None)
     cslice = slice(b, nc - b) if b > 0 else slice(None)
 
-    # Phase of interior: shape (nprojs, nr_int, nc_int)
-    phase_int = np.angle(stack[:, rslice, cslice])
+    # Extract phase values for the interior region.
+    #
+    # CRITICAL: np.angle() applied to a real float array does NOT return
+    # the phase — it returns 0.0 for positive values and π for negative
+    # values (it interprets the real number as a complex number with zero
+    # imaginary part).  This binary 0/π array makes the offset estimator
+    # produce spurious ±π corrections that destroy the sinogram.
+    #
+    # Detection: if the input is already real-valued, use it directly as
+    # phase; only call np.angle() for genuine complex arrays.
+    is_complex = np.iscomplexobj(stack)
+    interior = stack[:, rslice, cslice]
+    if is_complex:
+        phase_int = np.angle(interior)             # (nprojs, nr_int, nc_int)
+    else:
+        phase_int = interior.real.astype(np.float64)
 
     # Detect air rows: those with small phase variance across projections.
     # Object rows vary strongly with angle; air rows stay approximately
     # constant (any residual is the per-projection offset we want to find).
-    row_std = phase_int.std(axis=(0, 2))          # shape (nr_int,)
+    row_std = phase_int.std(axis=(0, 2))           # shape (nr_int,)
     thresh = _otsu_threshold(row_std)
-    air_row_mask = row_std < thresh               # True = consistently air
+    air_row_mask = row_std < thresh                # True = consistently air
 
     if air_row_mask.sum() < 3:
         # Fallback: use top and bottom 10 % of interior rows
@@ -476,14 +509,22 @@ def normalize_projections_phase(stack, border=0):
     # Circular mean operates on unit phasors and is always wrap-safe.
     # shape: (nprojs, n_air_rows * nc_int)
     air_phases = phase_int[:, air_row_mask, :].reshape(nprojs, -1)
-    mean_phasors = np.exp(1j * air_phases).mean(axis=1)   # complex, (nprojs,)
-    offsets = np.angle(mean_phasors)                       # wrap-safe, (nprojs,)
+    mean_phasors = np.exp(1j * air_phases).mean(axis=1)    # complex, (nprojs,)
+    offsets = np.angle(mean_phasors)                        # wrap-safe, (nprojs,)
 
     # Make offsets relative to the stack circular mean so the absolute
-    # phase level is preserved (only projection-to-projection variation removed).
-    # Use circular subtraction to stay wrap-safe.
-    ref_phasor = np.exp(1j * offsets).mean()               # scalar complex
+    # phase level is preserved (only projection-to-projection variation
+    # removed).  Use circular subtraction to stay wrap-safe.
+    ref_phasor = np.exp(1j * offsets).mean()                # scalar complex
     offsets = np.angle(np.exp(1j * offsets) * ref_phasor.conj())
 
-    normalized = stack * np.exp(-1j * offsets[:, np.newaxis, np.newaxis])
+    # Apply correction in the same domain as the input
+    if is_complex:
+        normalized = stack * np.exp(-1j * offsets[:, np.newaxis, np.newaxis])
+    else:
+        # Wrap-safe phase subtraction — stays in (−π, π]
+        normalized = np.angle(
+            np.exp(1j * (stack - offsets[:, np.newaxis, np.newaxis]))
+        ).astype(stack.dtype)
+
     return normalized, offsets
