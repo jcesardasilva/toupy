@@ -5,11 +5,10 @@
 import warnings
 
 import matplotlib.gridspec as gridspec
+import matplotlib.path as mplPath
 from ..utils.plot_utils import plt
-from matplotlib.widgets import MultiCursor
+from matplotlib.widgets import Button, MultiCursor, PolygonSelector, TextBox
 from ..utils import tqdm
-from matplotlib.widgets import Button
-from matplotlib.widgets import TextBox
 import numpy as np
 from numpy.fft import fftfreq
 
@@ -18,7 +17,6 @@ from skimage.restoration import unwrap_phase
 # local packages
 from ..io.dataio import LoadData, SaveData
 from .ramptools import rmphaseramp, rmair
-from .roipoly import roipoly
 from ..utils import isnotebook
 
 __all__ = ["gui_plotamp", "gui_plotphase", "AmpTracker", "PhaseTracker"]
@@ -417,6 +415,9 @@ class PhaseTracker(object):
         self.mask = np.zeros_like(X1, dtype=bool)
         self.ind = 0
         self.params = params
+        # Polygon state — populated by draw_mask / _on_poly_select
+        self._poly_verts = []
+        self._poly_selector = None
         self.vmin = params["vmin"]
         self.vmax = params["vmax"]
         self.colormap = params["colormap"]
@@ -510,31 +511,81 @@ class PhaseTracker(object):
 
     # ------------------------------------------------------------------ mask
     def draw_mask(self, event):
-        """Open a separate figure to draw a polygon mask."""
-        print("\nDrawing polygon mask — left-click to add vertices, "
-              "click first vertex (or press Enter) to finish.")
-        self.img_mask = self.X1[self.ind] + self.mask[self.ind]
-        fig_mask = plt.figure()
-        ax_mask = fig_mask.add_subplot(111)
-        ax_mask.imshow(
-            self.img_mask, cmap=self.colormap,
-            vmin=self.vmin, vmax=self.vmax,
-        )
-        # roipoly now wraps PolygonSelector; closes fig_mask on completion
-        self.ROI_draw = roipoly(fig=fig_mask, ax=ax_mask)
+        """
+        Attach a PolygonSelector to the main image axes for mask drawing.
+
+        Left-click to add vertices; click the first vertex again (or press
+        **Enter** in matplotlib ≥ 3.7) to close and finalise the polygon.
+        Then click **add mask** (or another mask button) to apply it.
+
+        The selector is drawn directly on ``ax1`` — no separate figure is
+        opened.  Any previously unfinished selector is discarded first.
+        """
+        print("\nDrawing polygon mask directly on the image — "
+              "left-click to add vertices, click first vertex (or Enter) to finish.\n"
+              "When done, click 'add mask' to apply.")
+        # Discard any unfinished selector from a previous call
+        if self._poly_selector is not None:
+            try:
+                self._poly_selector.disconnect_events()
+            except Exception:
+                pass
+        self._poly_verts = []
+        _props = dict(color="r", linewidth=1.5, alpha=0.8)
+        try:
+            self._poly_selector = PolygonSelector(
+                self.ax1, self._on_poly_select, props=_props
+            )
+        except TypeError:               # matplotlib < 3.5
+            self._poly_selector = PolygonSelector(
+                self.ax1, self._on_poly_select, lineprops=_props
+            )
+        self.ax1.figure.canvas.draw_idle()
+
+    def _on_poly_select(self, verts):
+        """Store vertices when the PolygonSelector polygon is finalised."""
+        self._poly_verts = list(verts)
+        self._poly_selector.disconnect_events()
+        self._poly_selector = None
+        self.ax1.figure.canvas.draw_idle()
+        print(f"Polygon with {len(self._poly_verts)} vertices recorded — "
+              "click 'add mask' (or another mask button) to apply.")
+
+    def _get_roi_mask(self):
+        """
+        Rasterise the last completed polygon onto the current image grid.
+
+        Returns
+        -------
+        ndarray of bool, shape (rows, cols)
+            ``True`` for pixels inside the polygon.  All-False if no
+            polygon has been drawn yet.
+        """
+        ny, nx = self.rows, self.cols
+        if len(self._poly_verts) < 3:
+            print("No completed polygon — use 'draw mask' first.")
+            return np.zeros((ny, nx), dtype=bool)
+        x, y = np.meshgrid(np.arange(nx), np.arange(ny))
+        points = np.vstack((x.ravel(), y.ravel())).T
+        path = mplPath.Path(self._poly_verts)
+        return path.contains_points(points).reshape(ny, nx)
 
     def add_mask(self, event):
         """Apply the drawn polygon to the current projection's mask."""
         print("\nAdding mask")
-        self.mask[self.ind] |= self.ROI_draw.getMask(self.img_mask)
-        # Pass ax1 explicitly so the overlay goes on the main image axes
-        self.ROI_draw.displayROI(ax=self.ax1)
+        roi = self._get_roi_mask()
+        self.mask[self.ind] |= roi
+        # Overlay the closed polygon outline on ax1
+        if len(self._poly_verts) >= 2:
+            xs = [v[0] for v in self._poly_verts] + [self._poly_verts[0][0]]
+            ys = [v[1] for v in self._poly_verts] + [self._poly_verts[0][1]]
+            self.ax1.add_line(plt.Line2D(xs, ys, color="r"))
         self.update()
 
     def mask_all(self, event):
         """Copy the current polygon to every projection."""
         print("\nCopying mask to all projections — please wait...")
-        mask = self.ROI_draw.getMask(self.img_mask)
+        mask = self._get_roi_mask()
         self.mask |= np.broadcast_to(mask, self.mask.shape).copy()
         print("Done")
         self.update()
@@ -542,13 +593,13 @@ class PhaseTracker(object):
     def remove_mask(self, event):
         """Remove the drawn polygon from the current projection's mask."""
         print("\nRemoving mask from current projection")
-        self.mask[self.ind] &= ~self.ROI_draw.getMask(self.img_mask)
+        self.mask[self.ind] &= ~self._get_roi_mask()
         self.update()
 
     def remove_all_mask(self, event):
         """Remove the drawn polygon from every projection's mask."""
         print("\nRemoving mask from all projections — please wait...")
-        mask = self.ROI_draw.getMask(self.img_mask)
+        mask = self._get_roi_mask()
         self.mask &= ~np.broadcast_to(mask, self.mask.shape).copy()
         print("Done")
         self.update()
