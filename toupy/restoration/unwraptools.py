@@ -9,7 +9,8 @@ import sys
 from collections import deque
 
 # third party packages
-from joblib import Parallel, delayed, parallel_backend
+from concurrent.futures import ProcessPoolExecutor
+import functools
 from matplotlib.widgets import Button
 from ..utils.plot_utils import plt
 import multiprocessing
@@ -295,7 +296,7 @@ def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
         Projections with more residues than ``threshold`` are flagged
         as problematic.  Default ``1000``.
     ncores : int, optional
-        Number of CPU cores for parallel computation via joblib.
+        Number of CPU cores for parallel computation.
         Default ``2``.
 
     Returns
@@ -307,10 +308,13 @@ def phaseresiduesStack_parallel(stack_array, threshold=1000, ncores=2):
     nres : tuple of int
         Tuple of per-projection residue counts.
     """
-    with parallel_backend("loky", inner_max_num_threads=2):
+    nprojs = len(stack_array)
+    with ProcessPoolExecutor(max_workers=ncores) as executor:
         residues, residues_charge, nres = zip(
-            *Parallel(n_jobs=ncores)(
-                delayed(phaseresidues)(ii) for ii in tqdm(stack_array)
+            *tqdm(
+                executor.map(phaseresidues, stack_array),
+                total=nprojs,
+                desc="Searching phase residues",
             )
         )
     print("Done")
@@ -1297,7 +1301,7 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, 
         Position ``(col, row)`` of a pixel in the air/vacuum region used
         to set the absolute phase offset.  Default ``[]``.
     ncores : int, optional
-        Number of CPU cores for parallel computation via joblib.
+        Number of CPU cores for parallel computation.
         Pass ``-1`` to use all available cores.  Default ``1``.
     method : str, optional
         Phase unwrapping algorithm.  See :func:`unwrap_phase_2d` for
@@ -1314,17 +1318,22 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, 
     if ncores == -1:
         try:
             ncpus = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
-        except:
+        except Exception:
             ncpus = multiprocessing.cpu_count()
     else:
         ncpus = ncores
-    print(f"Parallel calculations using {ncpus} cpus")
+    print("Parallel unwrapping using {} cpus".format(ncpus), flush=True)
     # Unwrap each projection in the ROI (copy so the original is never touched)
     roi_wrapped = stack2unwrap[:, ry[0] : ry[-1], rx[0] : rx[-1]].copy()
-    with parallel_backend("loky", inner_max_num_threads=2):
-        results = Parallel(n_jobs=ncpus)(
-            delayed(unwrap_phase_2d)(img, method=method, verbose=verbose)
-            for img in tqdm(roi_wrapped)
+    _worker = functools.partial(unwrap_phase_2d, method=method, verbose=verbose)
+    nprojs = roi_wrapped.shape[0]
+    with ProcessPoolExecutor(max_workers=ncpus) as executor:
+        results = list(
+            tqdm(
+                executor.map(_worker, roi_wrapped),
+                total=nprojs,
+                desc="Unwrapping projections",
+            )
         )
 
     # Air-pixel indices within the ROI sub-array
@@ -1474,17 +1483,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         fig.canvas.draw()
 
     # ---- unwrap the full stack ----
-    # joblib's loky backend can deadlock inside a Jupyter kernel, so fall
-    # back to the sequential path when running in a notebook.
-    _use_parallel = params["parallel"] and ncores > 1 and not isnotebook()
-    if isnotebook() and params["parallel"] and ncores > 1:
-        print(
-            "Note: parallel unwrapping is disabled in Jupyter "
-            "(joblib/loky can deadlock in a notebook kernel). "
-            "Running sequentially — use the terminal script for parallel.",
-            flush=True,
-        )
-    if not _use_parallel:
+    if not params["parallel"] or ncores <= 1:
         nprojs = stack_phasecorr.shape[0]
         for ii in tqdm(range(nprojs), desc="Unwrapping projections"):
             stack_unwrap[ii] = _unwrapping_phase(
