@@ -237,20 +237,31 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
     else:
         interior = np.ones(a.shape, dtype=bool)
 
-    # Resolve weight into an array or None (→ median)
-    # Also track whether we already have a binary air mask to reuse later.
-    air_mask_for_offset = None   # set below when a binary mask is available
-
+    # Resolve weight into an array w (or None → global median).
+    # Also decide which zero_air_phase strategy to use later:
+    #
+    #   air_mask_for_offset is not None
+    #       → Strategy A: circular mean over those pixels.
+    #         Only set for a USER-SUPPLIED binary mask.  The user has
+    #         explicitly drawn the air region, so the mask is reliable.
+    #
+    #   air_mask_for_offset is None
+    #       → Strategy B: phase histogram mode.
+    #         Used for weight=None/'median'/'abs'/'auto' — in all these
+    #         cases the air boundary is estimated automatically and may
+    #         include bright reconstruction artefacts whose random phases
+    #         would corrupt a circular mean.  The histogram mode is robust
+    #         to such contamination and does not need an explicit mask.
+    #
     # Guard every string comparison with isinstance so that passing a
     # numpy array as weight does not trigger "truth value of array is
-    # ambiguous" from broadcasted == comparisons.
+    # ambiguous" from a broadcasted == comparison.
+    air_mask_for_offset = None
     _w_is_str = isinstance(weight, str)
 
     if weight is None or (_w_is_str and weight == 'median'):
         # Restrict global median to interior pixels when border > 0
         w = interior.astype(np.float64) if border > 0 else None
-        if border > 0:
-            air_mask_for_offset = interior
     elif _w_is_str and weight == 'abs':
         w = np.abs(a) * interior
     elif _w_is_str and weight == 'auto':
@@ -258,7 +269,10 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
         # Compute Otsu threshold on interior pixels only
         thresh = _otsu_threshold(amp[interior])
         w = ((amp > thresh) & interior).astype(np.float64)
-        air_mask_for_offset = w.astype(bool)
+        # Do NOT set air_mask_for_offset here: the Otsu mask can include
+        # bright reconstruction artefacts (high amplitude but non-air
+        # phase) that corrupt a circular mean.  Histogram mode handles
+        # this case correctly without needing a clean mask.
         n_air = w.sum()
         n_total = interior.sum()
         if n_air < 0.01 * n_total:
@@ -270,10 +284,13 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
                 UserWarning, stacklevel=2,
             )
     else:
+        # User-supplied array — treat as a reliable mask when it is binary.
         w = np.asarray(weight, dtype=np.float64)
         if border > 0:
             w = w * interior          # zero out border in custom mask too
         if np.array_equal(w, w.astype(bool)):
+            # Binary mask: circular mean is precise when the user has
+            # explicitly drawn the air region.
             air_mask_for_offset = w.astype(bool)
 
     # Unit phasor
@@ -311,19 +328,17 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
 
     # Optional global phase offset so that the air phase is zero.
     #
-    # Two strategies depending on whether a reliable air mask is available:
+    # Two strategies (see weight-resolution block above for which is used):
     #
-    # A) Binary mask known (weight='auto' or custom binary array):
-    #    Circular mean of phasors over the mask pixels — wrap-safe and
-    #    precise.  The mask already identifies the air region, so no
-    #    further detection is needed.
+    # A) air_mask_for_offset is not None  →  user-supplied binary mask.
+    #    Circular mean of phasors over those pixels — wrap-safe and
+    #    precise when the mask reliably marks only the air region.
     #
-    # B) No mask (weight=None/'median'/'abs'):
-    #    Phase histogram mode over interior pixels.  Air pixels form a
-    #    sharp dominant peak; object and artefact pixels spread broadly.
-    #    The peak is located via a two-step smoothed-then-raw argmax with
-    #    parabolic sub-bin interpolation, using a circular (wrap-around)
-    #    boxcar to handle the ±π boundary.
+    # B) air_mask_for_offset is None  →  automatic modes (None/'median'/
+    #    'abs'/'auto').  Phase histogram mode over interior pixels.  Air
+    #    pixels form a sharp dominant peak; object and artefact pixels
+    #    spread broadly.  Located via smoothed-then-raw argmax + parabolic
+    #    sub-bin interpolation with a circular boxcar for ±π wrap-around.
     if zero_air_phase:
         if air_mask_for_offset is not None:
             # --- Strategy A: circular mean over the known air mask ---
