@@ -37,7 +37,13 @@ if __name__ == "__main__":
     )
 
     # correcting phase ramp
-    stack_phasecorr = gui_plotphase(stack_objs, **params)
+    # gui_plotphase returns the tracker object.
+    # Script mode: plt.show(block=True) has already returned when this
+    #              line executes, so tracker.X1 is the finished result.
+    # Notebook mode (%matplotlib widget): interact with the GUI in the
+    #              cell output, then run the next cell to access results.
+    tracker = gui_plotphase(stack_objs, **params)
+    stack_phasecorr = tracker.X1.copy()
 
     # Save the corrected phase projections
     SaveData.save("linear_phase_corrected.h5", stack_phasecorr, theta, **params)
