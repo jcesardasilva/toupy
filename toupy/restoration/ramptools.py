@@ -241,14 +241,19 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
     # Also track whether we already have a binary air mask to reuse later.
     air_mask_for_offset = None   # set below when a binary mask is available
 
-    if weight is None or weight == 'median':
+    # Guard every string comparison with isinstance so that passing a
+    # numpy array as weight does not trigger "truth value of array is
+    # ambiguous" from broadcasted == comparisons.
+    _w_is_str = isinstance(weight, str)
+
+    if weight is None or (_w_is_str and weight == 'median'):
         # Restrict global median to interior pixels when border > 0
         w = interior.astype(np.float64) if border > 0 else None
         if border > 0:
             air_mask_for_offset = interior
-    elif weight == 'abs':
+    elif _w_is_str and weight == 'abs':
         w = np.abs(a) * interior
-    elif weight == 'auto':
+    elif _w_is_str and weight == 'auto':
         amp = np.abs(a)
         # Compute Otsu threshold on interior pixels only
         thresh = _otsu_threshold(amp[interior])
