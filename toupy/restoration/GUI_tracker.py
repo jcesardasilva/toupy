@@ -503,11 +503,22 @@ class PhaseTracker(object):
         self.update()
 
     def play(self, event):
-        """Play through projections from the current one."""
+        """Play through all projections from the current index.
+
+        Each frame is rendered synchronously so the animation is actually
+        visible.  ``draw_idle()`` (used by ``update()``) schedules an
+        async repaint that never fires inside a tight Python loop; we
+        force a synchronous ``draw()`` + ``flush_events()`` after each
+        frame to push the data to the screen.
+        """
+        print("Playing from projection {} …".format(self.ind + 1))
+        canvas = self.ax1.figure.canvas
         for ii in range(self.ind, self.projs):
             self.ind = ii
-            print("Projection {}".format(self.ind + 1))
             self.update()
+            canvas.draw()           # synchronous render
+            canvas.flush_events()   # process GUI events so the frame shows
+        print("Play finished at projection {}.".format(self.ind + 1))
 
     # ------------------------------------------------------------------ mask
     def draw_mask(self, event):
@@ -572,7 +583,7 @@ class PhaseTracker(object):
 
     def add_mask(self, event):
         """Apply the drawn polygon to the current projection's mask."""
-        print("\nAdding mask")
+        print("Adding mask to projection {} … ".format(self.ind + 1), end="", flush=True)
         roi = self._get_roi_mask()
         self.mask[self.ind] |= roi
         # Overlay the closed polygon outline on ax1
@@ -581,108 +592,110 @@ class PhaseTracker(object):
             ys = [v[1] for v in self._poly_verts] + [self._poly_verts[0][1]]
             self.ax1.add_line(plt.Line2D(xs, ys, color="r"))
         self.update()
+        print("done  ({} masked pixels).".format(int(roi.sum())))
 
     def mask_all(self, event):
         """Copy the current polygon to every projection."""
-        print("\nCopying mask to all projections — please wait...")
+        print("Copying mask to all {} projections … ".format(self.projs), end="", flush=True)
         mask = self._get_roi_mask()
         self.mask |= np.broadcast_to(mask, self.mask.shape).copy()
-        print("Done")
         self.update()
+        print("done.")
 
     def remove_mask(self, event):
         """Remove the drawn polygon from the current projection's mask."""
-        print("\nRemoving mask from current projection")
+        print("Removing mask from projection {} … ".format(self.ind + 1), end="", flush=True)
         self.mask[self.ind] &= ~self._get_roi_mask()
         self.update()
+        print("done.")
 
     def remove_all_mask(self, event):
         """Remove the drawn polygon from every projection's mask."""
-        print("\nRemoving mask from all projections — please wait...")
+        print("Removing mask from all {} projections … ".format(self.projs), end="", flush=True)
         mask = self._get_roi_mask()
         self.mask &= ~np.broadcast_to(mask, self.mask.shape).copy()
-        print("Done")
         self.update()
+        print("done.")
 
     # ------------------------------------------------------------------ correction
     def apply_mask(self, event):
         """Remove phase ramp from the current projection using its mask."""
-        print("\nApplying phase ramp correction to projection", self.ind + 1)
+        print("Applying phase ramp correction to projection {} … ".format(self.ind + 1),
+              end="", flush=True)
         self.X1[self.ind] = _removing_phaseramp(
             self.X1[self.ind], self.mask[self.ind]
         )
         self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
+        print("done.")
 
     def apply_all_masks(self, event):
         """Remove phase ramp from all projections using their masks."""
-        print("\nApplying phase ramp correction to all projections")
-        for ii in tqdm(range(self.projs), desc="Applying phase correction"):
-            self.ind = ii
-            self.X1[ii] = _removing_phaseramp(
-                self.X1[ii], self.mask[ii]
-            )
+        print("Applying phase ramp correction to all {} projections:".format(self.projs))
+        for ii in tqdm(range(self.projs), desc="  phase ramp removal", unit="proj"):
+            self.X1[ii] = _removing_phaseramp(self.X1[ii], self.mask[ii])
             self.X2[ii] = self.X1[ii, self.hcen, :].copy()
-            self.update()
-        print("Done")
+        # Single canvas refresh at the end — draw_idle() inside the loop
+        # never fires because the Python thread never yields to the event loop.
+        self.ind = self.projs - 1
+        self.update()
+        print("All projections corrected.")
 
     def remove_ramp(self, event):
         """Remove linear phase ramp from the current projection (no mask)."""
-        print("\nRemoving ramp from projection", self.ind + 1)
+        print("Removing ramp from projection {} … ".format(self.ind + 1), end="", flush=True)
         self.X1[self.ind] = np.angle(
             rmphaseramp(np.exp(1j * self.X1[self.ind]), weight=None)
         )
-        self.X2[self.ind] = self.X1[
-            self.ind, int(self.X1.shape[1] // 2), :
-        ].copy()
+        self.X2[self.ind] = self.X1[self.ind, int(self.X1.shape[1] // 2), :].copy()
         self.update()
+        print("done.")
 
     def remove_rampall(self, event):
         """Remove linear phase ramp from all projections (no mask)."""
-        print("\nRemoving ramp from all projections")
-        for ii in tqdm(range(self.projs), desc="Removing phase ramp"):
-            self.ind = ii
+        print("Removing ramp from all {} projections:".format(self.projs))
+        for ii in tqdm(range(self.projs), desc="  ramp removal", unit="proj"):
             self.X1[ii] = np.angle(
                 rmphaseramp(np.exp(1j * self.X1[ii]), weight=None)
             )
-            self.X2[ii] = self.X1[
-                ii, int(self.X1.shape[1] // 2), :
-            ].copy()
-            self.update()
-        print("Done")
+            self.X2[ii] = self.X1[ii, int(self.X1.shape[1] // 2), :].copy()
+        self.ind = self.projs - 1
+        self.update()
+        print("All ramps removed.")
 
     def unwrapping_phase(self, event):
         """Unwrap phase of the current projection."""
-        print(f"\nUnwrapping projection {self.ind + 1}")
+        print("Unwrapping projection {} … ".format(self.ind + 1), end="", flush=True)
         self.X1[self.ind] = _unwrapping_phase(
             self.X1[self.ind], self.mask[self.ind]
         )
         self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
+        print("done.")
 
     def unwrapping_all(self, event):
         """Unwrap phase of all projections."""
-        print("\nUnwrapping all projections")
-        for ii in tqdm(range(self.projs), desc="Unwrapping projections"):
-            self.ind = ii
-            self.X1[ii] = _unwrapping_phase(
-                self.X1[ii], self.mask[ii]
-            )
+        print("Unwrapping all {} projections:".format(self.projs))
+        for ii in tqdm(range(self.projs), desc="  phase unwrapping", unit="proj"):
+            self.X1[ii] = _unwrapping_phase(self.X1[ii], self.mask[ii])
             self.X2[ii] = self.X1[ii, self.hcen, :].copy()
-            self.update()
-        print("Done")
+        self.ind = self.projs - 1
+        self.update()
+        print("All projections unwrapped.")
 
     # ------------------------------------------------------------------ I/O
     def load_masks(self, event):
         """Load masks from ``masks.h5``."""
-        print("\nLoading masks from file")
+        print("Loading masks from masks.h5 … ", end="", flush=True)
         self.mask = LoadData.loadmasks("masks.h5", **self.params)
         self.update()
+        print("done.")
 
     def save_masks(self, event):
         """Save masks to ``masks.h5``."""
-        print("\nSaving masks to file")
+        print("Saving masks to masks.h5 … ", end="", flush=True)
         SaveData.savemasks("masks.h5", self.mask, **self.params)
+        print("done.")
 
     # ------------------------------------------------------------------ display
     def update(self):
@@ -719,36 +732,36 @@ class AmpTracker(PhaseTracker):
 
     def apply_mask(self, event):
         """Normalise air, apply log; guards against double-correction."""
-        print("\nApplying air correction + log to projection", self.ind + 1)
         if self.ind in self.done:
-            print("  (already corrected — skipping)")
+            print("Projection {} already corrected — skipping.".format(self.ind + 1))
         else:
+            print("Applying air correction + log to projection {} … ".format(self.ind + 1),
+                  end="", flush=True)
             imgin = self.X1[self.ind].copy()
             mask  = self.mask[self.ind].copy()
             self.X1[self.ind] = np.log(rmair(imgin, mask))
-            self.X2[self.ind] = self.X1[
-                self.ind, int(self.X1.shape[1] // 2), :
-            ].copy()
+            self.X2[self.ind] = self.X1[self.ind, int(self.X1.shape[1] // 2), :].copy()
             self.done.append(self.ind)
             self.vmin = -0.5
             self.vmax =  0.1
+            print("done.")
         self.update()
 
     def apply_all_masks(self, event):
         """Normalise air + log for all uncorrected projections."""
-        print("\nApplying air correction + log to all projections")
-        for ii in tqdm(range(self.projs), desc="Applying air correction"):
-            self.ind = ii
-            if self.ind in self.done:
-                print(f"\r  Projection {self.ind + 1} already corrected — skipping",
-                      end="")
-            else:
-                imgin = self.X1[ii].copy()
-                mask  = self.mask[ii].copy()
-                self.X1[ii] = np.log(rmair(imgin, mask))
-                self.X2[ii] = self.X1[
-                    ii, int(self.X1.shape[1] // 2), :
-                ].copy()
-                self.done.append(self.ind)
-            self.update()
-        print("\nDone")
+        already = [i for i in range(self.projs) if i in self.done]
+        todo    = [i for i in range(self.projs) if i not in self.done]
+        if already:
+            print("  ({} projection(s) already corrected — skipping them)".format(len(already)))
+        print("Applying air correction + log to {} projection(s):".format(len(todo)))
+        for ii in tqdm(todo, desc="  air correction", unit="proj"):
+            imgin = self.X1[ii].copy()
+            mask  = self.mask[ii].copy()
+            self.X1[ii] = np.log(rmair(imgin, mask))
+            self.X2[ii] = self.X1[ii, int(self.X1.shape[1] // 2), :].copy()
+            self.done.append(ii)
+        self.vmin = -0.5
+        self.vmax =  0.1
+        self.ind = self.projs - 1
+        self.update()
+        print("All projections corrected.")
