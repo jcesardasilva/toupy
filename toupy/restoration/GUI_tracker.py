@@ -109,8 +109,10 @@ def _setup_and_run(fig, tracker, notebook_hint):
     if isnotebook():
         if _is_ipympl():
             # ipympl renders the figure as a live interactive widget.
-            # Do not block — the user interacts with the GUI in the cell
-            # output and accesses results in the next cell.
+            # Force a synchronous draw so the browser receives the fully
+            # populated figure (axes, image data, buttons) before the
+            # cell finishes — draw_idle() may not fire in time.
+            fig.canvas.draw()
             plt.show(block=False)
             print(
                 "Interact with the GUI above.\n"
@@ -118,7 +120,9 @@ def _setup_and_run(fig, tracker, notebook_hint):
                 f"    stack_corrected = {notebook_hint}"
             )
         else:
-            # No interactive backend: show a static preview and warn.
+            # No interactive backend: force a draw, show a static
+            # preview and warn the user about the missing backend.
+            fig.canvas.draw()
             from IPython import display as ipy_display
             ipy_display.display(fig)
             warnings.warn(
@@ -601,7 +605,13 @@ class PhaseTracker(object):
 
     # ------------------------------------------------------------------ display
     def update(self):
-        """Refresh the canvas after any state change."""
+        """Refresh the canvas after any state change.
+
+        Uses the synchronous ``canvas.draw()`` rather than
+        ``draw_idle()`` so that the browser receives the updated frame
+        immediately — critical for ipympl in Jupyter where the async
+        variant may not fire before the cell finishes executing.
+        """
         self.im1.set_data(self.X1[self.ind] + self.mask[self.ind])
         self.im1.set_clim(self.vmin, self.vmax)
         self.im2.set_ydata(self.X2[self.ind])
@@ -609,8 +619,8 @@ class PhaseTracker(object):
         self.im2.axes.set_xlim([0, self.cols])
         self.ax1.set_ylabel("Projection {}".format(self.ind + 1))
         self.ax2.set_ylabel("Projection {}".format(self.ind + 1))
-        self.ax1.figure.canvas.draw_idle()
-        self.ax2.figure.canvas.draw_idle()
+        self.ax1.figure.canvas.draw()
+        self.ax2.figure.canvas.draw()
 
     def onclose(self, event):
         """Close the GUI figure."""
