@@ -201,6 +201,12 @@ def gui_plotamp(stack_objs, **params):
     tracker = AmpTracker(fig, ax1, ax2, stack_objs, **params)
 
     # --- Buttons ---
+    # IMPORTANT: Button and TextBox objects must be kept alive for their
+    # callbacks to remain active.  Matplotlib's CallbackRegistry stores
+    # bound methods via WeakMethod, so any widget that is not referenced
+    # elsewhere is immediately garbage-collected and its click/submit
+    # handlers silently stop working.  We store all widgets on the
+    # tracker so they live as long as the tracker does.
     axdraw     = plt.axes([0.58, 0.82, 0.19, 0.06])
     axclose    = plt.axes([0.78, 0.82, 0.19, 0.06])
     axadd      = plt.axes([0.58, 0.72, 0.19, 0.06])
@@ -212,24 +218,24 @@ def gui_plotamp(stack_objs, **params):
     axsave     = plt.axes([0.58, 0.32, 0.19, 0.06])
     axload     = plt.axes([0.58, 0.22, 0.19, 0.06])
 
-    Button(axdraw,      "draw mask"       ).on_clicked(tracker.draw_mask)
-    Button(axclose,     "close figure"    ).on_clicked(tracker.onclose)
-    Button(axadd,       "add mask"        ).on_clicked(tracker.add_mask)
-    Button(axapply,     "apply mask"      ).on_clicked(tracker.apply_mask)
-    Button(axmaskall,   "mask all"        ).on_clicked(tracker.mask_all)
-    Button(axapplyall,  "apply all masks" ).on_clicked(tracker.apply_all_masks)
-    Button(axremove,    "remove mask"     ).on_clicked(tracker.remove_mask)
-    Button(axremoveall, "remove all mask" ).on_clicked(tracker.remove_all_mask)
-    Button(axsave,      "save masks"      ).on_clicked(tracker.save_masks)
-    Button(axload,      "load masks"      ).on_clicked(tracker.load_masks)
+    bdraw      = Button(axdraw,      "draw mask"       ); bdraw.on_clicked(tracker.draw_mask)
+    bclose     = Button(axclose,     "close figure"    ); bclose.on_clicked(tracker.onclose)
+    badd       = Button(axadd,       "add mask"        ); badd.on_clicked(tracker.add_mask)
+    bapply     = Button(axapply,     "apply mask"      ); bapply.on_clicked(tracker.apply_mask)
+    bmaskall   = Button(axmaskall,   "mask all"        ); bmaskall.on_clicked(tracker.mask_all)
+    bapplyall  = Button(axapplyall,  "apply all masks" ); bapplyall.on_clicked(tracker.apply_all_masks)
+    bremove    = Button(axremove,    "remove mask"     ); bremove.on_clicked(tracker.remove_mask)
+    bremoveall = Button(axremoveall, "remove all mask" ); bremoveall.on_clicked(tracker.remove_all_mask)
+    bsave      = Button(axsave,      "save masks"      ); bsave.on_clicked(tracker.save_masks)
+    bload      = Button(axload,      "load masks"      ); bload.on_clicked(tracker.load_masks)
 
     # --- Text boxes ---
     axboxprojn = plt.axes([0.125, 0.05, 0.1,  0.06])
     axboxvmin  = plt.axes([0.67,  0.05, 0.1,  0.06])
     axboxvmax  = plt.axes([0.87,  0.05, 0.1,  0.06])
-    TextBox(axboxprojn, "Goto #", initial="1"   ).on_submit(tracker.submit)
-    TextBox(axboxvmin,  "vmin",   initial="None").on_submit(tracker.cmvmin)
-    TextBox(axboxvmax,  "vmax",   initial="None").on_submit(tracker.cmvmax)
+    tbprojn = TextBox(axboxprojn, "Goto #", initial="1"   ); tbprojn.on_submit(tracker.submit)
+    tbvmin  = TextBox(axboxvmin,  "vmin",   initial="None"); tbvmin.on_submit(tracker.cmvmin)
+    tbvmax  = TextBox(axboxvmax,  "vmax",   initial="None"); tbvmax.on_submit(tracker.cmvmax)
 
     cmap_title = plt.axes([0.72, 0.14, 0.1, 0.06])
     cmap_title.set_axis_off()
@@ -239,13 +245,20 @@ def gui_plotamp(stack_objs, **params):
     axprev = plt.axes([0.28, 0.05, 0.05, 0.06])
     axnext = plt.axes([0.35, 0.05, 0.05, 0.06])
     axplay = plt.axes([0.445, 0.05, 0.1, 0.06])
-    Button(axprev, "<"    ).on_clicked(tracker.down)
-    Button(axnext, ">"    ).on_clicked(tracker.up)
-    Button(axplay, "play" ).on_clicked(tracker.play)
+    bprev = Button(axprev, "<"   ); bprev.on_clicked(tracker.down)
+    bnext = Button(axnext, ">"   ); bnext.on_clicked(tracker.up)
+    bplay = Button(axplay, "play"); bplay.on_clicked(tracker.play)
+
+    # Store all widget references on the tracker to prevent GC
+    tracker._widgets = [
+        bdraw, bclose, badd, bapply, bmaskall, bapplyall,
+        bremove, bremoveall, bsave, bload,
+        tbprojn, tbvmin, tbvmax, bprev, bnext, bplay,
+    ]
 
     fig.canvas.mpl_connect("scroll_event",    tracker.onscroll)
     fig.canvas.mpl_connect("key_press_event", tracker.key_event)
-    MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
+    tracker._multicursor = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
 
     return _setup_and_run(fig, tracker, "tracker.X1")
 
@@ -303,6 +316,12 @@ def gui_plotphase(stack_objs, **params):
     tracker = PhaseTracker(fig, ax1, ax2, stack_objs, **params)
 
     # --- Buttons ---
+    # IMPORTANT: Button and TextBox objects must be kept alive for their
+    # callbacks to remain active.  Matplotlib's CallbackRegistry stores
+    # bound methods via WeakMethod, so any widget that is not referenced
+    # elsewhere is immediately garbage-collected and its click/submit
+    # handlers silently stop working.  We store all widgets on the
+    # tracker so they live as long as the tracker does.
     axdraw      = plt.axes([0.58, 0.82, 0.19, 0.06])
     axclose     = plt.axes([0.78, 0.82, 0.19, 0.06])
     axadd       = plt.axes([0.58, 0.72, 0.19, 0.06])
@@ -318,28 +337,28 @@ def gui_plotphase(stack_objs, **params):
     axload      = plt.axes([0.58, 0.22, 0.19, 0.06])
     axunwrapall = plt.axes([0.78, 0.22, 0.19, 0.06])
 
-    Button(axdraw,      "draw mask"       ).on_clicked(tracker.draw_mask)
-    Button(axclose,     "close figure"    ).on_clicked(tracker.onclose)
-    Button(axadd,       "add mask"        ).on_clicked(tracker.add_mask)
-    Button(axapply,     "apply mask"      ).on_clicked(tracker.apply_mask)
-    Button(axmaskall,   "mask all"        ).on_clicked(tracker.mask_all)
-    Button(axapplyall,  "apply all masks" ).on_clicked(tracker.apply_all_masks)
-    Button(axremove,    "remove mask"     ).on_clicked(tracker.remove_mask)
-    Button(axrmramp,    "remove ramp"     ).on_clicked(tracker.remove_ramp)
-    Button(axremoveall, "remove all mask" ).on_clicked(tracker.remove_all_mask)
-    Button(axrmrampall, "remove all ramp" ).on_clicked(tracker.remove_rampall)
-    Button(axsave,      "save masks"      ).on_clicked(tracker.save_masks)
-    Button(axunwrap,    "unwrap"          ).on_clicked(tracker.unwrapping_phase)
-    Button(axload,      "load masks"      ).on_clicked(tracker.load_masks)
-    Button(axunwrapall, "unwrap all"      ).on_clicked(tracker.unwrapping_all)
+    bdraw      = Button(axdraw,      "draw mask"      ); bdraw.on_clicked(tracker.draw_mask)
+    bclose     = Button(axclose,     "close figure"   ); bclose.on_clicked(tracker.onclose)
+    badd       = Button(axadd,       "add mask"       ); badd.on_clicked(tracker.add_mask)
+    bapply     = Button(axapply,     "apply mask"     ); bapply.on_clicked(tracker.apply_mask)
+    bmaskall   = Button(axmaskall,   "mask all"       ); bmaskall.on_clicked(tracker.mask_all)
+    bapplyall  = Button(axapplyall,  "apply all masks"); bapplyall.on_clicked(tracker.apply_all_masks)
+    bremove    = Button(axremove,    "remove mask"    ); bremove.on_clicked(tracker.remove_mask)
+    brmramp    = Button(axrmramp,    "remove ramp"    ); brmramp.on_clicked(tracker.remove_ramp)
+    bremoveall = Button(axremoveall, "remove all mask"); bremoveall.on_clicked(tracker.remove_all_mask)
+    brmrampall = Button(axrmrampall, "remove all ramp"); brmrampall.on_clicked(tracker.remove_rampall)
+    bsave      = Button(axsave,      "save masks"     ); bsave.on_clicked(tracker.save_masks)
+    bunwrap    = Button(axunwrap,    "unwrap"         ); bunwrap.on_clicked(tracker.unwrapping_phase)
+    bload      = Button(axload,      "load masks"     ); bload.on_clicked(tracker.load_masks)
+    bunwrapall = Button(axunwrapall, "unwrap all"     ); bunwrapall.on_clicked(tracker.unwrapping_all)
 
     # --- Text boxes ---
     axboxprojn = plt.axes([0.125, 0.05, 0.1,  0.06])
     axboxvmin  = plt.axes([0.67,  0.05, 0.1,  0.06])
     axboxvmax  = plt.axes([0.87,  0.05, 0.1,  0.06])
-    TextBox(axboxprojn, "Goto #", initial="1"   ).on_submit(tracker.submit)
-    TextBox(axboxvmin,  "vmin",   initial="None").on_submit(tracker.cmvmin)
-    TextBox(axboxvmax,  "vmax",   initial="None").on_submit(tracker.cmvmax)
+    tbprojn = TextBox(axboxprojn, "Goto #", initial="1"   ); tbprojn.on_submit(tracker.submit)
+    tbvmin  = TextBox(axboxvmin,  "vmin",   initial="None"); tbvmin.on_submit(tracker.cmvmin)
+    tbvmax  = TextBox(axboxvmax,  "vmax",   initial="None"); tbvmax.on_submit(tracker.cmvmax)
 
     cmap_title = plt.axes([0.72, 0.14, 0.1, 0.06])
     cmap_title.set_axis_off()
@@ -349,13 +368,21 @@ def gui_plotphase(stack_objs, **params):
     axprev = plt.axes([0.28, 0.05, 0.05, 0.06])
     axnext = plt.axes([0.35, 0.05, 0.05, 0.06])
     axplay = plt.axes([0.445, 0.05, 0.1,  0.06])
-    Button(axprev, "<"    ).on_clicked(tracker.down)
-    Button(axnext, ">"    ).on_clicked(tracker.up)
-    Button(axplay, "play" ).on_clicked(tracker.play)
+    bprev = Button(axprev, "<"   ); bprev.on_clicked(tracker.down)
+    bnext = Button(axnext, ">"   ); bnext.on_clicked(tracker.up)
+    bplay = Button(axplay, "play"); bplay.on_clicked(tracker.play)
+
+    # Store all widget references on the tracker to prevent GC
+    tracker._widgets = [
+        bdraw, bclose, badd, bapply, bmaskall, bapplyall,
+        bremove, brmramp, bremoveall, brmrampall,
+        bsave, bunwrap, bload, bunwrapall,
+        tbprojn, tbvmin, tbvmax, bprev, bnext, bplay,
+    ]
 
     fig.canvas.mpl_connect("scroll_event",    tracker.onscroll)
     fig.canvas.mpl_connect("key_press_event", tracker.key_event)
-    MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
+    tracker._multicursor = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
 
     return _setup_and_run(fig, tracker, "tracker.X1")
 
@@ -394,8 +421,11 @@ class PhaseTracker(object):
         self.vmax = params["vmax"]
         self.colormap = params["colormap"]
 
-        # Initialise canvas
-        plt.ion()
+        # Initialise canvas.
+        # Do NOT call plt.ion() here: with ipympl it installs a REPL
+        # display hook that fires draw_all() at unpredictable times,
+        # causing scroll/key callbacks to trigger on startup (appearing
+        # as an automatic play-through of all projections).
         self.im1 = self.ax1.imshow(
             self.X1[self.ind],
             cmap=self.colormap,
@@ -605,13 +635,7 @@ class PhaseTracker(object):
 
     # ------------------------------------------------------------------ display
     def update(self):
-        """Refresh the canvas after any state change.
-
-        Uses the synchronous ``canvas.draw()`` rather than
-        ``draw_idle()`` so that the browser receives the updated frame
-        immediately — critical for ipympl in Jupyter where the async
-        variant may not fire before the cell finishes executing.
-        """
+        """Refresh the canvas after any state change."""
         self.im1.set_data(self.X1[self.ind] + self.mask[self.ind])
         self.im1.set_clim(self.vmin, self.vmax)
         self.im2.set_ydata(self.X2[self.ind])
@@ -619,8 +643,8 @@ class PhaseTracker(object):
         self.im2.axes.set_xlim([0, self.cols])
         self.ax1.set_ylabel("Projection {}".format(self.ind + 1))
         self.ax2.set_ylabel("Projection {}".format(self.ind + 1))
-        self.ax1.figure.canvas.draw()
-        self.ax2.figure.canvas.draw()
+        self.ax1.figure.canvas.draw_idle()
+        self.ax2.figure.canvas.draw_idle()
 
     def onclose(self, event):
         """Close the GUI figure."""
