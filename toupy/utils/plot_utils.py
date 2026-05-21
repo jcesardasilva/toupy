@@ -3,6 +3,7 @@
 
 # standard libraries imports
 import functools
+import io as _io
 import sys
 
 # third party packages
@@ -416,6 +417,15 @@ def interativesession(func):
     return new_func
 
 
+class _NullContext:
+    """A no-op context manager used as a drop-in for ``ipywidgets.Output``
+    in terminal (non-notebook) environments."""
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        pass
+
+
 def autoscale_y(ax, margin=0.1):
     """
     This function rescales the y-axis based on the data that is visible given the current xlim of the axis.
@@ -525,10 +535,6 @@ def _createcanvashorizontal(
     ax11.set_xlabel("x [pixels]")
     ax11.set_ylabel("y [pixels]")
     fig1.tight_layout()
-    if isnotebook():
-        display.display(fig1)
-    else:
-        fig1.canvas.draw_idle()
 
     # Display initial, current and synthetic sinograms
     fig2 = plt.figure(num=2, figsize=(6, 10))
@@ -552,10 +558,6 @@ def _createcanvashorizontal(
     ax23.set_xlabel("Projection")
     ax23.set_ylabel("x [pixels]")
     fig2.tight_layout()
-    if isnotebook():
-        display.display(fig2)
-    else:
-        fig2.canvas.draw_idle()
 
     # Display deltaslice and metric_error
     fig3 = plt.figure(num=3)
@@ -693,7 +695,23 @@ class RegisterPlot:
 
     Provides two high-level methods — :meth:`plotsvertical` and
     :meth:`plotshorizontal` — that create and update the alignment
-    diagnostic figures in both Jupyter and terminal environments.
+    diagnostic figures in both Jupyter (``%matplotlib widget``) and
+    terminal environments.
+
+    Display strategy
+    ----------------
+    **Jupyter / %matplotlib widget**
+        Figures are rendered to PNG via :meth:`~matplotlib.figure.Figure.savefig`
+        (which requires no figure manager) and shown inside
+        :class:`ipywidgets.Output` containers.  On the first call the
+        containers are created and embedded in the cell output; on every
+        subsequent call :meth:`ipywidgets.Output.clear_output` replaces
+        the PNG in-place without spawning a new cell output.  This avoids
+        all issues with ``canvas.draw()``, ``canvas.manager``, and
+        ipympl's ``_shown`` flag.
+
+    **Terminal**
+        Figures are updated via ``canvas.draw_idle()`` + ``plt.pause()``.
 
     Parameters
     ----------
@@ -704,118 +722,196 @@ class RegisterPlot:
     """
 
     def __init__(self, **params):
-        self.count = 0
         self.params = params
-        # self.vmin = params['vmin']
-        # self.vmax = params['vmax']
+        self.count = 0
         plt.close("all")
+
+    # ------------------------------------------------------------------ #
+    # Internal display helpers
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _fig_to_png(fig):
+        """Render *fig* to a PNG byte-string using the Agg renderer.
+
+        Works without a figure manager, so it is safe for all matplotlib
+        backends including ``%matplotlib widget`` (ipympl).
+        """
+        buf = _io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
+        buf.seek(0)
+        return buf.read()
+
+    def _nb_init(self, figs):
+        """Create one ``ipywidgets.Output`` container per figure, display
+        all containers in the current cell, then populate each with a PNG
+        of its figure.
+
+        Containers are stored in ``self._nb_outs`` so that ``_nb_update``
+        can refresh them in-place on later iterations.
+        """
+        try:
+            from ipywidgets import Output
+        except ImportError:
+            # ipywidgets not available — plain display fallback
+            for fig in figs:
+                display.display(display.Image(self._fig_to_png(fig)))
+            self._nb_outs = None
+            return
+
+        self._nb_outs = [Output() for _ in figs]
+        # Embed all containers now so they appear in document order
+        for out in self._nb_outs:
+            display.display(out)
+        # Fill each container with its figure's initial render
+        for fig, out in zip(figs, self._nb_outs):
+            with out:
+                display.display(display.Image(self._fig_to_png(fig)))
+
+    def _nb_update(self, figs):
+        """Replace each Output container's content with a fresh PNG render.
+
+        ``clear_output(wait=True)`` swaps the old image for the new one
+        in-place — no new cell output is created.
+        """
+        if not hasattr(self, "_nb_outs") or self._nb_outs is None:
+            # Fallback: plain display
+            for fig in figs:
+                display.display(display.Image(self._fig_to_png(fig)))
+            return
+        for fig, out in zip(figs, self._nb_outs):
+            out.clear_output(wait=True)
+            with out:
+                display.display(display.Image(self._fig_to_png(fig)))
+
+    @staticmethod
+    def _term_show(figs):
+        """Redraw figures in a terminal GUI event loop."""
+        for fig in figs:
+            fig.canvas.draw_idle()
+        plt.pause(0.001)
+
+    def _show(self, figs, init=False):
+        """Backend-agnostic show/update dispatcher.
+
+        Parameters
+        ----------
+        figs : tuple of Figure
+        init : bool
+            True on the very first call (creates Output containers in
+            notebook mode).
+        """
+        if isnotebook():
+            if init:
+                self._nb_init(figs)
+            else:
+                self._nb_update(figs)
+        else:
+            self._term_show(figs)
+
+    # ------------------------------------------------------------------ #
+    # Vertical alignment
+    # ------------------------------------------------------------------ #
 
     @interativesession
     def plotsvertical(
         self, proj, lims, vertfluctinit, vertfluctcurr, deltastack, metric_error, count
     ):
-        """
-        Display plots during the vertical registration
+        """Display or update the four vertical-alignment diagnostic figures.
+
+        On the first call the figures are created via
+        :func:`_createcanvasvertical` and displayed.  On every subsequent
+        call the existing artists are updated in-place by
+        :meth:`updatevertical`.
+
+        Parameters
+        ----------
+        proj : ndarray
+            Current projection image.
+        lims : tuple
+            ``(limrow, limcol)`` ROI limits.
+        vertfluctinit : ndarray
+            Initial vertical fluctuations (fixed reference).
+        vertfluctcurr : ndarray
+            Current vertical fluctuations (updated each iteration).
+        deltastack : ndarray
+            Current vertical shift estimates.
+        metric_error : list of float
+            Error metric history (grows by one element per iteration).
+        count : int
+            Current iteration number.
         """
         self.proj = proj
         self.lims = lims
-        self.vertfluctinit = vertfluctinit.T
+        self.vertfluctinit     = vertfluctinit.T
         self.vertfluctinit_avg = self.vertfluctinit.mean(axis=1)
-        self.vertfluctcurr = vertfluctcurr.T
+        self.vertfluctcurr     = vertfluctcurr.T
         self.vertfluctcurr_avg = self.vertfluctcurr.mean(axis=1)
-        self.deltastack = deltastack.T
-        self.metric_error = metric_error
-        self.count = count
+        self.deltastack        = deltastack.T
+        self.metric_error      = metric_error
+        self.count             = count
 
-        # # figures display
-        # nr, nc = self.vertfluctinit.shape  # for the image display
-        # if nc > nr:
-        #     figsize = (np.round(6 * nc / nr), 6)
-        # else:
-        #     figsize = (6, np.round(6 * nr / nc))
-
-        if not hasattr(self, 'fig1'):
-            # First ever call — create all four figures and store artist refs.
-            # Do NOT test count==0: _alignprojections_vertical increments
-            # count to 1 before the first call, so count==0 never fires.
-            fig_array, im_array, ax_array = _createcanvasvertical(
-                self.proj,
-                self.lims,
-                self.vertfluctinit,
-                self.vertfluctcurr,
-                self.deltastack,
-                self.metric_error,
-                **self.params
-            )
-            self.fig1 = fig_array[0]
-            self.fig2 = fig_array[1]
-            self.fig3 = fig_array[2]
-            self.fig4 = fig_array[3]
-
-            self.im11  = im_array[0]   # AxesImage: projection with ROI delimiters
-            self.im21  = im_array[1]   # AxesImage: initial vertical fluctuation (fixed)
-            self.im22  = im_array[2]   # AxesImage: current vertical fluctuation
-            self.im31  = im_array[3]   # list[Line2D]: initial integral lines (fixed)
-            self.im31a = im_array[4]   # Line2D: initial average (fixed)
-            self.im31b = im_array[5]   # Line2D: initial average dashed (fixed)
-            self.im32  = im_array[6]   # list[Line2D]: current integral lines
-            self.im32a = im_array[7]   # Line2D: current average
-            self.im32b = im_array[8]   # Line2D: current average dashed
-            self.im41  = im_array[9]   # list[Line2D]: shift curves
-            self.im42  = im_array[10]  # Line2D: growing error-metric curve
-
-            self.ax11 = ax_array[0]
-            self.ax21 = ax_array[1]
-            self.ax22 = ax_array[2]
-            self.ax31 = ax_array[3]
-            self.ax32 = ax_array[4]
-            self.ax41 = ax_array[5]
-            self.ax42 = ax_array[6]
-
-            # Display each figure exactly once.
-            # In %matplotlib widget (ipympl), display.display(fig.canvas) embeds
-            # the widget in the current cell output AND sets canvas._shown=True.
-            # That flag prevents plt.show() / plt.pause() from re-displaying it
-            # in later iterations.  In terminal mode we use draw_idle()+pause()
-            # to pump the event loop so the windows actually appear.
+        if not hasattr(self, "fig1"):
+            # First call — create all four figures.
+            # In notebook mode the figure creation is wrapped in a throwaway
+            # Output so any stray auto-display from plt.figure() is captured
+            # and discarded; we then display our own PNG Output containers.
             if isnotebook():
-                display.display(self.fig1.canvas)
-                display.display(self.fig2.canvas)
-                display.display(self.fig3.canvas)
-                display.display(self.fig4.canvas)
+                try:
+                    from ipywidgets import Output as _Out
+                    _cap = _Out()
+                except ImportError:
+                    _cap = _NullContext()
             else:
-                for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
-                    fig.canvas.draw_idle()
-                plt.pause(0.001)
+                _cap = _NullContext()
+
+            with _cap:
+                fig_array, im_array, ax_array = _createcanvasvertical(
+                    self.proj, self.lims,
+                    self.vertfluctinit, self.vertfluctcurr,
+                    self.deltastack, self.metric_error,
+                    **self.params
+                )
+
+            # Store figure references
+            self.fig1, self.fig2, self.fig3, self.fig4 = fig_array
+
+            # Store artist references
+            (self.im11, self.im21, self.im22,
+             self.im31, self.im31a, self.im31b,
+             self.im32, self.im32a, self.im32b,
+             self.im41, self.im42) = im_array
+
+            # Store axes references
+            (self.ax11, self.ax21, self.ax22,
+             self.ax31, self.ax32,
+             self.ax41, self.ax42) = ax_array
+
+            self._show((self.fig1, self.fig2, self.fig3, self.fig4), init=True)
         else:
             self.updatevertical()
 
     @interativesession
     def updatevertical(self):
-        """
-        Update the plot canvas during vertical registration.
+        """Update the four vertical-alignment figures in-place.
 
-        Uses in-place artist updates on the figures created at iteration 0,
-        so no new outputs are spawned in Jupyter.  Works identically in
-        terminal and ``%matplotlib widget`` backends.
+        Modifies existing artist objects (no new figures or axes created)
+        and re-renders via PNG for notebook or ``draw_idle`` for terminal.
 
         Evolution tracking
         ------------------
-        * **Fig 2** – current vertical-fluctuation image updated each iter;
-          initial image stays fixed for direct comparison.
-        * **Fig 3** – current integral line plot updated each iter;
-          initial integral panel stays fixed.
-        * **Fig 4** – shift curves updated each iter; error-metric curve
-          *grows* (one point per iteration) so the full convergence
-          history is always visible.
+        * **Fig 2** – current vertical-fluctuation image; initial image fixed.
+        * **Fig 3** – current integral line plot; initial panel fixed.
+        * **Fig 4** – shift curves updated; error-metric curve *grows* one
+          point per iteration so the full convergence history is visible.
         """
-        # --- Fig 2: current vertical fluctuation image ---
+        # Fig 2: current vertical-fluctuation image
         self.im22.set_data(self.vertfluctcurr)
         self.im22.autoscale()
         self.ax22.set_title("Current Integral in x — iter {}".format(self.count))
 
-        # --- Fig 3: current integral line plot and averages ---
-        curr = self.vertfluctcurr          # shape (n_rows, n_proj)
+        # Fig 3: current integral lines + averages
+        curr = self.vertfluctcurr
         for idx, line in enumerate(self.im32):
             line.set_ydata(curr[:, idx] if curr.ndim > 1 else curr)
         self.im32a.set_ydata(self.vertfluctcurr_avg)
@@ -824,13 +920,12 @@ class RegisterPlot:
         self.ax32.autoscale_view()
         self.ax32.set_title("Current Integral in x — iter {}".format(self.count))
 
-        # --- Fig 4: shift curves + growing error-metric curve ---
-        delta = self.deltastack            # shape (nproj, ncurves)
+        # Fig 4: shift curves + growing error-metric
+        delta = self.deltastack
         for idx, line in enumerate(self.im41):
             line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
         self.ax41.relim()
         self.ax41.autoscale_view()
-
         n = len(self.metric_error)
         self.im42.set_xdata(range(n))
         self.im42.set_ydata(self.metric_error)
@@ -838,125 +933,106 @@ class RegisterPlot:
         self.ax42.autoscale_view()
         self.ax42.set_title("Error metric — iter {}".format(self.count))
 
-        # Redraw all four canvases in one pass.
-        # In notebook mode: canvas.draw() is synchronous — it pushes the
-        # updated image to the browser immediately without spawning a new
-        # widget output (the figures were embedded once in the init branch).
-        # In terminal mode: draw_idle() + pause() pumps the GUI event loop.
-        if isnotebook():
-            for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
-                fig.canvas.draw()
-        else:
-            for fig in (self.fig1, self.fig2, self.fig3, self.fig4):
-                fig.canvas.draw_idle()
-            plt.pause(0.001)
+        self._show((self.fig1, self.fig2, self.fig3, self.fig4))
+
+    # ------------------------------------------------------------------ #
+    # Horizontal alignment
+    # ------------------------------------------------------------------ #
 
     @interativesession
     def plotshorizontal(
         self, recons, sinoorig, sinocurr, sinocomp, deltaslice, metric_error, count
     ):
+        """Display or update the three horizontal-alignment diagnostic figures.
+
+        On the first call the figures are created via
+        :func:`_createcanvashorizontal` and displayed.  On every subsequent
+        call the existing artists are updated in-place by
+        :meth:`updatehorizontal`.
+
+        Parameters
+        ----------
+        recons : ndarray
+            Current reconstructed slice.
+        sinoorig : ndarray
+            Original sinogram (fixed reference).
+        sinocurr : ndarray
+            Current aligned sinogram.
+        sinocomp : ndarray
+            Synthetic sinogram from reconstruction.
+        deltaslice : ndarray
+            Current horizontal shift estimates.
+        metric_error : list of float
+            Error metric history.
+        count : int
+            Current iteration number.
         """
-        Display plots during the horizontal registration
-        """
-        self.recons = recons
-        self.sinoorig = sinoorig
-        self.sinocurr = sinocurr
-        self.sinocomp = sinocomp
-        self.deltaslice = deltaslice.T
+        self.recons       = recons
+        self.sinoorig     = sinoorig
+        self.sinocurr     = sinocurr
+        self.sinocomp     = sinocomp
+        self.deltaslice   = deltaslice.T
         self.metric_error = metric_error
-        self.count = count
+        self.count        = count
 
-        if not hasattr(self, 'fig1'):
-            # First ever call — create all three figures and store artist refs.
-            # Do NOT test count==0: _alignprojections_horizontal increments
-            # count to 1 before the first plotshorizontal call, so count==0
-            # never fires inside the loop.  When multiresolution=True the
-            # coarse warm-start phase calls this before the outer count=0
-            # setup call, compounding the problem.
-            fig_array, im_array, ax_array = _createcanvashorizontal(
-                self.recons,
-                self.sinoorig,
-                self.sinocurr,
-                self.sinocomp,
-                self.deltaslice,
-                self.metric_error,
-                **self.params
-            )
-
-            self.fig1 = fig_array[0]
-            self.fig2 = fig_array[1]
-            self.fig3 = fig_array[2]
-
-            self.im11 = im_array[0]   # AxesImage: reconstructed slice
-            self.im21 = im_array[1]   # AxesImage: original sinogram (never updated)
-            self.im22 = im_array[2]   # AxesImage: current sinogram
-            self.im23 = im_array[3]   # AxesImage: synthetic sinogram
-            self.im31 = im_array[4]   # list[Line2D]: shift curves
-            self.im32 = im_array[5]   # Line2D: growing error-metric curve
-
-            self.ax11 = ax_array[0]
-            self.ax21 = ax_array[1]
-            self.ax22 = ax_array[2]
-            self.ax23 = ax_array[3]
-            self.ax31 = ax_array[4]
-            self.ax32 = ax_array[5]
-
-            # Display each figure exactly once.
-            # In %matplotlib widget (ipympl), display.display(fig.canvas) embeds
-            # the widget in the current cell output AND sets canvas._shown=True.
-            # That flag prevents plt.show() / plt.pause() from re-displaying it
-            # in later iterations.  In terminal mode we use draw_idle()+pause()
-            # to pump the event loop so the windows actually appear.
+        if not hasattr(self, "fig1"):
             if isnotebook():
-                display.display(self.fig1.canvas)
-                display.display(self.fig2.canvas)
-                display.display(self.fig3.canvas)
+                try:
+                    from ipywidgets import Output as _Out
+                    _cap = _Out()
+                except ImportError:
+                    _cap = _NullContext()
             else:
-                for fig in (self.fig1, self.fig2, self.fig3):
-                    fig.canvas.draw_idle()
-                plt.pause(0.001)
+                _cap = _NullContext()
+
+            with _cap:
+                fig_array, im_array, ax_array = _createcanvashorizontal(
+                    self.recons, self.sinoorig, self.sinocurr, self.sinocomp,
+                    self.deltaslice, self.metric_error,
+                    **self.params
+                )
+
+            self.fig1, self.fig2, self.fig3 = fig_array
+
+            (self.im11, self.im21, self.im22,
+             self.im23, self.im31, self.im32) = im_array
+
+            (self.ax11, self.ax21, self.ax22,
+             self.ax23, self.ax31, self.ax32) = ax_array
+
+            self._show((self.fig1, self.fig2, self.fig3), init=True)
         else:
             self.updatehorizontal()
 
     @interativesession
     def updatehorizontal(self):
-        """
-        Update the plot canvas during horizontal registration.
+        """Update the three horizontal-alignment figures in-place.
 
-        Uses in-place artist updates (set_data / set_ydata) on the figures
-        created at iteration 0, so no new outputs are spawned in Jupyter.
-        Works identically in terminal and ``%matplotlib widget`` backends.
+        Modifies existing artist objects and re-renders via PNG (notebook)
+        or ``draw_idle`` (terminal).
 
         Evolution tracking
         ------------------
-        * **Fig 1** – reconstructed slice updated each iteration so you
-          can see it sharpening as alignment improves.
-        * **Fig 2** – current and synthetic sinograms updated each
-          iteration; the original sinogram panel stays fixed for comparison.
-        * **Fig 3** – shift curves updated each iteration; the error-metric
-          curve *grows* (one point added per iteration) so the full
-          convergence history is always visible.
+        * **Fig 1** – reconstructed slice sharpens as alignment improves.
+        * **Fig 2** – current and synthetic sinograms updated; original fixed.
+        * **Fig 3** – shift curves updated; error-metric curve *grows* one
+          point per iteration.
         """
-        # --- Fig 1: reconstructed slice ---
+        # Fig 1: reconstructed slice
         self.im11.set_data(self.recons)
         self.im11.autoscale()
-        self.ax11.set_title(
-            "Reconstructed slice — iteration {}".format(self.count)
-        )
+        self.ax11.set_title("Reconstructed slice — iteration {}".format(self.count))
 
-        # --- Fig 2: current and synthetic sinograms ---
+        # Fig 2: current and synthetic sinograms (original stays fixed)
         self.im22.set_data(self.sinocurr)
         self.im23.set_data(self.sinocomp)
 
-        # --- Fig 3: shift curves + growing error-metric curve ---
-        # im31 is a list of Line2D (one per column of deltaslice)
-        delta = self.deltaslice          # shape (nproj, ncurves)
+        # Fig 3: shift curves + growing error-metric
+        delta = self.deltaslice
         for idx, line in enumerate(self.im31):
             line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
         self.ax31.relim()
         self.ax31.autoscale_view()
-
-        # im32 is a single Line2D; metric_error grows by one element each iter
         n = len(self.metric_error)
         self.im32.set_xdata(range(n))
         self.im32.set_ydata(self.metric_error)
@@ -964,20 +1040,7 @@ class RegisterPlot:
         self.ax32.autoscale_view()
         self.ax32.set_title("Error metric — iter {}".format(self.count))
 
-        # Redraw all three canvases in one pass.
-        # In notebook mode: canvas.draw() is synchronous — it pushes the
-        # updated image to the browser immediately without spawning a new
-        # widget output (the figures were embedded once in the init branch).
-        # In terminal mode: draw_idle() + pause() pumps the GUI event loop.
-        if isnotebook():
-            self.fig1.canvas.draw()
-            self.fig2.canvas.draw()
-            self.fig3.canvas.draw()
-        else:
-            self.fig1.canvas.draw_idle()
-            self.fig2.canvas.draw_idle()
-            self.fig3.canvas.draw_idle()
-            plt.pause(0.001)
+        self._show((self.fig1, self.fig2, self.fig3))
 
 
 @interativesession
