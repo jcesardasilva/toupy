@@ -997,6 +997,12 @@ def _alignprojections_vertical(
     error_reg = np.zeros(vert_fluct_init.shape[0])
     while True:
         count += 1
+        if isnotebook():
+            try:
+                from IPython.display import clear_output as _clear_nb
+                _clear_nb(wait=True)
+            except ImportError:
+                pass
         print("\n============================================")
         print("Iteration {}".format(count))
         it0 = time.time()
@@ -1034,6 +1040,7 @@ def _alignprojections_vertical(
         RP.plotsvertical(
             input_stack[0], lims, vert_fluct_init, vert_fluct_temp,
             shiftstack, metric_error, count,
+            max_correction=float(np.max(changey)),
         )
 
         pixtol = params["pixtol"] if params["subpixel"] else 1
@@ -1216,6 +1223,12 @@ def _alignprojections_horizontal(
     count = 0
     while True:
         count += 1
+        if isnotebook():
+            try:
+                from IPython.display import clear_output as _clear_nb
+                _clear_nb(wait=True)
+            except ImportError:
+                pass
         print("\nIteration {}".format(count))
         print("-------------------------------------")
         it0 = time.time()
@@ -1392,6 +1405,11 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     for stage_idx, fc in enumerate(schedule):
         is_last = (stage_idx == n_stages - 1)
         params_s = dict(params, freqcutoff=fc, subpixel=True)
+
+        # Keep RegisterPlot informed of the current stage so the suptitle
+        # can display it (no-op when RP is None or stage_info not used).
+        if RP is not None:
+            RP.stage_info = (stage_idx + 1, n_stages, fc)
 
         if n_stages > 1:
             print("\n╔══════════════════════════════════════════════════════╗")
@@ -1748,10 +1766,15 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     ax2.set_xlim([0, len(shiftxrefine_avg)])
     ax2.set_title("Average displacements in x  —  blue=new average, red=previous")
     ax2.set_xlabel("Projection number")
+    fig.tight_layout()
     if isnotebook():
-        from IPython import display
-        display.display(fig)
-        # do NOT close — widget backend needs the figure to stay alive to render
+        import io as _io_tc
+        from IPython import display as _disp_tc
+        _buf = _io_tc.BytesIO()
+        fig.savefig(_buf, format="png", bbox_inches="tight", dpi=100)
+        _buf.seek(0)
+        _disp_tc.display(_disp_tc.Image(_buf.read()))
+        plt.close(fig)
     else:
         plt.show(block=False)
 
@@ -1759,8 +1782,13 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     if use_average:
         shiftstack[1] = shiftxrefine_avg.copy()
         print(
-            "Applying averaged shifts from tomographic consistency.  "
-            "Set params['use_average']=False to keep the previous shifts instead.",
+            "Averaged shifts applied.\n"
+            "Tip: to keep the previous shifts instead, add\n"
+            "    params['use_average'] = False\n"
+            "to your params dict before calling tomoconsistency_multiple.\n"
+            "Note: a backup copy is not made automatically — save\n"
+            "    shiftstack_backup = shiftstack.copy()\n"
+            "before this call if you want to be able to revert.",
             flush=True,
         )
     else:

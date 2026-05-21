@@ -799,6 +799,8 @@ class RegisterPlot:
     def __init__(self, **params):
         self.params = params
         self.count = 0
+        self.max_correction = None   # updated by plotsvertical each iteration
+        self.stage_info = None       # (stage_num, n_stages, freqcutoff) — set by caller
         plt.close("all")
 
     # ------------------------------------------------------------------ #
@@ -889,7 +891,8 @@ class RegisterPlot:
 
     @interativesession
     def plotsvertical(
-        self, proj, lims, vertfluctinit, vertfluctcurr, deltastack, metric_error, count
+        self, proj, lims, vertfluctinit, vertfluctcurr, deltastack, metric_error, count,
+        max_correction=None,
     ):
         """Display or update the vertical-alignment diagnostic figures.
 
@@ -915,8 +918,12 @@ class RegisterPlot:
             Error metric history (grows by one element per iteration).
         count : int
             Current iteration number.
+        max_correction : float or None
+            Maximum absolute vertical shift change this iteration (pixels).
+            Displayed in the figure suptitle when provided.
         """
         # Store data (transposed to match display convention)
+        self.max_correction    = max_correction
         self.proj              = proj
         self.lims              = lims
         self.vertfluctinit     = vertfluctinit.T
@@ -989,26 +996,34 @@ class RegisterPlot:
         arts["im_curr1d_avg"].set_ydata(self.vertfluctcurr_avg)
         arts["im_curr1d_avg2"].set_ydata(self.vertfluctcurr_avg)
         axd["curr1d"].relim()
-        axd["curr1d"].autoscale_view()
+        # autoscale(enable=True) re-enables the autoscale flag (which savefig
+        # disables internally via set_xlim/set_ylim) and immediately applies it.
+        axd["curr1d"].autoscale(enable=True, axis="both", tight=True)
 
         # shifts: update all shift curves
         delta = self.deltastack
         for idx, line in enumerate(arts["im_shifts_lines"]):
             line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
         axd["shifts"].relim()
-        axd["shifts"].autoscale_view()
+        axd["shifts"].autoscale(enable=True, axis="both", tight=True)
 
         # error: grow the convergence curve by one point
         n = len(self.metric_error)
-        arts["im_error"].set_xdata(range(n))
+        arts["im_error"].set_xdata(np.arange(n))
         arts["im_error"].set_ydata(self.metric_error)
         axd["error"].relim()
-        axd["error"].autoscale_view()
+        axd["error"].autoscale(enable=True, axis="both", tight=True)
 
-        # Update suptitle with current iteration and error value
+        # Update suptitle with current iteration, error, and max correction
         err_val = self.metric_error[-1] if self.metric_error else float("nan")
+        corr_str = (
+            " | Max Δy = {:.2f} px".format(self.max_correction)
+            if self.max_correction is not None else ""
+        )
         self.fig_main.suptitle(
-            "Vertical alignment — Iter {} | E = {:.3e}".format(self.count, err_val),
+            "Vertical alignment — Iter {} | E = {:.3e}{}".format(
+                self.count, err_val, corr_str
+            ),
             fontsize=13,
         )
 
@@ -1120,20 +1135,28 @@ class RegisterPlot:
         for idx, line in enumerate(arts["im_shifts_lines"]):
             line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
         axd["shifts"].relim()
-        axd["shifts"].autoscale_view()
+        axd["shifts"].autoscale(enable=True, axis="both", tight=True)
 
         # error: grow the convergence curve by one point
         n = len(self.metric_error)
-        arts["im_error"].set_xdata(range(n))
+        arts["im_error"].set_xdata(np.arange(n))
         arts["im_error"].set_ydata(self.metric_error)
         axd["error"].relim()
-        axd["error"].autoscale_view()
+        axd["error"].autoscale(enable=True, axis="both", tight=True)
 
-        # Update suptitle with current iteration and error value
+        # Update suptitle: include stage info when a schedule is in use
         err_val = self.metric_error[-1] if self.metric_error else float("nan")
+        if self.stage_info is not None:
+            stage_num, n_stages, fc = self.stage_info
+            if n_stages > 1:
+                stage_str = " | Stage {}/{} (fc={:.2f})".format(stage_num, n_stages, fc)
+            else:
+                stage_str = " (fc={:.2f})".format(fc)
+        else:
+            stage_str = ""
         self.fig_main.suptitle(
-            "Horizontal alignment — Iter {} | E = {:.3e} | slice {}".format(
-                self.count, err_val, self.params.get("slicenum", "?")
+            "Horizontal alignment — Iter {}{} | E = {:.3e} | slice {}".format(
+                self.count, stage_str, err_val, self.params.get("slicenum", "?")
             ),
             fontsize=13,
         )
