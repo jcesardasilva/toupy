@@ -425,10 +425,13 @@ def normalize_projections_phase(stack, border=0):
     Returns
     -------
     normalized : ndarray, complex, shape (nprojs, nr, nc)
-        Stack with per-projection offsets removed.
+        Stack with per-projection offsets removed.  To obtain the phase
+        sinogram (float array) use ``np.angle(normalized)``, **not**
+        ``np.real(normalized)``.
     offsets : ndarray, float, shape (nprojs,)
         Per-projection phase offsets that were subtracted (radians).
-        Relative to the stack median, so their mean is approximately zero.
+        Relative to the stack circular mean, so they sum to approximately
+        zero.
 
     Examples
     --------
@@ -439,6 +442,8 @@ def normalize_projections_phase(stack, border=0):
     ... ])
     >>> # Step 2: remove residual projection-to-projection oscillations
     >>> corrected, offsets = normalize_projections_phase(corrected, border=30)
+    >>> # Step 3: extract phase sinogram
+    >>> sinogram = np.angle(corrected)
     """
     stack = np.asarray(stack)
     nprojs, nr, nc = stack.shape
@@ -465,14 +470,20 @@ def normalize_projections_phase(stack, border=0):
         air_row_mask[:n_fallback] = True
         air_row_mask[-n_fallback:] = True
 
-    # Per-projection offset: median phase over detected air rows
+    # Per-projection offset: circular mean of phase over detected air rows.
+    # Arithmetic median/mean is NOT wrap-safe: projections whose air phase
+    # happens to be near ±π receive a spurious offset of ≈ ±π (sign flip).
+    # Circular mean operates on unit phasors and is always wrap-safe.
     # shape: (nprojs, n_air_rows * nc_int)
     air_phases = phase_int[:, air_row_mask, :].reshape(nprojs, -1)
-    offsets = np.median(air_phases, axis=1)       # (nprojs,)
+    mean_phasors = np.exp(1j * air_phases).mean(axis=1)   # complex, (nprojs,)
+    offsets = np.angle(mean_phasors)                       # wrap-safe, (nprojs,)
 
-    # Make offsets relative to the stack median so the absolute phase
-    # level is preserved (only projection-to-projection variation removed)
-    offsets -= np.median(offsets)
+    # Make offsets relative to the stack circular mean so the absolute
+    # phase level is preserved (only projection-to-projection variation removed).
+    # Use circular subtraction to stay wrap-safe.
+    ref_phasor = np.exp(1j * offsets).mean()               # scalar complex
+    offsets = np.angle(np.exp(1j * offsets) * ref_phasor.conj())
 
     normalized = stack * np.exp(-1j * offsets[:, np.newaxis, np.newaxis])
     return normalized, offsets
