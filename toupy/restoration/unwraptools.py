@@ -1420,83 +1420,81 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     else:
         ncores = 1
     stack_unwrap = np.empty_like(stack_phasecorr)
-    # test on first projection
-    print("Testing unwrapping on the first projection")
+
+    # ---- test unwrap on the first projection and show the result ----
+    print("Testing unwrapping on the first projection …", flush=True)
     img0_unwrap = _unwrapping_phase(
         stack_phasecorr[0], rx, ry, airpix,
         method=params["unwrap_method"], verbose=verbose,
     )
-    # displaying
+    print("→ done.", flush=True)
+
+    # Show the unwrapped first projection with the selected boundaries so the
+    # user can verify vmin/vmax before the full stack is processed.
+    # If the color scale needs changing, re-run with different params["vmin"] /
+    # params["vmax"] values — no blocking input() prompt.
     plt.close("all")
-    plt.ion()
-    fig = plt.figure(7)
-    ax1 = fig.add_subplot(111)
+    fig, ax1 = plt.subplots(figsize=(8, 6))
     im1 = ax1.imshow(
-        stack_phasecorr[0], cmap="bone", vmin=params["vmin"], vmax=params["vmax"]
+        img0_unwrap, cmap="bone", vmin=params["vmin"], vmax=params["vmax"]
     )
-    # update images with boudaries
     ax1 = _plotdelimiters(ax1, ry, rx, airpix)
     ax1.axis("tight")
+    ax1.set_title(
+        "First projection — unwrapped  (vmin={}, vmax={})".format(
+            params["vmin"], params["vmax"]
+        ),
+        fontsize=9,
+    )
+    print(
+        "Displaying first unwrapped projection "
+        "(vmin={}, vmax={}).".format(params["vmin"], params["vmax"]),
+        flush=True,
+    )
+    print(
+        "If the color scale needs adjusting, stop here, update "
+        "params['vmin'] / params['vmax'] and re-run.",
+        flush=True,
+    )
     if isnotebook():
-        from IPython import display
-        display.display(fig)
-        plt.close(fig)
-        display.clear_output(wait=True)
+        try:
+            import matplotlib as _mpl
+            _interactive = "inline" not in _mpl.get_backend().lower()
+        except Exception:
+            _interactive = False
+        if _interactive:
+            plt.show(block=False)
+            fig.canvas.draw()
+        else:
+            from IPython import display as _ipy_display
+            _ipy_display.display(fig)
+            plt.close(fig)
     else:
         plt.show(block=False)
-    while True:
-        a = input("Do you want to edit the color scale?([y]/n)").lower()
-        if str(a) == "" or str(a) == "y":
-            while True:
-                color_vmin = eval(input("Minimum color scale value: "))
-                if isinstance(color_vmin, int) or isinstance(color_vmin, float):
-                    break
-                else:
-                    print("Wrong typing. Try it again.")
-            while True:
-                color_vmax = eval(input("Maximum color scale value: "))
-                if isinstance(color_vmax, int) or isinstance(color_vmax, float):
-                    break
-                else:
-                    print("Wrong typing. Try it again.")
-            params["vmin"] = color_vmin
-            params["vmax"] = color_vmax
-            print("Using vmin={} and vmax={}".format(params["vmin"], params["vmax"]))
-            # displaying the update images
-            im1.set_data(stack_phasecorr[0])
-            im1.set_clim(params["vmin"], params["vmax"])
-            ax1 = _plotdelimiters(ax1, ry, rx, airpix)
-            ax1.axis("tight")
-            plt.show(block=False)
-        else:
-            print(
-                "Color scale was not changed. Using vmin={} and vmax={}".format(
-                    params["vmin"], params["vmax"]
-                )
-            )
-            break
-    if not params["parallel"] or ncores == 1:
-        # main loop for the unwrapping
+        fig.canvas.draw()
+
+    # ---- unwrap the full stack ----
+    # joblib's loky backend can deadlock inside a Jupyter kernel, so fall
+    # back to the sequential path when running in a notebook.
+    _use_parallel = params["parallel"] and ncores > 1 and not isnotebook()
+    if isnotebook() and params["parallel"] and ncores > 1:
+        print(
+            "Note: parallel unwrapping is disabled in Jupyter "
+            "(joblib/loky can deadlock in a notebook kernel). "
+            "Running sequentially — use the terminal script for parallel.",
+            flush=True,
+        )
+    if not _use_parallel:
         nprojs = stack_phasecorr.shape[0]
         for ii in tqdm(range(nprojs), desc="Unwrapping projections"):
-            img_unwrap = _unwrapping_phase(
+            stack_unwrap[ii] = _unwrapping_phase(
                 stack_phasecorr[ii], rx, ry, airpix,
                 method=params["unwrap_method"], verbose=verbose,
             )
-            stack_unwrap[ii] = img_unwrap  # update the stack
     else:
         stack_unwrap = _unwrapping_phase_parallel(
             stack_phasecorr, rx, ry, airpix,
             ncores=ncores, method=params["unwrap_method"], verbose=verbose,
         )
-        # ~ stack_unwrap_sel = _unwrapping_phase_parallel(
-        # ~ stack2unwrap[:,ry[0] : ry[-1], rx[0] : rx[-1]]
-        # ~ )
-        # ~ for ii in range(stack2unwrap.shape[0]):
-        # ~ stack2unwrap[ii,ry[0] : ry[-1], rx[0] : rx[-1]] = stack_unwrap_sel[ii]
-        # ~ stack2unwrap[ii,ry[0] : ry[-1], rx[0] : rx[-1]] = (
-        # ~ stack2unwrap_sel[ii]
-        # ~ - 2 * np.pi * np.round(stack2unwrap[:,airpix[1], airpix[0]] / (2 * np.pi))
-        # ~ )
 
     return stack_unwrap
