@@ -823,10 +823,17 @@ class _MaskPainter:
 
     Not intended for direct use — call :func:`make_air_mask` instead.
 
+    Vertices are collected via a raw ``button_press_event`` listener on the
+    figure canvas, **not** via :class:`~matplotlib.widgets.PolygonSelector`.
+    ``PolygonSelector`` relies on keyboard events (Enter) and internal state
+    that changed across matplotlib versions; neither is reliable in Jupyter
+    where keyboard focus stays in the cell.  A plain canvas click listener
+    is routed through ipympl's comm layer without any of those issues.
+
     Attributes
     ----------
     mask : ndarray of bool, shape (ny, nx)
-        Cumulative boolean mask built by OR-ing every region added with
+        Cumulative boolean mask — union of every region added with
         **Add region**.  All-False until at least one region is added.
     n_regions : int
         Number of polygon regions added so far.
@@ -839,8 +846,11 @@ class _MaskPainter:
         self._ny, self._nx = ny, nx
         self.mask = np.zeros((ny, nx), dtype=bool)
         self.n_regions = 0
-        self._poly_verts = []
-        self._selector = None
+
+        # Vertices for the polygon currently being drawn
+        self._xs = []
+        self._ys = []
+        self._live_line = None   # Line2D for the in-progress polygon
 
         fig, ax = plt.subplots(figsize=figsize)
         self.fig = fig
@@ -848,18 +858,17 @@ class _MaskPainter:
 
         ax.imshow(self.image, cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
         ax.axis("tight")
-        # Note: "press Enter" is intentionally omitted — in Jupyter the
-        # keyboard focus stays on the cell, so Enter never reaches the
-        # figure.  Click the first vertex to close, or just click
-        # 'Add region' / 'Finish' directly (they pick up drawn vertices).
         fig.text(
             0.5, 0.99,
-            "Left-click: add vertices  |  Click first vertex to close polygon"
-            "  |  'Add region' to store  |  'Finish' when done",
+            "Left-click on image to add vertices  |  "
+            "'Add region' to store polygon  |  'Finish' when done",
             ha="center", va="top", fontsize=9, color="0.4",
         )
 
-        self._attach_selector()
+        # Raw canvas event — works identically in terminal and Jupyter/ipympl.
+        # Store the connection id so we can disconnect cleanly in _on_finish.
+        self._cid = fig.canvas.mpl_connect(
+            "button_press_event", self._on_click)
 
         # Two buttons — stored on self to prevent GC
         ax_add    = fig.add_axes([0.25, 0.01, 0.25, 0.055])
@@ -870,70 +879,50 @@ class _MaskPainter:
         self._btn_finish.on_clicked(self._on_finish)
 
     # ------------------------------------------------------------------
-    def _attach_selector(self):
-        """Create (or recreate) a fresh PolygonSelector on the image axes."""
-        if self._selector is not None:
+    def _on_click(self, event):
+        """
+        Left-click inside the image axes: record a vertex.
+
+        Button clicks (which are also mouse events) arrive here too, but
+        their ``inaxes`` is the button's own axes object, not ``self.ax``,
+        so the guard below ignores them automatically.
+        """
+        if event.button != 1:
+            return
+        if event.inaxes is not self.ax:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+        self._xs.append(event.xdata)
+        self._ys.append(event.ydata)
+        self._redraw_live()
+        print("  vertex {}: ({:.1f}, {:.1f})".format(
+            len(self._xs), event.xdata, event.ydata), flush=True)
+
+    # ------------------------------------------------------------------
+    def _redraw_live(self):
+        """Redraw the in-progress polygon after each new vertex."""
+        if self._live_line is not None:
             try:
-                self._selector.disconnect_events()
+                self._live_line.remove()
             except Exception:
                 pass
-        _props = dict(color="r", linewidth=1.5, alpha=0.8)
-        try:
-            self._selector = PolygonSelector(
-                self.ax, self._on_poly, props=_props)
-        except TypeError:                           # matplotlib < 3.5
-            self._selector = PolygonSelector(
-                self.ax, self._on_poly, lineprops=_props)
-
-    # ------------------------------------------------------------------
-    def _on_poly(self, verts):
-        """Called by PolygonSelector when the polygon is formally closed."""
-        self._poly_verts = list(verts)
-        print(
-            "Polygon with {} vertices ready — "
-            "click 'Add region' to include it in the mask.".format(len(verts)),
-            flush=True,
-        )
-
-    # ------------------------------------------------------------------
-    def _current_verts(self):
-        """
-        Return the best available vertex list for the current polygon.
-
-        Three-level fallback to handle the common Jupyter case where the
-        polygon is drawn but never *formally* closed (Enter does not reach
-        the figure's key-press handler when focus is on the notebook cell,
-        so ``_on_poly`` is never called):
-
-        1. ``self._poly_verts`` — set by ``_on_poly``; the clean path.
-        2. ``self._selector.verts`` — the public PolygonSelector property;
-           works once the polygon has been completed in some backends.
-        3. ``self._selector._xs / _ys`` — internal lists that are built up
-           *as the user clicks*, before any formal completion.  The last
-           element is always a repeated copy of the first vertex (for the
-           visual closing line), so we drop it with ``[:-1]``.
-        """
-        if len(self._poly_verts) >= 3:
-            return list(self._poly_verts)
-        if self._selector is None:
-            return []
-        # Level 2: public .verts property
-        try:
-            verts = list(self._selector.verts)
-            if len(verts) >= 3:
-                return verts
-        except Exception:
-            pass
-        # Level 3: internal _xs / _ys (drop the repeated closing vertex)
-        try:
-            xs = list(self._selector._xs)
-            ys = list(self._selector._ys)
-            verts = list(zip(xs[:-1], ys[:-1]))
-            if len(verts) >= 3:
-                return verts
-        except Exception:
-            pass
-        return []
+            self._live_line = None
+        n = len(self._xs)
+        if n == 0:
+            self.ax.figure.canvas.draw_idle()
+            return
+        if n == 1:
+            self._live_line, = self.ax.plot(
+                self._xs, self._ys, "ro", markersize=6, zorder=5)
+        else:
+            # Close the polygon visually once ≥ 3 points exist
+            xs = self._xs + [self._xs[0]] if n >= 3 else list(self._xs)
+            ys = self._ys + [self._ys[0]] if n >= 3 else list(self._ys)
+            self._live_line, = self.ax.plot(
+                xs, ys, "r-o", linewidth=1.5, markersize=4,
+                alpha=0.8, zorder=5)
+        self.ax.figure.canvas.draw_idle()
 
     # ------------------------------------------------------------------
     def _rasterise(self, verts):
@@ -946,63 +935,65 @@ class _MaskPainter:
     # ------------------------------------------------------------------
     def _on_add(self, event):
         """
-        Add the current polygon to the cumulative mask.
+        Commit the current polygon to the cumulative mask.
 
-        Picks up vertices via ``_current_verts()`` so it works whether the
-        polygon was formally closed (``_on_poly`` fired) or not (Jupyter
-        keyboard-focus issue).  Overlays a permanent dashed outline on the
-        image, then resets the selector for the next polygon.
+        Leaves a permanent dashed outline on the image, clears the live
+        drawing, and resets the vertex list so the next polygon can be
+        drawn immediately.
         """
-        verts = self._current_verts()
+        verts = list(zip(self._xs, self._ys))
         if len(verts) < 3:
-            print("No polygon with ≥ 3 vertices yet — draw one first.",
+            print("Need ≥ 3 vertices — keep clicking on the image.",
                   flush=True)
             return
         region = self._rasterise(verts)
         self.mask |= region
         self.n_regions += 1
-        # Permanent dashed outline so already-added regions stay visible
-        xs = [v[0] for v in verts] + [verts[0][0]]
-        ys = [v[1] for v in verts] + [verts[0][1]]
-        self.ax.add_line(plt.Line2D(xs, ys, color="r", linewidth=1.5,
-                                    linestyle="--"))
+        # Remove the live line and replace with a permanent dashed outline
+        if self._live_line is not None:
+            try:
+                self._live_line.remove()
+            except Exception:
+                pass
+            self._live_line = None
+        xs_closed = self._xs + [self._xs[0]]
+        ys_closed = self._ys + [self._ys[0]]
+        self.ax.add_line(plt.Line2D(
+            xs_closed, ys_closed, color="r", linewidth=1.5, linestyle="--"))
         self.ax.figure.canvas.draw_idle()
         print(
             "Region {} added: {} px.  Total mask: {} px.  "
-            "Draw the next region or click 'Finish'.".format(
+            "Draw next region or click 'Finish'.".format(
                 self.n_regions, int(region.sum()), int(self.mask.sum())),
             flush=True,
         )
         # Reset for the next polygon
-        self._poly_verts = []
-        self._attach_selector()
+        self._xs = []
+        self._ys = []
 
     # ------------------------------------------------------------------
     def _on_finish(self, event):
         """
         Finalise the mask and close the figure.
 
-        Any polygon drawn but not yet added (user forgot 'Add region', or
-        polygon was not formally closed in Jupyter) is added automatically.
+        Any in-progress polygon (≥ 3 vertices, not yet added) is committed
+        automatically so the user does not have to click 'Add region' last.
         """
-        verts = self._current_verts()
+        verts = list(zip(self._xs, self._ys))
         if len(verts) >= 3:
             region = self._rasterise(verts)
             self.mask |= region
             self.n_regions += 1
-            print(
-                "Auto-added pending region {}: {} px.".format(
-                    self.n_regions, int(region.sum())),
-                flush=True,
-            )
-        if self._selector is not None:
-            try:
-                self._selector.disconnect_events()
-            except Exception:
-                pass
+            print("Auto-added pending region {}: {} px.".format(
+                self.n_regions, int(region.sum())), flush=True)
+        # Disconnect the click listener before closing
+        try:
+            self.fig.canvas.mpl_disconnect(self._cid)
+        except Exception:
+            pass
         print(
             "Mask finalised: {} region(s), {} pixels total.  "
-            "Access it via  painter.mask".format(
+            "Access via  painter.mask".format(
                 self.n_regions, int(self.mask.sum())),
             flush=True,
         )
