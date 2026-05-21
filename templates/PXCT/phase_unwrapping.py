@@ -46,6 +46,17 @@ if __name__ == "__main__":
         )
 
     # find the residues and choose region to be unwrapped
+    # chooseregiontounwrap opens an interactive GUI:
+    #   1. click top-left corner of unwrap region
+    #   2. click bottom-right corner
+    #   3. click a pixel in air (inside the rectangle)
+    #   then click  Confirm  — or  Reset  to start over.
+    #
+    # Script mode: plt.show(block=True) has already returned when this
+    #              line executes, so rx, ry, airpix are the finished result.
+    # Notebook mode (%matplotlib widget): interact with the GUI in the
+    #              cell output, then run the next cell to access results:
+    #              rx, ry, airpix = picker.rx, picker.ry, picker.airpix
     rx, ry, airpix = chooseregiontounwrap(
                         stack_phasecorr,
                         threshold = params["threshold"],
@@ -53,27 +64,18 @@ if __name__ == "__main__":
                         ncores = params["n_cpus"],
                     )
 
-    ansunw = input("Do you want to continue with the unwrapping?([y]/n)").lower()
-    if str(ansunw) == "" or str(ansunw) == "y":
-        stack_unwrap = unwrapping_phase(
-                            stack_phasecorr, 
-                            rx, 
-                            ry, 
-                            airpix, 
-                            **params
-                    )
-    else:
-        stack_unwrap = stack_phasecorr
-        print("The phases have not been unwrapped")
+    stack_unwrap = unwrapping_phase(
+                        stack_phasecorr,
+                        rx,
+                        ry,
+                        airpix,
+                        **params
+                )
 
     del stack_phasecorr
-    # display the projections after the unwrapping
-    showmovie = input(
-        "Do you want to show all the unwrapped projections?([y]/n): "
-    ).lower()
 
-    if str(showmovie) == "" or str(showmovie) == "y":
-        iterative_show(stack_unwrap, ry, rx, airpix, onlyroi=False)
+    # display the projections after the unwrapping
+    iterative_show(stack_unwrap, ry, rx, airpix, onlyroi=False)
 
     # Save the unwrapped phase projections
     SaveData.save("unwrapped_phases.h5", stack_unwrap, theta, **params)
