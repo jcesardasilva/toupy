@@ -84,7 +84,7 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # Common abreviations
 rst_epilog = """
@@ -255,8 +255,10 @@ todo_include_todos = True
 # intersphinx_mapping = {'https://docs.python.org/': None}
 
 intersphinx_mapping = {
-    "https://docs.python.org/": None,
-    #'toupy': ('https://github.com/jcesardasilva/toupy.git', None),
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy", None),
+    "matplotlib": ("https://matplotlib.org/stable", None),
 }
 
 # import os
