@@ -232,7 +232,7 @@ def show_ssnr_curve(fn, FSC, SSNR, SSNR_T, snrt, ndim):
                label=f"Asymptote = {SSNR_asymp:.3f}")
     if fn_res is not None:
         ax.axvline(fn_res, color="k", linestyle="--", alpha=0.7,
-                   label=f"Resolution ≈ {fn_res:.3f} × Nyquist")
+                   label=f"Resolution ~ {fn_res:.3f} x Nyquist")
 
     ax.legend()
     ax.set_xlim(0, 1)
@@ -240,6 +240,16 @@ def show_ssnr_curve(fn, FSC, SSNR, SSNR_T, snrt, ndim):
     ax.set_ylabel("SSNR")
     ax.set_title(f"Spectral Signal-to-Noise Ratio ({suffix})")
     ax.grid(True, linestyle="--", alpha=0.5)
+
+    # semilogy normally formats Y-axis ticks as "$10^{N}$" (mathtext).
+    # On Python 3.14 + some matplotlib/pyparsing combos the mathtext parser
+    # raises a ParseException at tight_layout time.  Replace the formatter
+    # with a plain-text scientific-notation formatter to sidestep this.
+    import matplotlib.ticker as _ticker
+    ax.yaxis.set_major_formatter(
+        _ticker.FuncFormatter(lambda val, _: f"{val:.2g}")
+    )
+
     fig.tight_layout()
     fig.savefig(f"SSNR_{suffix}.png", bbox_inches="tight")
     show_figure(fig)
