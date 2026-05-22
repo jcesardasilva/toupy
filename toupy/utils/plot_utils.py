@@ -777,13 +777,16 @@ class RegisterPlot:
     ----------------
     **Jupyter / ``%matplotlib widget``**
         Figures are rendered to PNG bytes via
-        :meth:`~matplotlib.figure.Figure.savefig` (requires no figure
-        manager; safe for all ipympl versions) and shown inside
-        :class:`ipywidgets.Output` containers.  On the first call the
-        containers are embedded in the cell output; subsequent calls
-        call :meth:`~ipywidgets.Output.clear_output` and replace the PNG
-        in-place — no new cell outputs are created, and verbose text printed
-        by the alignment loop appears *below* the figure area.
+        :meth:`~matplotlib.figure.Figure.savefig` and shown via IPython
+        ``DisplayHandle`` objects obtained from
+        ``IPython.display.display(..., display_id=True)``.  Subsequent
+        updates call ``handle.update(new_png)`` — **no** ``clear_output``
+        is ever called, so the figure display items are never accidentally
+        removed.  The verbose text printed by the alignment loop is
+        similarly updated in-place via a second ``DisplayHandle`` that
+        holds an ``HTML`` block; the loop redirects ``stdout`` to a
+        ``StringIO`` buffer and calls :meth:`_verbose_update` after each
+        iteration.
 
     **Terminal**
         Figures are redrawn via ``canvas.draw_idle()`` + ``plt.pause()``.
@@ -801,7 +804,7 @@ class RegisterPlot:
         self.count = 0
         self.max_correction = None   # updated by plotsvertical each iteration
         self.stage_info = None       # (stage_num, n_stages, freqcutoff) — set by caller
-        self._out_verbose = None     # ipywidgets.Output for verbose text (notebook only)
+        self._dh_verbose = None      # DisplayHandle for verbose text (notebook only)
         plt.close("all")
 
     # ------------------------------------------------------------------ #
@@ -822,62 +825,62 @@ class RegisterPlot:
         return buf.read()
 
     # ------------------------------------------------------------------ #
-    # Output-widget helpers
+    # DisplayHandle helpers  (no clear_output — uses update() instead)
     # ------------------------------------------------------------------ #
 
-    def _make_output(self):
-        """Create, embed in the current cell, and return an Output widget.
+    def _dh_init(self, fig, attr):
+        """Display *fig* as a PNG and store the :class:`DisplayHandle` as
+        ``self.<attr>``.
 
-        Returns ``None`` when ipywidgets is unavailable.
-        """
-        try:
-            from ipywidgets import Output
-            out = Output()
-            display.display(out)
-            return out
-        except ImportError:
-            return None
+        The handle is used by :meth:`_dh_update` to replace the image
+        in-place on subsequent calls — without any ``clear_output``.
 
-    def _out_init(self, fig, attr):
-        """Create an Output widget, store it as ``self.<attr>``, fill with PNG.
-
-        In notebook mode an Output widget is created and embedded *at the
-        current cursor position* in the cell output (so figures appear in
-        the order they are initialised), then populated with a PNG of *fig*.
-
-        In terminal mode this method is a no-op; the caller handles display
-        via :meth:`_term_show`.
+        In terminal mode this is a no-op; the caller uses :meth:`_term_show`.
         """
         if not isnotebook():
             return
-        out = self._make_output()
-        setattr(self, attr, out)
         png = display.Image(self._fig_to_png(fig))
-        if out is not None:
-            with out:
-                display.display(png)
-        else:
-            display.display(png)
+        dh = display.display(png, display_id=True)
+        setattr(self, attr, dh)
 
-    def _out_update(self, fig, attr):
-        """Replace the content of ``self.<attr>`` Output with a fresh PNG.
+    def _dh_update(self, fig, attr):
+        """Replace the PNG displayed by ``self.<attr>`` in-place.
 
-        ``clear_output(wait=True)`` swaps the image in-place — no new
-        cell output is created.
+        Uses :py:meth:`DisplayHandle.update` — no ``clear_output`` call,
+        no new cell-output item is created.
 
-        In terminal mode this method is a no-op; the caller handles display
-        via :meth:`_term_show`.
+        In terminal mode this is a no-op; the caller uses :meth:`_term_show`.
         """
         if not isnotebook():
             return
-        out = getattr(self, attr, None)
+        dh = getattr(self, attr, None)
         png = display.Image(self._fig_to_png(fig))
-        if out is not None:
-            out.clear_output(wait=True)
-            with out:
-                display.display(png)
+        if dh is not None:
+            dh.update(png)
         else:
             display.display(png)
+
+    def _verbose_update(self, text):
+        """Update the verbose-text area in-place (no ``clear_output``).
+
+        *text* is rendered inside a ``<pre>`` block so newlines and
+        indentation are preserved.  HTML special characters are escaped.
+        Does nothing in terminal mode or when ``_dh_verbose`` is ``None``.
+        """
+        if not isnotebook():
+            return
+        dh = self._dh_verbose
+        if dh is None:
+            return
+        escaped = (
+            text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+        )
+        dh.update(display.HTML(
+            "<pre style='margin:0;white-space:pre-wrap;line-height:1.4'>"
+            "{}</pre>".format(escaped)
+        ))
 
     @staticmethod
     def _term_show(figs):
@@ -959,17 +962,19 @@ class RegisterPlot:
                 )
 
             if isnotebook():
-                # Embed projection figure first (static, shown once)
-                self._out_init(self.fig_proj, "_out_proj")
-                # Embed main diagnostic figure (updated each iteration)
-                self._out_init(self.fig_main, "_out_main")
-                # Embed a dedicated Output for iteration text — lets the
-                # loop clear verbose text in-place without touching the
-                # figure Output widgets above.
-                self._out_verbose = self._make_output()
+                # Display projection figure once (static).
+                self._dh_init(self.fig_proj, "_dh_proj")
+                # Display main diagnostic figure (updated each iteration
+                # via _dh_update — no clear_output needed).
+                self._dh_init(self.fig_main, "_dh_main")
+                # Reserve a spot for the verbose text that the alignment
+                # loop will update in-place via _verbose_update.
+                self._dh_verbose = display.display(
+                    display.HTML(""), display_id=True
+                )
             else:
                 self._term_show([self.fig_proj, self.fig_main])
-                self._out_verbose = None
+                self._dh_verbose = None
         else:
             self.updatevertical()
 
@@ -1034,7 +1039,7 @@ class RegisterPlot:
         )
 
         if isnotebook():
-            self._out_update(self.fig_main, "_out_main")
+            self._dh_update(self.fig_main, "_dh_main")
         else:
             self._term_show([self.fig_main])
 
@@ -1099,12 +1104,15 @@ class RegisterPlot:
                 )
 
             if isnotebook():
-                self._out_init(self.fig_main, "_out_main")
-                # Dedicated Output for iteration text (in-place updates).
-                self._out_verbose = self._make_output()
+                # Display main figure (updated via _dh_update — no clear_output).
+                self._dh_init(self.fig_main, "_dh_main")
+                # Reserve a spot for verbose text.
+                self._dh_verbose = display.display(
+                    display.HTML(""), display_id=True
+                )
             else:
                 self._term_show([self.fig_main])
-                self._out_verbose = None
+                self._dh_verbose = None
         else:
             self.updatehorizontal()
 
@@ -1171,7 +1179,7 @@ class RegisterPlot:
         )
 
         if isnotebook():
-            self._out_update(self.fig_main, "_out_main")
+            self._dh_update(self.fig_main, "_dh_main")
         else:
             self._term_show([self.fig_main])
 
