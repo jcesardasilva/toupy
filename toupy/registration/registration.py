@@ -1779,21 +1779,14 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     shiftxrefine = np.squeeze(shiftxrefine)
     shiftxrefine_avg = shiftxrefine.mean(axis=0)
 
-    # Suppress the blank auto-display that ipympl fires on figure creation.
-    # All artists are added after the suppressed creation; we then force a
-    # draw and display the canvas widget explicitly — no savefig/PNG needed.
-    if isnotebook():
-        try:
-            from ipywidgets import Output as _Out_tc
-            _cap_tc = _Out_tc()
-        except ImportError:
-            _cap_tc = contextlib.nullcontext()
-    else:
-        _cap_tc = contextlib.nullcontext()
-
+    # Create the figure WITHOUT an ipywidgets Output capture wrapper.
+    # Capturing inside Output._cap sets fig.canvas.manager = None (the
+    # Output widget "consumes" the canvas widget on __exit__), which
+    # breaks both fig.canvas.draw() and fig.savefig() for the ipympl
+    # backend.  Without capture, ipympl auto-displays the canvas widget
+    # immediately and keeps manager alive so draw() works normally.
     plt.close("all")
-    with _cap_tc:
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), constrained_layout=True)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8))
 
     ax1.imshow(shiftxrefine, interpolation="none", cmap="jet")
     ax1.axis("tight")
@@ -1807,20 +1800,13 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     ax2.set_xlim([0, len(shiftxrefine_avg)])
     ax2.set_title("Average displacements in x  —  blue=new average, red=previous")
     ax2.set_xlabel("Projection number")
+    fig.tight_layout()
 
     if isnotebook():
-        from IPython import display as _disp_tc
-        # The figure was created inside _cap_tc (an ipywidgets Output widget)
-        # so fig.canvas.manager is None — calling fig.canvas.draw() would
-        # raise AttributeError: 'NoneType' has no attribute 'refresh_all'.
-        # Use the Agg savefig path instead: it renders via a software renderer
-        # that needs no manager and is identical to what RegisterPlot uses for
-        # the alignment figures.
-        _buf_tc = io.BytesIO()
-        fig.savefig(_buf_tc, format="png", bbox_inches="tight", dpi=100)
-        _buf_tc.seek(0)
-        _disp_tc.display(_disp_tc.Image(_buf_tc.read()))
-        plt.close(fig)
+        # fig.canvas.draw() renders all artists and pushes the image to the
+        # already-displayed ipympl canvas widget (manager is valid because we
+        # did NOT use an Output capture above).
+        fig.canvas.draw()
     else:
         plt.show(block=False)
 
