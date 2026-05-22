@@ -8,11 +8,9 @@ import setuptools
 with open("README.md", "r", encoding="utf-8") as fid:
     long_description = fid.read()
 
-long_description_toupy = "**Toupy** - Tomographic Utilites for Python"
-
 setuptools.setup(
     name="toupy",
-    version="0.2.2",
+    version="0.3.0",
     author="Julio Cesar da Silva",
     author_email="julio-cesar.da-silva@neel.cnrs.fr",
     description="Tomographic Utilities for Python",
@@ -27,9 +25,9 @@ setuptools.setup(
         "Topic :: Software Development",
         "Operating System :: Unix",
     ],
-    package_dir={"toupy": "toupy"},
+    package_dir={"": "."},
     packages=setuptools.find_packages(),
-    python_requires=">=3.6",
+    python_requires=">=3.8",
     scripts=[
         "bin/file_comp",
         "bin/missing_recons",
@@ -40,15 +38,22 @@ setuptools.setup(
         "fabio>=0.11.0",
         "h5py>=3.1.0",
         "ipython>=7.16.1",
-        "joblib>=1.0.1",
+        "ipywidgets>=7.6.0",
         "matplotlib>=3.3.4",
-        "numpy>=1.16.5",
-        "numexpr>=2.6.9",
-        "scipy>=1.5.4",
-        "PyFFTW>=0.11.1",
-        "pyopencl>=2021.1.1",
-        "scikit_image>=0.17.2",
-        "silx>=0.9.0",
+        "numpy>=1.20.0",
+        "PyFFTW>=0.12.0",
+        "scipy>=1.7.0",
+        "scikit-image>=0.18.0",
         "tqdm>=4.61.2",
     ],
+    extras_require={
+        "notebook": [
+            "ipympl>=0.9.0",
+            "jupyterlab>=3.0",
+        ],
+        "docs": [
+            "sphinx>=5.0",
+            "sphinx-rtd-theme>=1.0",
+        ],
+    },
 )

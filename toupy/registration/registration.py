@@ -26,9 +26,7 @@ from ..utils.plot_utils import plt
 import numpy as np
 from ..utils import tqdm
 from scipy.fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift
-from scipy.ndimage import center_of_mass, interpolation
-from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
-from scipy.ndimage.fourier import fourier_shift
+from scipy.ndimage import center_of_mass, interpolation, gaussian_filter, gaussian_filter1d, fourier_shift
 from skimage.registration import phase_cross_correlation
 
 # local packages
