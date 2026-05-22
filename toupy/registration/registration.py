@@ -15,6 +15,7 @@ gradient-based update rule.  All other helper functions are unchanged.
 
 # standard libraries imports
 import contextlib
+import io
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -999,14 +1000,11 @@ def _alignprojections_vertical(
     while True:
         count += 1
 
-        # Route all iteration prints to the dedicated verbose Output widget
-        # (notebook only) so previous-iteration text is replaced in-place
-        # without touching the figure Output widgets.
-        if hasattr(RP, '_out_verbose') and RP._out_verbose is not None:
-            RP._out_verbose.clear_output(wait=True)
-            _vctx = RP._out_verbose
-        else:
-            _vctx = contextlib.nullcontext()
+        # Capture iteration prints to a buffer so they can be shown
+        # in-place via DisplayHandle.update() — no clear_output anywhere.
+        _buf = io.StringIO()
+        _use_dh = hasattr(RP, '_dh_verbose') and RP._dh_verbose is not None
+        _vctx = contextlib.redirect_stdout(_buf) if _use_dh else contextlib.nullcontext()
 
         with _vctx:
             print("\n============================================")
@@ -1052,8 +1050,11 @@ def _alignprojections_vertical(
                 shiftstack = deltaprev.copy()
                 metric_error.pop()
 
-        # Update figure OUTSIDE the verbose context so the PNG goes to the
-        # correct _out_main widget and not to _out_verbose.
+        # Update verbose text in-place (DisplayHandle.update — no clear_output).
+        if _use_dh:
+            RP._verbose_update(_buf.getvalue())
+
+        # Update figure (also uses DisplayHandle.update — no clear_output).
         RP.plotsvertical(
             input_stack[0], lims, vert_fluct_init, vert_fluct_temp,
             shiftstack, metric_error, count,
@@ -1232,13 +1233,14 @@ def _alignprojections_horizontal(
     while True:
         count += 1
 
-        # Route all iteration prints to the dedicated verbose Output widget
-        # (notebook only).  RP may be None in silent / warm-start mode.
-        if RP is not None and hasattr(RP, '_out_verbose') and RP._out_verbose is not None:
-            RP._out_verbose.clear_output(wait=True)
-            _vctx = RP._out_verbose
-        else:
-            _vctx = contextlib.nullcontext()
+        # Capture iteration prints to a buffer so they can be shown
+        # in-place via DisplayHandle.update() — no clear_output anywhere.
+        # RP may be None in silent / warm-start mode.
+        _buf = io.StringIO()
+        _use_dh = (RP is not None
+                   and hasattr(RP, '_dh_verbose')
+                   and RP._dh_verbose is not None)
+        _vctx = contextlib.redirect_stdout(_buf) if _use_dh else contextlib.nullcontext()
 
         with _vctx:
             print("\nIteration {}".format(count))
@@ -1289,8 +1291,11 @@ def _alignprojections_horizontal(
                 shiftslice = deltaprev.copy()
                 metric_error.pop()
 
-        # Update figure OUTSIDE the verbose context so the PNG goes to the
-        # correct _out_main widget and not to _out_verbose.
+        # Update verbose text in-place (DisplayHandle.update — no clear_output).
+        if _use_dh:
+            RP._verbose_update(_buf.getvalue())
+
+        # Update figure (also uses DisplayHandle.update — no clear_output).
         if RP is not None:
             RP.plotshorizontal(
                 recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count
