@@ -56,11 +56,13 @@ __all__ = [
 def show_figure(fig=None, close=True):
     """Display a figure in the current environment and optionally close it.
 
-    In Jupyter: renders the figure to a PNG via savefig and shows it as a
-    static ``display.Image``.  Using the savefig path (rather than
-    ``display.display(fig)`` which shows the live ipympl canvas widget)
-    guarantees a correct image regardless of whether ``canvas.draw()`` has
-    been called beforehand.
+    In Jupyter: switches the figure's canvas to a plain Agg renderer, renders
+    to a PNG via savefig, and shows it as a static ``display.Image``.
+    Switching to Agg before savefig is necessary because the default ipympl
+    canvas (``FigureCanvasWebAggCore``) routes savefig through
+    ``canvas.draw()`` → ``manager.refresh_all()``, which raises
+    ``AttributeError`` when ``manager`` is ``None`` (e.g. when ``plt.ion()``
+    was never called).  The Agg canvas has no manager dependency.
 
     In terminal: calls plt.show(block=False).
 
@@ -75,6 +77,8 @@ def show_figure(fig=None, close=True):
     if fig is None:
         fig = plt.gcf()
     if isnotebook():
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as _FCAgg
+        _FCAgg(fig)       # swap to Agg canvas — savefig no longer needs manager
         buf = _io.BytesIO()
         fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
         buf.seek(0)
@@ -96,33 +100,41 @@ def show_fsc_images(img1_apod, img2_apod):
         Second apodized image (or sagittal slice for 3D).
     """
     if isnotebook():
-        fig = plt.figure(figsize=(10, 5))
-    else:
-        fig = plt.figure()
-    plt.clf()
-    ax1 = fig.add_subplot(121)
-    ax2 = fig.add_subplot(122)
-    ax1.imshow(img1_apod, cmap="bone", interpolation="none")
-    ax1.set_title("image1")
-    ax1.set_axis_off()
-    ax2.imshow(img2_apod, cmap="bone", interpolation="none")
-    ax2.set_title("image2")
-    ax2.set_axis_off()
-    fig.tight_layout()
-    if isnotebook():
-        # display.display(fig) shows the ipympl canvas widget, but without a
-        # prior canvas.draw() the widget is blank on all calls after the first
-        # (the first call gets an implicit draw from notebook initialisation;
-        # subsequent calls in the same session do not).
-        # Use the same savefig→BytesIO→Image path that the alignment figures
-        # and tomoconsistency_multiple use: savefig triggers print_figure which
-        # calls canvas.draw() internally, guaranteeing a rendered image every time.
+        # Use the OO matplotlib API (not pyplot) so the figure is created with
+        # a plain Agg canvas instead of the ipympl webagg canvas.  With the
+        # webagg canvas, fig.savefig() internally calls
+        # FigureCanvasWebAggCore.draw() → self.manager.refresh_all(), which
+        # raises AttributeError when manager is None (e.g. when plt.ion() was
+        # never called).  The Agg canvas path has no manager dependency at all.
+        import matplotlib.figure as _mf
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as _FCAgg
+        fig = _mf.Figure(figsize=(10, 5))
+        _FCAgg(fig)           # attach Agg canvas — no pyplot/manager involved
+        ax1 = fig.add_subplot(121)
+        ax2 = fig.add_subplot(122)
+        ax1.imshow(img1_apod, cmap="bone", interpolation="none")
+        ax1.set_title("image1")
+        ax1.set_axis_off()
+        ax2.imshow(img2_apod, cmap="bone", interpolation="none")
+        ax2.set_title("image2")
+        ax2.set_axis_off()
+        fig.tight_layout()
         buf = _io.BytesIO()
         fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
         buf.seek(0)
         display.display(display.Image(buf.read()))
-        plt.close(fig)
     else:
+        fig = plt.figure()
+        plt.clf()
+        ax1 = fig.add_subplot(121)
+        ax2 = fig.add_subplot(122)
+        ax1.imshow(img1_apod, cmap="bone", interpolation="none")
+        ax1.set_title("image1")
+        ax1.set_axis_off()
+        ax2.imshow(img2_apod, cmap="bone", interpolation="none")
+        ax2.set_title("image2")
+        ax2.set_axis_off()
+        fig.tight_layout()
         plt.show(block=False)
 
 
