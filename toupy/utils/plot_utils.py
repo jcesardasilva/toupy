@@ -4,6 +4,7 @@
 # standard libraries imports
 import functools
 import io as _io
+import re
 import sys
 
 # third party packages
@@ -865,6 +866,12 @@ class RegisterPlot:
 
         *text* is rendered inside a ``<pre>`` block so newlines and
         indentation are preserved.  HTML special characters are escaped.
+
+        ANSI escape sequences (tqdm colours, cursor moves) are stripped and
+        carriage-return overwriting (``\\r``) is resolved so only the final
+        content on each logical line is shown — this collapses the repeated
+        tqdm progress-bar rewrites into a single clean line.
+
         Does nothing in terminal mode or when ``_dh_verbose`` is ``None``.
         """
         if not isnotebook():
@@ -872,6 +879,22 @@ class RegisterPlot:
         dh = self._dh_verbose
         if dh is None:
             return
+
+        # 1. Strip ANSI escape sequences (colours, cursor positioning, etc.)
+        text = re.sub(r'\x1b\[[0-9;]*[mKGABCDEFHJSTfhilnprsu]', '', text)
+
+        # 2. Resolve carriage-return overwriting: tqdm re-draws the same line
+        #    by emitting \r; keep only the last segment after each \r so we
+        #    see the final bar state instead of all intermediate rewrites.
+        lines = []
+        for line in text.split('\n'):
+            parts = line.split('\r')
+            lines.append(parts[-1])   # last overwrite wins
+        text = '\n'.join(lines)
+
+        # 3. Drop lines that are blank after the above processing
+        text = '\n'.join(ln for ln in text.split('\n') if ln.strip())
+
         escaped = (
             text.replace("&", "&amp;")
                 .replace("<", "&lt;")
@@ -1009,21 +1032,25 @@ class RegisterPlot:
         axd["curr1d"].relim()
         # autoscale(enable=True) re-enables the autoscale flag (which savefig
         # disables internally via set_xlim/set_ylim) and immediately applies it.
-        axd["curr1d"].autoscale(enable=True, axis="both", tight=True)
+        # tight=False (default) leaves room for the default margin padding.
+        axd["curr1d"].autoscale(enable=True, axis="both")
+        axd["curr1d"].margins(x=0.02, y=0.08)
 
         # shifts: update all shift curves
         delta = self.deltastack
         for idx, line in enumerate(arts["im_shifts_lines"]):
             line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
         axd["shifts"].relim()
-        axd["shifts"].autoscale(enable=True, axis="both", tight=True)
+        axd["shifts"].autoscale(enable=True, axis="both")
+        axd["shifts"].margins(x=0.02, y=0.08)
 
         # error: grow the convergence curve by one point
         n = len(self.metric_error)
         arts["im_error"].set_xdata(np.arange(n))
         arts["im_error"].set_ydata(self.metric_error)
         axd["error"].relim()
-        axd["error"].autoscale(enable=True, axis="both", tight=True)
+        axd["error"].autoscale(enable=True, axis="both")
+        axd["error"].margins(x=0.02, y=0.08)
 
         # Update suptitle with current iteration, error, and max correction
         err_val = self.metric_error[-1] if self.metric_error else float("nan")
@@ -1152,14 +1179,16 @@ class RegisterPlot:
         for idx, line in enumerate(arts["im_shifts_lines"]):
             line.set_ydata(delta[:, idx] if delta.ndim > 1 else delta)
         axd["shifts"].relim()
-        axd["shifts"].autoscale(enable=True, axis="both", tight=True)
+        axd["shifts"].autoscale(enable=True, axis="both")
+        axd["shifts"].margins(x=0.02, y=0.08)
 
         # error: grow the convergence curve by one point
         n = len(self.metric_error)
         arts["im_error"].set_xdata(np.arange(n))
         arts["im_error"].set_ydata(self.metric_error)
         axd["error"].relim()
-        axd["error"].autoscale(enable=True, axis="both", tight=True)
+        axd["error"].autoscale(enable=True, axis="both")
+        axd["error"].margins(x=0.02, y=0.08)
 
         # Update suptitle: include stage info when a schedule is in use
         err_val = self.metric_error[-1] if self.metric_error else float("nan")
