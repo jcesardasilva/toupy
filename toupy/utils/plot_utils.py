@@ -801,6 +801,7 @@ class RegisterPlot:
         self.count = 0
         self.max_correction = None   # updated by plotsvertical each iteration
         self.stage_info = None       # (stage_num, n_stages, freqcutoff) — set by caller
+        self._out_verbose = None     # ipywidgets.Output for verbose text (notebook only)
         plt.close("all")
 
     # ------------------------------------------------------------------ #
@@ -962,8 +963,13 @@ class RegisterPlot:
                 self._out_init(self.fig_proj, "_out_proj")
                 # Embed main diagnostic figure (updated each iteration)
                 self._out_init(self.fig_main, "_out_main")
+                # Embed a dedicated Output for iteration text — lets the
+                # loop clear verbose text in-place without touching the
+                # figure Output widgets above.
+                self._out_verbose = self._make_output()
             else:
                 self._term_show([self.fig_proj, self.fig_main])
+                self._out_verbose = None
         else:
             self.updatevertical()
 
@@ -1094,8 +1100,11 @@ class RegisterPlot:
 
             if isnotebook():
                 self._out_init(self.fig_main, "_out_main")
+                # Dedicated Output for iteration text (in-place updates).
+                self._out_verbose = self._make_output()
             else:
                 self._term_show([self.fig_main])
+                self._out_verbose = None
         else:
             self.updatehorizontal()
 
