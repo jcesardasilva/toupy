@@ -14,6 +14,7 @@ gradient-based update rule.  All other helper functions are unchanged.
 """
 
 # standard libraries imports
+import contextlib
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -997,62 +998,69 @@ def _alignprojections_vertical(
     error_reg = np.zeros(vert_fluct_init.shape[0])
     while True:
         count += 1
-        if isnotebook():
-            try:
-                from IPython.display import clear_output as _clear_nb
-                _clear_nb(wait=True)
-            except ImportError:
-                pass
-        print("\n============================================")
-        print("Iteration {}".format(count))
-        it0 = time.time()
-        deltaprev = shiftstack.copy()
 
-        if count == 1:
-            vert_fluct = vert_fluct_init.copy()
+        # Route all iteration prints to the dedicated verbose Output widget
+        # (notebook only) so previous-iteration text is replaced in-place
+        # without touching the figure Output widgets.
+        if hasattr(RP, '_out_verbose') and RP._out_verbose is not None:
+            RP._out_verbose.clear_output(wait=True)
+            _vctx = RP._out_verbose
         else:
-            print("Updating the vertical fluctuations")
-            vert_fluct = vertical_fluctuations(
-                input_stack, lims, shiftstack, params["shiftmeth"], polyorder=params["polyorder"]
+            _vctx = contextlib.nullcontext()
+
+        with _vctx:
+            print("\n============================================")
+            print("Iteration {}".format(count))
+            it0 = time.time()
+            deltaprev = shiftstack.copy()
+
+            if count == 1:
+                vert_fluct = vert_fluct_init.copy()
+            else:
+                print("Updating the vertical fluctuations")
+                vert_fluct = vertical_fluctuations(
+                    input_stack, lims, shiftstack, params["shiftmeth"], polyorder=params["polyorder"]
+                )
+
+            vert_fluct_mean = vert_fluct.mean(axis=0)
+
+            print("Gradient descent search for vertical shifts...")
+            shiftstack_aux, vert_fluct_temp = _search_vshift_stack(
+                input_stack, lims, shiftstack, vert_fluct_mean, **params
             )
+            shiftstack[0] = shiftstack_aux[0].copy()
+            shiftstack[0] -= shiftstack_aux[0].mean().round()
 
-        vert_fluct_mean = vert_fluct.mean(axis=0)
+            vert_fluct_mean_temp = vert_fluct_temp.mean(axis=0)
+            print("\nCalculating the error metric")
+            for ii in range(vert_fluct_temp.shape[0]):
+                error_reg[ii] = np.sum(np.abs(vert_fluct_temp[ii] - vert_fluct_mean_temp) ** 2)
+            print("Final error metric for y, E = {:.04e}".format(np.sum(error_reg)))
+            metric_error.append(np.sum(error_reg))
 
-        print("Gradient descent search for vertical shifts...")
-        shiftstack_aux, vert_fluct_temp = _search_vshift_stack(
-            input_stack, lims, shiftstack, vert_fluct_mean, **params
-        )
-        shiftstack[0] = shiftstack_aux[0].copy()
-        shiftstack[0] -= shiftstack_aux[0].mean().round()
+            changey = np.abs(deltaprev[0] - shiftstack[0])
+            print("Estimating the changes in y:")
+            print("Maximum correction in y = {:.02f} pixels".format(np.max(changey)))
+            print("Elapsed time = {} s".format(time.time() - it0))
 
-        vert_fluct_mean_temp = vert_fluct_temp.mean(axis=0)
-        print("\nCalculating the error metric")
-        for ii in range(vert_fluct_temp.shape[0]):
-            error_reg[ii] = np.sum(np.abs(vert_fluct_temp[ii] - vert_fluct_mean_temp) ** 2)
-        print("Final error metric for y, E = {:.04e}".format(np.sum(error_reg)))
-        metric_error.append(np.sum(error_reg))
+            pixtol = params["pixtol"] if params["subpixel"] else 1
+            reason = _checkconditions(
+                metric_error, changey, pixtol, count, params["maxit"], params["subpixel"],
+                rtol=params.get("rtol", 0.0),
+            )
+            if reason == 1:
+                shiftstack = deltaprev.copy()
+                metric_error.pop()
 
-        changey = np.abs(deltaprev[0] - shiftstack[0])
-        print("Estimating the changes in y:")
-        print("Maximum correction in y = {:.02f} pixels".format(np.max(changey)))
-        print("Elapsed time = {} s".format(time.time() - it0))
-
+        # Update figure OUTSIDE the verbose context so the PNG goes to the
+        # correct _out_main widget and not to _out_verbose.
         RP.plotsvertical(
             input_stack[0], lims, vert_fluct_init, vert_fluct_temp,
             shiftstack, metric_error, count,
             max_correction=float(np.max(changey)),
         )
 
-        pixtol = params["pixtol"] if params["subpixel"] else 1
-        reason = _checkconditions(
-            metric_error, changey, pixtol, count, params["maxit"], params["subpixel"],
-            rtol=params.get("rtol", 0.0),
-        )
-        if reason == 1:
-            shiftstack = deltaprev.copy()
-            metric_error.pop()
-            break
-        elif reason >= 2:
+        if reason >= 1:
             break
 
     return shiftstack, metric_error
@@ -1223,66 +1231,72 @@ def _alignprojections_horizontal(
     count = 0
     while True:
         count += 1
-        if isnotebook():
-            try:
-                from IPython.display import clear_output as _clear_nb
-                _clear_nb(wait=True)
-            except ImportError:
-                pass
-        print("\nIteration {}".format(count))
-        print("-------------------------------------")
-        it0 = time.time()
-        deltaprev = shiftslice.copy()
 
-        print("Computing synthetic sinogram...")
-        sinogramcomp = projector(recons, theta, **params)
-        if params["derivatives"] and not params["calc_derivatives"]:
-            sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params["shiftmeth"])
+        # Route all iteration prints to the dedicated verbose Output widget
+        # (notebook only).  RP may be None in silent / warm-start mode.
+        if RP is not None and hasattr(RP, '_out_verbose') and RP._out_verbose is not None:
+            RP._out_verbose.clear_output(wait=True)
+            _vctx = RP._out_verbose
+        else:
+            _vctx = contextlib.nullcontext()
 
-        print("Gradient descent search for horizontal shifts...")
-        sinotempreg, shiftslice = _search_hshift_sinogram(
-            sino_orig, sinogramcomp, shiftslice, **params
-        )
+        with _vctx:
+            print("\nIteration {}".format(count))
+            print("-------------------------------------")
+            it0 = time.time()
+            deltaprev = shiftslice.copy()
 
-        sinogram = compute_aligned_sino(sino_orig, shiftslice, shift_method=params["shiftmeth"])
+            print("Computing synthetic sinogram...")
+            sinogramcomp = projector(recons, theta, **params)
+            if params["derivatives"] and not params["calc_derivatives"]:
+                sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params["shiftmeth"])
 
-        print("Computing tomographic slice...")
-        t0 = time.time()
-        recons = tomo_recons(sinogram, theta=theta, **params)
-        recons_std = recons.std()
-        recons = _clipping_tomo(recons, **params)
-        if params["circle"]:
-            recons = recons * circleROI
-        print("Done. Time elapsed: {} s".format(time.time() - t0))
-        print("Slice standard deviation = {:0.04e}".format(recons_std))
+            print("Gradient descent search for horizontal shifts...")
+            sinotempreg, shiftslice = _search_hshift_sinogram(
+                sino_orig, sinogramcomp, shiftslice, **params
+            )
 
-        errorxreg = _sino_error_metric(sinogram, sinogramcomp, params)
-        sumerrorxreg = errorxreg.sum()
-        print("Final error metric for x, E = {:0.04e}".format(sumerrorxreg))
-        metric_error.append(sumerrorxreg)
+            sinogram = compute_aligned_sino(sino_orig, shiftslice, shift_method=params["shiftmeth"])
 
-        changex = np.abs(deltaprev - shiftslice)
-        strprint = "Maximum correction in x = {:0.02f} pixels" if params["subpixel"] \
-                   else "Maximum correction in x = {:0.02g} pixels"
-        print("Estimating the changes in x:")
-        print(strprint.format(np.max(changex)))
-        print("Elapsed time in the iteration= {:0.02f} s".format(time.time() - it0))
+            print("Computing tomographic slice...")
+            t0 = time.time()
+            recons = tomo_recons(sinogram, theta=theta, **params)
+            recons_std = recons.std()
+            recons = _clipping_tomo(recons, **params)
+            if params["circle"]:
+                recons = recons * circleROI
+            print("Done. Time elapsed: {} s".format(time.time() - t0))
+            print("Slice standard deviation = {:0.04e}".format(recons_std))
 
+            errorxreg = _sino_error_metric(sinogram, sinogramcomp, params)
+            sumerrorxreg = errorxreg.sum()
+            print("Final error metric for x, E = {:0.04e}".format(sumerrorxreg))
+            metric_error.append(sumerrorxreg)
+
+            changex = np.abs(deltaprev - shiftslice)
+            strprint = "Maximum correction in x = {:0.02f} pixels" if params["subpixel"] \
+                       else "Maximum correction in x = {:0.02g} pixels"
+            print("Estimating the changes in x:")
+            print(strprint.format(np.max(changex)))
+            print("Elapsed time in the iteration= {:0.02f} s".format(time.time() - it0))
+
+            pixtol = params["pixtol"] if params["subpixel"] else 1
+            reason = _checkconditions(
+                metric_error, changex, pixtol, count, params["maxit"], params["subpixel"],
+                rtol=params.get("rtol", 0.0),
+            )
+            if reason == 1:
+                shiftslice = deltaprev.copy()
+                metric_error.pop()
+
+        # Update figure OUTSIDE the verbose context so the PNG goes to the
+        # correct _out_main widget and not to _out_verbose.
         if RP is not None:
             RP.plotshorizontal(
                 recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count
             )
 
-        pixtol = params["pixtol"] if params["subpixel"] else 1
-        reason = _checkconditions(
-            metric_error, changex, pixtol, count, params["maxit"], params["subpixel"],
-            rtol=params.get("rtol", 0.0),
-        )
-        if reason == 1:
-            shiftslice = deltaprev.copy()
-            metric_error.pop()
-            break
-        elif reason >= 2:
+        if reason >= 1:
             break
 
     return shiftslice, metric_error
@@ -1752,8 +1766,21 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     shiftxrefine = np.squeeze(shiftxrefine)
     shiftxrefine_avg = shiftxrefine.mean(axis=0)
 
+    # Wrap figure creation in a throwaway Output widget so ipympl does not
+    # auto-display the interactive canvas.  We render to PNG explicitly below.
+    if isnotebook():
+        try:
+            from ipywidgets import Output as _Out_tc
+            _cap_tc = _Out_tc()
+        except ImportError:
+            _cap_tc = contextlib.nullcontext()
+    else:
+        _cap_tc = contextlib.nullcontext()
+
     plt.close("all")
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), constrained_layout=True)
+    with _cap_tc:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8), constrained_layout=True)
+
     ax1.imshow(shiftxrefine, interpolation="none", cmap="jet")
     ax1.axis("tight")
     ax1.set_xlabel("Projection number")
@@ -1766,7 +1793,6 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     ax2.set_xlim([0, len(shiftxrefine_avg)])
     ax2.set_title("Average displacements in x  —  blue=new average, red=previous")
     ax2.set_xlabel("Projection number")
-    fig.tight_layout()
     if isnotebook():
         import io as _io_tc
         from IPython import display as _disp_tc
