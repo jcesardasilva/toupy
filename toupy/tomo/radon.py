@@ -1,105 +1,109 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Forward Radon transform (projection).
+
+GPU path  : CuPy + the CUDA kernel defined in iradon.py
+CPU path  : skimage.transform.radon (unchanged fallback).
+
+Public API is unchanged:  projector()
+"""
+
 # third party packages
 import numpy as np
 from skimage.transform import radon
 
-nosilx = False
-
-# local libraries import
+# local libraries
 from ..utils.plot_utils import isnotebook
+from .iradon import CUDA_AVAILABLE
 
-if isnotebook():
-    try:
-        from IPython import get_ipython
-        RunningInCOLAB = "google.colab" in str(get_ipython())
-    except ImportError:
-        RunningInCOLAB = False
-else:
-    RunningInCOLAB = False
+if CUDA_AVAILABLE:
+    import cupy as cp
+    from .iradon import _radon_kernel
 
-if RunningInCOLAB or isnotebook():
-    RunningInBrowser = True
-else:
-    RunningInBrowser = False
-
-if not RunningInBrowser:
-    try:
-        from silx.opencl.projection import Projection
-    except ModuleNotFoundError:
-        print("Not using pyopencl for the projection")
-        print("The projector will be slow.")
-        nosilx = True
-else:
-    nosilx = True
+__all__ = ["radon_cuda", "projector"]
 
 
-__all__ = ["radonSilx", "projector"]
-
-P = None
-
-
-def radonSilx(recons, theta):
+def radon_cuda(recons, theta):
     """
-    Forward Radon transform using Silx and OpenCL
+    Forward Radon transform — CUDA/GPU path.
+
+    Falls back to ``skimage.transform.radon`` automatically if CuPy is
+    unavailable.
 
     Parameters
     ----------
-    recons : ndarray
-        A 2-dimensional array containing the tomographic slice
-    theta : ndarry
-        A 1-dimensional array of thetas
+    recons : ndarray  shape (N, N)
+        The tomographic slice to project.  Converted to float32 internally.
+    theta : ndarray
+        Projection angles in degrees.
 
-    Return
-    ------
-    sinogramcomp : ndarray
-        A 2-dimensional array containing the reprojected sinogram
+    Returns
+    -------
+    sinogram : ndarray  shape (N, nangles)
+        The computed sinogram, in the same layout as skimage's radon output
+        (each *column* = one projection).
     """
-    global P
-    # using Silx Projector
-    # , axis_position=my_axis_pos)
-    P = None
-    P = Projection(recons.shape, angles=np.pi * (theta) / 180.0)
-    sinogramcomp = P(recons.astype(np.float32)).T
-    return sinogramcomp
+    if not CUDA_AVAILABLE:
+        return np.squeeze(radon(recons, theta, circle=True))
+
+    N       = recons.shape[0]
+    nangles = len(theta)
+    nbins   = N                          # detector bins == image side length
+    nsteps  = int(np.ceil(N * np.sqrt(2)))  # enough steps to cross the diagonal
+
+    th       = np.deg2rad(np.asarray(theta, dtype=np.float32))
+    cos_th   = np.cos(th).astype(np.float32)
+    sin_th   = np.sin(th).astype(np.float32)
+
+    # Upload image and trig tables
+    img_gpu     = cp.asarray(recons.astype(np.float32))
+    cos_th_gpu  = cp.asarray(cos_th)
+    sin_th_gpu  = cp.asarray(sin_th)
+    sino_gpu    = cp.zeros(nbins * nangles, dtype=cp.float32)
+
+    # Launch kernel — each thread = one (bin, angle) sinogram entry
+    block = (16, 16, 1)
+    grid  = (
+        int(np.ceil(nbins   / block[0])),
+        int(np.ceil(nangles / block[1])),
+        1,
+    )
+    _radon_kernel(
+        grid, block,
+        (img_gpu.ravel(), sino_gpu,
+         cos_th_gpu, sin_th_gpu,
+         np.int32(N), np.int32(nbins), np.int32(nangles), np.int32(nsteps)),
+    )
+    cp.cuda.stream.get_current_stream().synchronize()
+
+    # Bring back to CPU; reshape to (nbins, nangles) — same layout as skimage
+    sinogram = cp.asnumpy(sino_gpu).reshape(nangles, nbins).T
+    return np.squeeze(sinogram)
 
 
 def projector(recons, theta, **params):
     """
-    Wrapper to choose between Forward Radon transform using Silx and
-    OpenCL or standard reconstruction.
+    Wrapper to choose between CUDA and CPU forward Radon transform.
 
     Parameters
     ----------
-    recons : ndarray
-        A 2-dimensional array containing the tomographic slice
-    theta : ndarry
-        A 1-dimensional array of thetas
+    recons : ndarray  shape (N, N)
+        Tomographic slice to project.
+    theta : ndarray
+        Projection angles in degrees.
     params : dict
-        Dictionary of parameters to be used
-    params["opencl"] : bool
-        If True, it will perform the tomographic reconstruction using
-        the opencl implementation of Silx.
+        ``params["cuda"]``  — True → use GPU path.
+        ``params["opencl"]`` — accepted as alias for backwards compatibility.
 
-    Return
-    ------
-    sinogramcomp : ndarray
-        A 2-dimensional array containing the reprojected sinogram
+    Returns
+    -------
+    sinogram : ndarray  shape (N, nangles)
     """
-    # array shape
-    N = recons.shape[0]
-    center = int(N / 2)
-    # ~ if not nosilx:
-    # ~ print("Forcing param['opencl']=False")
-    # ~ params["opencl"]=False
-    if params["opencl"]:
-        # using Silx Projector
-        print("Using OpenCL")
-        sinogramcomp = radonSilx(recons, theta)
+    use_cuda = params.get("cuda", params.get("opencl", False))
+
+    if use_cuda:
+        return radon_cuda(recons, theta)
     else:
-        # Not using Silx Projector (very slow)
-        # print("Not using OpenCL")
-        sinogramcomp = radon(recons, theta, circle=True)
-    sinogramcomp = np.squeeze(sinogramcomp)
-    return sinogramcomp
+        return np.squeeze(radon(recons, theta, circle=True))

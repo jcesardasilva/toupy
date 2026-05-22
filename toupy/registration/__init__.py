@@ -4,3 +4,4 @@
 # local packages
 from .registration import *
 from .shift import ShiftFunc
+from .cone_registration import *

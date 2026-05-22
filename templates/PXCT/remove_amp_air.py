@@ -34,11 +34,17 @@ if __name__ == "__main__":
         "reconstructed_projections.h5", **params
     )
 
-    # correcting phase ramp
-    stack_phasecorr = gui_plotamp(stack_objs, **params)
+    # air removal from amplitude projections
+    # gui_plotamp returns the tracker object.
+    # Script mode: plt.show(block=True) has already returned when this
+    #              line executes, so tracker.X1 is the finished result.
+    # Notebook mode (%matplotlib widget): interact with the GUI in the
+    #              cell output, then run the next cell to access results.
+    tracker = gui_plotamp(stack_objs, **params)
+    stack_ampcorr = tracker.X1.copy()
 
-    # Save the corrected phase projections
-    SaveData.save("air_corrected_amplitude.h5", stack_phasecorr, theta, **params)
+    # Save the corrected amplitude projections
+    SaveData.save("air_corrected_amplitude.h5", stack_ampcorr, theta, **params)
 
     # next step
     print('You should run "phase_unwrapping.py" now')
