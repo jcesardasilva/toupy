@@ -1779,14 +1779,24 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     shiftxrefine = np.squeeze(shiftxrefine)
     shiftxrefine_avg = shiftxrefine.mean(axis=0)
 
-    # Create the figure WITHOUT an ipywidgets Output capture wrapper.
-    # Capturing inside Output._cap sets fig.canvas.manager = None (the
-    # Output widget "consumes" the canvas widget on __exit__), which
-    # breaks both fig.canvas.draw() and fig.savefig() for the ipympl
-    # backend.  Without capture, ipympl auto-displays the canvas widget
-    # immediately and keeps manager alive so draw() works normally.
+    # Build the results figure using the matplotlib OO API (Figure, not
+    # plt.subplots).  This bypasses pyplot's display machinery and the ipympl
+    # canvas-manager hooks entirely, so fig.canvas.manager is never needed.
+    # The Agg canvas is attached explicitly; fig.savefig() renders directly
+    # via the Agg software renderer and writes a valid PNG regardless of
+    # whether plt.ion() has been called or a Jupyter display manager exists.
+    # This is the same technique used by web frameworks to render figures
+    # headlessly.
     plt.close("all")
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8))
+    if isnotebook():
+        import matplotlib.figure as _mf_tc
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as _FCAgg_tc
+        from IPython import display as _disp_tc
+        fig = _mf_tc.Figure(figsize=(14, 8))
+        _FCAgg_tc(fig)                      # attach Agg canvas — no manager needed
+        ax1, ax2 = fig.subplots(2, 1)
+    else:
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8))
 
     ax1.imshow(shiftxrefine, interpolation="none", cmap="jet")
     ax1.axis("tight")
@@ -1803,10 +1813,10 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     fig.tight_layout()
 
     if isnotebook():
-        # fig.canvas.draw() renders all artists and pushes the image to the
-        # already-displayed ipympl canvas widget (manager is valid because we
-        # did NOT use an Output capture above).
-        fig.canvas.draw()
+        _buf_tc = io.BytesIO()
+        fig.savefig(_buf_tc, format="png", bbox_inches="tight", dpi=100)
+        _buf_tc.seek(0)
+        _disp_tc.display(_disp_tc.Image(_buf_tc.read()))
     else:
         plt.show(block=False)
 
