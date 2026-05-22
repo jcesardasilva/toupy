@@ -1771,8 +1771,9 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     shiftxrefine = np.squeeze(shiftxrefine)
     shiftxrefine_avg = shiftxrefine.mean(axis=0)
 
-    # Wrap figure creation in a throwaway Output widget so ipympl does not
-    # auto-display the interactive canvas.  We render to PNG explicitly below.
+    # Suppress the blank auto-display that ipympl fires on figure creation.
+    # All artists are added after the suppressed creation; we then force a
+    # draw and display the canvas widget explicitly — no savefig/PNG needed.
     if isnotebook():
         try:
             from ipywidgets import Output as _Out_tc
@@ -1798,14 +1799,14 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     ax2.set_xlim([0, len(shiftxrefine_avg)])
     ax2.set_title("Average displacements in x  —  blue=new average, red=previous")
     ax2.set_xlabel("Projection number")
+
     if isnotebook():
-        import io as _io_tc
         from IPython import display as _disp_tc
-        _buf = _io_tc.BytesIO()
-        fig.savefig(_buf, format="png", bbox_inches="tight", dpi=100)
-        _buf.seek(0)
-        _disp_tc.display(_disp_tc.Image(_buf.read()))
-        plt.close(fig)
+        # Force the canvas to render all artists, then display the widget.
+        # This avoids an intermediate savefig/PNG step that can produce a
+        # blank image when the ipympl backend hasn't drawn yet.
+        fig.canvas.draw()
+        _disp_tc.display(fig)
     else:
         plt.show(block=False)
 
