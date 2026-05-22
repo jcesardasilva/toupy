@@ -56,10 +56,11 @@ __all__ = [
 def show_figure(fig=None, close=True):
     """Display a figure in the current environment and optionally close it.
 
-    In Jupyter: calls display.display(fig) then closes if close=True, which
-    prevents %matplotlib inline from rendering the figure a second time at
-    cell end. Only pass close=False for figures that are updated across
-    iterations or returned for later use.
+    In Jupyter: renders the figure to a PNG via savefig and shows it as a
+    static ``display.Image``.  Using the savefig path (rather than
+    ``display.display(fig)`` which shows the live ipympl canvas widget)
+    guarantees a correct image regardless of whether ``canvas.draw()`` has
+    been called beforehand.
 
     In terminal: calls plt.show(block=False).
 
@@ -74,7 +75,10 @@ def show_figure(fig=None, close=True):
     if fig is None:
         fig = plt.gcf()
     if isnotebook():
-        display.display(fig)
+        buf = _io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
+        buf.seek(0)
+        display.display(display.Image(buf.read()))
         if close:
             plt.close(fig)
     else:
@@ -106,7 +110,17 @@ def show_fsc_images(img1_apod, img2_apod):
     ax2.set_axis_off()
     fig.tight_layout()
     if isnotebook():
-        display.display(fig)
+        # display.display(fig) shows the ipympl canvas widget, but without a
+        # prior canvas.draw() the widget is blank on all calls after the first
+        # (the first call gets an implicit draw from notebook initialisation;
+        # subsequent calls in the same session do not).
+        # Use the same savefig→BytesIO→Image path that the alignment figures
+        # and tomoconsistency_multiple use: savefig triggers print_figure which
+        # calls canvas.draw() internally, guaranteeing a rendered image every time.
+        buf = _io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
+        buf.seek(0)
+        display.display(display.Image(buf.read()))
         plt.close(fig)
     else:
         plt.show(block=False)
