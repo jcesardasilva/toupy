@@ -1810,11 +1810,17 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
 
     if isnotebook():
         from IPython import display as _disp_tc
-        # Force the canvas to render all artists, then display the widget.
-        # This avoids an intermediate savefig/PNG step that can produce a
-        # blank image when the ipympl backend hasn't drawn yet.
-        fig.canvas.draw()
-        _disp_tc.display(fig)
+        # The figure was created inside _cap_tc (an ipywidgets Output widget)
+        # so fig.canvas.manager is None — calling fig.canvas.draw() would
+        # raise AttributeError: 'NoneType' has no attribute 'refresh_all'.
+        # Use the Agg savefig path instead: it renders via a software renderer
+        # that needs no manager and is identical to what RegisterPlot uses for
+        # the alignment figures.
+        _buf_tc = io.BytesIO()
+        fig.savefig(_buf_tc, format="png", bbox_inches="tight", dpi=100)
+        _buf_tc.seek(0)
+        _disp_tc.display(_disp_tc.Image(_buf_tc.read()))
+        plt.close(fig)
     else:
         plt.show(block=False)
 
