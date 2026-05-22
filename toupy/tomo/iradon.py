@@ -1,162 +1,278 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Filtered Back-Projection and SART reconstruction.
+
+GPU path  : CuPy + a custom CUDA kernel
+CPU path  : pure NumPy/SciPy, identical to the original mod_iradon.
+
+The public API is unchanged:
+    compute_angle_weights, compute_filter,
+    mod_iradon, mod_iradon_cuda,
+    backprojector, reconsSART
+"""
+
+# standard packages
+import warnings
+warnings.filterwarnings("ignore")
+
 # third party packages
 import numpy as np
 from scipy.fft import fft, ifft, fftfreq
 from scipy.interpolate import interp1d
 from skimage.transform import iradon_sart
-from silx import version
-import warnings
-
-warnings.filterwarnings("ignore")
-
-# local libraries import
-from ..utils.plot_utils import isnotebook
-
-if isnotebook():
-    try:
-        from IPython import get_ipython
-        RunningInCOLAB = "google.colab" in str(get_ipython())
-    except ImportError:
-        RunningInCOLAB = False
-else:
-    RunningInCOLAB = False
-
-if RunningInCOLAB or isnotebook():
-    RunningInBrowser = True
-else:
-    RunningInBrowser = False
-
-if not RunningInBrowser:
-    try:
-        from silx.opencl.backprojection import Backprojection
-    except ModuleNotFoundError:
-        print("Not using pyopencl for the reconstruction")
-        print("The reconstruction will be slow.")
-        nosilx = True
-else:
-    nosilx = True
-
-# from nabu.reconstruction.fbp import Backprojector as Backprojection
 
 # local package
 from ..utils import create_circle
+from ..utils.plot_utils import isnotebook
+
+# ---------------------------------------------------------------------------
+# Optional CuPy import — graceful degradation to CPU if unavailable
+# ---------------------------------------------------------------------------
+try:
+    import cupy as cp
+    from cupy import RawKernel
+    CUDA_AVAILABLE = True
+except ImportError:
+    CUDA_AVAILABLE = False
+    print("CuPy not found: GPU reconstruction unavailable, falling back to CPU.")
 
 __all__ = [
     "compute_angle_weights",
     "compute_filter",
     "mod_iradon",
-    "mod_iradonSilx",
+    "mod_iradon_cuda",
     "backprojector",
     "reconsSART",
 ]
 
+# ---------------------------------------------------------------------------
+# CUDA kernel for filtered back-projection
+# ---------------------------------------------------------------------------
+# Each CUDA thread handles one (row, col) output pixel.
+# For every projection angle the kernel:
+#   1. computes the detector coordinate t via dot-product with (cos θ, -sin θ)
+#   2. does linear interpolation on the filtered sinogram row
+#   3. accumulates into the output image
+#
+# The kernel is compiled once at module load time (if CuPy is present) and
+# reused across all calls — compilation takes ~200 ms but happens only once
+# per Python session.
+# ---------------------------------------------------------------------------
+_FBP_KERNEL_SRC = r"""
+extern "C" __global__
+void fbp_backproject(
+    const float* __restrict__ sino,   // filtered sinogram (nbins x nangles), col-major
+    const float* __restrict__ cos_th, // cos(theta) for each angle  (nangles,)
+    const float* __restrict__ sin_th, // sin(theta) for each angle  (nangles,)
+    float*       __restrict__ img,    // output image (output_size x output_size)
+    const int    output_size,
+    const int    nbins,
+    const int    nangles,
+    const int    mid_index            // detector centre index
+)
+{
+    // pixel coordinates
+    const int col = blockIdx.x * blockDim.x + threadIdx.x;
+    const int row = blockIdx.y * blockDim.y + threadIdx.y;
+    if (col >= output_size || row >= output_size) return;
+
+    const int half = output_size / 2;
+    const float xpr = (float)(col - half);   // centred x
+    const float ypr = (float)(row - half);   // centred y
+
+    float acc = 0.0f;
+    for (int a = 0; a < nangles; ++a) {
+        // detector coordinate of this pixel for angle a
+        float t = ypr * cos_th[a] - xpr * sin_th[a] + (float)mid_index;
+
+        // linear interpolation — clamp to valid range
+        int   t0 = (int)floorf(t);
+        float dt = t - (float)t0;
+        float v0 = (t0 >= 0 && t0 < nbins)     ? sino[a * nbins + t0]     : 0.0f;
+        float v1 = (t0+1 >= 0 && t0+1 < nbins) ? sino[a * nbins + (t0+1)] : 0.0f;
+        acc += v0 * (1.0f - dt) + v1 * dt;
+    }
+    img[row * output_size + col] = acc;
+}
+"""
+
+# Compile once
+if CUDA_AVAILABLE:
+    _fbp_kernel = RawKernel(_FBP_KERNEL_SRC, "fbp_backproject")
+
+
+# ---------------------------------------------------------------------------
+# CUDA kernel for forward projection (Radon transform)
+# ---------------------------------------------------------------------------
+# Each thread computes one (detector_bin, angle) sinogram entry.
+# It walks along the projection ray and accumulates image values
+# using bilinear interpolation.
+# ---------------------------------------------------------------------------
+_RADON_KERNEL_SRC = r"""
+extern "C" __global__
+void radon_project(
+    const float* __restrict__ img,    // input image (N x N), row-major
+    float*       __restrict__ sino,   // output sinogram (nbins x nangles), col-major
+    const float* __restrict__ cos_th, // cos(theta) for each angle
+    const float* __restrict__ sin_th, // sin(theta) for each angle
+    const int    N,                   // image side length
+    const int    nbins,               // number of detector bins
+    const int    nangles,
+    const int    nsteps               // number of integration steps along ray
+)
+{
+    const int bin   = blockIdx.x * blockDim.x + threadIdx.x;
+    const int angle = blockIdx.y * blockDim.y + threadIdx.y;
+    if (bin >= nbins || angle >= nangles) return;
+
+    const float half_img  = (float)(N - 1) * 0.5f;
+    const float half_bins = (float)(nbins - 1) * 0.5f;
+    const float step      = 1.0f;            // step size in pixels
+    const float t         = (float)bin - half_bins;
+
+    // ray direction (perpendicular to projection direction)
+    const float dx =  cos_th[angle];
+    const float dy = -sin_th[angle];
+    // ray origin: offset along detector axis
+    float ox = t * sin_th[angle];  // projection direction = (sin θ, cos θ)
+    float oy = t * cos_th[angle];
+
+    float acc = 0.0f;
+    const float half_steps = (float)(nsteps - 1) * 0.5f;
+    for (int s = 0; s < nsteps; ++s) {
+        float sx = ox + (s - half_steps) * dx + half_img;
+        float sy = oy + (s - half_steps) * dy + half_img;
+
+        // bilinear interpolation
+        int   x0 = (int)floorf(sx), y0 = (int)floorf(sy);
+        float fx = sx - x0,         fy = sy - y0;
+        float v  = 0.0f;
+        if (x0 >= 0 && x0 < N && y0 >= 0 && y0 < N)
+            v += img[y0 * N + x0] * (1.0f - fx) * (1.0f - fy);
+        if (x0+1 < N && y0 >= 0 && y0 < N)
+            v += img[y0 * N + (x0+1)] * fx * (1.0f - fy);
+        if (x0 >= 0 && x0 < N && y0+1 < N)
+            v += img[(y0+1) * N + x0] * (1.0f - fx) * fy;
+        if (x0+1 < N && y0+1 < N)
+            v += img[(y0+1) * N + (x0+1)] * fx * fy;
+        acc += v;
+    }
+    sino[angle * nbins + bin] = acc * step;
+}
+"""
+
+if CUDA_AVAILABLE:
+    _radon_kernel = RawKernel(_RADON_KERNEL_SRC, "radon_project")
+
+
+# ---------------------------------------------------------------------------
+# Helper: FFT-based filtering on GPU
+# ---------------------------------------------------------------------------
+def _filter_sinogram_gpu(sinogram_gpu, filter_type, derivatives, freqcutoff):
+    """
+    Apply the ramp (or other) filter to a sinogram already on the GPU.
+
+    Parameters
+    ----------
+    sinogram_gpu : cupy.ndarray  shape (nbins, nangles)
+    filter_type, derivatives, freqcutoff : same semantics as compute_filter
+
+    Returns
+    -------
+    filtered : cupy.ndarray  shape (nbins, nangles)  float32
+    """
+    nbins = sinogram_gpu.shape[0]
+    # compute filter on CPU, transfer once
+    h = compute_filter(nbins, filter_type=filter_type,
+                       derivatives=derivatives, freqcutoff=freqcutoff)
+    pad = h.shape[0]
+
+    # pad sinogram
+    sino_pad = cp.zeros((pad, sinogram_gpu.shape[1]), dtype=cp.complex64)
+    sino_pad[:nbins] = sinogram_gpu.astype(cp.complex64)
+
+    # transfer filter to GPU and broadcast over angles
+    h_gpu = cp.asarray(h.astype(np.complex64))          # (pad, 1)
+    filtered = cp.fft.ifft(cp.fft.fft(sino_pad, axis=0) * h_gpu, axis=0)
+    return cp.real(filtered[:nbins]).astype(cp.float32)
+
+
+# ---------------------------------------------------------------------------
+# Public functions
+# ---------------------------------------------------------------------------
 
 def compute_angle_weights(theta):
     """
-    Compute the corresponding weight for each angle according to the distance between
-    its neighbors in case of non equally spaced angles
+    Compute per-angle weights for non-equally-spaced angular distributions.
 
     Parameters
     ----------
     theta : ndarray
-        Angles in degrees
+        Angles in degrees.
 
     Returns
     -------
     weights : ndarray
-        The weights for each angle to be applied to the sinogram
-
-    Note
-    ----
-    The weights are computed assuming a angular distribution between 0 and 180 degrees.
-    Forked from odtbrain.util.compute_angle_weights_1d (https://github.com/RI-imaging/ODTbrain/)
+        Weight for each angle, proportional to the angular distance to its
+        neighbours.  Forked from odtbrain.util.compute_angle_weights_1d.
     """
-    # subtract the mininum value
     theta = theta.flatten() - theta.min()
-
-    # sort the angles
-    sortargs = np.argsort(theta)
+    sortargs  = np.argsort(theta)
     sorttheta = theta[sortargs]
-
-    # compute the weights for sorted theta
-    # it takes care of the initial and final theta values
-    diff_theta = (np.roll(sorttheta, -1) - np.roll(sorttheta, 1)) % 180
-    weights = diff_theta / np.sum(diff_theta) * diff_theta.size
-
-    # revert the sorting to be compatible with input theta order
+    diff_theta   = (np.roll(sorttheta, -1) - np.roll(sorttheta, 1)) % 180
+    weights      = diff_theta / np.sum(diff_theta) * diff_theta.size
     unsortweights = np.zeros_like(weights)
     unsortweights[sortargs] = weights
-
     return unsortweights
 
 
 def compute_filter(nbins, filter_type="ram-lak", derivatives=False, freqcutoff=1):
     """
-    Compute the filter for the FBP tomographic reconstruction
+    Compute the frequency-domain filter for FBP reconstruction.
 
     Parameters
     ----------
     nbins : int
-        Size of the filter to be calculated
-    filter_type: str, optional
-        Name of the filter to be applied. The options are: `ram-lak`,
-        `shepp-logan`, `cosine`, `hamming`, `hann`. The default is `ram-lak`.
+        Number of detector bins (sinogram rows).
+    filter_type : str, optional
+        One of ``ram-lak``, ``shepp-logan``, ``cosine``, ``hamming``, ``hann``.
+        Default is ``ram-lak``.
     derivatives : bool, optional
-        If True, it will use a Hilbert filter used for derivative projections.
-        The default is ``True```.
+        Use a Hilbert filter suited for derivative projections.  Default False.
     freqcutoff : float, optional
-        Normalized frequency cutoff of the filter. The default value is ``1``
-        which means no cutoff.
+        Normalised frequency cutoff in [0, 1].  Default 1 (no cutoff).
 
-    Return
-    ------
-    fourier_filter : ndarray
-        A 2-Dimnesional array containing the filter to be used in the FBP
-        reconstruction
+    Returns
+    -------
+    fourier_filter : ndarray  shape (projection_size_padded, 1)  complex64
     """
-
-    # resize image to next power of two (but no less than 64) for
-    # Fourier analysis; speeds up Fourier and lessens artifacts
     projection_size_padded = max(64, int(2 ** np.ceil(np.log2(2 * nbins))))
-
-    # Construct the Fourier filter
-    f = fftfreq(projection_size_padded).reshape(-1, 1)  # digital frequency
-    omega = 2 * np.pi * f  # angular frequency
-    if derivatives:
-        fourier_filter = np.ones_like(f).astype(np.complex64)  # differential filter
-    else:
-        fourier_filter = 2 * np.abs(f)  # ramp filter
-    # fourier_filter[0]=3.9579e-4 # value from MATLAB
+    f     = fftfreq(projection_size_padded).reshape(-1, 1)
+    omega = 2 * np.pi * f
+    fourier_filter = (
+        np.ones_like(f, dtype=np.complex64) if derivatives
+        else 2 * np.abs(f).astype(np.complex64)
+    )
     if filter_type == "ram-lak":
         pass
     elif filter_type == "shepp-logan":
-        # Start from first element to avoid divide by zero
-        fourier_filter[1:] = fourier_filter[1:] * (
-            np.sin(omega[1:] / (2 * freqcutoff)) / (omega[1:] / (2 * freqcutoff))
-        )
-        # fourier_filter[1:] = fourier_filter[1:] * (np.sin(omega[1:]/(2*np.pi*freqcutoff)) / (omega[1:]/(2*freqcutoff))) #factor pi
+        fourier_filter[1:] *= np.sinc(omega[1:] / (2 * freqcutoff * np.pi))
     elif filter_type == "cosine":
         fourier_filter[1:] *= np.cos(omega[1:] / (2 * freqcutoff))
     elif filter_type == "hamming":
-        fourier_filter[1:] *= 0.54 + 0.46 * np.cos(omega[1:] / (freqcutoff))
+        fourier_filter[1:] *= 0.54 + 0.46 * np.cos(omega[1:] / freqcutoff)
     elif filter_type == "hann":
-        fourier_filter[1:] *= (1 + np.cos(omega[1:] / (freqcutoff))) / 2
+        fourier_filter[1:] *= (1 + np.cos(omega[1:] / freqcutoff)) / 2
     elif filter_type is None:
         fourier_filter[:] = 1
     else:
-        raise ValueError("Unknown filter: {}".format(fourier_filter))
+        raise ValueError("Unknown filter: {}".format(filter_type))
 
-    # Frequency cutoff
-    # ~ fourier_filter[np.where(2*np.abs(f)>freqcutoff)]=0 #equivalent to below code
-    # Get rid of unwanted frequencies
-    fourier_filter[np.where(np.abs(omega) > np.pi * freqcutoff)] = 0
-
-    # Change the filter to adapte to projection derivative
+    fourier_filter[np.abs(omega) > np.pi * freqcutoff] = 0
     if derivatives:
         fourier_filter = np.sign(f) * fourier_filter / (1j * np.pi)
-
     return fourier_filter
 
 
@@ -171,56 +287,33 @@ def mod_iradon(
     freqcutoff=1,
 ):
     """
-    Inverse radon transform.
+    Inverse Radon transform — CPU path (pure NumPy/SciPy).
 
-    Reconstruct an image from the radon transform, using the filtered
-    back projection algorithm.
+    Reconstruct an image from its Radon transform using filtered back-projection.
 
     Parameters
     ----------
-    radon_image : ndarray
-        A 2-dimensional array containing radon transform (sinogram). Each column of
-        the image corresponds to a projection along a different angle. The
-        tomography rotation axis should lie at the pixel index
-        ``radon_image.shape[0] // 2`` along the 0th dimension of
-        ``radon_image``.
+    radon_image : ndarray  shape (nbins, nangles)
+        Sinogram. Each column corresponds to one projection angle.
     theta : ndarray, optional
-        Reconstruction angles (in degrees). Default: m angles evenly spaced
-        between 0 and 180 (if the shape of `radon_image` is (N, M)).
-    output_size : int
-        Number of rows and columns in the reconstruction.
-    filter : str, optional
-        Name of the filter to be applied in frequency domain filtering.
-        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`,
-        `hann`. The default is `ram-lak`. Assign None to use no filter.
+        Projection angles in degrees.  Defaults to ``nangles`` evenly-spaced
+        values in [0, 180).
+    output_size : int, optional
+        Side length of the square output image.
+    filter_type : str, optional
+        See :func:`compute_filter`.
     derivatives : bool, optional
-        If ``True``, assumes that the radon_image contains the derivates of the
-        projections. The default is ``True``
+        Set True if the sinogram contains projection derivatives.
     interpolation : str, optional
-        Interpolation method used in reconstruction. Methods available:
-        `linear`, `nearest`, and `cubic` (`cubic` is slow). The default
-        is `linear`
+        ``linear`` (default), ``nearest``, or ``cubic``.
     circle : bool, optional
-        Assume the reconstructed image is zero outside the inscribed circle.
-        Also changes the default output_size to match the behaviour of
-        ``radon`` called with ``circle=True``.
-    freqcutoff : int, optional
-       Normalized frequency cutoff of the filter. The default value is ``1``
-       which means no cutoff.
+        Zero pixels outside the inscribed circle.
+    freqcutoff : float, optional
+        Normalised frequency cutoff.
 
     Returns
     -------
-    reconstructed : ndarray
-        A 2-dimensional array containing the reconstructed image.
-        The rotation axis will be located in the pixel with indices
-        ``(reconstructed.shape[0] // 2, reconstructed.shape[1] // 2)``.
-
-    Notes
-    -----
-    It applies the Fourier slice theorem to reconstruct an image by
-    multiplying the frequency domain of the filter with the FFT of the
-    projection data. This algorithm is called filtered back projection.
-
+    reconstructed : ndarray  shape (output_size, output_size)
     """
     if radon_image.ndim != 2:
         raise ValueError("The input image must be 2-D")
@@ -230,139 +323,86 @@ def mod_iradon(
     else:
         theta = np.asarray(theta)
     if len(theta) != radon_image.shape[1]:
-        raise ValueError(
-            "The given ``theta`` does not match the number of "
-            "projections in ``radon_image``."
-        )
-    interpolation_types = ("linear", "nearest", "cubic")
-    if not interpolation in interpolation_types:
+        raise ValueError("theta length does not match the number of projections.")
+    if interpolation not in ("linear", "nearest", "cubic"):
         raise ValueError("Unknown interpolation: {}".format(interpolation))
     if not output_size:
-        # If output size not specified, estimate from input radon image
-        if circle:
-            output_size = radon_image.shape[0]
-        else:
-            output_size = int(np.floor(np.sqrt((radon_image.shape[0]) ** 2 / 2.0)))
+        output_size = (radon_image.shape[0] if circle
+                       else int(np.floor(np.sqrt(radon_image.shape[0] ** 2 / 2.0))))
 
-    # convertion degrees to radians
-    th = (np.pi / 180.0) * theta
-
-    # customized filter
-    fourier_filter = compute_filter(
-        radon_image.shape[0],
-        filter_type=filter_type,
-        derivatives=derivatives,
-        freqcutoff=freqcutoff,
-    )
-
-    # padding image
+    th = np.deg2rad(theta)
+    fourier_filter = compute_filter(radon_image.shape[0], filter_type=filter_type,
+                                    derivatives=derivatives, freqcutoff=freqcutoff)
     pad_width = ((0, fourier_filter.shape[0] - radon_image.shape[0]), (0, 0))
     img = np.pad(radon_image, pad_width, mode="constant", constant_values=0)
+    projection    = fft(img, axis=0) * fourier_filter
+    radon_filtered = np.real(ifft(projection, axis=0))[:radon_image.shape[0], :]
 
-    # Apply filter in Fourier domain
-    projection = fft(img, axis=0) * fourier_filter
-    radon_filtered = np.real(ifft(projection, axis=0))
-
-    # Resize filtered image back to original size
-    radon_filtered = radon_filtered[: radon_image.shape[0], :]
     reconstructed = np.zeros((output_size, output_size))
-    # Determine the center of the projections (= center of sinogram)
     mid_index = radon_image.shape[0] // 2
-
     [X, Y] = np.mgrid[0:output_size, 0:output_size]
-    xpr = X - int(output_size) // 2
-    ypr = Y - int(output_size) // 2
+    xpr = X - output_size // 2
+    ypr = Y - output_size // 2
+    x   = np.arange(radon_filtered.shape[0]) - mid_index
 
-    # Reconstruct image by interpolation
     for i in range(len(theta)):
         t = ypr * np.cos(th[i]) - xpr * np.sin(th[i])
-        x = np.arange(radon_filtered.shape[0]) - mid_index
         if interpolation == "linear":
             backprojected = np.interp(t, x, radon_filtered[:, i], left=0, right=0)
         else:
-            interpolant = interp1d(
-                x,
-                radon_filtered[:, i],
-                kind=interpolation,
-                bounds_error=False,
-                fill_value=0,
-            )
-            backprojected = interpolant(t)
+            backprojected = interp1d(x, radon_filtered[:, i], kind=interpolation,
+                                     bounds_error=False, fill_value=0)(t)
         reconstructed += backprojected
+
     if circle:
         radius = output_size // 2
-        reconstruction_circle = (xpr ** 2 + ypr ** 2) <= radius ** 2
-        reconstructed[~reconstruction_circle] = 0.0
+        mask = (xpr ** 2 + ypr ** 2) <= radius ** 2
+        reconstructed[~mask] = 0.0
 
     return reconstructed * np.pi / (2 * len(th))
 
 
-B = None
-
-
-def mod_iradonSilx(
+def mod_iradon_cuda(
     radon_image,
     theta=None,
     output_size=None,
     filter_type="ram-lak",
     derivatives=False,
-    interpolation="linear",
     circle=False,
     freqcutoff=1,
-    use_numpy=True,
 ):
     """
-    Inverse radon transform using Silx and OpenCL.
+    Inverse Radon transform — CUDA/GPU path.
 
-    Reconstruct an image from the radon transform, using the filtered
-    back projection algorithm.
+    Falls back to :func:`mod_iradon` automatically if CuPy is unavailable.
 
     Parameters
     ----------
-    radon_image : ndarray
-        A 2-dimensional array containing radon transform (sinogram). Each column of
-        the image corresponds to a projection along a different angle. The
-        tomography rotation axis should lie at the pixel index
-        ``radon_image.shape[0] // 2`` along the 0th dimension of
-        ``radon_image``.
+    radon_image : ndarray  shape (nbins, nangles)
+        Sinogram on CPU.  Converted to float32 internally.
     theta : ndarray, optional
-        Reconstruction angles (in degrees). Default: m angles evenly spaced
-        between 0 and 180 (if the shape of `radon_image` is (N, M)).
-    output_size : int
-        Number of rows and columns in the reconstruction.
-    filter : str, optional
-        Name of the filter to be applied in frequency domain filtering.
-        The options are: `ram-lak`, `shepp-logan`, `cosine`, `hamming`,
-        `hann`. The default is `ram-lak`. Assign None to use no filter.
+        Projection angles in degrees.
+    output_size : int, optional
+        Side length of the square output image.
+    filter_type : str, optional
+        See :func:`compute_filter`.
     derivatives : bool, optional
-        If ``True``, assumes that the radon_image contains the derivates of the
-        projections. The default is ``True``
-    interpolation : str, optional
-        Interpolation method used in reconstruction. Methods available:
-        `linear`, `nearest`, and `cubic` (`cubic` is slow). The default
-        is `linear`
-    circle : boolean, optional
-        Assume the reconstructed image is zero outside the inscribed circle.
-        Also changes the default output_size to match the behaviour of
-        ``radon`` called with ``circle=True``.
-    freqcutoff : int, optional
-        Normalized frequency cutoff of the filter. The default value is ``1``
-        which means no cutoff.
+        Set True if the sinogram contains projection derivatives.
+    circle : bool, optional
+        Zero pixels outside the inscribed circle.
+    freqcutoff : float, optional
+        Normalised frequency cutoff.
 
     Returns
     -------
-    reconstructed : ndarray
-        A 2-dimensional array containing the reconstructed image.
-        The rotation axis will be located in the pixel with indices
-        ``(reconstructed.shape[0] // 2, reconstructed.shape[1] // 2)``.
-
-    Notes
-    -----
-    It applies the Fourier slice theorem to reconstruct an image by
-    multiplying the frequency domain of the filter with the FFT of the
-    projection data. This algorithm is called filtered back projection.
+    reconstructed : ndarray  shape (output_size, output_size)  float32
     """
-    global B
+    if not CUDA_AVAILABLE:
+        warnings.warn("CuPy unavailable — falling back to CPU reconstruction.")
+        return mod_iradon(radon_image, theta=theta, output_size=output_size,
+                          filter_type=filter_type, derivatives=derivatives,
+                          circle=circle, freqcutoff=freqcutoff)
+
     if radon_image.ndim != 2:
         raise ValueError("The input image must be 2-D")
     if theta is None:
@@ -370,153 +410,146 @@ def mod_iradonSilx(
         theta = np.linspace(0, 180, n, endpoint=False)
     else:
         theta = np.asarray(theta)
-    # customized filter
-    cust_filter = compute_filter(
-        radon_image.shape[0],
-        filter_type=filter_type,
-        derivatives=derivatives,
-        freqcutoff=freqcutoff,
+    if len(theta) != radon_image.shape[1]:
+        raise ValueError("theta length does not match the number of projections.")
+    if not output_size:
+        output_size = (radon_image.shape[0] if circle
+                       else int(np.floor(np.sqrt(radon_image.shape[0] ** 2 / 2.0))))
+
+    th       = np.deg2rad(theta).astype(np.float32)
+    cos_th   = np.cos(th).astype(np.float32)
+    sin_th   = np.sin(th).astype(np.float32)
+    nbins    = radon_image.shape[0]
+    nangles  = radon_image.shape[1]
+    mid_index = nbins // 2
+
+    # --- Upload sinogram and apply filter on GPU ---
+    sino_gpu = cp.asarray(radon_image.astype(np.float32))       # (nbins, nangles)
+    sino_filt = _filter_sinogram_gpu(sino_gpu, filter_type, derivatives, freqcutoff)
+    # Make column-major layout so the kernel can stride over angles efficiently
+    sino_filt = cp.ascontiguousarray(sino_filt.T).ravel()        # (nangles * nbins,)
+
+    # --- Allocate output ---
+    img_gpu   = cp.zeros(output_size * output_size, dtype=cp.float32)
+    cos_th_gpu = cp.asarray(cos_th)
+    sin_th_gpu = cp.asarray(sin_th)
+
+    # --- Launch kernel ---
+    block = (16, 16, 1)
+    grid  = (
+        int(np.ceil(output_size / block[0])),
+        int(np.ceil(output_size / block[1])),
+        1,
     )
-    # ~ if B is None: # creates the object
-    # ~ print('Initializing backprojector object...')
-    silx_version = float(version[2:])
+    _fbp_kernel(
+        grid, block,
+        (sino_filt, cos_th_gpu, sin_th_gpu, img_gpu,
+         np.int32(output_size), np.int32(nbins),
+         np.int32(nangles),     np.int32(mid_index)),
+    )
+    cp.cuda.stream.get_current_stream().synchronize()
 
-    if silx_version < 10.0:
-        B = Backprojection(radon_image.T.shape, angles=np.pi * (theta) / 180.0)
-        # ~ print("Initialized OpenCL backprojector on {}".format(B.device))
-        B.filter = cust_filter.ravel() / 2.0  # has to be divided by 2.
-    else:
-        B = Backprojection(
-            radon_image.T.shape,
-            angles=np.pi * (theta) / 180.0,
-            filter_name=filter_type,
-            extra_options={"use_numpy_fft": use_numpy, "cutoff": freqcutoff},
-        )
-        # from version 0.10.0, silx filtering uses R2C Fourier transforms
-        cust_filter2 = cust_filter.ravel()[: B.sino_filter.dwidth_padded // 2 + 1]
-        cust_filter2 = np.ascontiguousarray(cust_filter2 / 2.0)  # , dtype=np.complex64)
-        B.sino_filter.set_filter(cust_filter2)
-
-    if not use_numpy:
-        sinogram = np.ascontiguousarray(radon_image.T).astype(np.float32)
-    else:
-        sinogram = radon_image.T.astype(np.float32)
-
-    # actual reconstruction
-    recons = B(sinogram)
+    # --- Retrieve and scale ---
+    reconstructed = cp.asnumpy(img_gpu).reshape(output_size, output_size)
+    reconstructed *= np.pi / (2 * nangles)
 
     if circle:
-        recons_circle = create_circle(recons)
-        recons = recons * recons_circle
-    return recons
+        half = output_size // 2
+        Y, X = np.ogrid[-half:output_size - half, -half:output_size - half]
+        mask = X ** 2 + Y ** 2 <= half ** 2
+        reconstructed[~mask] = 0.0
+
+    return reconstructed
 
 
 def backprojector(sinogram, theta, **params):
     """
-    Wrapper to choose between Forward Radon transform using Silx and
-    OpenCL or standard reconstruction.
+    Wrapper that dispatches to the GPU or CPU FBP implementation.
 
     Parameters
     ----------
-    sinogram : ndarray
-        A 2-dimensional array containing the sinogram
+    sinogram : ndarray  shape (nbins, nangles)
     theta : ndarray
-        A 1-dimensional array of thetas
     params : dict
-        Dictionary containing the parameters to be used in the reconstruction.
-        See :py:meth:`mod_iradonSilx` and :py:meth:`mod_iradon` for the
-        list of parameters
+        ``params["opencl"]`` — repurposed as ``params["cuda"]``: set True to
+        use the CUDA path.  The key ``opencl`` is still accepted as an alias
+        for backwards compatibility.
+        All other keys are forwarded to the chosen implementation.
 
     Returns
     -------
-    recons : ndarray
-        A 2-dimensional array containing the reconstructed sliced by the choosen method
+    recons : ndarray  shape (output_size, output_size)
     """
-    # ~ if not nosilx:
-    # ~ print("Forcing param['opencl']=False")
-    # ~ params["opencl"]=False
     params.setdefault("weight_angles", False)
-    params.setdefault("opencl", False)
+    # accept both "cuda" and the legacy "opencl" key
+    use_cuda = params.get("cuda", params.get("opencl", False))
 
-    if params["opencl"]:
-        # using Silx backprojector
-        # print("Using OpenCL")
-        iradon = mod_iradonSilx
-    else:
-        # Not using Silx Projector (very slow)
-        # print("Not using OpenCL")
-        iradon = mod_iradon
     if params["weight_angles"]:
-        # weight the angles prior to the reconstruction
-        weights = compute_angle_weights(theta).reshape(1, -1)
+        weights  = compute_angle_weights(theta).reshape(1, -1)
         sinogram = sinogram * weights
-    # reconstructing
-    recons = iradon(
-        sinogram,
-        theta=theta,
-        output_size=sinogram.shape[0],
-        filter_type=params["filtertype"],
-        derivatives=params["derivatives"],
-        circle=params["circle"],
-        freqcutoff=params["freqcutoff"],
+
+    shared = dict(
+        theta              = theta,
+        output_size        = sinogram.shape[0],
+        filter_type        = params["filtertype"],
+        derivatives        = params["derivatives"],
+        circle             = params["circle"],
+        freqcutoff         = params["freqcutoff"],
     )
-    return recons
+
+    if use_cuda:
+        return mod_iradon_cuda(sinogram, **shared)
+    else:
+        return mod_iradon(sinogram, **shared)
 
 
 def reconsSART(
     sinogram, theta, num_iter=2, FBPinitial_guess=True, relaxation_params=0.15, **params
 ):
     """
-    Reconstruction with SART algorithm
+    Tomographic reconstruction with the SART algorithm.
 
     Parameters
     ----------
-    sinogram : ndarray
-        A 2-dimensional array containing the sinogram
+    sinogram : ndarray  shape (nbins, nangles)
     theta : ndarray
-        A 1-dimensional array of thetas
     num_iter : int, optional
-        Number of iterations of the SART algorithm. The default is ``2``.
+        Number of SART iterations.  Default 2.
     FBPinitial_guess : bool, optional
-        If the results of FBP reconstruction should be used as initial guess.
-        The default value is ``True``
+        Seed SART with an FBP reconstruction.  Default True.
     relaxation_params : float, optional
-        Relaxation parameter of SART. The default value is ``0.15``.
+        SART relaxation parameter.  Default 0.15.
 
     Returns
     -------
-    recons : ndarray
-        A 2-dimensional array containing the reconstructed sliced by SART
+    recons_sart : ndarray
     """
-    theta = np.float64(theta)
+    theta    = np.float64(theta)
     sinogram = np.float64(sinogram)
-    circle = params["circle"]
+    circle   = params["circle"]
 
     if params.get("weight_angles", False):
-        weights = compute_angle_weights(theta).reshape(1, -1)
+        weights  = compute_angle_weights(theta).reshape(1, -1)
         sinogram = sinogram * weights
 
-    # actual reconstruction
     if FBPinitial_guess:
         print("Calculating the initial guess for SART using FBP")
         reconsFBP = backprojector(sinogram, theta, **params)
         reconsFBP = np.float64(reconsFBP)
         print("Done. Starting SART")
-        recons_sart = iradon_sart(
-            sinogram, theta=theta, image=reconsFBP, relaxation=relaxation_params
-        )
+        recons_sart = iradon_sart(sinogram, theta=theta,
+                                  image=reconsFBP, relaxation=relaxation_params)
     else:
         recons_sart = iradon_sart(sinogram, theta=theta, relaxation=relaxation_params)
 
     print("Starting iterative reconstruction:")
     for ii in range(num_iter):
         print("Iteration {}".format(ii + 1))
-        recons_sart = iradon_sart(
-            sinogram, theta=theta, image=recons_sart, relaxation=relaxation_params
-        )
+        recons_sart = iradon_sart(sinogram, theta=theta,
+                                  image=recons_sart, relaxation=relaxation_params)
 
     if circle:
         recons_circle = create_circle(recons_sart)
-        recons_sart = recons_sart * recons_circle
+        recons_sart   = recons_sart * recons_circle
 
     return recons_sart

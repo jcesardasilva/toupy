@@ -18,7 +18,7 @@ import numpy as np
 
 # local packages
 from toupy.io import LoadData, SaveData
-from toupy.restoration import calculate_derivatives_fft, chooseregiontoderivatives
+from toupy.restoration import calculate_derivatives, chooseregiontoderivatives
 from toupy.utils import iterative_show
 
 # initializing dictionaries
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     roix, roiy = chooseregiontoderivatives(aligned, **params)
 
     # calculating the projection derivatives
-    aligned_diff = calculate_derivatives_fft(
+    aligned_diff = calculate_derivatives(
         aligned, roiy, roix, n_cpus=params["n_cpus"]
     )
 

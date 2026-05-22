@@ -5,8 +5,9 @@
 FOURIER SHELL CORRELATION
 """
 
-# standar packages
+# standard packages
 import time
+import concurrent.futures
 
 # third party package
 import h5py
@@ -36,21 +37,18 @@ def split_dataset(sinogram, theta):
     Returns
     -------
     sinogram1 : ndarray
-        A 2-dimensional array containing the 1st sinogram
-    sinogram2
-        A 2-dimensional array containing the 2nd sinogram
+        A 2-dimensional array containing the 1st sinogram.
+    sinogram2 : ndarray
+        A 2-dimensional array containing the 2nd sinogram.
     theta1 : ndarray
-        A 1-dimensional array containing the 1st set of thetas
+        A 1-dimensional array containing the 1st set of thetas.
     theta2 : ndarray
-        A 1-dimensional array containing the 2nd set of thetas
+        A 1-dimensional array containing the 2nd set of thetas.
     """
-    # split of the data into two datasets
-    # print("Spliting in 2 datasets")
     sinogram1 = sinogram[:, 0::2]
     theta1 = theta[0::2]
     sinogram2 = sinogram[:, 1::2]
     theta2 = theta[1::2]
-
     return sinogram1, sinogram2, theta1, theta2
 
 
@@ -69,36 +67,32 @@ def compute_2tomograms(sinogram, theta, **params):
     Returns
     -------
     recon1 : ndarray
-        A 2-dimensional array containing the 1st reconstruction
-    recon2
-        A 2-dimensional array containing the 2nd reconstruction
+        A 2-dimensional array containing the 1st reconstruction.
+    recon2 : ndarray
+        A 2-dimensional array containing the 2nd reconstruction.
     """
     sino1, sino2, theta1, theta2 = split_dataset(sinogram, theta)
-
-    # tomographic reconstruction
-    print("Calculating a slice 1...")
-    t0 = time.time()
-    recon1 = tomo_recons(sino1, theta1, **params)
-    print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
-
-    print("Calculating a slice 2...")
-    t0 = time.time()
-    recon2 = tomo_recons(sino2, theta2, **params)
-    print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
-
-    return recon1, recon2
+    return compute_2tomograms_splitted(sino1, sino2, theta1, theta2, **params)
 
 
 def compute_2tomograms_splitted(sinogram1, sinogram2, theta1, theta2, **params):
     """
-    Compute 2 tomograms from already splitted tomographic dataset
+    Compute 2 tomograms from an already-split tomographic dataset.
+
+    The two reconstructions are independent, so they are run concurrently
+    using a ThreadPoolExecutor.  Because tomo_recons ultimately calls
+    scipy.ndimage / iradon C extensions that release the GIL, two OS threads
+    can execute true parallel C code with negligible overhead.
+
+    If threading fails for any reason (e.g. the backend is not thread-safe),
+    the function transparently falls back to the original sequential path.
 
     Parameters
     ----------
     sinogram1 : ndarray
-        A 2-dimensional array containing the sinogram 1
+        A 2-dimensional array containing sinogram 1
     sinogram2 : ndarray
-        A 2-dimensional array containing the sinogram 2
+        A 2-dimensional array containing sinogram 2
     theta1 : ndarray
         A 1-dimensional array of thetas for sinogram1
     theta2 : ndarray
@@ -108,23 +102,33 @@ def compute_2tomograms_splitted(sinogram1, sinogram2, theta1, theta2, **params):
     -------
     recon1 : ndarray
         A 2-dimensional array containing the 1st reconstruction
-    recon2
+    recon2 : ndarray
         A 2-dimensional array containing the 2nd reconstruction
     """
+    verbose = not isnotebook()
 
-    # tomographic reconstruction
-    if not isnotebook():
-        print("Calculating a slice 1...")
-    t0 = time.time()
-    recon1 = tomo_recons(sinogram1, theta1, **params)
-    if not isnotebook():
-        print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
+    def _recon(label, sinogram, theta):
+        if verbose:
+            print(f"Calculating slice {label}...")
+        t0 = time.time()
+        result = tomo_recons(sinogram, theta, **params)
+        if verbose:
+            print(f"Slice {label} done. Time elapsed: {time.time() - t0:.3f} s")
+        return result
 
-    if not isnotebook():
-        print("Calculating a slice 2...")
-    t0 = time.time()
-    recon2 = tomo_recons(sinogram2, theta2, **params)
-    if not isnotebook():
-        print("Calculation done. Time elapsed: {} s".format(time.time() - t0))
+    # --- Parallel path (threads) ---
+    # Two workers suffice: one per reconstruction.
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            f1 = executor.submit(_recon, 1, sinogram1, theta1)
+            f2 = executor.submit(_recon, 2, sinogram2, theta2)
+            recon1 = f1.result()
+            recon2 = f2.result()
+        return recon1, recon2
 
-    return recon1, recon2
+    except Exception as exc:
+        # Fall back to sequential execution if threading caused any problem.
+        print(f"Parallel reconstruction failed ({exc}); falling back to sequential.")
+        recon1 = _recon(1, sinogram1, theta1)
+        recon2 = _recon(2, sinogram2, theta2)
+        return recon1, recon2
