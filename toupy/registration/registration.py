@@ -1000,13 +1000,18 @@ def _alignprojections_vertical(
     while True:
         count += 1
 
-        # Capture iteration prints to a buffer so they can be shown
-        # in-place via DisplayHandle.update() — no clear_output anywhere.
+        # Capture iteration prints *and* tqdm stderr output to a buffer so
+        # they can be shown in-place via DisplayHandle.update().
+        # ExitStack lets us conditionally redirect both stdout and stderr
+        # without duplicating the computation block.
         _buf = io.StringIO()
         _use_dh = hasattr(RP, '_dh_verbose') and RP._dh_verbose is not None
-        _vctx = contextlib.redirect_stdout(_buf) if _use_dh else contextlib.nullcontext()
 
-        with _vctx:
+        with contextlib.ExitStack() as _stack:
+            if _use_dh:
+                _stack.enter_context(contextlib.redirect_stdout(_buf))
+                _stack.enter_context(contextlib.redirect_stderr(_buf))
+
             print("\n============================================")
             print("Iteration {}".format(count))
             it0 = time.time()
@@ -1233,16 +1238,19 @@ def _alignprojections_horizontal(
     while True:
         count += 1
 
-        # Capture iteration prints to a buffer so they can be shown
-        # in-place via DisplayHandle.update() — no clear_output anywhere.
+        # Capture iteration prints *and* tqdm stderr to a buffer so they can
+        # be shown in-place via DisplayHandle.update() — no clear_output.
         # RP may be None in silent / warm-start mode.
         _buf = io.StringIO()
         _use_dh = (RP is not None
                    and hasattr(RP, '_dh_verbose')
                    and RP._dh_verbose is not None)
-        _vctx = contextlib.redirect_stdout(_buf) if _use_dh else contextlib.nullcontext()
 
-        with _vctx:
+        with contextlib.ExitStack() as _stack:
+            if _use_dh:
+                _stack.enter_context(contextlib.redirect_stdout(_buf))
+                _stack.enter_context(contextlib.redirect_stderr(_buf))
+
             print("\nIteration {}".format(count))
             print("-------------------------------------")
             it0 = time.time()
