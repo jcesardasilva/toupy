@@ -1,5 +1,40 @@
 Log of changes with each release
 
+Version 0.3.0 (2026-05-22)
+---------------------------
+
+New features:
+* Add FDK cone-beam reconstruction pipeline (geometry, projector, backprojector)
+* Add gradient-descent (Adam optimiser) vertical and horizontal registration
+* Add LocalFSC and LocalResolution for spatially-resolved resolution estimation
+* Add phantom3D() — 3-D Shepp-Logan and modified Shepp-Logan phantom generator
+* Add half-period resolution attributes to LocalFSC and LocalResolution
+* Add GUI_tracker interactive figure picker
+
+Compatibility fixes:
+* Python 3.14 compatibility: fix ValueError from mathtext/pyparsing in show_ssnr_curve
+* NumPy 2.0 compatibility: replace deprecated np.trapz with np.trapezoid in FDK
+* SciPy 2.0 compatibility: replace deprecated scipy.ndimage.filters / scipy.ndimage.fourier
+  imports with scipy.ndimage flat namespace
+
+Display and Jupyter notebook improvements:
+* Rewrite all static figure rendering to use OO matplotlib API (Figure + FigureCanvasAgg)
+  — eliminates AttributeError from ipympl manager=None in all display paths
+* Fix tomoconsistency_multiple blank/error display under %matplotlib widget
+* Fix show_fsc_images blank on 2nd+ call (SSNRPlot, LocalFSC)
+* Fix show_ssnr_curve tick-label crash (mathtext ParseException)
+* Fix tqdm progress bars accumulating in notebook cell output
+  — capture both stdout and stderr with contextlib.ExitStack; strip ANSI codes
+* Fix axis limits clipping data (zero padding) in RegisterPlot
+
+Dependency changes:
+* Remove unused dependencies: numexpr, joblib, pyopencl, silx, decorator
+* Add ipywidgets as explicit runtime dependency (was already used internally)
+* ipympl is now an optional dependency (extras_require["notebook"])
+* Raise minimum Python version to 3.8
+* Raise minimum numpy to 1.20.0, scipy to 1.7.0, scikit-image to 0.18.0
+
+
 Version 0.1.2
 -------------
 
@@ -7,5 +42,3 @@ Version 0.1.2
 * Update dependencies: Silx now can be >=0.9.0
 * Create better templates for holotomo
 * Improvements on the documentation
-
-
