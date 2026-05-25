@@ -89,12 +89,14 @@ N_ANGLES    = 18                                 # projections (every 10°)
 THETA       = np.linspace(0, 170, N_ANGLES)      # [degrees]
 
 # Multislice discretisation
-N_SLICES    = 10                                  # slabs per projection
+N_SLICES    = 16          # slabs per projection  (↑ from 10 → 4 px/slab, reduces z-staircase)
 SLICE_DZ    = N * PIXEL_SIZE / N_SLICES          # [m] thickness per slab
 
 # Optimisation (Pass 2)
-N_ITER      = 20          # gradient-descent iterations
-LR          = 5e-4        # Adam learning rate
+N_ITER      = 50          # gradient-descent iterations  (↑ from 20 for better convergence)
+LR          = 5e-4        # Adam peak learning rate
+LAMBDA_TV   = 1e-5        # TV regularisation weight (0 to disable; tune for your noise level)
+WARMUP_ITERS = 5          # linear LR warm-up length [iterations]
 
 # Output directory for figures
 OUT_DIR     = os.path.join(_HERE, "twopass_figures")
@@ -258,7 +260,56 @@ print(f"  δ_FBP range: [{delta_fbp.min():.2e}, {delta_fbp.max():.2e}]")
 print()
 
 # ---------------------------------------------------------------------------
-# 5.  Minimal Adam optimiser  (used in Pass 2 loop)
+# 5.  Total-variation (TV) regulariser
+# ---------------------------------------------------------------------------
+
+def tv_grad(vol, eps=1e-8):
+    """
+    Gradient of the anisotropic (L1) total-variation regulariser.
+
+    TV(vol) = Σ_axis Σ_i |vol[i+1,...] − vol[i,...]|      (forward differences)
+
+    A smooth surrogate |x| ≈ x / sqrt(x² + eps²) (Charbonnier) is used so
+    the gradient is defined everywhere and never blows up.
+
+    Physical interpretation
+    -----------------------
+    At a flat-material interior: neighbouring differences are small but
+    non-zero (oscillation artefacts), and the gradient pushes those voxels
+    toward the local average → suppresses low-frequency oscillations.
+    At a sharp material boundary: the gradient is bounded (≈ ±1 per axis),
+    so the material edge is not eroded — the regulariser is edge-preserving.
+
+    This makes anisotropic TV ideal for piecewise-constant objects such as
+    the biological/materials specimens common in tomographic imaging.
+
+    Parameters
+    ----------
+    vol : ndarray, real, shape (Nz, Ny, Nx)
+    eps : float
+        Smoothing constant for |·|.  Should be << typical voxel difference.
+
+    Returns
+    -------
+    g : ndarray, same shape and dtype as vol
+        ∂TV/∂vol
+    """
+    g = np.zeros_like(vol)
+    for ax in range(vol.ndim):
+        sl_lo = [slice(None)] * vol.ndim
+        sl_hi = [slice(None)] * vol.ndim
+        sl_lo[ax] = slice(None, -1)   # indices 0 … N−2
+        sl_hi[ax] = slice(1, None)    # indices 1 … N−1
+        d  = vol[tuple(sl_hi)] - vol[tuple(sl_lo)]      # forward difference
+        sd = d / np.sqrt(d ** 2 + eps ** 2)             # smooth sign  ≈ sign(d)
+        # Chain rule: ∂|d|/∂vol[i] = −sign(d),  ∂|d|/∂vol[i+1] = +sign(d)
+        g[tuple(sl_lo)] -= sd
+        g[tuple(sl_hi)] += sd
+    return g
+
+
+# ---------------------------------------------------------------------------
+# 6.  Minimal Adam optimiser  (used in Pass 2 loop)
 # ---------------------------------------------------------------------------
 
 class _Adam:
@@ -277,11 +328,12 @@ class _Adam:
         return param
 
 # ---------------------------------------------------------------------------
-# 6.  Two-pass refinement  (Pass 2)
+# 7.  Two-pass refinement  (Pass 2)
 # ---------------------------------------------------------------------------
 
 print("Step 4 — Multislice refinement (Pass 2) …", flush=True)
 print(f"  n_iter={N_ITER}, lr={LR}, n_slices={N_SLICES}, "
+      f"lambda_tv={LAMBDA_TV:.0e}, warmup={WARMUP_ITERS} iters, "
       f"matter_correction=True\n")
 
 # Start from FBP initial guess
@@ -299,6 +351,17 @@ for it in range(N_ITER):
     total_loss = 0.0
     grad_delta = np.zeros_like(delta_tp)
     grad_beta  = np.zeros_like(beta_tp)
+
+    # ── LR schedule: linear warm-up → cosine decay ────────────────────
+    # Warm-up prevents the large loss spike caused by Adam's first step
+    # being too large relative to the curvature of the multislice loss.
+    # Cosine decay then allows fine-grained convergence in the second half.
+    if it < WARMUP_ITERS:
+        lr_t = LR * (it + 1) / WARMUP_ITERS
+    else:
+        progress = (it - WARMUP_ITERS) / max(N_ITER - WARMUP_ITERS, 1)
+        lr_t = LR * 0.5 * (1.0 + np.cos(np.pi * progress))
+    adam_d.lr = adam_b.lr = lr_t
 
     for ai, theta in enumerate(THETA):
         # ── Extract rotated slices + matter-corrected δ̄ per slab ──────
@@ -323,6 +386,15 @@ for it in range(N_ITER):
     grad_delta /= N_ANGLES
     grad_beta  /= N_ANGLES
 
+    # ── TV regularisation ─────────────────────────────────────────────
+    # Adds ∂(λ·TV)/∂vol to the gradient.  At flat-material interiors
+    # this pushes oscillating voxels toward their neighbours (smoothing),
+    # while at sharp material boundaries the contribution is bounded (≤ 2λ
+    # per axis) so the spatial resolution of the reconstruction is preserved.
+    if LAMBDA_TV > 0:
+        grad_delta += LAMBDA_TV * tv_grad(delta_tp)
+        grad_beta  += LAMBDA_TV * tv_grad(beta_tp)
+
     # ── Adam update ────────────────────────────────────────────────────
     adam_d.step(delta_tp, grad_delta)
     adam_b.step(beta_tp,  grad_beta)
@@ -334,13 +406,13 @@ for it in range(N_ITER):
     loss_history.append(total_loss)
     elapsed = time.time() - t_iter
     print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}  "
-          f"t={elapsed:.1f}s  "
+          f"lr={lr_t:.2e}  t={elapsed:.1f}s  "
           f"δ∈[{delta_tp.min():.2e},{delta_tp.max():.2e}]", flush=True)
 
 print(f"\n  Pass 2 done in {time.time()-t_total:.1f} s total.\n")
 
 # ---------------------------------------------------------------------------
-# 7.  Quantitative evaluation
+# 8.  Quantitative evaluation
 # ---------------------------------------------------------------------------
 
 def rmse(a, b):
@@ -357,7 +429,7 @@ print(f"  RMSE  2-pass : {rmse_tp:.3e}   rel = {rel_err(delta_tp,  delta_true)*1
 print(f"  Improvement  : {(1 - rmse_tp/rmse_fbp)*100:.1f}%\n")
 
 # ---------------------------------------------------------------------------
-# 8.  Figures
+# 9.  Figures
 # ---------------------------------------------------------------------------
 
 print("Generating figures …", flush=True)
@@ -562,7 +634,7 @@ print(f"  Saved: {fpath6}")
 plt.close("all")
 
 # ---------------------------------------------------------------------------
-# 9.  Summary printout
+# 10.  Summary printout
 # ---------------------------------------------------------------------------
 
 print()
