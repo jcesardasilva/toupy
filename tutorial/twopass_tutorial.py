@@ -73,6 +73,29 @@ MultisliceEngine           = ms_mod.MultisliceEngine
 extract_slices_from_volume = ms_mod.extract_slices_from_volume
 scatter_gradient_to_volume = ms_mod.scatter_gradient_to_volume
 
+# ── Optional PyTorch backend (GPU/CPU acceleration for Pass 2) ─────────────
+# Priority: CUDA (NVIDIA) > MPS (Apple Silicon) > CPU (multi-threaded torch)
+# Falls back silently to NumPy when torch is not installed.
+TORCH_AVAILABLE = False
+try:
+    import torch   # noqa: F401 — only needed to verify installation
+    ms_torch_mod = _load_module("toupy.tomo.multislice_torch",
+                                os.path.join(_TOMO, "multislice_torch.py"))
+    TorchMultisliceEngine  = ms_torch_mod.TorchMultisliceEngine
+    extract_slices_torch   = ms_torch_mod.extract_slices_torch
+    scatter_gradient_torch = ms_torch_mod.scatter_gradient_torch
+    tv_grad_torch          = ms_torch_mod.tv_grad_torch
+    TorchAdamState         = ms_torch_mod.TorchAdamState
+    select_device          = ms_torch_mod.select_device
+    device_info            = ms_torch_mod.device_info
+    warmup_device          = ms_torch_mod.warmup_device
+    TORCH_AVAILABLE        = True
+    DEVICE                 = select_device()
+    print(f"PyTorch backend available — device: {device_info(DEVICE)}")
+    print("  Pass 2 will run on the GPU/CPU torch backend.\n")
+except (ImportError, Exception) as _e:
+    print(f"PyTorch backend not available ({_e}); using NumPy backend.\n")
+
 print("Modules loaded successfully.\n")
 
 # ---------------------------------------------------------------------------
@@ -260,7 +283,7 @@ print(f"  δ_FBP range: [{delta_fbp.min():.2e}, {delta_fbp.max():.2e}]")
 print()
 
 # ---------------------------------------------------------------------------
-# 5.  Total-variation (TV) regulariser
+# 5.  Total-variation (TV) regulariser  (NumPy version — used as fallback)
 # ---------------------------------------------------------------------------
 
 def tv_grad(vol, eps=1e-8):
@@ -309,7 +332,7 @@ def tv_grad(vol, eps=1e-8):
 
 
 # ---------------------------------------------------------------------------
-# 6.  Minimal Adam optimiser  (used in Pass 2 loop)
+# 6.  Minimal Adam optimiser  (NumPy version — used as fallback)
 # ---------------------------------------------------------------------------
 
 class _Adam:
@@ -332,7 +355,8 @@ class _Adam:
 # ---------------------------------------------------------------------------
 
 print("Step 4 — Multislice refinement (Pass 2) …", flush=True)
-print(f"  n_iter={N_ITER}, lr={LR}, n_slices={N_SLICES}, "
+_backend = "torch/" + str(DEVICE) if TORCH_AVAILABLE else "numpy"
+print(f"  backend={_backend}, n_iter={N_ITER}, lr={LR}, n_slices={N_SLICES}, "
       f"lambda_tv={LAMBDA_TV:.0e}, warmup={WARMUP_ITERS} iters, "
       f"matter_correction=True\n")
 
@@ -340,74 +364,160 @@ print(f"  n_iter={N_ITER}, lr={LR}, n_slices={N_SLICES}, "
 delta_tp = delta_fbp.copy()
 beta_tp  = beta_fbp.copy()
 
-adam_d = _Adam(delta_tp.shape, lr=LR)
-adam_b = _Adam(beta_tp.shape,  lr=LR)
-
 loss_history = []
 t_total = time.time()
 
-for it in range(N_ITER):
-    t_iter = time.time()
-    total_loss = 0.0
-    grad_delta = np.zeros_like(delta_tp)
-    grad_beta  = np.zeros_like(beta_tp)
+if TORCH_AVAILABLE:
+    # ── PyTorch path (GPU/CPU) ─────────────────────────────────────────────
+    import torch
 
-    # ── LR schedule: linear warm-up → cosine decay ────────────────────
-    # Warm-up prevents the large loss spike caused by Adam's first step
-    # being too large relative to the curvature of the multislice loss.
-    # Cosine decay then allows fine-grained convergence in the second half.
-    if it < WARMUP_ITERS:
-        lr_t = LR * (it + 1) / WARMUP_ITERS
-    else:
-        progress = (it - WARMUP_ITERS) / max(N_ITER - WARMUP_ITERS, 1)
-        lr_t = LR * 0.5 * (1.0 + np.cos(np.pi * progress))
-    adam_d.lr = adam_b.lr = lr_t
+    # Warm up the device (avoids JIT-compilation latency inside first iter)
+    warmup_device(DEVICE)
 
-    for ai, theta in enumerate(THETA):
-        # ── Extract rotated slices + matter-corrected δ̄ per slab ──────
-        delta_sl, beta_sl, delta_means = extract_slices_from_volume(
-            delta_tp, beta_tp, theta, n_slices=N_SLICES)
+    # Create the torch engine (same geometry as the NumPy engine above)
+    torch_engine = TorchMultisliceEngine(
+        shape           = (N, N),
+        pixel_size      = PIXEL_SIZE,
+        wavelength      = WAVELENGTH,
+        slice_thickness = SLICE_DZ,
+        device          = DEVICE,
+    )
 
-        # ── Forward + adjoint multislice ──────────────────────────────
-        loss_i, gd_i, gb_i, _ = engine.loss_and_gradient(
-            delta_sl, beta_sl, probe,
-            u_measured[ai],           # the "ground truth" exit wave
-            delta_means=delta_means,  # matter-corrected propagator
-        )
-        total_loss += loss_i
+    # Move volumes and measured data to the device as float32 / complex64
+    delta_tp_t = torch.from_numpy(delta_tp.astype(np.float32)).to(DEVICE)
+    beta_tp_t  = torch.from_numpy(beta_tp.astype(np.float32)).to(DEVICE)
+    probe_t    = torch.from_numpy(probe.astype(np.complex64)).to(DEVICE)
+    u_meas_t   = torch.from_numpy(u_measured.astype(np.complex64)).to(DEVICE)
+    # (N_ANGLES, N, N) complex64
 
-        # ── Back-rotate gradient slices → 3-D volume ──────────────────
-        gd_vol, gb_vol = scatter_gradient_to_volume(
-            gd_i, gb_i, theta, delta_tp.shape, n_slices=N_SLICES)
-        grad_delta += gd_vol
-        grad_beta  += gb_vol
+    # Adam optimiser states (all on device)
+    adam_d = TorchAdamState(delta_tp_t.shape, lr=LR, device=DEVICE)
+    adam_b = TorchAdamState(beta_tp_t.shape,  lr=LR, device=DEVICE)
 
-    # Normalise by number of angles
-    grad_delta /= N_ANGLES
-    grad_beta  /= N_ANGLES
+    for it in range(N_ITER):
+        t_iter = time.time()
+        total_loss = 0.0
+        grad_delta = torch.zeros_like(delta_tp_t)
+        grad_beta  = torch.zeros_like(beta_tp_t)
 
-    # ── TV regularisation ─────────────────────────────────────────────
-    # Adds ∂(λ·TV)/∂vol to the gradient.  At flat-material interiors
-    # this pushes oscillating voxels toward their neighbours (smoothing),
-    # while at sharp material boundaries the contribution is bounded (≤ 2λ
-    # per axis) so the spatial resolution of the reconstruction is preserved.
-    if LAMBDA_TV > 0:
-        grad_delta += LAMBDA_TV * tv_grad(delta_tp)
-        grad_beta  += LAMBDA_TV * tv_grad(beta_tp)
+        # ── LR schedule: linear warm-up → cosine decay ────────────────
+        if it < WARMUP_ITERS:
+            lr_t = LR * (it + 1) / WARMUP_ITERS
+        else:
+            progress = (it - WARMUP_ITERS) / max(N_ITER - WARMUP_ITERS, 1)
+            lr_t = LR * 0.5 * (1.0 + np.cos(np.pi * progress))
+        adam_d.lr = adam_b.lr = lr_t
 
-    # ── Adam update ────────────────────────────────────────────────────
-    adam_d.step(delta_tp, grad_delta)
-    adam_b.step(beta_tp,  grad_beta)
+        for ai, theta in enumerate(THETA):
+            # ── Extract rotated slices + matter-corrected δ̄ ──────────
+            delta_sl, beta_sl, delta_means = extract_slices_torch(
+                delta_tp_t, beta_tp_t, theta, n_slices=N_SLICES)
 
-    # ── Positivity constraint ──────────────────────────────────────────
-    np.clip(delta_tp, 0.0, None, out=delta_tp)
-    np.clip(beta_tp,  0.0, None, out=beta_tp)
+            # ── Forward + adjoint multislice ──────────────────────────
+            loss_i, gd_i, gb_i, _ = torch_engine.loss_and_gradient(
+                delta_sl, beta_sl, probe_t,
+                u_meas_t[ai],
+                delta_means=delta_means,
+            )
+            total_loss += loss_i
 
-    loss_history.append(total_loss)
-    elapsed = time.time() - t_iter
-    print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}  "
-          f"lr={lr_t:.2e}  t={elapsed:.1f}s  "
-          f"δ∈[{delta_tp.min():.2e},{delta_tp.max():.2e}]", flush=True)
+            # ── Back-rotate gradient slices → 3-D volume ──────────────
+            gd_vol, gb_vol = scatter_gradient_torch(
+                gd_i, gb_i, theta, delta_tp_t.shape, n_slices=N_SLICES)
+            grad_delta += gd_vol
+            grad_beta  += gb_vol
+
+        # Normalise by number of angles
+        grad_delta /= N_ANGLES
+        grad_beta  /= N_ANGLES
+
+        # ── TV regularisation ─────────────────────────────────────────
+        if LAMBDA_TV > 0:
+            grad_delta += LAMBDA_TV * tv_grad_torch(delta_tp_t)
+            grad_beta  += LAMBDA_TV * tv_grad_torch(beta_tp_t)
+
+        # ── Adam update ────────────────────────────────────────────────
+        adam_d.step(delta_tp_t, grad_delta)
+        adam_b.step(beta_tp_t,  grad_beta)
+
+        # ── Positivity constraint ──────────────────────────────────────
+        delta_tp_t.clamp_(min=0.0)
+        beta_tp_t.clamp_(min=0.0)
+
+        loss_history.append(total_loss)
+        elapsed = time.time() - t_iter
+
+        # Bring scalars to CPU for printing
+        d_min = float(delta_tp_t.min())
+        d_max = float(delta_tp_t.max())
+        print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}  "
+              f"lr={lr_t:.2e}  t={elapsed:.1f}s  "
+              f"δ∈[{d_min:.2e},{d_max:.2e}]", flush=True)
+
+    # Transfer final volumes back to NumPy (float64) for figures/RMSE
+    delta_tp = delta_tp_t.cpu().numpy().astype(np.float64)
+    beta_tp  = beta_tp_t.cpu().numpy().astype(np.float64)
+
+else:
+    # ── NumPy fallback path ────────────────────────────────────────────────
+    adam_d = _Adam(delta_tp.shape, lr=LR)
+    adam_b = _Adam(beta_tp.shape,  lr=LR)
+
+    for it in range(N_ITER):
+        t_iter = time.time()
+        total_loss = 0.0
+        grad_delta = np.zeros_like(delta_tp)
+        grad_beta  = np.zeros_like(beta_tp)
+
+        # ── LR schedule: linear warm-up → cosine decay ────────────────
+        if it < WARMUP_ITERS:
+            lr_t = LR * (it + 1) / WARMUP_ITERS
+        else:
+            progress = (it - WARMUP_ITERS) / max(N_ITER - WARMUP_ITERS, 1)
+            lr_t = LR * 0.5 * (1.0 + np.cos(np.pi * progress))
+        adam_d.lr = adam_b.lr = lr_t
+
+        for ai, theta in enumerate(THETA):
+            # ── Extract rotated slices + matter-corrected δ̄ ──────────
+            delta_sl, beta_sl, delta_means = extract_slices_from_volume(
+                delta_tp, beta_tp, theta, n_slices=N_SLICES)
+
+            # ── Forward + adjoint multislice ──────────────────────────
+            loss_i, gd_i, gb_i, _ = engine.loss_and_gradient(
+                delta_sl, beta_sl, probe,
+                u_measured[ai],
+                delta_means=delta_means,
+            )
+            total_loss += loss_i
+
+            # ── Back-rotate gradient slices → 3-D volume ──────────────
+            gd_vol, gb_vol = scatter_gradient_to_volume(
+                gd_i, gb_i, theta, delta_tp.shape, n_slices=N_SLICES)
+            grad_delta += gd_vol
+            grad_beta  += gb_vol
+
+        # Normalise by number of angles
+        grad_delta /= N_ANGLES
+        grad_beta  /= N_ANGLES
+
+        # ── TV regularisation ─────────────────────────────────────────
+        if LAMBDA_TV > 0:
+            grad_delta += LAMBDA_TV * tv_grad(delta_tp)
+            grad_beta  += LAMBDA_TV * tv_grad(beta_tp)
+
+        # ── Adam update ────────────────────────────────────────────────
+        adam_d.step(delta_tp, grad_delta)
+        adam_b.step(beta_tp,  grad_beta)
+
+        # ── Positivity constraint ──────────────────────────────────────
+        np.clip(delta_tp, 0.0, None, out=delta_tp)
+        np.clip(beta_tp,  0.0, None, out=beta_tp)
+
+        loss_history.append(total_loss)
+        elapsed = time.time() - t_iter
+        print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}  "
+              f"lr={lr_t:.2e}  t={elapsed:.1f}s  "
+              f"δ∈[{delta_tp.min():.2e},{delta_tp.max():.2e}]", flush=True)
 
 print(f"\n  Pass 2 done in {time.time()-t_total:.1f} s total.\n")
 
@@ -641,6 +751,7 @@ print()
 print("=" * 60)
 print("TUTORIAL SUMMARY")
 print("=" * 60)
+print(f"  Compute backend     : {_backend}")
 print(f"  Wavelength          : {WAVELENGTH*1e9:.1f} nm")
 print(f"  Voxel size          : {PIXEL_SIZE*1e9:.0f} nm")
 print(f"  Volume              : {N}³ = {N**3:,} voxels")

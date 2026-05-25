@@ -10,3 +10,7 @@ from .fdk import *
 from .cone_projector import *
 from .multislice import *
 from .twopass import *
+try:
+    from .multislice_torch import *
+except ImportError:
+    pass   # torch not installed; numpy backend still available
