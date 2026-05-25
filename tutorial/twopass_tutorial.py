@@ -237,6 +237,19 @@ for iy in range(N):
 # Convert projected phase → δ
 delta_fbp = (-delta_fbp / (K0 * PIXEL_SIZE)).clip(0, None)
 
+# ── Orientation correction ────────────────────────────────────────────────
+# scipy.ndimage.rotate with axes=(2, 0) and a positive angle θ maps
+# output coordinates as:
+#   x_in = x_out·cos θ + z_out·sin θ
+#   z_in = −x_out·sin θ + z_out·cos θ    (centered about N/2)
+# At θ = 90° this gives z_in = −(x_out − N/2) + N/2 = N − x_out, i.e. the
+# output x-axis samples the *reversed* z-axis of the original volume.
+# skimage.iradon interprets the sinogram position as the detector coordinate
+# and places it along the column (x) axis of the reconstruction; the row
+# axis (axis 0 of recons_slice) therefore ends up reversed relative to our
+# z-axis convention.  Flipping axis 0 corrects this.
+delta_fbp = np.ascontiguousarray(delta_fbp[::-1, :, :])
+
 # β not retrieved (no amplitude sinogram in this demo; set β = δ * 1e-3)
 beta_fbp = delta_fbp * 1e-3
 
