@@ -270,6 +270,12 @@ class TwoPassReconstructor:
             beta_vol = (-beta_vol / (k0 * self.pixel_size)).astype(np.float64)
             np.clip(beta_vol, 0.0, None, out=beta_vol)
 
+        # FBP returns (Ny, Nz, Nx) — height · depth · transverse.
+        # The multislice engine expects (Nz, Ny, Nx) — depth · height · transverse.
+        # Transpose to the canonical convention used throughout Pass 2.
+        delta_vol = np.ascontiguousarray(np.transpose(delta_vol, (1, 0, 2)))
+        beta_vol  = np.ascontiguousarray(np.transpose(beta_vol,  (1, 0, 2)))
+
         if self.verbose:
             print(f"  Pass 1 done in {time.time()-t0:.1f} s.  "
                   f"δ: [{delta_vol.min():.3e}, {delta_vol.max():.3e}]")
