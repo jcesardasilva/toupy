@@ -8,3 +8,5 @@ from .tomorecons import *
 from .geometry import *
 from .fdk import *
 from .cone_projector import *
+from .multislice import *
+from .twopass import *
