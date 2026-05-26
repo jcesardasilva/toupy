@@ -175,15 +175,27 @@ def rotate_volume_torch(vol: torch.Tensor, theta_deg: float) -> torch.Tensor:
 
     # 2×3 affine matrix  [x_in, z_in] = R @ [x_out, z_out, 1]
     # PyTorch affine_grid encodes the OUTPUT→INPUT mapping.
-    # scipy.ndimage.rotate(axes=(2,0), angle=θ) applies the forward rotation:
-    #   x_out_c =  c·x_in_c + s·z_in_c
+    #
+    # scipy.ndimage.rotate(axes=(2,0), angle=θ) rotates in PIXEL space:
+    #   x_out_c =  c·x_in_c + s·z_in_c          (centered pixel coords)
     #   z_out_c = -s·x_in_c + c·z_in_c
-    # Inverting (transposing the rotation sub-matrix) gives the output→input map:
-    #   x_in_c =  c·x_out_c - s·z_out_c    → row 0 = [c, -s, 0]
-    #   z_in_c =  s·x_out_c + c·z_out_c    → row 1 = [s,  c, 0]
-    # (affine_grid spatial order: dim-1 = width = x, dim-0 = height = z)
-    R = torch.tensor([[c, -s, 0.0],
-                      [s,  c, 0.0]], dtype=torch.float32, device=device)
+    # Inverse (output→input in pixel coords):
+    #   x_in_c =  c·x_out_c - s·z_out_c
+    #   z_in_c =  s·x_out_c + c·z_out_c
+    #
+    # affine_grid works in NORMALISED coords [-1, 1].  The mapping between
+    # normalised and pixel centred coords is:
+    #   x_norm = 2·x_c / (Nx-1),   z_norm = 2·z_c / (Nz-1)
+    #
+    # Substituting gives the affine matrix in normalised space:
+    #   x_in_norm =  c·x_out_norm - s·(Nz-1)/(Nx-1)·z_out_norm
+    #   z_in_norm =  s·(Nx-1)/(Nz-1)·x_out_norm + c·z_out_norm
+    #
+    # When Nz == Nx the aspect-ratio factors cancel and we get [[c,-s],[s,c]].
+    az = (Nz - 1) / (Nx - 1) if Nx != 1 else 1.0   # aspect ratio z/x
+    ax = (Nx - 1) / (Nz - 1) if Nz != 1 else 1.0   # aspect ratio x/z
+    R = torch.tensor([[c,    -s * az, 0.0],
+                      [s * ax,  c,   0.0]], dtype=torch.float32, device=device)
 
     # Reshape to batch of 2-D images: (Ny, 1, Nz, Nx)
     vol_batch = vol.to(torch.float32).permute(1, 0, 2).unsqueeze(1)  # Ny,1,Nz,Nx
