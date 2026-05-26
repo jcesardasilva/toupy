@@ -1,0 +1,325 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Fourier Shell Correlation (FSC) analysis for PXCT two-pass reconstructions.
+============================================================================
+
+Computes and plots FSC curves that estimate the spatial resolution of:
+  (a) FBP reconstructions from two half-datasets
+  (b) Two-pass reconstructions from two half-datasets
+  (c) Cross-FSC between FBP and two-pass (diagnostic only)
+
+Usage
+-----
+1. Run twopass_real_data.py twice with FSC_HALF = 0 and FSC_HALF = 1.
+   This produces:
+       twopass_real_figures_half0/twopass_reconstruction.npz
+       twopass_real_figures_half1/twopass_reconstruction.npz
+
+2. Run this script from the tutorial directory:
+       python fsc_analysis.py
+
+3. Outputs:
+       twopass_real_figures_fsc/fsc_curves.png
+       twopass_real_figures_fsc/fsc_data.npz
+
+Resolution interpretation
+-------------------------
+The FSC measures cross-correlation between two independent measurements of
+the same object as a function of spatial frequency.  Resolution is reported
+at two standard thresholds:
+  - 0.5 threshold          (conservative, traditional)
+  - 1/2-bit criterion      (frequency-adaptive, recommended for tomography)
+    1/2-bit(n) = (0.2071 + 1.9102/sqrt(n)) / (1.2071 + 0.9102/sqrt(n))
+    where n = number of voxels in the shell.
+
+The resolution in physical units:
+    d_min  [nm] = pixel_size [nm] / spatial_freq_at_threshold
+
+Key insight
+-----------
+If FSC_tp > FSC_fbp at high spatial frequencies, the two-pass method
+provides better agreement between the two independent half-datasets →
+it is genuinely resolving more structure, not just fitting noise.
+"""
+
+import os
+import sys
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+# Paths to the two half-dataset reconstruction files
+# (produced by running twopass_real_data.py with FSC_HALF = 0 and 1)
+FILE_HALF0 = os.path.join(_HERE, "twopass_real_figures_half0",
+                          "twopass_reconstruction.npz")
+FILE_HALF1 = os.path.join(_HERE, "twopass_real_figures_half1",
+                          "twopass_reconstruction.npz")
+
+# Output directory
+OUT_DIR = os.path.join(_HERE, "twopass_real_figures_fsc")
+os.makedirs(OUT_DIR, exist_ok=True)
+
+# ---------------------------------------------------------------------------
+# Load data
+# ---------------------------------------------------------------------------
+
+print(f"Loading half-0 reconstruction from:\n  {FILE_HALF0}")
+if not os.path.isfile(FILE_HALF0):
+    sys.exit(f"ERROR: {FILE_HALF0} not found.\n"
+             "Run twopass_real_data.py with FSC_HALF = 0 first.")
+
+print(f"Loading half-1 reconstruction from:\n  {FILE_HALF1}")
+if not os.path.isfile(FILE_HALF1):
+    sys.exit(f"ERROR: {FILE_HALF1} not found.\n"
+             "Run twopass_real_data.py with FSC_HALF = 1 first.")
+
+d0 = np.load(FILE_HALF0)
+d1 = np.load(FILE_HALF1)
+
+fbp0 = d0["delta_fbp"].astype(np.float32)
+fbp1 = d1["delta_fbp"].astype(np.float32)
+tp0  = d0["delta_tp"].astype(np.float32)
+tp1  = d1["delta_tp"].astype(np.float32)
+
+PIXEL_SIZE = float(d0["psize"])   # [m]
+PIXEL_NM   = PIXEL_SIZE * 1e9     # [nm]
+
+assert fbp0.shape == fbp1.shape, "Volume shapes must match between half-datasets"
+Nz, Ny, Nx = fbp0.shape
+
+print(f"Volume shape: ({Nz}, {Ny}, {Nx}),  pixel = {PIXEL_NM:.2f} nm")
+print()
+
+# ---------------------------------------------------------------------------
+# FSC computation
+# ---------------------------------------------------------------------------
+
+def compute_fsc(vol1: np.ndarray, vol2: np.ndarray, n_shells: int = 200):
+    """
+    Compute the Fourier Shell Correlation between two 3-D volumes.
+
+    Parameters
+    ----------
+    vol1, vol2 : ndarray, shape (Nz, Ny, Nx)
+    n_shells : int
+        Number of radial shells.
+
+    Returns
+    -------
+    freq_nyq : ndarray, shape (n_shells,)
+        Spatial frequency in units of Nyquist (0 = DC, 0.5 = Nyquist).
+    fsc : ndarray, shape (n_shells,)
+        FSC values in [−1, 1].
+    n_voxels : ndarray, shape (n_shells,)
+        Number of Fourier voxels in each shell (for 1/2-bit criterion).
+    """
+    F1 = np.fft.fftn(vol1.astype(np.float64))
+    F2 = np.fft.fftn(vol2.astype(np.float64))
+
+    # Build radial coordinate in units of Nyquist (0 – 0.5)
+    kz = np.fft.fftfreq(Nz)   # cycles per pixel
+    ky = np.fft.fftfreq(Ny)
+    kx = np.fft.fftfreq(Nx)
+    KZ, KY, KX = np.meshgrid(kz, ky, kx, indexing="ij")
+    R = np.sqrt(KZ**2 + KY**2 + KX**2)   # 0 at DC, √3/2 at corner
+
+    r_max    = 0.5    # Nyquist
+    r_edges  = np.linspace(0.0, r_max, n_shells + 1)
+    r_mid    = 0.5 * (r_edges[:-1] + r_edges[1:])
+
+    fsc      = np.zeros(n_shells)
+    n_voxels = np.zeros(n_shells, dtype=int)
+
+    for i, (r_lo, r_hi) in enumerate(zip(r_edges[:-1], r_edges[1:])):
+        mask = (R >= r_lo) & (R < r_hi)
+        n    = mask.sum()
+        if n == 0:
+            continue
+        f1 = F1[mask]
+        f2 = F2[mask]
+        num   = np.real(np.sum(f1 * f2.conj()))
+        denom = np.sqrt(np.sum(np.abs(f1)**2) * np.sum(np.abs(f2)**2))
+        fsc[i]      = num / denom if denom > 0 else 0.0
+        n_voxels[i] = n
+
+    return r_mid, fsc, n_voxels
+
+
+def half_bit_criterion(n_voxels: np.ndarray) -> np.ndarray:
+    """
+    1/2-bit information criterion for resolution (van Heel & Schatz 2005).
+
+    T(n) = (0.2071 + 1.9102/sqrt(n)) / (1.2071 + 0.9102/sqrt(n))
+
+    This is the standard resolution threshold for half-dataset FSC in
+    cryo-EM and PXCT.  It is more conservative than the fixed 0.5 threshold
+    at high spatial frequencies where shells contain many voxels, and more
+    liberal at low frequencies.
+    """
+    sqn = np.sqrt(n_voxels.astype(float) + 1e-30)
+    return (0.2071 + 1.9102 / sqn) / (1.2071 + 0.9102 / sqn)
+
+
+def resolution_at_threshold(freq_nyq, fsc, threshold):
+    """
+    Find the spatial frequency where FSC first crosses threshold (from above).
+    Returns frequency in Nyquist units (0.5 = Nyquist) and resolution in nm.
+    """
+    for i in range(len(fsc) - 1):
+        if fsc[i] >= threshold > fsc[i + 1]:
+            # Linear interpolation
+            f0, f1 = freq_nyq[i], freq_nyq[i + 1]
+            v0, v1 = fsc[i], fsc[i + 1]
+            f_cross = f0 + (threshold - v0) / (v1 - v0) * (f1 - f0)
+            if f_cross > 0:
+                return f_cross, PIXEL_NM / f_cross
+    return np.nan, np.nan   # never crossed
+
+
+# ---------------------------------------------------------------------------
+# Compute FSC for FBP and two-pass
+# ---------------------------------------------------------------------------
+
+print("Computing FSC — FBP half-0 vs half-1 …")
+r_mid, fsc_fbp, n_vox = compute_fsc(fbp0, fbp1)
+
+print("Computing FSC — two-pass half-0 vs half-1 …")
+_, fsc_tp, _ = compute_fsc(tp0, tp1)
+
+# Also compute cross-FSC (diagnostic: where do FBP and TP agree/disagree?)
+print("Computing cross-FSC — FBP half-0 vs two-pass half-0 …")
+_, fsc_cross, _ = compute_fsc(fbp0, tp0)
+
+half_bit = half_bit_criterion(n_vox)
+
+# Resolution at 0.5 threshold
+f05_fbp, d05_fbp = resolution_at_threshold(r_mid, fsc_fbp, 0.5)
+f05_tp,  d05_tp  = resolution_at_threshold(r_mid, fsc_tp,  0.5)
+
+# Resolution at 1/2-bit threshold (frequency-dependent)
+# Use the half-bit curve as a frequency-dependent threshold
+hb_fbp = next((r_mid[i] for i in range(len(fsc_fbp))
+               if fsc_fbp[i] < half_bit[i]), np.nan)
+hb_tp  = next((r_mid[i] for i in range(len(fsc_tp))
+               if fsc_tp[i]  < half_bit[i]), np.nan)
+d_hb_fbp = PIXEL_NM / hb_fbp if not np.isnan(hb_fbp) else np.nan
+d_hb_tp  = PIXEL_NM / hb_tp  if not np.isnan(hb_tp)  else np.nan
+
+print()
+print("=" * 58)
+print("  Resolution summary")
+print("=" * 58)
+print(f"  {'Method':<14}  {'FSC=0.5':>10}  {'1/2-bit':>10}")
+print(f"  {'-'*14}  {'-'*10}  {'-'*10}")
+print(f"  {'FBP':<14}  {d05_fbp:>8.1f} nm  {d_hb_fbp:>8.1f} nm")
+print(f"  {'Two-pass':<14}  {d05_tp:>8.1f} nm  {d_hb_tp:>8.1f} nm")
+print("=" * 58)
+print()
+
+# Physical frequency axis (cycles per nm)
+freq_nm = r_mid / PIXEL_NM   # cycles/nm
+
+# ---------------------------------------------------------------------------
+# Plot
+# ---------------------------------------------------------------------------
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 5),
+                          gridspec_kw={"wspace": 0.35})
+
+# ── Left: FSC vs spatial frequency ────────────────────────────────────────
+ax = axes[0]
+ax.plot(r_mid, fsc_fbp,   color="C0",     lw=1.8, label="FBP")
+ax.plot(r_mid, fsc_tp,    color="C1",     lw=1.8, label="Two-pass")
+ax.plot(r_mid, fsc_cross, color="C2",     lw=1.2, ls="--",
+        label="Cross (FBP₀ vs TP₀)", alpha=0.7)
+ax.plot(r_mid, half_bit,  color="gray",   lw=1.2, ls=":",
+        label="½-bit criterion")
+ax.axhline(0.5,           color="black",  lw=0.9, ls="--", alpha=0.6)
+
+# Mark resolution crossings
+for f_c, d_c, col, tag in [
+        (f05_fbp, d05_fbp, "C0", f"FBP  {d05_fbp:.1f} nm"),
+        (f05_tp,  d05_tp,  "C1", f"TP   {d05_tp:.1f} nm")]:
+    if not np.isnan(f_c):
+        ax.axvline(f_c, color=col, lw=0.8, ls="--", alpha=0.6)
+        ax.text(f_c + 0.005, 0.55, tag, color=col, fontsize=7, rotation=90,
+                va="bottom")
+
+ax.set_xlim(0, 0.5)
+ax.set_ylim(-0.05, 1.05)
+ax.set_xlabel("Spatial frequency  [Nyquist units]")
+ax.set_ylabel("Fourier Shell Correlation")
+ax.set_title("Half-dataset FSC")
+ax.legend(fontsize=8, loc="upper right")
+ax.grid(True, alpha=0.3)
+
+# Secondary x-axis in nm⁻¹
+ax2 = ax.twiny()
+ax2.set_xlim(ax.get_xlim())
+ticks_nyq = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+ax2.set_xticks(ticks_nyq)
+ax2.set_xticklabels([f"{1/(t*PIXEL_NM*2):.1f}" for t in ticks_nyq], fontsize=7)
+ax2.set_xlabel("Spatial frequency  [nm⁻¹]", fontsize=8)
+
+# ── Right: Resolution summary bar chart ───────────────────────────────────
+ax = axes[1]
+methods  = ["FBP", "Two-pass"]
+d_05     = [d05_fbp, d05_tp]
+d_hb     = [d_hb_fbp, d_hb_tp]
+x        = np.arange(len(methods))
+w        = 0.35
+
+bars1 = ax.bar(x - w/2, d_05, w, label="FSC = 0.5",    color=["C0", "C1"], alpha=0.85)
+bars2 = ax.bar(x + w/2, d_hb, w, label="½-bit crit.",  color=["C0", "C1"], alpha=0.5)
+
+for bar in list(bars1) + list(bars2):
+    h = bar.get_height()
+    if not np.isnan(h):
+        ax.text(bar.get_x() + bar.get_width()/2, h + 0.5, f"{h:.1f}",
+                ha="center", va="bottom", fontsize=8)
+
+ax.axhline(2 * PIXEL_NM, color="gray", ls="--", lw=1.0, alpha=0.8,
+           label=f"2-pixel limit ({2*PIXEL_NM:.1f} nm)")
+ax.set_xticks(x)
+ax.set_xticklabels(methods)
+ax.set_ylabel("Resolution  [nm]")
+ax.set_title("Resolution comparison\n(smaller = better)")
+ax.legend(fontsize=8)
+ax.grid(axis="y", alpha=0.3)
+
+fig.suptitle(
+    f"Fourier Shell Correlation — PXCT two-pass vs FBP\n"
+    f"pixel = {PIXEL_NM:.2f} nm  |  volume {Nz}×{Ny}×{Nx}",
+    fontsize=10)
+
+fpath = os.path.join(OUT_DIR, "fsc_curves.png")
+fig.savefig(fpath, dpi=150, bbox_inches="tight")
+print(f"Saved FSC figure: {fpath}")
+
+# ---------------------------------------------------------------------------
+# Save numerical FSC data
+# ---------------------------------------------------------------------------
+
+np.savez_compressed(
+    os.path.join(OUT_DIR, "fsc_data.npz"),
+    freq_nyq   = r_mid,
+    fsc_fbp    = fsc_fbp,
+    fsc_tp     = fsc_tp,
+    fsc_cross  = fsc_cross,
+    half_bit   = half_bit,
+    n_voxels   = n_vox,
+    pixel_nm   = PIXEL_NM,
+    res_05_fbp = d05_fbp,
+    res_05_tp  = d05_tp,
+    res_hb_fbp = d_hb_fbp,
+    res_hb_tp  = d_hb_tp,
+)
+print(f"Saved FSC data:   {OUT_DIR}/fsc_data.npz")

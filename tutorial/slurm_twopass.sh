@@ -87,11 +87,24 @@ OUT_DIR="${WORK_DIR}/results_${SLURM_JOB_ID}"
 
 # ── Reconstruction parameters (override the defaults in twopass_real_data.py)
 N_SLICES=16      # multislice slabs — increase for higher accuracy (slower)
-N_ITER=50        # Pass 2 gradient iterations
+N_ITER=100       # Pass 2 gradient iterations  (50–100 for production quality)
 LR=5e-6          # Adam peak learning rate  (hard X-ray data: δ ~ 1e-5–1e-6)
 LAMBDA_TV=1e-5   # TV regularisation weight  (0 to disable)
 WARMUP_ITERS=5   # linear LR warm-up iterations
 ANGLE_STEP=1     # 1 = all angles;  >1 = subsample for fast prototyping
+
+# ── Projection boundary crop (removes ptychography edge noise) ─────────────
+# Ptychography has insufficient probe overlap near the scan boundaries,
+# producing noisy phases that contaminate the multislice loss.
+# Set based on the self-consistency residual plot (where residuals are large).
+CROP_X=80        # pixels to remove from each side in the column (x) direction
+CROP_Y=20        # pixels to remove from each side in the row (y) direction
+
+# ── Half-dataset mode for FSC ─────────────────────────────────────────────
+# None = full dataset  |  0 = even angles  |  1 = odd angles
+# Submit two jobs (FSC_HALF=0 and FSC_HALF=1) in parallel, then run
+# fsc_analysis.py on the two result files to get the FSC resolution curves.
+FSC_HALF=None
 
 # =============================================================================
 # ── Environment setup — uncomment the block matching your cluster ─────────────
@@ -171,12 +184,15 @@ sed -i \
     -e "s|^LAMBDA_TV\s*=.*|LAMBDA_TV    = ${LAMBDA_TV}|" \
     -e "s|^WARMUP_ITERS\s*=.*|WARMUP_ITERS = ${WARMUP_ITERS}|" \
     -e "s|^ANGLE_STEP\s*=.*|ANGLE_STEP   = ${ANGLE_STEP}|" \
+    -e "s|^CROP_X\s*=.*|CROP_X = ${CROP_X}|" \
+    -e "s|^CROP_Y\s*=.*|CROP_Y = ${CROP_Y}|" \
+    -e "s|^FSC_HALF\s*=.*|FSC_HALF = ${FSC_HALF}|" \
     -e "s|^DATA_FILE\s*=.*|DATA_FILE = \"${DATA_FILE}\"|" \
     -e "s|^OUT_DIR\s*=.*|OUT_DIR = \"${OUT_DIR}\"|" \
     "${PATCHED}"
 
 echo "Reconstruction parameters (as patched):"
-grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|DATA_FILE|OUT_DIR)" \
+grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|CROP_X|CROP_Y|FSC_HALF|DATA_FILE|OUT_DIR)" \
      "${PATCHED}" | sed 's/^/  /'
 echo ""
 

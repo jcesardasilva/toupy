@@ -152,6 +152,56 @@ print()
 # 2.  User-tunable reconstruction parameters
 # ---------------------------------------------------------------------------
 
+# ── Projection boundary crop ───────────────────────────────────────────────
+# Ptychographic reconstruction produces unreliable phase values at the edges
+# of each projection because the probe footprint overlaps the scan boundary
+# (insufficient illumination).  These noisy pixels appear as large residuals
+# in the self-consistency plot (residual meas − re-proj at x < CROP_X and
+# x > Nx − CROP_X).
+#
+# Why crop?  Those noisy boundary pixels:
+#   1. Produce large loss contributions that dominate the gradient.
+#   2. Corrupt neighbouring voxels in the gradient back-projection.
+#   3. Prevent the loss from converging below the noise floor.
+#
+# Tune CROP_X by looking at the self-consistency residual plot produced by a
+# prior run: choose the value where the interior residuals are small but the
+# boundary spike starts.  Typical values: 50–150 pixels.
+# Tune CROP_Y similarly for top/bottom boundary rows.
+CROP_X = 80   # pixels to remove from EACH side in the column (x) direction
+              # 0 = no crop; the FBP and volume x-extent shrink by 2×CROP_X
+CROP_Y = 20   # pixels to remove from EACH side in the row (y) direction
+              # 0 = no crop; only the y-extent of projections and volume shrinks
+
+if CROP_X > 0 or CROP_Y > 0:
+    _sy = slice(CROP_Y if CROP_Y > 0 else None,
+                -CROP_Y if CROP_Y > 0 else None)
+    _sx = slice(CROP_X if CROP_X > 0 else None,
+                -CROP_X if CROP_X > 0 else None)
+    phase_stack = np.ascontiguousarray(phase_stack[:, _sy, _sx])
+    _, Ny, Nx   = phase_stack.shape
+    Nz          = Nx   # FBP reconstruction is always square in (x, z)
+    print(f"  After crop ({CROP_Y}px top/bottom, {CROP_X}px left/right): "
+          f"(Ny, Nx, Nz) = ({Ny}, {Nx}, {Nz})\n")
+
+# ── Half-dataset mode — for Fourier Shell Correlation (FSC) ───────────────
+# The standard way to estimate spatial resolution from a single dataset is to
+# split the projections into two independent halves, reconstruct each
+# separately, and compute the FSC between the two volumes.
+#
+# Workflow:
+#   1. Run with FSC_HALF = 0  (even angles: θ[0], θ[2], θ[4], …)
+#      → saves  twopass_real_figures_half0/twopass_reconstruction.npz
+#   2. Run with FSC_HALF = 1  (odd angles: θ[1], θ[3], θ[5], …)
+#      → saves  twopass_real_figures_half1/twopass_reconstruction.npz
+#   3. Run  tutorial/fsc_analysis.py  to compute and plot the FSC curves.
+#
+# On a cluster (A100, ~15 s/iter with all angles → ~7 s/iter per half),
+# 100-iter runs finish in < 12 min each — very practical in parallel.
+#
+# Set to None to use the full dataset (default).
+FSC_HALF = None   # None | 0 | 1
+
 # ── Multislice discretisation ──────────────────────────────────────────────
 # Rule of thumb: each slab should be thinner than the depth of focus
 #   DoF ≈ pixel² / λ = F * Nz * pixel  →  N_SLICES ≈ Nz / DoF_in_pixels
@@ -161,9 +211,13 @@ N_SLICES    = 16
 SLICE_DZ    = Nz * PIXEL_SIZE / N_SLICES          # [m] slab thickness
 
 # ── Pass 2 optimisation ────────────────────────────────────────────────────
-# With 450 angles + 394×493 frames, one iteration ≈ 30–60 s on MPS/CUDA.
-# Start small (N_ITER = 5) to check convergence, then increase.
-N_ITER       = 20
+# With 450 angles + ~500×600 frames, one iteration ≈ 30–60 s on MPS/CUDA.
+# Convergence guide from the loss curve:
+#   The loss typically drops ~65% in the first 20 iters, then slowly
+#   approaches the noise floor (set by measurement noise + ptychography
+#   error).  50–100 iterations are recommended for production runs.
+#   On a cluster with A100: 100 iters ≈ 25–50 min.  On MacBook MPS: ~8 h.
+N_ITER       = 50
 LR           = 5e-6       # Adam peak learning rate
                           # Hard X-ray data: δ ~ 1e-5–1e-6; was 5e-4 (suited for δ ~ 1e-3)
 LAMBDA_TV    = 1e-5       # TV regularisation weight (0 to disable)
@@ -171,18 +225,28 @@ WARMUP_ITERS = 3          # linear LR warm-up iterations
 
 # ── Angle subsampling (for fast prototyping) ───────────────────────────────
 # Set ANGLE_STEP = 1 to use all angles; 2 = every other angle, etc.
-# Using all 450 angles gives the best quality reconstruction.
+# FSC_HALF (above) takes precedence and selects even or odd angles.
 ANGLE_STEP   = 1
-theta_use    = THETA[::ANGLE_STEP]
-phase_use    = phase_stack[::ANGLE_STEP]          # (N_use, Ny, Nx)
-N_use        = len(theta_use)
 
-if ANGLE_STEP > 1:
-    print(f"  [Subsampling] Using {N_use}/{N_ANGLES} angles "
-          f"(every {ANGLE_STEP}th)\n")
+if FSC_HALF is not None:
+    _all_idx   = np.arange(N_ANGLES)
+    _half_idx  = _all_idx[FSC_HALF::2]    # even-half: 0,2,4,…  odd-half: 1,3,5,…
+    theta_use  = THETA[_half_idx]
+    phase_use  = phase_stack[_half_idx]
+    N_use      = len(theta_use)
+    print(f"  [FSC half-{FSC_HALF}] Using {N_use}/{N_ANGLES} angles "
+          f"(every other, starting at index {FSC_HALF})\n")
+else:
+    theta_use  = THETA[::ANGLE_STEP]
+    phase_use  = phase_stack[::ANGLE_STEP]
+    N_use      = len(theta_use)
+    if ANGLE_STEP > 1:
+        print(f"  [Subsampling] Using {N_use}/{N_ANGLES} angles "
+              f"(every {ANGLE_STEP}th)\n")
 
-# Output directory
-OUT_DIR = os.path.join(_HERE, "twopass_real_figures")
+# Output directory — appends _half0 / _half1 when FSC_HALF is set
+_out_suffix = f"_half{FSC_HALF}" if FSC_HALF is not None else ""
+OUT_DIR = os.path.join(_HERE, f"twopass_real_figures{_out_suffix}")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 print("Reconstruction parameters")
