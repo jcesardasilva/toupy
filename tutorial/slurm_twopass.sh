@@ -88,7 +88,7 @@ OUT_DIR="${WORK_DIR}/results_${SLURM_JOB_ID}"
 # ── Reconstruction parameters (override the defaults in twopass_real_data.py)
 N_SLICES=16      # multislice slabs — increase for higher accuracy (slower)
 N_ITER=50        # Pass 2 gradient iterations
-LR=5e-4          # Adam peak learning rate
+LR=5e-6          # Adam peak learning rate  (hard X-ray data: δ ~ 1e-5–1e-6)
 LAMBDA_TV=1e-5   # TV regularisation weight  (0 to disable)
 WARMUP_ITERS=5   # linear LR warm-up iterations
 ANGLE_STEP=1     # 1 = all angles;  >1 = subsample for fast prototyping

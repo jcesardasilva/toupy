@@ -164,7 +164,8 @@ SLICE_DZ    = Nz * PIXEL_SIZE / N_SLICES          # [m] slab thickness
 # With 450 angles + 394×493 frames, one iteration ≈ 30–60 s on MPS/CUDA.
 # Start small (N_ITER = 5) to check convergence, then increase.
 N_ITER       = 20
-LR           = 5e-4       # Adam peak learning rate
+LR           = 5e-6       # Adam peak learning rate
+                          # Hard X-ray data: δ ~ 1e-5–1e-6; was 5e-4 (suited for δ ~ 1e-3)
 LAMBDA_TV    = 1e-5       # TV regularisation weight (0 to disable)
 WARMUP_ITERS = 3          # linear LR warm-up iterations
 
@@ -233,11 +234,34 @@ delta_fbp = np.ascontiguousarray(delta_fbp[::-1, :, :])
 # Comment out if your sample has negative contrast regions.
 delta_fbp = delta_fbp.clip(0, None)
 
+# ── Circular soft mask — suppress FBP inscribed-circle boundary ringing ──────
+# iradon(circle=True) computes only inside the inscribed circle, but leaves
+# sharp-edge ringing at the boundary whose amplitude (~8×10⁻⁴) is typically
+# 10–100× larger than the true interior δ.  A cosine-tapered mask confined to
+# the outermost 5 % of the radius removes that artifact without touching the
+# reconstructed interior.
+_Zm   = np.arange(Nz) - Nz / 2.0
+_Xm   = np.arange(Nx) - Nx / 2.0
+_ZZ, _XX = np.meshgrid(_Zm, _Xm, indexing='ij')      # (Nz, Nx)
+_r_max   = (min(Nz, Nx) - 1) / 2.0
+_r_fade  = max(3, int(0.05 * _r_max))                 # 5 % cosine fade zone
+_r       = np.sqrt(_ZZ**2 + _XX**2)
+_mask_2d = np.clip((_r_max - _r) / _r_fade, 0.0, 1.0)
+# Apply the 2-D mask to every y-slice (broadcast over axis 1)
+delta_fbp *= _mask_2d[:, np.newaxis, :]               # (Nz, Ny, Nx)
+del _Zm, _Xm, _ZZ, _XX, _r, _mask_2d                 # free temporaries
+
 # β not available from phase-only data; initialise as a small fraction of δ
 beta_fbp = delta_fbp * 1e-3
 
 print(f"  FBP done in {time.time()-t0:.1f} s")
-print(f"  δ_FBP range: [{delta_fbp.min():.3e}, {delta_fbp.max():.3e}]")
+print(f"  δ_FBP range after mask: [{delta_fbp.min():.3e}, {delta_fbp.max():.3e}]")
+_pos_vals = delta_fbp[delta_fbp > 0]
+if _pos_vals.size > 0:
+    _p50, _p99 = np.percentile(_pos_vals, [50, 99])
+    print(f"  δ_FBP positive pixels: median={_p50:.3e}  99th-pct={_p99:.3e}")
+    print(f"  → Suggested LR ≈ {_p99 * 0.1:.1e}  (= 0.1 × 99th-pct of δ_FBP)")
+del _pos_vals
 print()
 
 # ---------------------------------------------------------------------------
@@ -472,9 +496,14 @@ iz_mid = Nz // 2
 iy_mid = Ny // 2
 ix_mid = Nx // 2
 
-# Common colour scale: use two-pass range for fairness
+# Common colour scale: percentile-based to avoid boundary-ringing artefacts.
+# Prefer the two-pass result if it contains positive values; fall back to FBP.
+# Never use .max() — it may be dominated by isolated artefact voxels.
 vmin = 0.0
-vmax = np.percentile(delta_tp[delta_tp > 0], 99) if delta_tp.max() > 0 else delta_fbp.max()
+_ref_for_scale = delta_tp if delta_tp.max() > 0 else delta_fbp
+_pos_ref = _ref_for_scale[_ref_for_scale > 0]
+vmax = float(np.percentile(_pos_ref, 99.5)) if _pos_ref.size > 0 else 1e-5
+del _ref_for_scale, _pos_ref
 
 # ── Figure 1: Three orthogonal cuts — FBP vs two-pass ────────────────────
 fig1, axes = plt.subplots(3, 2, figsize=(10, 11),
