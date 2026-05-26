@@ -197,12 +197,19 @@ def rotate_volume_torch(vol: torch.Tensor, theta_deg: float) -> torch.Tensor:
     R = torch.tensor([[c,    -s * az, 0.0],
                       [s * ax,  c,   0.0]], dtype=torch.float32, device=device)
 
-    # Reshape to batch of 2-D images: (Ny, 1, Nz, Nx)
+    # Compute the sampling grid for a SINGLE y-slice (the Nz×Nx plane).
+    # All y-slices share the same xz-rotation, so we only need shape (1,1,Nz,Nx).
+    # This allocates ~2 MB instead of the ~766 MB that would result from passing
+    # a full (Ny, 2, 3) R_batch to affine_grid.
+    R_1     = R.unsqueeze(0)                                          # 1,2,3
+    grid_1  = F.affine_grid(R_1, (1, 1, Nz, Nx), align_corners=True) # 1,Nz,Nx,2
+
+    # Reshape volume to batch of 2-D images: (Ny, 1, Nz, Nx)
     vol_batch = vol.to(torch.float32).permute(1, 0, 2).unsqueeze(1)  # Ny,1,Nz,Nx
 
-    # Expand affine matrix to the batch dimension
-    R_batch = R.unsqueeze(0).expand(Ny, -1, -1)                      # Ny,2,3
-    grid    = F.affine_grid(R_batch, vol_batch.shape, align_corners=True)
+    # Expand grid to (Ny, Nz, Nx, 2) — zero-copy view; grid_sample accepts
+    # non-contiguous grids on CUDA, CPU, and MPS (PyTorch ≥ 2.0).
+    grid    = grid_1.expand(Ny, -1, -1, -1)                          # Ny,Nz,Nx,2
 
     rotated = F.grid_sample(vol_batch, grid,
                             mode="bilinear",
@@ -356,6 +363,19 @@ class TorchMultisliceEngine:
         elif isinstance(delta_means, np.ndarray):
             delta_means = torch.from_numpy(delta_means)
 
+        # Move delta_means to CPU *once* as a plain Python list.
+        # Calling float(delta_means[j]) inside the loop forces a device→host
+        # sync on every slab (one Metal command-buffer flush per call on MPS,
+        # or a cudaDeviceSynchronize equivalent on CUDA).  With n_slices=16 and
+        # 450 angles that is 14 400 stalls per iteration — the dominant runtime
+        # cost on both MPS and CUDA.  One .cpu().tolist() costs a single sync.
+        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != 'cpu':
+            _dm = delta_means.detach().cpu().tolist()
+        elif isinstance(delta_means, torch.Tensor):
+            _dm = delta_means.tolist()
+        else:
+            _dm = [float(x) for x in delta_means]
+
         dz = self.slice_thickness
         U  = self._to(probe).clone()
 
@@ -365,8 +385,7 @@ class TorchMultisliceEngine:
         for j in range(n_slices):
             T_j = self.transmission(delta_slices[j], beta_slices[j])
             W_j = T_j * U
-            dm  = float(delta_means[j])
-            U   = self._prop.propagate(W_j, dz, delta_mean=dm)
+            U   = self._prop.propagate(W_j, dz, delta_mean=_dm[j])
             if store_wavefields:
                 T_list.append(T_j)
                 W_list.append(W_j)
@@ -406,6 +425,14 @@ class TorchMultisliceEngine:
         residual = U_exit - u_meas_t
         loss     = 0.5 * float(residual.abs().pow(2).sum().cpu())
 
+        # One sync to get all delta_means on CPU (avoids per-slab sync in loop)
+        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != 'cpu':
+            _dm = delta_means.detach().cpu().tolist()
+        elif isinstance(delta_means, torch.Tensor):
+            _dm = delta_means.tolist()
+        else:
+            _dm = [float(x) for x in delta_means]
+
         grad_delta = torch.zeros((n_slices,) + self.shape,
                                  dtype=torch.float32, device=self.device)
         grad_beta  = torch.zeros((n_slices,) + self.shape,
@@ -413,8 +440,7 @@ class TorchMultisliceEngine:
         r = residual.clone()
 
         for j in range(n_slices - 1, -1, -1):
-            dm  = float(delta_means[j])
-            s_j = self._prop.propagate_adjoint(r, dz, delta_mean=dm)
+            s_j = self._prop.propagate_adjoint(r, dz, delta_mean=_dm[j])
             cross           = W_list[j] * s_j.conj()
             grad_delta[j]   =  scale * cross.imag
             grad_beta[j]    = -scale * cross.real
@@ -471,6 +497,14 @@ class TorchMultisliceEngine:
         dz    = self.slice_thickness
         scale = self.k0 * dz
 
+        # One sync to get all delta_means on CPU (avoids per-slab sync in loop)
+        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != 'cpu':
+            _dm = delta_means.detach().cpu().tolist()
+        elif isinstance(delta_means, torch.Tensor):
+            _dm = delta_means.tolist()
+        else:
+            _dm = [float(x) for x in delta_means]
+
         # ── Forward pass: store only segment-entry wavefields ──────────
         checkpoints: List[torch.Tensor] = []
         U = self._to(probe).clone()
@@ -481,8 +515,7 @@ class TorchMultisliceEngine:
             j1 = min((s + 1) * seg, n_slices)
             for j in range(j0, j1):
                 T_j = self.transmission(delta_slices[j], beta_slices[j])
-                U   = self._prop.propagate(T_j * U, dz,
-                                           delta_mean=float(delta_means[j]))
+                U   = self._prop.propagate(T_j * U, dz, delta_mean=_dm[j])
 
         u_meas_t = self._to(u_measured)
         residual = U - u_meas_t
@@ -506,16 +539,14 @@ class TorchMultisliceEngine:
             for j in range(j0, j1):
                 T_j = self.transmission(delta_slices[j], beta_slices[j])
                 W_j = T_j * U_s
-                U_s = self._prop.propagate(W_j, dz,
-                                           delta_mean=float(delta_means[j]))
+                U_s = self._prop.propagate(W_j, dz, delta_mean=_dm[j])
                 W_seg.append(W_j)
                 T_seg.append(T_j)
 
             # Backward through segment
             for j in range(j1 - 1, j0 - 1, -1):
                 jj  = j - j0
-                dm  = float(delta_means[j])
-                s_j = self._prop.propagate_adjoint(r, dz, delta_mean=dm)
+                s_j = self._prop.propagate_adjoint(r, dz, delta_mean=_dm[j])
                 cross         = W_seg[jj] * s_j.conj()
                 grad_delta[j] =  scale * cross.imag
                 grad_beta[j]  = -scale * cross.real
