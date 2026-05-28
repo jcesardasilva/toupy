@@ -116,7 +116,7 @@ except (ImportError, Exception) as _e:
 DATA_FILE = os.path.join(_HERE, "PXCTalignedprojections.npz")
 print(f"Loading data from: {DATA_FILE}")
 
-data        = np.load(DATA_FILE)
+data        = np.load(DATA_FILE, allow_pickle=True)
 phase_stack = data["projections"].astype(np.float64)   # (N_ANGLES, Ny, Nx) [rad]
 WAVELENGTH  = float(data["wavelen"])                   # [m]
 PIXEL_SIZE  = float(data["psize"])                     # [m]

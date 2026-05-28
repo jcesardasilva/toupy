@@ -291,7 +291,7 @@ parser.add_argument("--data", default=None)
 args, _ = parser.parse_known_args()
 
 if args.data and os.path.exists(args.data):
-    data   = np.load(args.data)
+    data   = np.load(args.data, allow_pickle=True)
     WAVE_r = float(data["wavelen"])
     PIX_r  = float(data["psize"])
     THETA_r = data["theta"]

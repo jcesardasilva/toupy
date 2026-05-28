@@ -81,8 +81,8 @@ if not os.path.isfile(FILE_HALF1):
     sys.exit(f"ERROR: {FILE_HALF1} not found.\n"
              "Run twopass_real_data.py with FSC_HALF = 1 first.")
 
-d0 = np.load(FILE_HALF0)
-d1 = np.load(FILE_HALF1)
+d0 = np.load(FILE_HALF0, allow_pickle=True)
+d1 = np.load(FILE_HALF1, allow_pickle=True)
 
 fbp0 = d0["delta_fbp"].astype(np.float32)
 fbp1 = d1["delta_fbp"].astype(np.float32)
