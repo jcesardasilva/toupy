@@ -271,25 +271,130 @@ print()
 print("Step 1 — FBP reconstruction (Pass 1) …", flush=True)
 t0 = time.time()
 
-# ── Parallelise across y-slices (each is independent) ─────────────────────
-# Using threads rather than processes avoids data-copy overhead for the
-# shared phase_use array.  Speedup ≈ 2× on an 8-core M2 (iradon internally
-# uses numpy which already uses some threading, limiting further gains).
-def _fbp_slice(iy):
-    return iradon(phase_use[:, iy, :].T, theta=theta_use,
-                  filter_name="ramp", circle=True)   # (Nx, Nx)
+# ── GPU FBP (preferred when a CUDA/MPS device is available) ───────────────
+# Implements filtered back-projection entirely in PyTorch so that the full
+# pipeline stays on the GPU without any CPU bottleneck.
+#
+# Algorithm (matches skimage.transform.iradon with filter='ramp', circle=True):
+#   1. Ramp-filter each sinogram row in the Fourier domain (rfft → × |ω| → irfft)
+#   2. Backproject: for each angle θ_i, interpolate the filtered sinogram
+#      at detector coordinate t = x·cos(θ_i) + z·sin(θ_i) and accumulate.
+#      grid_sample provides bilinear interpolation — the same kernel used in
+#      the multislice rotation, so no extra dependency.
+#   3. Apply the FBP normalisation factor π/(2·N_angles).
+#   4. Zero pixels outside the inscribed circle (circle=True).
+#
+# The geometry is identical for every y-slice, so the sampling grid is
+# precomputed once for all N_angles and then reused Ny times.
+# At N_angles=450, Ny=~350, Nz=Nx=~330 on an A40 this takes ~2–4 s.
 
-if _JOBLIB:
-    n_jobs = -1   # use all available CPU cores
-    print(f"  Parallel FBP (joblib threads, n_jobs={n_jobs}) …", flush=True)
-    slices = Parallel(n_jobs=n_jobs, prefer="threads")(
-        joblib_delayed(_fbp_slice)(iy) for iy in range(Ny))
-    delta_fbp = np.stack(slices, axis=1)          # (Nz, Ny, Nx)
+def _fbp_gpu(phase_arr, theta_deg, dev):
+    """
+    GPU filtered back-projection.
+
+    Parameters
+    ----------
+    phase_arr : ndarray (N_angles, Ny, Nx)
+    theta_deg : ndarray (N_angles,) in degrees
+    dev       : torch.device
+
+    Returns
+    -------
+    recon : ndarray (Nz=Nx, Ny, Nx)
+    """
+    import torch
+    import torch.nn.functional as F_nn
+
+    N_ang, Ny_, Nx_ = phase_arr.shape
+    Nz_ = Nx_
+
+    # ── 1.  Sinogram → GPU  (Ny, N_angles, Nx) ─────────────────────────────
+    sino = torch.as_tensor(phase_arr, dtype=torch.float32, device=dev)
+    sino = sino.permute(1, 0, 2).contiguous()          # (Ny, N_ang, Nx)
+
+    # ── 2.  Ramp filter in Fourier domain ───────────────────────────────────
+    n_pad  = max(64, int(2 ** np.ceil(np.log2(2 * Nx_))))
+    freqs  = torch.fft.rfftfreq(n_pad, device=dev).float()
+    ramp   = 2.0 * freqs                               # Ram-Lak: |ω| on one-sided spectrum
+    sino_f = torch.fft.rfft(sino, n=n_pad, dim=-1) * ramp[None, None, :]
+    filt   = torch.fft.irfft(sino_f, n=n_pad, dim=-1)[..., :Nx_]  # (Ny, N_ang, Nx)
+
+    # ── 3.  Precompute sampling grid for all angles ─────────────────────────
+    #  Pixel (z, x) maps to detector coordinate t = x·cos(θ) + z·sin(θ),
+    #  normalised to [-1, 1] for grid_sample (align_corners=True convention).
+    R      = (Nx_ - 1) / 2.0
+    x_lin  = torch.linspace(-R, R, Nx_, device=dev)
+    z_lin  = torch.linspace(-R, R, Nz_, device=dev)
+    Z, X   = torch.meshgrid(z_lin, x_lin, indexing='ij')       # (Nz, Nx)
+
+    cos_t  = torch.as_tensor(np.cos(np.deg2rad(theta_deg)),
+                              dtype=torch.float32, device=dev)  # (N_ang,)
+    sin_t  = torch.as_tensor(np.sin(np.deg2rad(theta_deg)),
+                              dtype=torch.float32, device=dev)
+
+    # t_all: (N_ang, Nz, Nx),  normalised detector coordinate for every angle
+    t_all     = (X[None] * cos_t[:, None, None] +
+                 Z[None] * sin_t[:, None, None]) / R
+    grid_all  = torch.stack([t_all,
+                              torch.zeros_like(t_all)], dim=-1) # (N_ang, Nz, Nx, 2)
+
+    # ── 4.  Backproject — loop over Ny, vectorise over N_angles ─────────────
+    recon = torch.zeros(Ny_, Nz_, Nx_, device=dev)
+    for iy in range(Ny_):
+        # Treat each angle's filtered row as a (1 × Nx) 2-D image,
+        # then sample at all (Nz, Nx) output positions simultaneously.
+        fi      = filt[iy].unsqueeze(1).unsqueeze(1)            # (N_ang, 1, 1, Nx)
+        sampled = F_nn.grid_sample(fi, grid_all, mode='bilinear',
+                                   padding_mode='zeros',
+                                   align_corners=True)           # (N_ang, 1, Nz, Nx)
+        recon[iy] = sampled.squeeze(1).sum(0)                   # (Nz, Nx)
+
+    # ── 5.  Normalise + inscribed-circle mask ────────────────────────────────
+    recon *= np.pi / (2 * N_ang)
+    recon *= (X**2 + Z**2 <= R**2).unsqueeze(0)                 # circle=True
+
+    return recon.permute(1, 0, 2).cpu().numpy()                 # (Nz, Ny, Nx)
+
+
+# ── Choose backend ──────────────────────────────────────────────────────────
+if TORCH_AVAILABLE and DEVICE.type == 'cuda':
+    print(f"  GPU FBP on {DEVICE} …", flush=True)
+    delta_fbp = _fbp_gpu(phase_use, theta_use, DEVICE)
+
+elif TORCH_AVAILABLE and DEVICE.type == 'mps':
+    # MPS kernel-launch overhead makes the Ny-loop slow; use CPU FBP instead.
+    print("  MPS device detected — using parallel CPU FBP (lower overhead) …",
+          flush=True)
+    TORCH_AVAILABLE_FBP = False   # flag: fall through to CPU branch
 else:
-    print("  Sequential FBP …", flush=True)
-    delta_fbp = np.zeros((Nz, Ny, Nx), dtype=np.float64)
-    for iy in range(Ny):
-        delta_fbp[:, iy, :] = _fbp_slice(iy)
+    TORCH_AVAILABLE_FBP = False
+
+if not (TORCH_AVAILABLE and DEVICE.type == 'cuda'):
+    # ── CPU FBP (joblib threads) ─────────────────────────────────────────────
+    # Respect SLURM CPU allocation; avoid saturating all cores on a shared node.
+    _slurm_cpus = os.environ.get('SLURM_CPUS_PER_TASK')
+    if _slurm_cpus is not None:
+        n_jobs = int(_slurm_cpus)
+        print(f"  Parallel FBP (joblib, SLURM n_jobs={n_jobs}) …", flush=True)
+    elif _JOBLIB:
+        n_jobs = min(Ny, os.cpu_count() or 1)
+        print(f"  Parallel FBP (joblib threads, n_jobs={n_jobs}) …", flush=True)
+    else:
+        n_jobs = 1
+        print("  Sequential FBP (install joblib for parallel speedup) …", flush=True)
+
+    def _fbp_slice(iy):
+        return iradon(phase_use[:, iy, :].T, theta=theta_use,
+                      filter_name="ramp", circle=True)          # (Nx, Nx)
+
+    if _JOBLIB and n_jobs != 1:
+        slices    = Parallel(n_jobs=n_jobs, prefer="threads")(
+                        joblib_delayed(_fbp_slice)(iy) for iy in range(Ny))
+        delta_fbp = np.stack(slices, axis=1)                    # (Nz, Ny, Nx)
+    else:
+        delta_fbp = np.zeros((Nz, Ny, Nx), dtype=np.float64)
+        for iy in range(Ny):
+            delta_fbp[:, iy, :] = _fbp_slice(iy)
 
 # Convert projected phase → δ:   φ = −k₀ · pixel · Σδ   →   δ = −φ / (k₀ · pixel)
 # If your ptychography code uses the opposite sign convention, remove the minus.
