@@ -41,13 +41,14 @@
 #SBATCH --mem=32G                     # host RAM; ~4 GB model + data, 32 GB is safe
 #
 # --- Wall-clock time ----------------------------------------------------------
-# Rough guide (full 450-angle run, 394×493 volume, 50 iters):
-#   A100 40 GB :  ~15 s/iter  →  50 iters ≈  13 min  →  request 1 h
-#   V100 16 GB :  ~25 s/iter  →  50 iters ≈  22 min  →  request 1 h
-#   RTX 3090   :  ~30 s/iter  →  50 iters ≈  27 min  →  request 1 h
-#   T4 16 GB   :  ~55 s/iter  →  50 iters ≈  50 min  →  request 2 h
-# Add ~10 min for FBP (Pass 1) and data loading.
-# Run cluster_diagnostic.py to get a dataset-specific estimate first.
+# Benchmarks at N_SLICES=64, 450 angles, CROP_X=80/CROP_Y=20 (333×354×333):
+#   A40  48 GB :  ~40 s/iter  → 100 iters ≈  67 min  →  request 2 h
+#   A100 40 GB :  ~35 s/iter  → 100 iters ≈  58 min  →  request 2 h
+#   V100 16 GB :  ~70 s/iter  → 100 iters ≈ 117 min  →  request 3 h
+#   RTX 3090   :  ~85 s/iter  → 100 iters ≈ 142 min  →  request 3 h
+# At N_SLICES=16 (quick test run), divide times by 4.
+# Add ~5 min for FBP (Pass 1, parallel on 96 cores) and data loading.
+# Run cluster_diagnostic.py first to get dataset-specific estimates.
 #SBATCH --time=02:00:00               # HH:MM:SS — adjust after diagnostics
 #
 # --- Notifications (optional) -------------------------------------------------
@@ -86,7 +87,7 @@ PYTHON="python"
 OUT_DIR="${WORK_DIR}/results_${SLURM_JOB_ID}"
 
 # ── Reconstruction parameters (override the defaults in twopass_real_data.py)
-N_SLICES=16      # multislice slabs — increase for higher accuracy (slower)
+N_SLICES=64      # multislice slabs — A40/A100: 64 fits in 48 GB, ~40 s/iter
 N_ITER=100       # Pass 2 gradient iterations  (50–100 for production quality)
 LR=5e-6          # Adam peak learning rate  (hard X-ray data: δ ~ 1e-5–1e-6)
 LAMBDA_TV=1e-5   # TV regularisation weight  (0 to disable)

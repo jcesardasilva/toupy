@@ -207,17 +207,23 @@ FSC_HALF = None   # None | 0 | 1
 #   DoF ≈ pixel² / λ = F * Nz * pixel  →  N_SLICES ≈ Nz / DoF_in_pixels
 # For this dataset DoF ≈ F*Nz ≈ 143 pixels → start with Nz/16 ≈ 31 px/slab.
 # Increase N_SLICES for higher accuracy (but proportionally slower).
-N_SLICES    = 16
+# ── Benchmarks on NVIDIA A40 (48 GB), uncropped 493×394×493, 450 angles:
+#   N_SLICES=16  →  ~17 s/iter   (time scales linearly with N_SLICES)
+#   N_SLICES=64  →  ~68 s/iter
+#   N_SLICES=64, with CROP_X=80/CROP_Y=20 (333×354×333)  →  ~40 s/iter
+# Memory (persistent tensors): ~3.5 GB regardless of N_SLICES.
+# N_SLICES=64 fits comfortably in a 48 GB GPU; use 16 only for fast tests.
+N_SLICES    = 64
 SLICE_DZ    = Nz * PIXEL_SIZE / N_SLICES          # [m] slab thickness
 
 # ── Pass 2 optimisation ────────────────────────────────────────────────────
-# With 450 angles + ~500×600 frames, one iteration ≈ 30–60 s on MPS/CUDA.
-# Convergence guide from the loss curve:
-#   The loss typically drops ~65% in the first 20 iters, then slowly
-#   approaches the noise floor (set by measurement noise + ptychography
-#   error).  50–100 iterations are recommended for production runs.
-#   On a cluster with A100: 100 iters ≈ 25–50 min.  On MacBook MPS: ~8 h.
-N_ITER       = 50
+# Convergence guide (from experimental loss curves):
+#   Loss drops ~65% in first 20 iters, then approaches the noise floor set
+#   by measurement noise + ptychography reconstruction error.
+# Timing on A40 with N_SLICES=64, cropped data, 450 angles:
+#   ~40 s/iter  →  100 iters ≈ 67 min  →  request 2 h on SLURM
+# On MacBook Pro MPS with N_SLICES=16: ~300 s/iter — use only for tests.
+N_ITER       = 100
 LR           = 5e-6       # Adam peak learning rate
                           # Hard X-ray data: δ ~ 1e-5–1e-6; was 5e-4 (suited for δ ~ 1e-3)
 LAMBDA_TV    = 1e-5       # TV regularisation weight (0 to disable)
