@@ -109,10 +109,25 @@ ap.add_argument(
         f"or '{_DEFAULT_OUT}' when using the default paths."
     ),
 )
+ap.add_argument(
+    "--apod-width",
+    type=int,
+    default=20,
+    metavar="PX",
+    help=(
+        "Width in pixels of the Tukey (cosine-tapered flat-top) apodization "
+        "applied to each volume before FFT.  Matches Toupy's "
+        "FourierShellCorr default (apod_width=20).  "
+        "Set to 0 to disable apodization — faster but can over-estimate "
+        "resolution because edge artefacts correlate between half-datasets.  "
+        "Default: 20"
+    ),
+)
 args = ap.parse_args()
 
-FILE_HALF0 = os.path.abspath(args.half0)
-FILE_HALF1 = os.path.abspath(args.half1)
+FILE_HALF0  = os.path.abspath(args.half0)
+FILE_HALF1  = os.path.abspath(args.half1)
+APOD_WIDTH  = args.apod_width   # 0 = no apodization
 
 if args.out_dir is not None:
     OUT_DIR = os.path.abspath(args.out_dir)
@@ -167,7 +182,36 @@ print()
 # FSC computation
 # ---------------------------------------------------------------------------
 
-def compute_fsc(vol1: np.ndarray, vol2: np.ndarray, n_shells: int = 200):
+def _tukey_1d(n: int, apod: int) -> np.ndarray:
+    """
+    1-D Tukey (cosine-tapered flat-top) apodization window.
+
+    The window equals 1 in the central ``n - 2*apod`` samples and tapers
+    smoothly from 1 → 0 via a raised-cosine ramp over ``apod`` samples at
+    each end.  This matches the window produced by Toupy's
+    ``FourierShellCorr._make_1d_tukey``.
+
+    Parameters
+    ----------
+    n : int   — window length (number of samples)
+    apod : int — taper width in pixels at each end
+
+    Returns
+    -------
+    win : ndarray, shape (n,), dtype float32
+    """
+    win = np.ones(n, dtype=np.float32)
+    if apod <= 0 or 2 * apod >= n:
+        return win
+    t = np.arange(apod, dtype=np.float32)
+    taper = 0.5 * (1.0 - np.cos(np.pi * t / apod))   # 0 → 1 over apod pts
+    win[:apod]  = taper
+    win[-apod:] = taper[::-1]
+    return win
+
+
+def compute_fsc(vol1: np.ndarray, vol2: np.ndarray,
+                n_shells: int = 200, apod_width: int = 20):
     """
     Compute the Fourier Shell Correlation between two 3-D volumes.
 
@@ -176,6 +220,9 @@ def compute_fsc(vol1: np.ndarray, vol2: np.ndarray, n_shells: int = 200):
     vol1, vol2 : ndarray, shape (Nz, Ny, Nx)
     n_shells : int
         Number of radial shells.
+    apod_width : int
+        Pixels of Tukey taper applied to each axis before FFT, matching
+        Toupy's FourierShellCorr default.  Set to 0 to disable.
 
     Returns
     -------
@@ -184,23 +231,34 @@ def compute_fsc(vol1: np.ndarray, vol2: np.ndarray, n_shells: int = 200):
     fsc : ndarray, shape (n_shells,)
         FSC values in [−1, 1].
     n_voxels : ndarray, shape (n_shells,)
-        Number of Fourier voxels in each shell (for 1/2-bit criterion).
+        Number of Fourier voxels in each shell (for threshold criteria).
 
     Memory notes
     ------------
     Uses rfftn (real FFT) which exploits the real-valued input to produce
     a half-spectrum of shape (Nz, Ny, Nx//2+1) in complex64 — roughly 4×
-    smaller than a full complex128 fftn.  The radial coordinate R is built
-    with NumPy broadcasting (three tiny 1-D arrays) rather than meshgrid,
-    avoiding three large temporary float64 arrays.  For a (494,389,494)
-    volume this cuts peak memory from ~7 GB to ~2 GB.
+    smaller than a full complex128 fftn.  The radial coordinate R and the
+    apodization window are both built via broadcasting (three tiny 1-D
+    arrays) to avoid large temporary allocations.
     """
     Nz, Ny, Nx = vol1.shape
 
+    # Apply separable Tukey apodization (matching Toupy's convention)
+    # via broadcasting so we never materialise the full 3-D window array.
+    v1 = vol1.astype(np.float32)
+    v2 = vol2.astype(np.float32)
+    if apod_width > 0:
+        wz = _tukey_1d(Nz, apod_width)[:, None, None]
+        wy = _tukey_1d(Ny, apod_width)[None, :, None]
+        wx = _tukey_1d(Nx, apod_width)[None, None, :]
+        v1 *= wz;  v1 *= wy;  v1 *= wx
+        v2 *= wz;  v2 *= wy;  v2 *= wx
+
     # rfftn: input float32 → output complex64, shape (Nz, Ny, Nx//2+1)
     # FSC is a ratio so the missing conjugate half cancels in numerator/denom.
-    F1 = np.fft.rfftn(vol1.astype(np.float32))
-    F2 = np.fft.rfftn(vol2.astype(np.float32))
+    F1 = np.fft.rfftn(v1)
+    F2 = np.fft.rfftn(v2)
+    del v1, v2   # free before building R
 
     # Radial coordinate via broadcasting — no meshgrid, no giant temporaries
     kz = np.fft.fftfreq(Nz).astype(np.float32)[:, None, None]   # (Nz,1,1)
@@ -279,17 +337,22 @@ def resolution_at_threshold(freq_nyq, fsc, threshold):
 # Compute FSC for FBP and two-pass
 # ---------------------------------------------------------------------------
 
+_apod_str = f"{APOD_WIDTH} px" if APOD_WIDTH > 0 else "none"
+print(f"Apodization : {_apod_str}  "
+      f"({'Tukey taper, matching Toupy convention' if APOD_WIDTH > 0 else 'disabled — may over-estimate resolution'})")
+print()
+
 print("Computing FSC — FBP half-0 vs half-1 …")
-r_mid, fsc_fbp, n_vox = compute_fsc(fbp0, fbp1)
+r_mid, fsc_fbp, n_vox = compute_fsc(fbp0, fbp1, apod_width=APOD_WIDTH)
 gc.collect()
 
 print("Computing FSC — two-pass half-0 vs half-1 …")
-_, fsc_tp, _ = compute_fsc(tp0, tp1)
+_, fsc_tp, _ = compute_fsc(tp0, tp1, apod_width=APOD_WIDTH)
 gc.collect()
 
 # Also compute cross-FSC (diagnostic: where do FBP and TP agree/disagree?)
 print("Computing cross-FSC — FBP half-0 vs two-pass half-0 …")
-_, fsc_cross, _ = compute_fsc(fbp0, tp0)
+_, fsc_cross, _ = compute_fsc(fbp0, tp0, apod_width=APOD_WIDTH)
 gc.collect()
 
 half_bit = half_bit_criterion(n_vox)
@@ -418,7 +481,8 @@ ax.grid(axis="y", alpha=0.3)
 
 fig.suptitle(
     f"Fourier Shell Correlation — PXCT two-pass vs FBP\n"
-    f"pixel = {PIXEL_NM:.2f} nm  |  volume {Nz}×{Ny}×{Nx}",
+    f"pixel = {PIXEL_NM:.2f} nm  |  volume {Nz}×{Ny}×{Nx}  "
+    f"|  apod = {_apod_str}",
     fontsize=10)
 
 fpath = os.path.join(OUT_DIR, "fsc_curves.png")
@@ -439,6 +503,7 @@ np.savez_compressed(
     one_bit    = one_bit,
     n_voxels   = n_vox,
     pixel_nm   = PIXEL_NM,
+    apod_width = APOD_WIDTH,
     res_hb_fbp = d_hb_fbp,
     res_hb_tp  = d_hb_tp,
     res_ob_fbp = d_ob_fbp,
