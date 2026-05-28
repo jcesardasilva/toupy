@@ -176,26 +176,33 @@ def rotate_volume_torch(vol: torch.Tensor, theta_deg: float) -> torch.Tensor:
     # 2×3 affine matrix  [x_in, z_in] = R @ [x_out, z_out, 1]
     # PyTorch affine_grid encodes the OUTPUT→INPUT mapping.
     #
-    # scipy.ndimage.rotate(axes=(2,0), angle=θ) rotates in PIXEL space:
-    #   x_out_c =  c·x_in_c + s·z_in_c          (centered pixel coords)
-    #   z_out_c = -s·x_in_c + c·z_in_c
-    # Inverse (output→input in pixel coords):
-    #   x_in_c =  c·x_out_c - s·z_out_c
-    #   z_in_c =  s·x_out_c + c·z_out_c
+    # scipy.ndimage.rotate(axes=(2,0), angle=θ) uses the rotation matrix
+    #   [[cos, sin], [-sin, cos]]
+    # acting on (axis2, axis0) = (x, z) in the OUTPUT→INPUT sense:
+    #   x_in_c =  c·x_out_c + s·z_out_c          (centered pixel coords)
+    #   z_in_c = -s·x_out_c + c·z_out_c
+    # Forward (INPUT→OUTPUT):
+    #   x_out_c =  c·x_in_c - s·z_in_c
+    #   z_out_c =  s·x_in_c + c·z_in_c
     #
     # affine_grid works in NORMALISED coords [-1, 1].  The mapping between
     # normalised and pixel centred coords is:
     #   x_norm = 2·x_c / (Nx-1),   z_norm = 2·z_c / (Nz-1)
     #
-    # Substituting gives the affine matrix in normalised space:
-    #   x_in_norm =  c·x_out_norm - s·(Nz-1)/(Nx-1)·z_out_norm
-    #   z_in_norm =  s·(Nx-1)/(Nz-1)·x_out_norm + c·z_out_norm
+    # Substituting the OUTPUT→INPUT mapping into normalised coords gives:
+    #   x_in_norm =  c·x_out_norm + s·(Nz-1)/(Nx-1)·z_out_norm
+    #   z_in_norm = -s·(Nx-1)/(Nz-1)·x_out_norm + c·z_out_norm
     #
-    # When Nz == Nx the aspect-ratio factors cancel and we get [[c,-s],[s,c]].
+    # When Nz == Nx the aspect-ratio factors cancel and we get [[c,+s],[-s,c]].
+    #
+    # NOTE: an earlier version of this matrix had the signs of the off-diagonal
+    # elements flipped ([[c,-s*az],[+s*ax,c]]), which caused the GPU rotation to
+    # go in the OPPOSITE direction from scipy.  This produced a mirror-image
+    # reconstruction on GPU vs CPU and has now been corrected.
     az = (Nz - 1) / (Nx - 1) if Nx != 1 else 1.0   # aspect ratio z/x
     ax = (Nx - 1) / (Nz - 1) if Nz != 1 else 1.0   # aspect ratio x/z
-    R = torch.tensor([[c,    -s * az, 0.0],
-                      [s * ax,  c,   0.0]], dtype=torch.float32, device=device)
+    R = torch.tensor([[c,     s * az, 0.0],
+                      [-s * ax,  c,  0.0]], dtype=torch.float32, device=device)
 
     # Compute the sampling grid for a SINGLE y-slice (the Nz×Nx plane).
     # All y-slices share the same xz-rotation, so we only need shape (1,1,Nz,Nx).

@@ -106,23 +106,13 @@ ANGLE_STEP=1     # 1 = all angles;  >1 = subsample for fast prototyping
 # producing noisy phases that contaminate the multislice loss.
 # Set based on the self-consistency residual plot (where residuals are large).
 CROP_X=80        # pixels to remove from each side in the column (x) direction
-CROP_Y=40        # pixels to remove from each side in the row (y) direction
-                 # Increase if a bright band still appears at the top/bottom of
-                 # the xy/yz reconstruction slices.  Typical range: 20–80 px.
+CROP_Y=20        # pixels to remove from each side in the row (y) direction
 
 # ── Half-dataset mode for FSC ─────────────────────────────────────────────
 # None = full dataset  |  0 = even angles  |  1 = odd angles
 # Submit two jobs (FSC_HALF=0 and FSC_HALF=1) in parallel, then run
 # fsc_analysis.py on the two result files to get the FSC resolution curves.
 FSC_HALF=None
-
-# ── Phase ramp correction ─────────────────────────────────────────────────
-# Removes per-projection linear phase gradient estimated from the air regions
-# on both sides of the sample.  Suppresses the systematic slope seen in the
-# residual plots (Figure 5).  Enable if Figure 5 shows a ramp; disable if
-# the sample fills the entire FOV with no visible air region on either side.
-PHASE_RAMP_CORR=True
-N_AIR_PX=15        # pixels on each side (after crop) used as air reference
 
 # =============================================================================
 # ── Environment setup — uncomment the block matching your cluster ─────────────
@@ -205,14 +195,12 @@ sed -i \
     -e "s|^CROP_X\s*=.*|CROP_X = ${CROP_X}|" \
     -e "s|^CROP_Y\s*=.*|CROP_Y = ${CROP_Y}|" \
     -e "s|^FSC_HALF\s*=.*|FSC_HALF = ${FSC_HALF}|" \
-    -e "s|^PHASE_RAMP_CORR\s*=.*|PHASE_RAMP_CORR = ${PHASE_RAMP_CORR}|" \
-    -e "s|^N_AIR_PX\s*=.*|N_AIR_PX       = ${N_AIR_PX}|" \
     -e "s|^DATA_FILE\s*=.*|DATA_FILE = \"${DATA_FILE}\"|" \
     -e "s|^OUT_DIR\s*=.*|OUT_DIR = \"${OUT_DIR}\"|" \
     "${PATCHED}"
 
 echo "Reconstruction parameters (as patched):"
-grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|CROP_X|CROP_Y|FSC_HALF|PHASE_RAMP_CORR|N_AIR_PX|DATA_FILE|OUT_DIR)" \
+grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|CROP_X|CROP_Y|FSC_HALF|DATA_FILE|OUT_DIR)" \
      "${PATCHED}" | sed 's/^/  /'
 echo ""
 
