@@ -170,8 +170,11 @@ print()
 # Tune CROP_Y similarly for top/bottom boundary rows.
 CROP_X = 80   # pixels to remove from EACH side in the column (x) direction
               # 0 = no crop; the FBP and volume x-extent shrink by 2×CROP_X
-CROP_Y = 20   # pixels to remove from EACH side in the row (y) direction
+CROP_Y = 40   # pixels to remove from EACH side in the row (y) direction
               # 0 = no crop; only the y-extent of projections and volume shrinks
+              # Rule of thumb: look at the bright band at the top/bottom of the
+              # xy / yz reconstruction slices.  If it is still visible, double
+              # this value.  Typical range: 20–80 pixels.
 
 if CROP_X > 0 or CROP_Y > 0:
     _sy = slice(CROP_Y if CROP_Y > 0 else None,
@@ -183,6 +186,46 @@ if CROP_X > 0 or CROP_Y > 0:
     Nz          = Nx   # FBP reconstruction is always square in (x, z)
     print(f"  After crop ({CROP_Y}px top/bottom, {CROP_X}px left/right): "
           f"(Ny, Nx, Nz) = ({Ny}, {Nx}, {Nz})\n")
+
+# ── Per-projection phase ramp correction ─────────────────────────────────
+# Ptychographic phase reconstructions often carry a low-frequency background
+# gradient (a linear ramp in x) that is NOT part of the sample signal.  It
+# arises from imperfect probe illumination or phase reference errors and shows
+# up as a systematic slope in the "residual meas − re-proj" plot (Figure 5).
+#
+# Fix: for each projection, fit a linear ramp to the air regions on both
+# sides of the sample (outside the inscribed circle), then subtract it.  This
+# removes the gradient WITHOUT touching the sample interior.
+#
+# When to use:
+#   - The Figure 5 residual shows a systematic slope across ALL angles → True
+#   - The residual is random (patchy noise) → False / no benefit
+#   - The sample fills the entire FOV with no visible air region → False
+#
+# N_AIR_PX: number of pixels on EACH side to use as the air reference region.
+# Increase if the sample is smaller; decrease if the sample fills the FOV.
+PHASE_RAMP_CORR = True   # True / False
+N_AIR_PX       = 15     # air reference pixels from each side after crop
+
+if PHASE_RAMP_CORR:
+    _N_ang_all, _Ny_all, _Nx_all = phase_stack.shape
+    _xidx   = np.arange(_Nx_all, dtype=np.float64)
+    _air_x  = np.concatenate([_xidx[:N_AIR_PX], _xidx[-N_AIR_PX:]])
+    _n_corr = 0
+    for _ai in range(_N_ang_all):
+        for _iy in range(_Ny_all):
+            _row     = phase_stack[_ai, _iy, :]
+            _air_v   = np.concatenate([_row[:N_AIR_PX], _row[-N_AIR_PX:]])
+            if np.any(np.isnan(_air_v)):
+                continue
+            _poly    = np.polyfit(_air_x, _air_v, 1)   # linear fit
+            _ramp    = np.polyval(_poly, _xidx)
+            phase_stack[_ai, _iy, :] -= _ramp
+            _n_corr += 1
+    print(f"  Phase ramp correction applied to {_N_ang_all} projections "
+          f"× {_Ny_all} rows = {_n_corr} rows corrected "
+          f"(N_AIR_PX={N_AIR_PX}).\n")
+    del _xidx, _air_x, _n_corr
 
 # ── Half-dataset mode — for Fourier Shell Correlation (FSC) ───────────────
 # The standard way to estimate spatial resolution from a single dataset is to
@@ -779,7 +822,20 @@ print(f"  Saved: {fpath4}")
 
 # ── Figure 5: Projections — measured vs re-projected ─────────────────────
 # Re-project the two-pass volume at a few angles to check consistency.
-# Uses simple projection approximation (fast, for visual check only).
+#
+# IMPORTANT: the re-projection here uses the PROJECTION APPROXIMATION
+# (simple Beer-Lambert sum of δ along the beam direction), NOT the full
+# multislice forward model.  For this dataset with F≈{F:.2f} < 1 (strong
+# diffraction regime), the projection approximation is inaccurate and will
+# always produce systematic residuals even for a perfect two-pass result.
+# Use this figure to check overall orientation and scale — not convergence.
+# Convergence quality is shown by Figure 3 (loss curve).
+#
+# What to look for:
+#   - Profile shape roughly matching (same peak positions) → orientation OK
+#   - Residual is a smooth ramp across x → low-frequency ptychography phase
+#     error; enable PHASE_RAMP_CORR = True to suppress it
+#   - Residual is random and small → good agreement
 n_show = min(3, N_use)
 angle_idx = np.linspace(0, N_use - 1, n_show, dtype=int)
 
@@ -822,8 +878,11 @@ for row, ai in enumerate(angle_idx):
     axes5[row, 2].set_title("Residual meas − re-proj", fontsize=7)
     axes5[row, 2].grid(True, alpha=0.3)
 
-fig5.suptitle("Self-consistency check: measured vs re-projected phases",
-              fontsize=9)
+fig5.suptitle(
+    f"Self-consistency check: measured vs re-projected phases\n"
+    f"(re-projection uses projection approximation — NOT multislice;  "
+    f"residuals expected for F={F:.2f})",
+    fontsize=8)
 fpath5 = os.path.join(OUT_DIR, "fig5_reprojection_check.png")
 fig5.savefig(fpath5, dpi=150, bbox_inches="tight")
 print(f"  Saved: {fpath5}")
