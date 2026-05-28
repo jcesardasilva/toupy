@@ -32,24 +32,31 @@
 #SBATCH --error=twopass_%j.err
 #
 # --- Compute resources --------------------------------------------------------
-# Adjust partition, GPU type and count for your cluster.
-# Common partition names:  gpu  gpu_short  gpu-a100  gpu_p100  etc.
-# Common gres syntax:  gpu:1   gpu:a100:1   gpu:v100:1
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:1
-#SBATCH --cpus-per-task=8             # for joblib-parallel FBP (Pass 1)
+# Partition / GPU selection — ESRF GPU5a40 cluster
+# ---------------------------------------------------------------
+# Partition guide (from sinfo):
+#   gpu          1:00:00   A40 / A100  — too short for 100-iter run
+#   low-gpu      2:00:00   A40 / A100  — recommended for ≤ 100 iters on A40
+#   gpu-long  1-00:00:00   A40 / A100  — use for FSC half-runs or >100 iters
+#
+# GRES guide:
+#   gpu:nvidia_a40:1   — request one A40  (45 GB VRAM, fits N_SLICES=64)
+#   gpu:nvidia_a100:1  — request one A100 (40 GB VRAM, fits N_SLICES=64)
+#   gpu:1              — any available GPU
+#SBATCH --partition=low-gpu
+#SBATCH --gres=gpu:nvidia_a40:1
+#SBATCH --cpus-per-task=8             # SLURM-allocated CPUs (used by GPU FBP fallback)
 #SBATCH --mem=32G                     # host RAM; ~4 GB model + data, 32 GB is safe
 #
 # --- Wall-clock time ----------------------------------------------------------
 # Benchmarks at N_SLICES=64, 450 angles, CROP_X=80/CROP_Y=20 (333×354×333):
-#   A40  48 GB :  ~40 s/iter  → 100 iters ≈  67 min  →  request 2 h
-#   A100 40 GB :  ~35 s/iter  → 100 iters ≈  58 min  →  request 2 h
-#   V100 16 GB :  ~70 s/iter  → 100 iters ≈ 117 min  →  request 3 h
-#   RTX 3090   :  ~85 s/iter  → 100 iters ≈ 142 min  →  request 3 h
-# At N_SLICES=16 (quick test run), divide times by 4.
-# Add ~5 min for FBP (Pass 1, parallel on 96 cores) and data loading.
+#   A40  48 GB :  ~40 s/iter  → 100 iters ≈  67 min  →  request 90 min (low-gpu)
+#   A100 40 GB :  ~35 s/iter  → 100 iters ≈  58 min  →  request 90 min (low-gpu)
+#   V100 16 GB :  ~70 s/iter  → 100 iters ≈ 117 min  →  request gpu-long 2:30:00
+# At N_SLICES=16 (quick test run), divide times by ~4.
+# GPU FBP (Pass 1) adds only ~5 s; data loading ~1 min.
 # Run cluster_diagnostic.py first to get dataset-specific estimates.
-#SBATCH --time=02:00:00               # HH:MM:SS — adjust after diagnostics
+#SBATCH --time=01:30:00               # 90 min — safe for A40 100-iter run on low-gpu
 #
 # --- Notifications (optional) -------------------------------------------------
 ##SBATCH --mail-type=END,FAIL
