@@ -234,15 +234,29 @@ def half_bit_criterion(n_voxels: np.ndarray) -> np.ndarray:
     """
     1/2-bit information criterion for resolution (van Heel & Schatz 2005).
 
-    T(n) = (0.2071 + 1.9102/sqrt(n)) / (1.2071 + 0.9102/sqrt(n))
+    T_{1/2}(N) = (0.2071 + 1.9102/sqrt(N)) / (1.2071 + 0.9102/sqrt(N))
 
-    This is the standard resolution threshold for half-dataset FSC in
-    cryo-EM and PXCT.  It is more conservative than the fixed 0.5 threshold
-    at high spatial frequencies where shells contain many voxels, and more
-    liberal at low frequencies.
+    Asymptote at large N: 0.2071/1.2071 ≈ 0.171
+    This is the primary resolution threshold recommended by van Heel &
+    Schatz (2005) for half-dataset FSC.
     """
     sqn = np.sqrt(n_voxels.astype(float) + 1e-30)
     return (0.2071 + 1.9102 / sqn) / (1.2071 + 0.9102 / sqn)
+
+
+def one_bit_criterion(n_voxels: np.ndarray) -> np.ndarray:
+    """
+    1-bit information criterion for resolution (van Heel & Schatz 2005).
+
+    T_1(N) = (0.5000 + 2.4142/sqrt(N)) / (1.5000 + 1.4142/sqrt(N))
+
+    Asymptote at large N: 0.5/1.5 ≈ 0.333
+    More conservative (higher threshold) than the ½-bit criterion; the
+    0.5 fixed-threshold rule of thumb approximates this curve at large
+    shell populations.
+    """
+    sqn = np.sqrt(n_voxels.astype(float) + 1e-30)
+    return (0.5000 + 2.4142 / sqn) / (1.5000 + 1.4142 / sqn)
 
 
 def resolution_at_threshold(freq_nyq, fsc, threshold):
@@ -279,13 +293,13 @@ _, fsc_cross, _ = compute_fsc(fbp0, tp0)
 gc.collect()
 
 half_bit = half_bit_criterion(n_vox)
+one_bit  = one_bit_criterion(n_vox)
 
-# Resolution at 0.5 threshold
+# Resolution at fixed FSC = 0.5 threshold
 f05_fbp, d05_fbp = resolution_at_threshold(r_mid, fsc_fbp, 0.5)
 f05_tp,  d05_tp  = resolution_at_threshold(r_mid, fsc_tp,  0.5)
 
-# Resolution at 1/2-bit threshold (frequency-dependent)
-# Use the half-bit curve as a frequency-dependent threshold
+# Resolution at ½-bit criterion (primary van Heel threshold)
 hb_fbp = next((r_mid[i] for i in range(len(fsc_fbp))
                if fsc_fbp[i] < half_bit[i]), np.nan)
 hb_tp  = next((r_mid[i] for i in range(len(fsc_tp))
@@ -293,15 +307,23 @@ hb_tp  = next((r_mid[i] for i in range(len(fsc_tp))
 d_hb_fbp = PIXEL_NM / hb_fbp if not np.isnan(hb_fbp) else np.nan
 d_hb_tp  = PIXEL_NM / hb_tp  if not np.isnan(hb_tp)  else np.nan
 
+# Resolution at 1-bit criterion (more conservative)
+ob_fbp = next((r_mid[i] for i in range(len(fsc_fbp))
+               if fsc_fbp[i] < one_bit[i]), np.nan)
+ob_tp  = next((r_mid[i] for i in range(len(fsc_tp))
+               if fsc_tp[i]  < one_bit[i]), np.nan)
+d_ob_fbp = PIXEL_NM / ob_fbp if not np.isnan(ob_fbp) else np.nan
+d_ob_tp  = PIXEL_NM / ob_tp  if not np.isnan(ob_tp)  else np.nan
+
 print()
-print("=" * 58)
+print("=" * 66)
 print("  Resolution summary")
-print("=" * 58)
-print(f"  {'Method':<14}  {'FSC=0.5':>10}  {'1/2-bit':>10}")
-print(f"  {'-'*14}  {'-'*10}  {'-'*10}")
-print(f"  {'FBP':<14}  {d05_fbp:>8.1f} nm  {d_hb_fbp:>8.1f} nm")
-print(f"  {'Two-pass':<14}  {d05_tp:>8.1f} nm  {d_hb_tp:>8.1f} nm")
-print("=" * 58)
+print("=" * 66)
+print(f"  {'Method':<14}  {'FSC=0.5':>10}  {'1-bit':>10}  {'1/2-bit':>10}")
+print(f"  {'-'*14}  {'-'*10}  {'-'*10}  {'-'*10}")
+print(f"  {'FBP':<14}  {d05_fbp:>8.1f} nm  {d_ob_fbp:>8.1f} nm  {d_hb_fbp:>8.1f} nm")
+print(f"  {'Two-pass':<14}  {d05_tp:>8.1f} nm  {d_ob_tp:>8.1f} nm  {d_hb_tp:>8.1f} nm")
+print("=" * 66)
 print()
 
 # Physical frequency axis (cycles per nm)
@@ -316,29 +338,35 @@ fig, axes = plt.subplots(1, 2, figsize=(13, 5),
 
 # ── Left: FSC vs spatial frequency ────────────────────────────────────────
 ax = axes[0]
-ax.plot(r_mid, fsc_fbp,   color="C0",     lw=1.8, label="FBP")
-ax.plot(r_mid, fsc_tp,    color="C1",     lw=1.8, label="Two-pass")
-ax.plot(r_mid, fsc_cross, color="C2",     lw=1.2, ls="--",
+ax.plot(r_mid, fsc_fbp,   color="C0",        lw=1.8, label="FBP")
+ax.plot(r_mid, fsc_tp,    color="C1",        lw=1.8, label="Two-pass")
+ax.plot(r_mid, fsc_cross, color="C2",        lw=1.2, ls="--",
         label="Cross (FBP₀ vs TP₀)", alpha=0.7)
-ax.plot(r_mid, half_bit,  color="gray",   lw=1.2, ls=":",
+ax.plot(r_mid, one_bit,   color="steelblue", lw=1.3, ls="-.",
+        label="1-bit criterion")
+ax.plot(r_mid, half_bit,  color="dimgray",   lw=1.3, ls=":",
         label="½-bit criterion")
-ax.axhline(0.5,           color="black",  lw=0.9, ls="--", alpha=0.6)
+ax.axhline(0.5,           color="black",     lw=0.8, ls="--", alpha=0.5,
+           label="FSC = 0.5 (ref.)")
 
-# Mark resolution crossings
-for f_c, d_c, col, tag in [
-        (f05_fbp, d05_fbp, "C0", f"FBP  {d05_fbp:.1f} nm"),
-        (f05_tp,  d05_tp,  "C1", f"TP   {d05_tp:.1f} nm")]:
+# Mark ½-bit crossings (primary, solid tick) and 1-bit crossings (secondary)
+for f_c, col, tag, ls in [
+        (hb_fbp, "C0",        f"FBP ½-bit {d_hb_fbp:.1f} nm",  ":"),
+        (hb_tp,  "C1",        f"TP  ½-bit {d_hb_tp:.1f} nm",   ":"),
+        (ob_fbp, "C0",        f"FBP 1-bit {d_ob_fbp:.1f} nm",  "-."),
+        (ob_tp,  "C1",        f"TP  1-bit {d_ob_tp:.1f} nm",   "-.")]:
     if not np.isnan(f_c):
-        ax.axvline(f_c, color=col, lw=0.8, ls="--", alpha=0.6)
-        ax.text(f_c + 0.005, 0.55, tag, color=col, fontsize=7, rotation=90,
-                va="bottom")
+        ax.axvline(f_c, color=col, lw=0.8, ls=ls, alpha=0.6)
+        y_txt = 0.08 if "1-bit" in tag else 0.30
+        ax.text(f_c + 0.004, y_txt, tag, color=col, fontsize=6.5,
+                rotation=90, va="bottom")
 
 ax.set_xlim(0, 0.5)
 ax.set_ylim(-0.05, 1.05)
 ax.set_xlabel("Spatial frequency  [Nyquist units]")
 ax.set_ylabel("Fourier Shell Correlation")
 ax.set_title("Half-dataset FSC")
-ax.legend(fontsize=8, loc="upper right")
+ax.legend(fontsize=7.5, loc="upper right")
 ax.grid(True, alpha=0.3)
 
 # Secondary x-axis in nm⁻¹
@@ -350,21 +378,34 @@ ax2.set_xticklabels([f"{1/(t*PIXEL_NM*2):.1f}" for t in ticks_nyq], fontsize=7)
 ax2.set_xlabel("Spatial frequency  [nm⁻¹]", fontsize=8)
 
 # ── Right: Resolution summary bar chart ───────────────────────────────────
+# Bar order (left → right per method): ½-bit (prominent) | 1-bit | FSC=0.5
 ax = axes[1]
-methods  = ["FBP", "Two-pass"]
-d_05     = [d05_fbp, d05_tp]
-d_hb     = [d_hb_fbp, d_hb_tp]
-x        = np.arange(len(methods))
-w        = 0.35
+methods = ["FBP", "Two-pass"]
+d_hb    = [d_hb_fbp,  d_hb_tp]   # ½-bit  — primary (van Heel recommended)
+d_ob    = [d_ob_fbp,  d_ob_tp]   # 1-bit  — more conservative
+d_05    = [d05_fbp,   d05_tp]    # FSC=0.5 — legacy reference
 
-bars1 = ax.bar(x - w/2, d_05, w, label="FSC = 0.5",    color=["C0", "C1"], alpha=0.85)
-bars2 = ax.bar(x + w/2, d_hb, w, label="½-bit crit.",  color=["C0", "C1"], alpha=0.5)
+x  = np.arange(len(methods))
+w  = 0.24   # narrower to fit three bars
 
-for bar in list(bars1) + list(bars2):
+# ½-bit: solid, full saturation — the recommended threshold
+bars_hb = ax.bar(x - w, d_hb, w,
+                 label="½-bit crit. (recommended)",
+                 color=["C0", "C1"], alpha=1.0)
+# 1-bit: slightly lighter
+bars_ob = ax.bar(x,     d_ob, w,
+                 label="1-bit crit.",
+                 color=["C0", "C1"], alpha=0.60)
+# FSC=0.5: faded + hatched to mark it as legacy
+bars_05 = ax.bar(x + w, d_05, w,
+                 label="FSC = 0.5  (legacy)",
+                 color=["C0", "C1"], alpha=0.30, hatch="//")
+
+for bar in list(bars_hb) + list(bars_ob) + list(bars_05):
     h = bar.get_height()
     if not np.isnan(h):
-        ax.text(bar.get_x() + bar.get_width()/2, h + 0.5, f"{h:.1f}",
-                ha="center", va="bottom", fontsize=8)
+        ax.text(bar.get_x() + bar.get_width() / 2, h + 0.5,
+                f"{h:.1f}", ha="center", va="bottom", fontsize=7)
 
 ax.axhline(2 * PIXEL_NM, color="gray", ls="--", lw=1.0, alpha=0.8,
            label=f"2-pixel limit ({2*PIXEL_NM:.1f} nm)")
@@ -372,7 +413,7 @@ ax.set_xticks(x)
 ax.set_xticklabels(methods)
 ax.set_ylabel("Resolution  [nm]")
 ax.set_title("Resolution comparison\n(smaller = better)")
-ax.legend(fontsize=8)
+ax.legend(fontsize=7.5)
 ax.grid(axis="y", alpha=0.3)
 
 fig.suptitle(
@@ -395,11 +436,14 @@ np.savez_compressed(
     fsc_tp     = fsc_tp,
     fsc_cross  = fsc_cross,
     half_bit   = half_bit,
+    one_bit    = one_bit,
     n_voxels   = n_vox,
     pixel_nm   = PIXEL_NM,
-    res_05_fbp = d05_fbp,
-    res_05_tp  = d05_tp,
     res_hb_fbp = d_hb_fbp,
     res_hb_tp  = d_hb_tp,
+    res_ob_fbp = d_ob_fbp,
+    res_ob_tp  = d_ob_tp,
+    res_05_fbp = d05_fbp,
+    res_05_tp  = d05_tp,
 )
 print(f"Saved FSC data:   {OUT_DIR}/fsc_data.npz")
