@@ -478,8 +478,9 @@ def tv_grad(vol, eps=1e-8):
     gy = np.zeros_like(vol); gy[:, :-1, :] = vol[:, 1:, :] - vol[:, :-1, :]
     gx = np.zeros_like(vol); gx[:, :, :-1] = vol[:, :, 1:] - vol[:, :, :-1]
 
-    # Smoothed local norm, normalise in-place
+    # Smoothed local norm + TV value (free: just sum the norm array)
     norm = np.sqrt(gz ** 2 + gy ** 2 + gx ** 2 + eps)
+    tv_val = float(np.sum(norm))
     gz /= norm; gy /= norm; gx /= norm
 
     # Adjoint backward differences: (D_d^* p)_i = p_{i-1} − p_i, p_{-1}=0
@@ -490,7 +491,7 @@ def tv_grad(vol, eps=1e-8):
     grad[:, 1:, :]  += gy[:, :-1, :] - gy[:, 1:, :]
     grad[:, :,  0]  -= gx[:, :,  0]
     grad[:, :, 1:]  += gx[:, :, :-1] - gx[:, :, 1:]
-    return grad
+    return grad, tv_val
 
 
 # ---------------------------------------------------------------------------
@@ -583,9 +584,13 @@ if TORCH_AVAILABLE:
         grad_delta /= N_use
         grad_beta  /= N_use
 
+        tv_str = ""
         if LAMBDA_TV > 0:
-            grad_delta += LAMBDA_TV * tv_grad_torch(delta_tp_t)
-            grad_beta  += LAMBDA_TV * tv_grad_torch(beta_tp_t)
+            tv_gd, tv_val_d = tv_grad_torch(delta_tp_t)
+            tv_gb, tv_val_b = tv_grad_torch(beta_tp_t)
+            grad_delta += LAMBDA_TV * tv_gd
+            grad_beta  += LAMBDA_TV * tv_gb
+            tv_str = f"  tv={LAMBDA_TV*(tv_val_d+tv_val_b):.3e}"
 
         adam_d.step(delta_tp_t, grad_delta)
         adam_b.step(beta_tp_t,  grad_beta)
@@ -595,7 +600,7 @@ if TORCH_AVAILABLE:
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
-        print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}  "
+        print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}{tv_str}  "
               f"lr={lr_t:.2e}  t={elapsed:.1f}s  "
               f"δ∈[{float(delta_tp_t.min()):.2e},{float(delta_tp_t.max()):.2e}]",
               flush=True)
@@ -647,9 +652,13 @@ else:
         grad_delta /= N_use
         grad_beta  /= N_use
 
+        tv_str = ""
         if LAMBDA_TV > 0:
-            grad_delta += LAMBDA_TV * tv_grad(delta_tp)
-            grad_beta  += LAMBDA_TV * tv_grad(beta_tp)
+            tv_gd, tv_val_d = tv_grad(delta_tp)
+            tv_gb, tv_val_b = tv_grad(beta_tp)
+            grad_delta += LAMBDA_TV * tv_gd
+            grad_beta  += LAMBDA_TV * tv_gb
+            tv_str = f"  tv={LAMBDA_TV*(tv_val_d+tv_val_b):.3e}"
 
         adam_d.step(delta_tp, grad_delta)
         adam_b.step(beta_tp,  grad_beta)
@@ -659,7 +668,7 @@ else:
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
-        print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}  "
+        print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}{tv_str}  "
               f"lr={lr_t:.2e}  t={elapsed:.1f}s  "
               f"δ∈[{delta_tp.min():.2e},{delta_tp.max():.2e}]", flush=True)
 

@@ -700,8 +700,9 @@ def tv_grad_torch(vol: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     gy = torch.zeros_like(vol); gy[:, :-1, :] = vol[:, 1:, :] - vol[:, :-1, :]
     gx = torch.zeros_like(vol); gx[:, :, :-1] = vol[:, :, 1:] - vol[:, :, :-1]
 
-    # --- smoothed local norm, normalise in-place ---------------------------
+    # --- smoothed local norm + TV value (free: just sum the norm tensor) ---
     norm = torch.sqrt(gz ** 2 + gy ** 2 + gx ** 2 + eps)
+    tv_val = float(norm.sum())
     gz = gz / norm
     gy = gy / norm
     gx = gx / norm
@@ -720,7 +721,7 @@ def tv_grad_torch(vol: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     grad[:, :,  0]  = grad[:, :,  0]  - gx[:, :,  0]
     grad[:, :, 1:]  = grad[:, :, 1:]  + gx[:, :, :-1] - gx[:, :, 1:]
 
-    return grad
+    return grad, tv_val
 
 
 # ---------------------------------------------------------------------------
