@@ -669,43 +669,58 @@ def scatter_gradient_torch(
 
 def tv_grad_torch(vol: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     """
-    Gradient of the anisotropic (L1) total-variation regulariser
-    (Charbonnier smooth surrogate).
+    Gradient of the smooth isotropic 3-D total-variation functional.
 
-    Identical formula to the NumPy ``tv_grad`` in the tutorial but
-    operating on torch tensors in-place-free style.
+    Computes  ∇R_TV(v) = −div(∇v / |∇v|_ε)  where
 
-    At flat-material interiors: drives oscillating voxels toward their
-    neighbourhood mean (suppresses artefacts).
-    At material boundaries: gradient bounded ≤ 2 per axis (edge-preserving).
+        R_TV(v) = Σ_r  √(|∇v(r)|² + ε)
+        |∇v|_ε  = √(gz² + gy² + gx² + ε)
+
+    Torch mirror of the NumPy ``_tv_gradient_3d`` in ``twopass.py``;
+    both use the same isotropic formula and the same ``eps`` convention
+    so that switching between the NumPy and PyTorch backends produces
+    identical results.
+
+    Forward differences with zero-Neumann boundary conditions are used
+    for ∇v; their adjoint (backward differences) gives −div(p).
 
     Parameters
     ----------
     vol : torch.Tensor, real float32, shape (Nz, Ny, Nx)
-    eps : float   smoothing constant; should be << typical voxel difference
+    eps : float
+        Smoothing constant that makes R_TV differentiable at flat regions.
+        Default 1e-8 (matches ``_tv_gradient_3d``).
 
     Returns
     -------
     torch.Tensor, same shape, dtype, and device as ``vol``
     """
-    g = torch.zeros_like(vol)
-    for ax in range(vol.ndim):
-        # Build slice indices programmatically
-        sl_lo = [slice(None)] * vol.ndim
-        sl_hi = [slice(None)] * vol.ndim
-        sl_lo[ax] = slice(None, -1)
-        sl_hi[ax] = slice(1, None)
-        sl_lo = tuple(sl_lo)
-        sl_hi = tuple(sl_hi)
+    # --- forward differences with zero-Neumann BC (last diff = 0) ----------
+    gz = torch.zeros_like(vol); gz[:-1]       = vol[1:]       - vol[:-1]
+    gy = torch.zeros_like(vol); gy[:, :-1, :] = vol[:, 1:, :] - vol[:, :-1, :]
+    gx = torch.zeros_like(vol); gx[:, :, :-1] = vol[:, :, 1:] - vol[:, :, :-1]
 
-        d  = vol[sl_hi] - vol[sl_lo]
-        sd = d / torch.sqrt(d ** 2 + eps ** 2)   # smooth sign ≈ sign(d)
+    # --- smoothed local norm, normalise in-place ---------------------------
+    norm = torch.sqrt(gz ** 2 + gy ** 2 + gx ** 2 + eps)
+    gz = gz / norm
+    gy = gy / norm
+    gx = gx / norm
 
-        # ∂|d|/∂u[i] = −sign(d),  ∂|d|/∂u[i+1] = +sign(d)
-        g[sl_lo] = g[sl_lo] - sd
-        g[sl_hi] = g[sl_hi] + sd
+    # --- adjoint backward differences  →  −div(p) = ∇R_TV -----------------
+    # (D_d^* p)_i = p_{i-1} − p_i   with  p_{-1} = 0
+    #
+    # z-axis
+    grad = torch.empty_like(vol)
+    grad[0,  :, :]  = -gz[0,  :, :]
+    grad[1:, :, :]  =  gz[:-1, :, :] - gz[1:, :, :]
+    # y-axis (add in-place)
+    grad[:,  0, :]  = grad[:,  0, :]  - gy[:,  0, :]
+    grad[:, 1:, :]  = grad[:, 1:, :] + gy[:, :-1, :] - gy[:, 1:, :]
+    # x-axis (add in-place)
+    grad[:, :,  0]  = grad[:, :,  0]  - gx[:, :,  0]
+    grad[:, :, 1:]  = grad[:, :, 1:]  + gx[:, :, :-1] - gx[:, :, 1:]
 
-    return g
+    return grad
 
 
 # ---------------------------------------------------------------------------

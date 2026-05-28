@@ -459,18 +459,38 @@ probe = np.ones((Ny, Nx), dtype=np.complex64)   # plane-wave illumination
 # ---------------------------------------------------------------------------
 
 def tv_grad(vol, eps=1e-8):
-    """Gradient of anisotropic Charbonnier TV regulariser."""
-    g = np.zeros_like(vol)
-    for ax in range(vol.ndim):
-        sl_lo = [slice(None)] * vol.ndim
-        sl_hi = [slice(None)] * vol.ndim
-        sl_lo[ax] = slice(None, -1)
-        sl_hi[ax] = slice(1, None)
-        d  = vol[tuple(sl_hi)] - vol[tuple(sl_lo)]
-        sd = d / np.sqrt(d ** 2 + eps ** 2)
-        g[tuple(sl_lo)] -= sd
-        g[tuple(sl_hi)] += sd
-    return g
+    """
+    Gradient of the smooth isotropic 3-D total-variation functional.
+
+    Identical formula to ``_tv_gradient_3d`` in ``toupy/tomo/twopass.py``
+    and to ``tv_grad_torch`` in ``toupy/tomo/multislice_torch.py``.
+
+    Uses forward differences with zero-Neumann boundary conditions and
+    their adjoint (backward differences) for the divergence:
+
+        ∇R_TV(v) = −div(∇v / √(|∇v|² + ε))
+
+    The same ``eps`` convention is used in all three implementations so
+    that NumPy and PyTorch paths produce numerically identical results.
+    """
+    # Forward differences with zero-Neumann BC (last diff = 0)
+    gz = np.zeros_like(vol); gz[:-1]       = vol[1:]       - vol[:-1]
+    gy = np.zeros_like(vol); gy[:, :-1, :] = vol[:, 1:, :] - vol[:, :-1, :]
+    gx = np.zeros_like(vol); gx[:, :, :-1] = vol[:, :, 1:] - vol[:, :, :-1]
+
+    # Smoothed local norm, normalise in-place
+    norm = np.sqrt(gz ** 2 + gy ** 2 + gx ** 2 + eps)
+    gz /= norm; gy /= norm; gx /= norm
+
+    # Adjoint backward differences: (D_d^* p)_i = p_{i-1} − p_i, p_{-1}=0
+    grad = np.empty_like(vol)
+    grad[0,  :, :]  = -gz[0,  :, :]
+    grad[1:, :, :]  =  gz[:-1, :, :] - gz[1:, :, :]
+    grad[:,  0, :]  -= gy[:,  0, :]
+    grad[:, 1:, :]  += gy[:, :-1, :] - gy[:, 1:, :]
+    grad[:, :,  0]  -= gx[:, :,  0]
+    grad[:, :, 1:]  += gx[:, :, :-1] - gx[:, :, 1:]
+    return grad
 
 
 # ---------------------------------------------------------------------------
