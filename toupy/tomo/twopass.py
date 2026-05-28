@@ -92,8 +92,10 @@ matter_correction
     If True (default), use the matter-corrected Fresnel propagator
     instead of the vacuum propagator.  Disable only for debugging.
 regularisation
-    ``"none"`` (default), ``"tv"`` (total-variation; experimental),
-    or ``"positivity"`` (clip δ, β to [0, +∞) after each step).
+    ``"none"`` (no regularisation),
+    ``"positivity"`` (clip δ, β to [0, +∞) after each step; default),
+    or ``"tv"`` (smooth isotropic total-variation added to the gradient
+    before Adam, followed by positivity clip; weight set by ``tv_weight``).
 """
 
 # standard library
@@ -116,6 +118,84 @@ from .multislice import (
 )
 
 __all__ = ["TwoPassReconstructor"]
+
+
+# ---------------------------------------------------------------------------
+# TV regularisation helper
+# ---------------------------------------------------------------------------
+
+def _tv_gradient_3d(vol, eps=1e-8):
+    """
+    Gradient of the smooth isotropic 3-D total-variation functional.
+
+    Computes  ∇R_TV(v) = −div(∇v / |∇v|_ε)  where
+
+        R_TV(v) = Σ_r  √(|∇v(r)|² + ε)
+        |∇v|_ε  = √(gz² + gy² + gx² + ε)
+
+    Forward differences with zero-Neumann boundary conditions are used
+    for the gradient ∇v; their adjoint (backward differences) gives −div.
+
+    Parameters
+    ----------
+    vol : ndarray, real, shape (Nz, Ny, Nx)
+    eps : float, optional
+        Smoothing constant that makes R_TV differentiable at flat regions.
+        Typical value: 1e-8.  Decrease for sharper edges; increase for
+        more stability near zero.
+
+    Returns
+    -------
+    grad : ndarray, same shape as vol
+        ∇R_TV(vol).  Scale by ``mu_tv`` before adding to the data gradient.
+    tv_val : float
+        R_TV(vol) = Σ_r |∇v(r)|_ε  (useful for monitoring).
+
+    Notes
+    -----
+    Boundary conditions: zero-Neumann (zero normal derivative at all faces).
+    This is the natural BC for TV denoising of a finite domain; it avoids
+    artificial gradients at the volume edges.
+
+    Memory: 3 extra float arrays of the same shape as *vol* (gz, gy, gx)
+    plus one float array for the output gradient.  Peak ≈ 4 × sizeof(vol).
+    """
+    # --- forward differences with zero-Neumann BC (last diff = 0) ----------
+    gz = np.zeros_like(vol)
+    gz[:-1]      = vol[1:]      - vol[:-1]
+
+    gy = np.zeros_like(vol)
+    gy[:, :-1, :] = vol[:, 1:, :] - vol[:, :-1, :]
+
+    gx = np.zeros_like(vol)
+    gx[:, :, :-1] = vol[:, :, 1:] - vol[:, :, :-1]
+
+    # --- smoothed local norm + TV value (free, same loop) ------------------
+    norm = np.sqrt(gz ** 2 + gy ** 2 + gx ** 2 + eps)
+    tv_val = float(np.sum(norm))
+
+    # --- normalise in-place to save memory ---------------------------------
+    gz /= norm
+    gy /= norm
+    gx /= norm
+
+    # --- adjoint backward differences  →  -div(p) = ∇R_TV -----------------
+    # (D_d^* p)_i = p_{i-1} − p_i   with  p_{-1} = 0
+    #
+    # z-axis contribution
+    grad = np.empty_like(vol)
+    grad[0,  :, :]  = -gz[0,  :, :]
+    grad[1:, :, :]  =  gz[:-1, :, :] - gz[1:, :, :]
+
+    # y-axis contribution (add in-place)
+    grad[:,  0, :]  -= gy[:,  0, :]
+    grad[:, 1:, :]  += gy[:, :-1, :] - gy[:, 1:, :]
+
+    # x-axis contribution (add in-place)
+    grad[:, :,  0]  -= gx[:, :,  0]
+    grad[:, :, 1:]  += gx[:, :, :-1] - gx[:, :, 1:]
+
+    return grad, tv_val
 
 
 # ---------------------------------------------------------------------------
@@ -297,6 +377,7 @@ class TwoPassReconstructor:
         lr                = 1e-3,
         matter_correction = True,
         regularisation    = "positivity",
+        tv_weight         = 1e-3,
         batch_size        = None,
         callback          = None,
     ):
@@ -331,7 +412,18 @@ class TwoPassReconstructor:
         regularisation : str, optional
             ``"none"``       — no regularisation.
             ``"positivity"`` — clip δ, β to [0, +∞) after each step.
+            ``"tv"``         — smooth isotropic total-variation penalty added
+                               to the data gradient before the Adam step,
+                               followed by the positivity clip.
+                               See :func:`_tv_gradient_3d` and the
+                               ``tv_weight`` parameter.
             Default ``"positivity"``.
+        tv_weight : float, optional
+            Weight μ_TV of the TV regularisation term.  Only used when
+            ``regularisation="tv"``.  The combined gradient is
+            ``grad_data + tv_weight * ∇R_TV(vol)``.  A good starting range
+            is 1e-4 to 1e-2; larger values produce smoother volumes at the
+            cost of reduced sharpness.  Default 1e-3.
         batch_size : int, optional
             Number of angles to process per gradient-accumulation step
             (stochastic gradient).  Default None = all angles (full batch).
@@ -347,8 +439,10 @@ class TwoPassReconstructor:
         beta_vol : ndarray, real, shape (Nz, Ny, Nx)
             Refined absorption volume.
         history : dict
-            ``history["loss"]`` : list of per-iteration total loss values.
-            ``history["time"]`` : list of per-iteration wall-clock times [s].
+            ``history["loss"]``    : list of per-iteration data-fidelity loss.
+            ``history["tv_loss"]`` : list of per-iteration TV values
+                                     (only present when ``regularisation="tv"``).
+            ``history["time"]``    : list of per-iteration wall-clock times [s].
 
         Notes
         -----
@@ -394,12 +488,17 @@ class TwoPassReconstructor:
             batch_size = n_angles
 
         history = {"loss": [], "time": []}
+        if regularisation == "tv":
+            history["tv_loss"] = []
 
         if self.verbose:
             print(f"\nPass 2 — Multislice refinement")
             print(f"  n_iter={n_iter}, lr={lr}, n_slices={self.n_slices}, "
                   f"matter_correction={matter_correction}, "
+                  f"regularisation={regularisation!r}, "
                   f"batch_size={batch_size}")
+            if regularisation == "tv":
+                print(f"  tv_weight={tv_weight:.2e}")
             print(f"  slice_thickness = {slice_thickness*1e9:.2f} nm")
 
         t_total = time.time()
@@ -431,16 +530,28 @@ class TwoPassReconstructor:
                 grad_delta += gd_i
                 grad_beta  += gb_i
 
-            # Normalise gradient by batch size
+            # Normalise data gradient by batch size
             grad_delta /= batch_size
             grad_beta  /= batch_size
+
+            # TV regularisation: add μ_TV · ∇R_TV to data gradient
+            # before the Adam step so Adam's adaptive rates scale the
+            # combined gradient consistently.
+            if regularisation == "tv":
+                tv_grad_d, tv_val_d = _tv_gradient_3d(delta_vol)
+                tv_grad_b, tv_val_b = _tv_gradient_3d(beta_vol)
+                grad_delta += tv_weight * tv_grad_d
+                grad_beta  += tv_weight * tv_grad_b
+                del tv_grad_d, tv_grad_b   # free memory promptly
+                history["tv_loss"].append(tv_weight * (tv_val_d + tv_val_b))
 
             # Adam update
             adam_delta.step(delta_vol, grad_delta)
             adam_beta.step( beta_vol,  grad_beta)
 
-            # Regularisation
-            if regularisation == "positivity":
+            # Positivity projection: δ, β ≥ 0 (physical constraint).
+            # Applied for both "positivity" and "tv" modes.
+            if regularisation in ("positivity", "tv"):
                 np.clip(delta_vol, 0.0, None, out=delta_vol)
                 np.clip(beta_vol,  0.0, None, out=beta_vol)
 
@@ -449,8 +560,10 @@ class TwoPassReconstructor:
             history["time"].append(elapsed)
 
             if self.verbose:
-                print(f"  Iter {it+1:3d}/{n_iter}  loss={total_loss:.4e}  "
-                      f"t={elapsed:.1f}s  "
+                tv_str = (f"  tv={history['tv_loss'][-1]:.3e}"
+                          if regularisation == "tv" else "")
+                print(f"  Iter {it+1:3d}/{n_iter}  loss={total_loss:.4e}"
+                      f"{tv_str}  t={elapsed:.1f}s  "
                       f"δ∈[{delta_vol.min():.2e},{delta_vol.max():.2e}]")
 
             if callback is not None:
