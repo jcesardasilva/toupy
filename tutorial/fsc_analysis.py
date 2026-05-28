@@ -12,16 +12,23 @@ Computes and plots FSC curves that estimate the spatial resolution of:
 Usage
 -----
 1. Run twopass_real_data.py twice with FSC_HALF = 0 and FSC_HALF = 1.
-   This produces:
-       twopass_real_figures_half0/twopass_reconstruction.npz
-       twopass_real_figures_half1/twopass_reconstruction.npz
+   Each run produces a twopass_reconstruction.npz in its output directory.
 
-2. Run this script from the tutorial directory:
+2. Run this script, passing the two .npz files as positional arguments:
+
+       # Explicit paths (typical for SLURM runs with OUT_DIR per job):
+       python fsc_analysis.py results_<jobid0>/twopass_reconstruction.npz \
+                              results_<jobid1>/twopass_reconstruction.npz
+
+       # Default paths (tutorial directory layout):
        python fsc_analysis.py
+       # expects twopass_real_figures_half0/twopass_reconstruction.npz
+       #     and twopass_real_figures_half1/twopass_reconstruction.npz
 
-3. Outputs:
-       twopass_real_figures_fsc/fsc_curves.png
-       twopass_real_figures_fsc/fsc_data.npz
+3. Outputs (written next to the half-0 file in a 'fsc/' subfolder by default,
+   or to the directory set with --out-dir):
+       fsc/fsc_curves.png
+       fsc/fsc_data.npz
 
 Resolution interpretation
 -------------------------
@@ -43,6 +50,7 @@ provides better agreement between the two independent half-datasets →
 it is genuinely resolving more structure, not just fitting noise.
 """
 
+import argparse
 import os
 import sys
 import numpy as np
@@ -51,20 +59,68 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Command-line interface
 # ---------------------------------------------------------------------------
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
-# Paths to the two half-dataset reconstruction files
-# (produced by running twopass_real_data.py with FSC_HALF = 0 and 1)
-FILE_HALF0 = os.path.join(_HERE, "twopass_real_figures_half0",
-                          "twopass_reconstruction.npz")
-FILE_HALF1 = os.path.join(_HERE, "twopass_real_figures_half1",
-                          "twopass_reconstruction.npz")
+_DEFAULT_HALF0 = os.path.join(_HERE, "twopass_real_figures_half0",
+                               "twopass_reconstruction.npz")
+_DEFAULT_HALF1 = os.path.join(_HERE, "twopass_real_figures_half1",
+                               "twopass_reconstruction.npz")
+_DEFAULT_OUT   = os.path.join(_HERE, "twopass_real_figures_fsc")
 
-# Output directory
-OUT_DIR = os.path.join(_HERE, "twopass_real_figures_fsc")
+ap = argparse.ArgumentParser(
+    description="Fourier Shell Correlation analysis for two-pass PXCT reconstructions.",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    epilog="""
+Examples
+--------
+# Explicit .npz paths (typical SLURM run):
+  python fsc_analysis.py results_33091306/twopass_reconstruction.npz \\
+                         results_33091307/twopass_reconstruction.npz
+
+# Default paths (tutorial directory layout):
+  python fsc_analysis.py
+
+# Custom output directory:
+  python fsc_analysis.py half0.npz half1.npz --out-dir /scratch/fsc_output
+""",
+)
+ap.add_argument(
+    "half0",
+    nargs="?",
+    default=_DEFAULT_HALF0,
+    help=f"Path to the FSC_HALF=0 reconstruction .npz  (default: {_DEFAULT_HALF0})",
+)
+ap.add_argument(
+    "half1",
+    nargs="?",
+    default=_DEFAULT_HALF1,
+    help=f"Path to the FSC_HALF=1 reconstruction .npz  (default: {_DEFAULT_HALF1})",
+)
+ap.add_argument(
+    "--out-dir",
+    default=None,
+    help=(
+        "Directory for output figure and data file.  "
+        "Defaults to a 'fsc' subfolder next to the half-0 file, "
+        f"or '{_DEFAULT_OUT}' when using the default paths."
+    ),
+)
+args = ap.parse_args()
+
+FILE_HALF0 = os.path.abspath(args.half0)
+FILE_HALF1 = os.path.abspath(args.half1)
+
+if args.out_dir is not None:
+    OUT_DIR = os.path.abspath(args.out_dir)
+elif args.half0 == _DEFAULT_HALF0:
+    OUT_DIR = _DEFAULT_OUT
+else:
+    # Place output next to the half-0 file in a 'fsc' subfolder
+    OUT_DIR = os.path.join(os.path.dirname(FILE_HALF0), "fsc")
+
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # ---------------------------------------------------------------------------
@@ -73,13 +129,21 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 print(f"Loading half-0 reconstruction from:\n  {FILE_HALF0}")
 if not os.path.isfile(FILE_HALF0):
-    sys.exit(f"ERROR: {FILE_HALF0} not found.\n"
-             "Run twopass_real_data.py with FSC_HALF = 0 first.")
+    sys.exit(
+        f"ERROR: {FILE_HALF0} not found.\n"
+        "Pass the correct path as the first positional argument:\n"
+        "  python fsc_analysis.py <path/to/half0.npz> <path/to/half1.npz>\n"
+        "Or run twopass_real_data.py with FSC_HALF = 0 first."
+    )
 
 print(f"Loading half-1 reconstruction from:\n  {FILE_HALF1}")
 if not os.path.isfile(FILE_HALF1):
-    sys.exit(f"ERROR: {FILE_HALF1} not found.\n"
-             "Run twopass_real_data.py with FSC_HALF = 1 first.")
+    sys.exit(
+        f"ERROR: {FILE_HALF1} not found.\n"
+        "Pass the correct path as the second positional argument:\n"
+        "  python fsc_analysis.py <path/to/half0.npz> <path/to/half1.npz>\n"
+        "Or run twopass_real_data.py with FSC_HALF = 1 first."
+    )
 
 d0 = np.load(FILE_HALF0, allow_pickle=True)
 d1 = np.load(FILE_HALF1, allow_pickle=True)
