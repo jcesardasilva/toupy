@@ -51,6 +51,7 @@ it is genuinely resolving more structure, not just fitting noise.
 """
 
 import argparse
+import gc
 import os
 import sys
 import numpy as np
@@ -184,33 +185,45 @@ def compute_fsc(vol1: np.ndarray, vol2: np.ndarray, n_shells: int = 200):
         FSC values in [−1, 1].
     n_voxels : ndarray, shape (n_shells,)
         Number of Fourier voxels in each shell (for 1/2-bit criterion).
+
+    Memory notes
+    ------------
+    Uses rfftn (real FFT) which exploits the real-valued input to produce
+    a half-spectrum of shape (Nz, Ny, Nx//2+1) in complex64 — roughly 4×
+    smaller than a full complex128 fftn.  The radial coordinate R is built
+    with NumPy broadcasting (three tiny 1-D arrays) rather than meshgrid,
+    avoiding three large temporary float64 arrays.  For a (494,389,494)
+    volume this cuts peak memory from ~7 GB to ~2 GB.
     """
-    F1 = np.fft.fftn(vol1.astype(np.float64))
-    F2 = np.fft.fftn(vol2.astype(np.float64))
+    Nz, Ny, Nx = vol1.shape
 
-    # Build radial coordinate in units of Nyquist (0 – 0.5)
-    kz = np.fft.fftfreq(Nz)   # cycles per pixel
-    ky = np.fft.fftfreq(Ny)
-    kx = np.fft.fftfreq(Nx)
-    KZ, KY, KX = np.meshgrid(kz, ky, kx, indexing="ij")
-    R = np.sqrt(KZ**2 + KY**2 + KX**2)   # 0 at DC, √3/2 at corner
+    # rfftn: input float32 → output complex64, shape (Nz, Ny, Nx//2+1)
+    # FSC is a ratio so the missing conjugate half cancels in numerator/denom.
+    F1 = np.fft.rfftn(vol1.astype(np.float32))
+    F2 = np.fft.rfftn(vol2.astype(np.float32))
 
-    r_max    = 0.5    # Nyquist
-    r_edges  = np.linspace(0.0, r_max, n_shells + 1)
-    r_mid    = 0.5 * (r_edges[:-1] + r_edges[1:])
+    # Radial coordinate via broadcasting — no meshgrid, no giant temporaries
+    kz = np.fft.fftfreq(Nz).astype(np.float32)[:, None, None]   # (Nz,1,1)
+    ky = np.fft.fftfreq(Ny).astype(np.float32)[None, :, None]   # (1,Ny,1)
+    kx = np.fft.rfftfreq(Nx).astype(np.float32)[None, None, :]  # (1,1,Nx//2+1)
+    R  = np.sqrt(kz**2 + ky**2 + kx**2)   # broadcast → (Nz,Ny,Nx//2+1)
 
-    fsc      = np.zeros(n_shells)
-    n_voxels = np.zeros(n_shells, dtype=int)
+    r_max   = 0.5    # Nyquist
+    r_edges = np.linspace(0.0, r_max, n_shells + 1)
+    r_mid   = 0.5 * (r_edges[:-1] + r_edges[1:])
+
+    fsc      = np.zeros(n_shells, dtype=np.float64)
+    n_voxels = np.zeros(n_shells, dtype=np.int64)
 
     for i, (r_lo, r_hi) in enumerate(zip(r_edges[:-1], r_edges[1:])):
         mask = (R >= r_lo) & (R < r_hi)
-        n    = mask.sum()
+        n    = int(mask.sum())
         if n == 0:
             continue
         f1 = F1[mask]
         f2 = F2[mask]
-        num   = np.real(np.sum(f1 * f2.conj()))
-        denom = np.sqrt(np.sum(np.abs(f1)**2) * np.sum(np.abs(f2)**2))
+        num   = float(np.real(np.sum(f1 * f2.conj())))
+        denom = float(np.sqrt(np.sum(np.abs(f1)**2) * np.sum(np.abs(f2)**2)))
         fsc[i]      = num / denom if denom > 0 else 0.0
         n_voxels[i] = n
 
@@ -254,13 +267,16 @@ def resolution_at_threshold(freq_nyq, fsc, threshold):
 
 print("Computing FSC — FBP half-0 vs half-1 …")
 r_mid, fsc_fbp, n_vox = compute_fsc(fbp0, fbp1)
+gc.collect()
 
 print("Computing FSC — two-pass half-0 vs half-1 …")
 _, fsc_tp, _ = compute_fsc(tp0, tp1)
+gc.collect()
 
 # Also compute cross-FSC (diagnostic: where do FBP and TP agree/disagree?)
 print("Computing cross-FSC — FBP half-0 vs two-pass half-0 …")
 _, fsc_cross, _ = compute_fsc(fbp0, tp0)
+gc.collect()
 
 half_bit = half_bit_criterion(n_vox)
 
