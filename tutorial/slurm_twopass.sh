@@ -105,8 +105,9 @@ ANGLE_STEP=1     # 1 = all angles;  >1 = subsample for fast prototyping
 # Ptychography has insufficient probe overlap near the scan boundaries,
 # producing noisy phases that contaminate the multislice loss.
 # Set based on the self-consistency residual plot (where residuals are large).
-CROP_X=80        # pixels to remove from each side in the column (x) direction
-CROP_Y=20        # pixels to remove from each side in the row (y) direction
+CROP_X=55        # pixels to remove from each side in the column (x) direction
+CROP_Y=55        # pixels to remove from each side in the row (y) direction
+                 # Calibrated for PXCTalignedprojections.npz
 
 # ── Half-dataset mode for FSC ─────────────────────────────────────────────
 # None = full dataset  |  0 = even angles  |  1 = odd angles

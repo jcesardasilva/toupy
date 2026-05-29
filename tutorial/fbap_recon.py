@@ -71,8 +71,8 @@ filtered_back_propagation = fbp_mod.filtered_back_propagation
 DATA_FILE = os.path.join(_HERE, 'PXCTalignedprojections.npz')
 
 # Boundary crop — must match twopass_real_data.py for a fair comparison
-CROP_X = 80
-CROP_Y = 20
+CROP_X = 55
+CROP_Y = 55
 
 # Half-dataset mode (None = full dataset; 0 or 1 = FSC halves)
 FSC_HALF = None

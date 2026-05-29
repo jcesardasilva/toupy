@@ -168,12 +168,11 @@ print()
 # prior run: choose the value where the interior residuals are small but the
 # boundary spike starts.  Typical values: 50–150 pixels.
 # Tune CROP_Y similarly for top/bottom boundary rows.
-CROP_X = 80   # pixels to remove from EACH side in the column (x) direction
+CROP_X = 55   # pixels to remove from EACH side in the column (x) direction
               # 0 = no crop; the FBP and volume x-extent shrink by 2×CROP_X
-CROP_Y = 20   # pixels to remove from EACH side in the row (y) direction
+CROP_Y = 55   # pixels to remove from EACH side in the row (y) direction
               # 0 = no crop; only the y-extent of projections and volume shrinks
-              # Tune by looking at the self-consistency residual plot: increase
-              # until the boundary spike disappears.  Typical range: 20–80 px.
+              # Calibrated for PXCTalignedprojections.npz: 55 px each side.
 
 if CROP_X > 0 or CROP_Y > 0:
     _sy = slice(CROP_Y if CROP_Y > 0 else None,
