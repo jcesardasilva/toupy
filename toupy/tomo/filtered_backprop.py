@@ -428,10 +428,16 @@ def filtered_back_propagation(
         )
         delta_vol += delta_rot
 
-        if verbose and (ai % max(1, N_angles // 10) == 0 or ai == N_angles - 1):
-            elapsed = time.time() - t_iter
-            print(f"  FBaP {ai+1:4d}/{N_angles}  θ={theta[ai]:7.2f}°  "
-                  f"d_focus={d_focus*1e6:+.2f} µm  t={elapsed:.1f}s",
+        if verbose:
+            elapsed  = time.time() - t_iter
+            elapsed_total = time.time() - t_total
+            done     = ai + 1
+            eta_s    = elapsed_total / done * (N_angles - done)
+            eta_min  = eta_s / 60.0
+            print(f"  FBaP {done:4d}/{N_angles}  θ={theta[ai]:7.2f}°  "
+                  f"t={elapsed:.1f}s  "
+                  f"elapsed={elapsed_total/60:.1f}min  "
+                  f"ETA={eta_min:.1f}min",
                   flush=True)
 
     # Convert accumulated phase sinogram → δ volume.
