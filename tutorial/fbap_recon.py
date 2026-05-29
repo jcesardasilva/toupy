@@ -98,15 +98,16 @@ N_SLICES = None   # None → Nz (same shape as FBP/two-pass, required for compar
 AUTO_FOCUS = False
 
 # Existing two-pass result to load for comparison (None = skip comparison).
-# Points to the .npz saved by twopass_real_data.py.  Adjust the directory
-# name if you used a different output path (e.g. twopass_real_figures_half0).
-TWOPASS_NPZ = os.path.join(_HERE, 'twopass_real_figures',
+# Points to the .npz saved by twopass_real_data.py.
+# Auto-adjusts for half-dataset runs: if FSC_HALF is set, looks in the
+# corresponding _half0 / _half1 directory automatically.
+_tp_suffix  = f'_half{FSC_HALF}' if FSC_HALF is not None else ''
+TWOPASS_NPZ = os.path.join(_HERE, f'twopass_real_figures{_tp_suffix}',
                              'twopass_reconstruction.npz')
 # If the file does not exist the script still runs and saves the FBaP volume.
 if not os.path.exists(TWOPASS_NPZ):
     print(f'  Note: two-pass result not found at {TWOPASS_NPZ}')
-    print(f'        Set TWOPASS_NPZ = None to silence this, or point it to')
-    print(f'        the correct path.  Comparison figures will be skipped.')
+    print(f'        Comparison figures will be skipped.')
 
 # Output directory
 _out_suffix = f'_half{FSC_HALF}' if FSC_HALF is not None else ''
