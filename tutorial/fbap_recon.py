@@ -77,18 +77,36 @@ CROP_Y = 55
 # Half-dataset mode (None = full dataset; 0 or 1 = FSC halves)
 FSC_HALF = None
 
-# Number of depth slices for FBaP (same as N_SLICES in twopass_real_data.py)
-N_SLICES = 64
+# Number of depth slices for FBaP.
+#
+# IMPORTANT — FBaP vs two-pass meaning of N_SLICES:
+#   two-pass : N_SLICES controls multislice discretisation only.
+#              Output volume is always (Nz, Ny, Nx) regardless of N_SLICES.
+#   FBaP     : N_SLICES IS the output depth dimension.
+#              Setting N_SLICES=64 gives a (64, Ny, Nx) volume, which
+#              cannot be compared with the (494, 389, 494) FBP volume.
+#
+# Use None (recommended) to set n_slices = Nz automatically after cropping,
+# giving an output volume with the same shape as FBP and two-pass.
+# Cost: ≈ Nz/N_SLICES × slower than the two-pass N_SLICES=64 run.
+# For Nz=494 and 450 angles: ≈ 60–90 min on CPU, ≈ 5–8 min on GPU.
+N_SLICES = None   # None → Nz (same shape as FBP/two-pass, required for comparison)
 
 # Autofocus: disabled by default for pure-phase objects with very small δ.
 # The intensity contrast developed by propagation is only ~1 % for δ~1e-7,
 # making autofocus unreliable.  Set to True to enable (adds ~50 % runtime).
 AUTO_FOCUS = False
 
-# Existing two-pass result to load for comparison (None = skip comparison)
-# Expected path: twopass_real_figures/twopass_reconstruction.npz
+# Existing two-pass result to load for comparison (None = skip comparison).
+# Points to the .npz saved by twopass_real_data.py.  Adjust the directory
+# name if you used a different output path (e.g. twopass_real_figures_half0).
 TWOPASS_NPZ = os.path.join(_HERE, 'twopass_real_figures',
                              'twopass_reconstruction.npz')
+# If the file does not exist the script still runs and saves the FBaP volume.
+if not os.path.exists(TWOPASS_NPZ):
+    print(f'  Note: two-pass result not found at {TWOPASS_NPZ}')
+    print(f'        Set TWOPASS_NPZ = None to silence this, or point it to')
+    print(f'        the correct path.  Comparison figures will be skipped.')
 
 # Output directory
 _out_suffix = f'_half{FSC_HALF}' if FSC_HALF is not None else ''
@@ -124,7 +142,10 @@ else:
     Nz = Nx
 
 SAMPLE_THICKNESS = Nz * PIXEL_SIZE   # [m]
-SLICE_DZ         = SAMPLE_THICKNESS / N_SLICES
+# Resolve N_SLICES: None → Nz (full-resolution output, same shape as FBP)
+if N_SLICES is None:
+    N_SLICES = Nz
+SLICE_DZ = SAMPLE_THICKNESS / N_SLICES
 
 # Half-dataset selection (for FSC)
 if FSC_HALF is not None:
