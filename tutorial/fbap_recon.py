@@ -137,7 +137,9 @@ if CROP_X > 0 or CROP_Y > 0:
     _, Ny, Nx   = phase_stack.shape
     Nz          = Nx
     print(f'  After crop ({CROP_Y}px top/bottom, {CROP_X}px left/right): '
-          f'(Ny, Nx, Nz) = ({Ny}, {Nx}, {Nz})\n')
+          f'(Ny, Nx) = ({Ny}, {Nx})')
+    print(f'  Nz = Nx = {Nz}  (FBP gives a square xz cross-section; '
+          f'N_ANGLES={N_ANGLES} is not a volume dimension)\n')
 else:
     Nz = Nx
 
