@@ -58,11 +58,45 @@ Optional (for Jupyter notebook interactive plotting):
 * ipympl >= 0.9  (`pip install ipympl`)
 * jupyterlab >= 3.0
 
+Optional (for GPU acceleration of the phase-retrieval and reconstruction methods):
+
+* cupy  (e.g. `pip install cupy-cuda12x` — matched to your CUDA version)
+
 Get started
 -----------
 
 Get started quickly with the examples in the [templates](https://github.com/jcesardasilva/toupy/tree/master/templates) directory
 and the [tutorial notebooks](https://github.com/jcesardasilva/toupy/tree/master/tutorial).
+
+Phase retrieval, ring correction and TV reconstruction
+------------------------------------------------------
+
+Methods for propagation-based / holotomographic nanotomography.  All compute
+functions accept ``cuda=True`` for optional GPU acceleration via CuPy, falling
+back to CPU automatically when CuPy is not installed:
+
+* **Phase retrieval** (`toupy.restoration`)
+  * `tie_hom` — single-distance TIE-Hom (Paganin) retrieval for homogeneous objects.
+  * `ctf_retrieve` — CTF retrieval; single distance *or* multi-distance
+    (holotomographic) inversion via `delta_beta` and a list of distances.
+  * `iterative_phase_retrieval` — nonlinear retrieval using the exact Fresnel
+    forward model (single or multi-distance), with Tikhonov / total-variation
+    regularisation. Accurate in the multi-fringe / higher-δ/β regime where
+    TIE-Hom blurs.
+  * `suggest_holo_distances` — rule-based, gap-free multi-distance series for
+    holotomography (CTF-zero interleaving).
+* **Ring artifact correction** (`toupy.restoration`)
+  * `remove_rings_wavelet_fft`, `remove_rings_titarenko`, `remove_rings_stack`.
+* **Total-variation reconstruction** (`toupy.tomo`)
+  * `tv_reconstruction`, `chambolle_pock_tv` — TV-regularised FBP (Chambolle–Pock).
+
+Runnable examples in [`tutorial/`](tutorial/):
+
+* `example_phase_retrieval_tv_ring.py` — phase retrieval + ring correction + TV pipeline.
+* `example_iterative_phase_retrieval.py` — TIE-Hom vs nonlinear iterative (single & multi-distance).
+* `example_iterative_phase_tomography.py` — full phase-contrast tomography pipeline + CTF coverage diagnostic.
+
+See [`CHANGELOG.md`](CHANGELOG.md) for details.
 
 Call for Contributions
 ----------------------
