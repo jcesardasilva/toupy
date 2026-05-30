@@ -1,0 +1,57 @@
+# Changelog
+
+## Unreleased — phase retrieval, ring correction, TV reconstruction
+
+New methods for propagation-based / holotomographic X-ray nanotomography.
+All new compute functions accept `cuda=True` for optional GPU acceleration via
+CuPy, with automatic CPU fallback when CuPy is not installed.
+
+### Added — phase retrieval (`toupy.restoration`)
+
+- **`tie_hom`** — single-distance TIE-Hom (Paganin) phase retrieval for a
+  homogeneous object (fixed δ/β).
+- **`ctf_retrieve`** — CTF phase retrieval, unified for:
+  - single distance (2-D image) and batches of independent projections;
+  - **multi-distance / holotomographic** inversion (pass a list of distances +
+    a stack), which fills the single-distance CTF zeros and — through the
+    absorption term (`delta_beta`) — recovers low frequencies / DC.
+  - Sign convention fixed: pure-phase contrast `I−1 = −2 sin(χ) φ` for the
+    `exp(+iπλz|u|²)` propagator (previously the retrieved phase was inverted).
+- **`iterative_phase_retrieval`** — nonlinear iterative retrieval inverting the
+  **exact** Fresnel forward model by conjugate-gradient minimisation
+  (analytic adjoint gradient, finite-difference verified). Warm-started from
+  TIE-Hom. Single- or multi-distance (nonlinear holotomography, valid for
+  strong phase where linear CTF fails). Tikhonov (`reg_smooth`) and
+  edge-preserving total-variation (`reg_tv`) regularisation. Handles a 1-D
+  projection line exactly (used by the tomography pipeline).
+- **`suggest_holo_distances`** — builds a geometrically-spaced, gap-free
+  multi-distance series from the CTF-zero interleaving rules, parametrised by
+  the Fresnel-number span (`nf_short`/`nf_long`); verifies frequency coverage.
+
+### Added — ring artifact correction (`toupy.restoration`)
+
+- **`remove_rings_wavelet_fft`** — multi-scale wavelet stripe removal. Uses a
+  safe angular-mean (median-baseline) stripe subtraction on every band; the
+  subtracted stripe is constant across angle so real signal is never removed.
+- **`remove_rings_titarenko`** — single-scale median-profile correction.
+- **`remove_rings_stack`** — apply either method to a 3-D sinogram stack.
+
+### Added — total-variation reconstruction (`toupy.tomo`)
+
+- **`tv_reconstruction`** / **`chambolle_pock_tv`** — TV-regularised
+  reconstruction via the Chambolle–Pock primal–dual algorithm.
+
+### Added — examples (`tutorial/`)
+
+- `example_phase_retrieval_tv_ring.py` — phase retrieval (TIE-Hom + single- and
+  multi-distance CTF) + ring correction + FBP/TV reconstruction.
+- `example_iterative_phase_retrieval.py` — TIE-Hom vs nonlinear iterative
+  (single & multi-distance), with quantitative line profiles.
+- `example_iterative_phase_tomography.py` — full phase-contrast tomography
+  pipeline (per-angle retrieval → sinogram → FBP) plus a CTF frequency-coverage
+  diagnostic showing why multi-distance fills single-distance gaps.
+
+### Changed
+
+- Added GPU (CuPy) acceleration paths across the new modules, with automatic
+  CPU fallback when CuPy is not installed.
