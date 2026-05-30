@@ -90,16 +90,11 @@ DATA_FILE="${WORK_DIR}/PXCTalignedprojections.npz"
 #   PYTHON="$HOME/miniconda3/envs/toupy/bin/python"   (absolute path)
 PYTHON="/home/esrf/jdasilva/micromamba/envs/myvenv/bin/python"
 
-# Output directory for figures and the .npz result file.
-# Matches the path expected by twopass_real_data.py and fsc_threeway_comparison.py:
-#   FSC_HALF=None  →  twopass_real_figures/
-#   FSC_HALF=0     →  twopass_real_figures_half0/
-#   FSC_HALF=1     →  twopass_real_figures_half1/
-if [ "${FSC_HALF}" = "None" ]; then
-    OUT_DIR="${WORK_DIR}/twopass_real_figures"
-else
-    OUT_DIR="${WORK_DIR}/twopass_real_figures_half${FSC_HALF}"
-fi
+# ── Half-dataset mode for FSC ─────────────────────────────────────────────
+# None = full dataset  |  0 = even angles  |  1 = odd angles
+# Submit two jobs (FSC_HALF=0 and FSC_HALF=1) in parallel, then run
+# fsc_analysis.py on the two result files to get the FSC resolution curves.
+FSC_HALF=None
 
 # ── Reconstruction parameters (override the defaults in twopass_real_data.py)
 N_SLICES=64      # multislice slabs — A40/A100: 64 fits in 48 GB, ~40 s/iter
@@ -117,11 +112,15 @@ CROP_X=55        # pixels to remove from each side in the column (x) direction
 CROP_Y=55        # pixels to remove from each side in the row (y) direction
                  # Calibrated for PXCTalignedprojections.npz
 
-# ── Half-dataset mode for FSC ─────────────────────────────────────────────
-# None = full dataset  |  0 = even angles  |  1 = odd angles
-# Submit two jobs (FSC_HALF=0 and FSC_HALF=1) in parallel, then run
-# fsc_analysis.py on the two result files to get the FSC resolution curves.
-FSC_HALF=None
+# Output directory — matches the path expected by fsc_threeway_comparison.py:
+#   FSC_HALF=None  →  twopass_real_figures/
+#   FSC_HALF=0     →  twopass_real_figures_half0/
+#   FSC_HALF=1     →  twopass_real_figures_half1/
+if [ "${FSC_HALF}" = "None" ]; then
+    OUT_DIR="${WORK_DIR}/twopass_real_figures"
+else
+    OUT_DIR="${WORK_DIR}/twopass_real_figures_half${FSC_HALF}"
+fi
 
 # =============================================================================
 # ── Environment setup — uncomment the block matching your cluster ─────────────
