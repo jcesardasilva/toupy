@@ -220,27 +220,44 @@ print(f'δ_FBaP range: [{delta_fbap.min():.3e}, {delta_fbap.max():.3e}]')
 delta_fbp = None
 delta_tp  = None
 
-# Try to load two-pass result
-if os.path.exists(TWOPASS_NPZ):
-    print(f'\nLoading FBP and two-pass volumes from: {TWOPASS_NPZ}')
-    tp_data   = np.load(TWOPASS_NPZ)
-    delta_fbp = tp_data['delta_fbp'].astype(np.float64)
-    delta_tp  = tp_data['delta_tp'].astype(np.float64)
-    print(f'  δ_FBP  range: [{delta_fbp.min():.3e}, {delta_fbp.max():.3e}]')
-    print(f'  δ_TP   range: [{delta_tp.min():.3e},  {delta_tp.max():.3e}]')
+# Print the resolved comparison path up front so it is never ambiguous why a
+# difference map is or is not produced.
+print('\n' + '-'*65)
+print('Comparison volumes (for difference maps)')
+print('-'*65)
+print(f'  TWOPASS_NPZ = {TWOPASS_NPZ}')
+print(f'  exists      = {os.path.exists(TWOPASS_NPZ)}')
 
-    # Ensure all volumes have the same shape (FBaP might differ if different
-    # crop settings were used)
-    for name, vol in [('FBP', delta_fbp), ('two-pass', delta_tp)]:
+# FBP and two-pass are loaded and validated INDEPENDENTLY: a shape mismatch
+# (or absence) of one must not discard the other.  A difference map is still
+# produced from whichever volume(s) match the FBaP shape.
+if os.path.exists(TWOPASS_NPZ):
+    tp_data = np.load(TWOPASS_NPZ)
+
+    def _load_and_check(key, label):
+        if key not in tp_data:
+            print(f'  {label:9s}: key {key!r} not in archive — skipped')
+            return None
+        vol = tp_data[key].astype(np.float64)
         if vol.shape != delta_fbap.shape:
-            print(f'  WARNING: {name} volume shape {vol.shape} ≠ '
-                  f'FBaP shape {delta_fbap.shape}. Skipping comparison plots.')
-            delta_fbp = None
-            delta_tp  = None
-            break
+            print(f'  {label:9s}: shape {vol.shape} ≠ FBaP {delta_fbap.shape} '
+                  f'— skipped (check CROP_X/CROP_Y/N_SLICES match)')
+            return None
+        print(f'  {label:9s}: loaded, shape {vol.shape}, '
+              f'δ ∈ [{vol.min():.3e}, {vol.max():.3e}]')
+        return vol
+
+    delta_fbp = _load_and_check('delta_fbp', 'FBP')
+    delta_tp  = _load_and_check('delta_tp',  'two-pass')
 else:
-    print(f'\nNo two-pass result found at {TWOPASS_NPZ}; '
-          'only FBaP volume will be saved.')
+    print('  → file not found; FBaP volume will be saved without a '
+          'comparison map.')
+    print('    (If you expected a comparison: run twopass_real_data.py first,')
+    print('     and ensure FSC_HALF / CROP_X / CROP_Y match this script.)')
+
+_n_cmp = sum(v is not None for v in (delta_fbp, delta_tp))
+print(f'  → {_n_cmp} comparison volume(s) available for difference maps')
+print('-'*65)
 
 # ---------------------------------------------------------------------------
 # 6.  Save
@@ -322,23 +339,26 @@ fig1.savefig(p1, dpi=150, bbox_inches='tight')
 print(f'  Saved: {p1}')
 
 # ── Figure 2: Difference maps ────────────────────────────────────────────
-if delta_fbp is not None and delta_tp is not None:
-    diff_fbap_fbp = delta_fbap - delta_fbp
-    diff_tp_fbap  = delta_tp   - delta_fbap
+# Build the list of difference panels from whatever comparison volumes loaded
+# (FBP and/or two-pass).  A single available volume still yields a map; only
+# the complete absence of both skips the figure (with a clear reason).
+diffs = []
+if delta_fbp is not None:
+    diffs.append((delta_fbap - delta_fbp, 'FBaP − FBP'))
+if delta_tp is not None:
+    diffs.append((delta_tp - delta_fbap, 'Two-pass − FBaP'))
 
-    fig2, axes2 = plt.subplots(2, 3, figsize=(13, 8),
+if diffs:
+    n_rows = len(diffs)
+    fig2, axes2 = plt.subplots(n_rows, 3, figsize=(13, 4 * n_rows),
                                 gridspec_kw={'hspace': 0.40, 'wspace': 0.35})
-    diffs = [
-        (diff_fbap_fbp, 'FBaP − FBP'),
-        (diff_tp_fbap,  'Two-pass − FBaP'),
-    ]
-    cut_keys = [
-        (iz_mid, 'xy'),
-        (slice(None), 'xz', iy_mid),
-        (slice(None), 'yz', ix_mid),
-    ]
+    # Normalise axes2 to a 2-D array so single-row case indexes uniformly
+    if n_rows == 1:
+        axes2 = axes2[np.newaxis, :]
     for row, (diff, title) in enumerate(diffs):
         dlim = float(np.percentile(np.abs(diff), 99.5))
+        if dlim == 0.0:                       # identical volumes → avoid 0-range
+            dlim = float(np.abs(diff).max()) or 1e-12
         cuts = [diff[iz_mid],
                 diff[:, iy_mid, :],
                 diff[:, :, ix_mid].T]
@@ -353,6 +373,9 @@ if delta_fbp is not None and delta_tp is not None:
     p2 = os.path.join(OUT_DIR, 'fig2_difference_maps.png')
     fig2.savefig(p2, dpi=150, bbox_inches='tight')
     print(f'  Saved: {p2}')
+else:
+    print('  fig2 skipped: no comparison volume (FBP or two-pass) was '
+          'available — see the "Comparison volumes" section above for why.')
 
 # ── Figure 3: Line profiles ──────────────────────────────────────────────
 profile_x = np.arange(Nx_vol) * PIXEL_SIZE * 1e9   # [nm]
