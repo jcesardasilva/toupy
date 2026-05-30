@@ -123,7 +123,9 @@ FSC_HALF=None
 # ESRF cluster: PYTHON path is set above to the full micromamba env path,
 # so no module load or activate is needed.  If your cluster requires a CUDA
 # module to expose libcuda.so (needed by PyTorch), uncomment the line below:
-module load cuda/13.0   # ESRF cluster — adjust if your site uses a different version
+# module load cuda/13.2.1  # Uncomment ONLY if PyTorch can't find libcuda.so at runtime.
+# conda/micromamba PyTorch already bundles the CUDA runtime — no module load needed
+# in most cases.  Available versions: cuda/12.9.1  cuda/13.1.2  cuda/13.2.1
 
 # --- Option B: module + virtualenv -------------------------------------------
 # module load python/3.11 cuda/12.1 cudnn/8.9
