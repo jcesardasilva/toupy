@@ -11,3 +11,18 @@ tutorial/*.npz
 tutorial/*.png
 tutorial/*.txt
 tutorial/.ipynb_checkpoints
+
+# Generated figures from the example scripts (run anywhere)
+phase_true.png
+phase_retrieval_comparison.png
+sinogram_comparison.png
+ring_correction_comparison.png
+full_pipeline_comparison.png
+iterative_phase_retrieval.png
+iterative_phase_profile.png
+iterative_phase_tomography.png
+iterative_phase_tomography_profile.png
+ctf_frequency_coverage.png
+
+# Local Claude Code worktrees / session data
+.claude/
