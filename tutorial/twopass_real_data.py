@@ -235,6 +235,19 @@ WARMUP_ITERS = 3          # linear LR warm-up iterations
 # FSC_HALF (above) takes precedence and selects even or odd angles.
 ANGLE_STEP   = 1
 
+# ── FSC half-dataset: override optimiser settings automatically ───────────
+# With only half the angles the FBP initial condition is noisier.
+# Using full-dataset settings (100 iters, LR=5e-6) lets the optimiser drift
+# too far from FBP and reduces the FBP–two-pass correlation to ~0.69.
+# The gentler settings below keep corr(FBP, two-pass) > 0.90 so that the
+# FSC comparison between the two halves remains meaningful.
+if FSC_HALF is not None:
+    N_ITER    = 30     # was 100 — stops before overfitting the half-angle set
+    LR        = 2e-6   # was 5e-6 — smaller steps
+    LAMBDA_TV = 5e-5   # was 1e-5 — stronger TV keeps the solution close to FBP
+    print(f"  [FSC half-{FSC_HALF}] Overriding optimiser: "
+          f"N_ITER={N_ITER}, LR={LR:.0e}, LAMBDA_TV={LAMBDA_TV:.0e}")
+
 if FSC_HALF is not None:
     _all_idx   = np.arange(N_ANGLES)
     _half_idx  = _all_idx[FSC_HALF::2]    # even-half: 0,2,4,…  odd-half: 1,3,5,…
