@@ -231,7 +231,7 @@ for method in methods:
     else:  # Two-pass
         path0 = os.path.join(TWOPASS_HALF0_DIR, 'twopass_reconstruction.npz')
         path1 = os.path.join(TWOPASS_HALF1_DIR, 'twopass_reconstruction.npz')
-        key = 'delta_twopass'
+        key = 'delta_tp'
 
     if not os.path.exists(path0):
         print(f'  ✗ {method} half-0: {path0} not found')
