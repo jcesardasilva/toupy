@@ -90,8 +90,16 @@ DATA_FILE="${WORK_DIR}/PXCTalignedprojections.npz"
 #   PYTHON="$HOME/miniconda3/envs/toupy/bin/python"   (absolute path)
 PYTHON="/home/esrf/jdasilva/micromamba/envs/myvenv/bin/python"
 
-# Output directory for figures and the .npz result file
-OUT_DIR="${WORK_DIR}/results_${SLURM_JOB_ID}"
+# Output directory for figures and the .npz result file.
+# Matches the path expected by twopass_real_data.py and fsc_threeway_comparison.py:
+#   FSC_HALF=None  →  twopass_real_figures/
+#   FSC_HALF=0     →  twopass_real_figures_half0/
+#   FSC_HALF=1     →  twopass_real_figures_half1/
+if [ "${FSC_HALF}" = "None" ]; then
+    OUT_DIR="${WORK_DIR}/twopass_real_figures"
+else
+    OUT_DIR="${WORK_DIR}/twopass_real_figures_half${FSC_HALF}"
+fi
 
 # ── Reconstruction parameters (override the defaults in twopass_real_data.py)
 N_SLICES=64      # multislice slabs — A40/A100: 64 fits in 48 GB, ~40 s/iter
