@@ -88,7 +88,7 @@ DATA_FILE="${WORK_DIR}/PXCTalignedprojections.npz"
 # Examples:
 #   PYTHON="python"                                    (env already activated)
 #   PYTHON="$HOME/miniconda3/envs/toupy/bin/python"   (absolute path)
-PYTHON="python"
+PYTHON="/home/esrf/jdasilva/micromamba/envs/myvenv/bin/python"
 
 # Output directory for figures and the .npz result file
 OUT_DIR="${WORK_DIR}/results_${SLURM_JOB_ID}"
@@ -119,9 +119,11 @@ FSC_HALF=None
 # ── Environment setup — uncomment the block matching your cluster ─────────────
 # =============================================================================
 
-# --- Option A: conda environment ----------------------------------------------
-# module load anaconda3            # or: miniconda3 / conda, depends on cluster
-# conda activate toupy
+# --- Option A: conda / micromamba environment ---------------------------------
+# ESRF cluster: PYTHON path is set above to the full micromamba env path,
+# so no module load or activate is needed.  If your cluster requires a CUDA
+# module to expose libcuda.so (needed by PyTorch), uncomment the line below:
+module load cuda/13.0   # ESRF cluster — adjust if your site uses a different version
 
 # --- Option B: module + virtualenv -------------------------------------------
 # module load python/3.11 cuda/12.1 cudnn/8.9
