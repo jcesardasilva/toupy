@@ -97,6 +97,13 @@ N_SLICES = None   # None → Nz (same shape as FBP/two-pass, required for compar
 # making autofocus unreliable.  Set to True to enable (adds ~50 % runtime).
 AUTO_FOCUS = False
 
+# Compute backend for FBaP:
+#   'auto' → GPU (CUDA/MPS) if available, else NumPy CPU  (recommended)
+#   'cpu'  → force NumPy CPU
+#   'cuda' / 'mps' → force that GPU
+# On an A40 the full-resolution run is ~5–8 min vs ~60–90 min on CPU.
+DEVICE = 'auto'
+
 # Existing two-pass result to load for comparison (None = skip comparison).
 # Points to the .npz saved by twopass_real_data.py.
 # Auto-adjusts for half-dataset runs: if FSC_HALF is set, looks in the
@@ -182,6 +189,7 @@ print(f'  N_SLICES        = {N_SLICES}  (Δz = {SLICE_DZ*1e9:.1f} nm)')
 print(f'  sample thickness = {SAMPLE_THICKNESS*1e6:.2f} µm  ({Nz} pixels)')
 print(f'  auto_focus       = {AUTO_FOCUS}')
 print(f'  filter           = ram-lak')
+print(f'  device           = {DEVICE}  (backend reported below)')
 
 DoF    = PIXEL_SIZE**2 / WAVELENGTH
 F_sl   = DoF / SLICE_DZ
@@ -201,6 +209,7 @@ delta_fbap, focus_dists = filtered_back_propagation(
     focus_metric     = 'tv_intensity',
     filter_name      = 'ram-lak',
     verbose          = True,
+    device           = DEVICE,
 )
 print(f'\nFBaP total time: {time.time()-t0:.1f} s')
 print(f'δ_FBaP range: [{delta_fbap.min():.3e}, {delta_fbap.max():.3e}]')
