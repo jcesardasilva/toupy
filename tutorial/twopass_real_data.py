@@ -371,9 +371,17 @@ def _fbp_gpu(phase_arr, theta_deg, dev):
 
 
 # ── Choose backend ──────────────────────────────────────────────────────────
+# Track which FBP implementation was used: the custom _fbp_gpu (t = x·cosθ +
+# z·sinθ) and skimage.iradon produce z-flipped volumes relative to each other.
+# Only _fbp_gpu needs the z-axis flip below to reach the natural (true-sample)
+# orientation that the Pass-2 multislice forward model expects.  Feeding the
+# wrong z-orientation makes Pass 2 fight the FBP initial guess and produces
+# spurious +/- sector artefacts in the xz/yz difference maps.
+_fbp_used_gpu = False
 if TORCH_AVAILABLE and DEVICE.type == 'cuda':
     print(f"  GPU FBP on {DEVICE} …", flush=True)
     delta_fbp = _fbp_gpu(phase_use, theta_use, DEVICE)
+    _fbp_used_gpu = True
 
 elif TORCH_AVAILABLE and DEVICE.type == 'mps':
     # MPS kernel-launch overhead makes the Ny-loop slow; use CPU FBP instead.
@@ -415,9 +423,19 @@ if not (TORCH_AVAILABLE and DEVICE.type == 'cuda'):
 delta_fbp = -delta_fbp / (K0 * PIXEL_SIZE)
 
 # ── Orientation correction ────────────────────────────────────────────────
-# scipy.ndimage.rotate with axes=(2, 0) reverses the z-axis relative to
-# the FBP convention of skimage.iradon.  Flip axis 0 to correct.
-delta_fbp = np.ascontiguousarray(delta_fbp[::-1, :, :])
+# skimage.iradon already reconstructs in the natural (true-sample) z
+# orientation.  The custom _fbp_gpu backprojector (t = x·cosθ + z·sinθ) comes
+# out z-flipped relative to iradon, so flip ONLY the GPU-FBP result so that
+# both backends feed the SAME orientation into Pass 2.
+#
+# (Verified: with an asymmetric phantom, corr(iradon, _fbp_gpu[::-1]) ≫
+#  corr(iradon, _fbp_gpu), and iradon matches the phantom directly.)
+#
+# An earlier version flipped unconditionally, which corrupted the iradon
+# (MPS/CPU) path and caused +/- sector artefacts in the two-pass − FBP
+# difference maps on every non-CUDA run.
+if _fbp_used_gpu:
+    delta_fbp = np.ascontiguousarray(delta_fbp[::-1, :, :])
 
 # Positivity constraint: δ ≥ 0 for standard materials
 # Comment out if your sample has negative contrast regions.
