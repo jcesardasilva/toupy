@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — phase retrieval, ring correction, TV reconstruction
+## 0.4.0 — 2026-05-31 — phase retrieval, ring correction, TV reconstruction
 
 New methods for propagation-based / holotomographic X-ray nanotomography.
 All new compute functions accept `cuda=True` for optional GPU acceleration via

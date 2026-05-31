@@ -10,7 +10,7 @@ with open("README.md", "r", encoding="utf-8") as fid:
 
 setuptools.setup(
     name="toupy",
-    version="0.3.0",
+    version="0.4.0",
     author="Julio Cesar da Silva",
     author_email="julio-cesar.da-silva@neel.cnrs.fr",
     description="Tomographic Utilities for Python",
