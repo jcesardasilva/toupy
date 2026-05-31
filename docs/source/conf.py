@@ -22,19 +22,19 @@ sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information -----------------------------------------------------
 
 project = "Toupy - Tomographic Utilities for Python"
-copyright = "2019, Julio C. da Silva"
-author = "Julio C. da Silva, ESRF and Institut Néel, CNRS"
+copyright = "2019-2026, Julio C. da Silva"
+author = "Julio C. da Silva, ESRF and Institut Neel, CNRS"
 
 # The short X.Y version
-version = "0.1"
+version = "0.3"
 # The full version, including alpha/beta/rc tags
-release = "0.1.0"
+release = "0.3.0"
 
 # -- General configuration ---------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = "2.1.2"
+needs_sphinx = "5.0"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -84,7 +84,7 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # Common abreviations
 rst_epilog = """
@@ -255,8 +255,10 @@ todo_include_todos = True
 # intersphinx_mapping = {'https://docs.python.org/': None}
 
 intersphinx_mapping = {
-    "https://docs.python.org/": None,
-    #'toupy': ('https://github.com/jcesardasilva/toupy.git', None),
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy", None),
+    "matplotlib": ("https://matplotlib.org/stable", None),
 }
 
 # import os
@@ -266,8 +268,7 @@ if on_rtd:
 else:
     html_theme = "sphinx_rtd_theme"
 if on_rtd:
-    #autodoc_mock_imports = ["pyopencl", "libtiff"]
-    autodoc_mock_imports = ["pyopencl"]
+    autodoc_mock_imports = []
 
     def run_apidoc(_):
         ignore_paths = ["../../setup.py"]  # files to be ignored
