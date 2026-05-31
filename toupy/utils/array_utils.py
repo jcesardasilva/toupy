@@ -43,10 +43,10 @@ def create_circle(inputimg):
     inputimg : array_like
         Input image from which to calculate the circle
 
-    Return
-    ------
-    t : array_like
-        Array containing the circle
+    Returns
+    -------
+    t : ndarray
+        Array containing the circular mask with apodized edges.
     """
     bordercrop = 10
     nr, nc = inputimg.shape
@@ -63,7 +63,17 @@ def create_circle(inputimg):
 
 def normalize_array(input_array):
     """
-    Normalize the input array
+    Normalize an array to the range ``[0, 1]``.
+
+    Parameters
+    ----------
+    input_array : array_like
+        Input array to normalize.
+
+    Returns
+    -------
+    ndarray
+        Array with values scaled linearly to ``[0, 1]``.
     """
     return (input_array - input_array.min()) / (input_array.max() - input_array.min())
 
@@ -111,8 +121,8 @@ def smooth1d(x,window_len=11,window='hanning'):
     y : array_like
         The smoothed signal
 
-    Example
-    -------
+    Examples
+    --------
     >>> import numpy as np
     >>> t=np.linspace(-2,2,0.1)
     >>> x=np.sin(t)+np.random.randn(len(t))*0.1
@@ -120,11 +130,11 @@ def smooth1d(x,window_len=11,window='hanning'):
 
     Notes
     -----
-        see also: numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
-    scipy.signal.lfilter
-    
-    Adapted from : https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
-    from: http://scipy.org/Cookbook/SignalSmooth
+    See also: :func:`numpy.hanning`, :func:`numpy.hamming`,
+    :func:`numpy.bartlett`, :func:`numpy.blackman`, :func:`numpy.convolve`,
+    :func:`scipy.signal.lfilter`.
+
+    Adapted from https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
     """
 
     if x.ndim != 1:
@@ -157,24 +167,27 @@ def smooth1d(x,window_len=11,window='hanning'):
 
 def gauss_kern(size, sizey=None):
     """
-	Returns a normalized 2D gauss kernel array for convolutions
-    
+    Return a normalized 2-D Gaussian kernel array for convolutions.
+
     Parameters
     ----------
-    size : int 
-        Size of the kernel
+    size : int
+        Half-width of the kernel along columns (the full extent is
+        ``2*size + 1`` pixels).
     sizey : int, optional
-        Vertical size of the kernel if not squared
-    
+        Half-width along rows.  If ``None``, defaults to ``size``
+        (square kernel).
+
     Returns
     -------
-    array_like
-        Normalized kernel
-    
+    ndarray
+        Normalized 2-D Gaussian kernel of shape
+        ``(2*sizey+1, 2*size+1)``.
+
     Notes
     -----
-        from: http://scipy.org/Cookbook/SignalSmooth
-	"""
+    Adapted from http://scipy.org/Cookbook/SignalSmooth
+    """
     size = int(size)
     if not sizey:
         sizey = size
@@ -186,27 +199,26 @@ def gauss_kern(size, sizey=None):
 
 def smooth2d(im, n, ny=None):
     """
-	Blurs the image by convolving with a gaussian kernel of typical
-    size n. The optional keyword argument ny allows for a different
-    size in the y direction.
-    
+    Blur an image by convolving with a Gaussian kernel.
+
     Parameters
     ----------
     im : array_like
-        Input image
+        Input image.
     n : int
-        Typical size of the gaussian kernel
-    n : int, optional
-        Size in the y direction if not squared
-    
+        Half-width of the Gaussian kernel along the horizontal axis.
+    ny : int, optional
+        Half-width along the vertical axis.  Defaults to ``n``
+        (square kernel).
+
     Returns
     -------
-    improc : array_like
-        Smoothed image
-    
+    improc : ndarray
+        Smoothed image.
+
     Notes
     -----
-        from: http://scipy.org/Cookbook/SignalSmooth
+    Adapted from http://scipy.org/Cookbook/SignalSmooth
     """
     g = gauss_kern(n, sizey=ny)
     improc = signal.convolve(im,g, mode='valid')
@@ -291,7 +303,17 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
 
 def round_to_even(x):
     """
-    Round number ``x`` to next even number
+    Round a number down to the nearest even integer.
+
+    Parameters
+    ----------
+    x : float or int
+        Input value.
+
+    Returns
+    -------
+    int
+        Largest even integer less than or equal to ``x``.
     """
     return int(2 * np.floor(x / 2))
 
@@ -314,8 +336,8 @@ def polynomial1d(x, order=1, w=1):
     polyseries : array_like
         Orthonormal polymonial up to order
 
-    Note
-    ----
+    Notes
+    -----
     Inspired by legendrepoly1D_2.m created by Manuel Guizar in March 10,2009
     """
 
@@ -435,9 +457,28 @@ def cropROI(input_array, roi=[]):
 
 def radtap(X, Y, tappix, zerorad):
     """
-    Creates a central cosine tapering for beam.
-    It receives the X and Y coordinates, tappix is the extent of
-    tapering, zerorad is the radius with no data (zeros).
+    Create a central cosine tapering mask for beam apodization.
+
+    The mask is zero inside the radius ``zerorad``, rises with a cosine
+    taper over ``tappix`` pixels, and is unity beyond ``zerorad + tappix``.
+
+    Parameters
+    ----------
+    X : ndarray
+        2-D array of horizontal coordinate values (e.g. from
+        :func:`numpy.meshgrid`).
+    Y : ndarray
+        2-D array of vertical coordinate values.
+    tappix : int or float
+        Extent of the cosine taper in pixels.
+    zerorad : int or float
+        Radius (in pixels) inside which the mask is zero.
+
+    Returns
+    -------
+    taperfunc : ndarray
+        2-D apodization mask with the same shape as ``X`` and ``Y``,
+        values in ``[0, 1]``.
     """
     tau = 2 * tappix  # period of cosine function (only half a period is used)
 
