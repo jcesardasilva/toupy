@@ -1,5 +1,7 @@
 # Changelog
 
+All notable changes to **toupy** are documented in this file.
+
 ## 0.4.0 — 2026-05-31 — phase retrieval, ring correction, TV reconstruction
 
 New methods for propagation-based / holotomographic X-ray nanotomography.
@@ -55,3 +57,49 @@ CuPy, with automatic CPU fallback when CuPy is not installed.
 
 - Added GPU (CuPy) acceleration paths across the new modules, with automatic
   CPU fallback when CuPy is not installed.
+
+## 0.3.0 — 2026-05-22
+
+### Added
+
+- FDK cone-beam reconstruction pipeline (geometry, projector, backprojector).
+- Gradient-descent (Adam optimiser) vertical and horizontal registration.
+- `LocalFSC` and `LocalResolution` for spatially-resolved resolution estimation,
+  including half-period resolution attributes.
+- `phantom3D()` — 3-D Shepp-Logan and modified Shepp-Logan phantom generator.
+- Interactive figure picker in `GUI_tracker`.
+
+### Fixed — compatibility
+
+- Python 3.14: `ValueError` from mathtext/pyparsing in `show_ssnr_curve`.
+- NumPy 2.0: replace deprecated `np.trapz` with `np.trapezoid` in FDK.
+- SciPy 2.0: replace deprecated `scipy.ndimage.filters` / `scipy.ndimage.fourier`
+  imports with the flat `scipy.ndimage` namespace.
+
+### Fixed — display / Jupyter
+
+- Rewrite static figure rendering to the OO matplotlib API
+  (`Figure` + `FigureCanvasAgg`), eliminating `AttributeError` from the ipympl
+  `manager=None` issue across all display paths.
+- `tomoconsistency_multiple` blank/error display under `%matplotlib widget`.
+- `show_fsc_images` blank on 2nd+ call (SSNRPlot, LocalFSC).
+- `show_ssnr_curve` tick-label crash (mathtext ParseException).
+- tqdm progress bars accumulating in notebook cell output.
+- Axis limits clipping data (zero padding) in `RegisterPlot`.
+
+### Changed — dependencies
+
+- Remove unused dependencies: numexpr, joblib, pyopencl, silx, decorator.
+- Add ipywidgets as an explicit runtime dependency (was already used internally).
+- ipympl is now optional (`extras_require["notebook"]`).
+- Raise minimum Python to 3.8; numpy ≥ 1.20.0, scipy ≥ 1.7.0,
+  scikit-image ≥ 0.18.0.
+
+## 0.1.2
+
+### Changed
+
+- Remove dependency: roipoly.
+- Silx requirement relaxed to ≥ 0.9.0.
+- Better holotomography templates.
+- Documentation improvements.
