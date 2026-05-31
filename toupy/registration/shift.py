@@ -14,7 +14,18 @@ __all__ = ["ShiftFunc"]
 
 class Variables(object):
     """
-    Auxiliary class to initialize some variables
+    Auxiliary class that stores default parameter values for shift operations.
+
+    Attributes
+    ----------
+    shift_method : str
+        Default shift method.  ``'linear'``.
+    padmod : str
+        Default padding mode.  ``'reflect'``.
+    complexoutput : bool
+        Whether to return a complex-valued array.  ``False``.
+    splineorder : int
+        Spline interpolation order for the spline shift method.  ``3``.
     """
 
     shift_method = "linear"
@@ -25,7 +36,22 @@ class Variables(object):
 
 class ShiftFunc(Variables):
     """
-    Collections of shift fuctions
+    Collection of shift functions for 1-D and 2-D arrays.
+
+    The desired method is selected at construction time via the
+    ``shiftmeth`` parameter and exposed through ``__call__`` so that the
+    same interface works regardless of the underlying algorithm.
+
+    Parameters
+    ----------
+    **params
+        Must contain:
+
+        shiftmeth : str
+            Shift algorithm to use.  One of ``'linear'`` (bilinear
+            interpolation), ``'fourier'`` (FFT-based sub-pixel shift via
+            pyFFTW), or ``'spline'`` (spline interpolation via
+            :func:`scipy.ndimage.interpolation.shift`).
     """
 
     def __init__(self, **params):
@@ -44,19 +70,27 @@ class ShiftFunc(Variables):
 
     def __call__(self, *args):  # input_array,shift):
         """
-        Implement the shifts
+        Apply the selected shift method to an array.
 
         Parameters
         ----------
-        *args:
+        *args
             args[0] : array_like
-                Input array
-            args[1] : int or tuple
-                Shift amplitude
-            args[2] : str (optional)
-                Padding mode if necessary
-            args[3] : bool (optional)
-                True for complex output or False for real output
+                Input 1-D or 2-D array.
+            args[1] : float or tuple of float
+                Shift amplitude in pixels.  For 1-D arrays pass a scalar;
+                for 2-D arrays pass ``(row_shift, col_shift)``.
+            args[2] : str, optional
+                Padding mode (overrides the instance default).
+            args[3] : bool, optional
+                ``True`` to return a complex array; ``False`` (default) to
+                return a real array.
+
+        Returns
+        -------
+        ndarray
+            Shifted array with the same shape as ``args[0]``.  Returns the
+            input unchanged when the shift is zero.
         """
 
         self.input_array = args[0]
@@ -96,8 +130,8 @@ class ShiftFunc(Variables):
             corresponds to shifts in the rows and the second value
             corresponds to shifts in the columns.
 
-        Return
-        ------
+        Returns
+        -------
         output_array : array_like
             Shifted image
         """
@@ -123,8 +157,8 @@ class ShiftFunc(Variables):
             corresponds to shifts in the rows and the second value
             corresponds to shifts in the columns.
 
-        Return
-        ------
+        Returns
+        -------
         output_array : array_like
             Shifted image
         """
@@ -177,8 +211,8 @@ class ShiftFunc(Variables):
             corresponds to shifts in the rows and the second value
             corresponds to shifts in the columns.
 
-        Return
-        ------
+        Returns
+        -------
         output_array : array_like
             Shifted image
         """
@@ -215,8 +249,8 @@ class ShiftFunc(Variables):
             corresponds to shifts in the rows and the second value
             corresponds to shifts in the columns.
 
-        Return
-        ------
+        Returns
+        -------
         output_array : array_like
             Shifted image
         """
