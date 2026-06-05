@@ -53,10 +53,15 @@ WAVELENGTH = 1.23984193e-6 / (ENERGY_keV * 1e3)
 DELTA_BETA = 50.0
 N        = 96            # transaxial detector columns / recon grid
 N_V      = 32            # detector rows (axial)
-N_ANG    = 120
+N_ANG    = 300          # full 360 deg orbit; FDK streaks shrink with angle count
 MARGIN   = 14           # transaxial vacuum margin (captures fringes)
 Z_MARGIN = 5            # axial vacuum margin
 MAX_PHASE = 1.0         # peak projected phase [rad] (avoid wrapping)
+# Apodised ramp filter: a plain 'ram-lak' amplifies high-frequency streaking
+# off the sharp high-contrast shell; 'hann' roughly halves the reconstruction
+# RMSE at a small resolution cost.  (This is an FDK setting, independent of the
+# phase retrieval.)
+FDK_FILTER = "hann"
 
 geom = ConeBeamGeometry(
     SOD=0.15, SDD=0.30, det_pixel_size=2e-6,    # M = 2, eff. pixel = 1 um
@@ -115,7 +120,7 @@ intensity = np.maximum(intensity + rng.normal(0, 0.005 * intensity.mean(),
 # 3. Reconstructions
 # ---------------------------------------------------------------------------
 def fdk(stack):
-    return fdk_reconstruct(stack, geom)
+    return fdk_reconstruct(stack, geom, filter_type=FDK_FILTER)
 
 
 print("\nFDK of the clean projected phase (reference)...")
@@ -133,7 +138,7 @@ print("Iterative retrieval + FDK (cone_phase_retrieval_fdk)...")
 t = time.perf_counter()
 rec_iter = cone_phase_retrieval_fdk(
     intensity, geom, WAVELENGTH, DELTA_BETA,
-    n_iter=80, reg_tv=2e-3, verbose=True)
+    n_iter=80, reg_tv=2e-3, filter_type=FDK_FILTER, verbose=True)
 print("  done in {:.1f} s".format(time.perf_counter() - t))
 
 # ---------------------------------------------------------------------------
