@@ -54,12 +54,21 @@ TWOPASS_HALF1_DIR = os.path.join(_HERE, 'twopass_real_figures_half1')
 FBAP_HALF0_DIR    = os.path.join(_HERE, 'twopass_real_figures_fbap_half0')
 FBAP_HALF1_DIR    = os.path.join(_HERE, 'twopass_real_figures_fbap_half1')
 
-# Optional: per-angle-weighted two-pass run (ANGLE_WEIGHT='snr' in
-# twopass_real_data.py writes here).  If both halves are present a fourth
-# curve "Two-pass (snr)" is added and a before/after weighting diff is
-# reported.  Absent -> the script runs as the usual three-way comparison.
-TWOPASS_SNR_HALF0_DIR = os.path.join(_HERE, 'twopass_real_figures_snr_half0')
-TWOPASS_SNR_HALF1_DIR = os.path.join(_HERE, 'twopass_real_figures_snr_half1')
+# Optional variant runs of twopass_real_data.py.  Each is auto-included only
+# if BOTH its half-volumes are present; otherwise it is silently skipped.
+# Directory tags (set by twopass_real_data.py):
+#   _snr       -> ANGLE_WEIGHT='snr'         (per-angle noise weighting)
+#   _grid      -> FBP_METHOD='gridding'      (NUFFT back-projector)
+#   _grid_snr  -> both
+def _hdirs(tag):
+    return (os.path.join(_HERE, f'twopass_real_figures{tag}_half0'),
+            os.path.join(_HERE, f'twopass_real_figures{tag}_half1'))
+
+VARIANT_DIRS = {
+    'snr':      _hdirs('_snr'),
+    'grid':     _hdirs('_grid'),
+    'grid_snr': _hdirs('_grid_snr'),
+}
 
 # Output directory
 OUT_DIR = os.path.join(_HERE, 'fsc_threeway')
@@ -223,17 +232,19 @@ print('='*70)
 print('\n1. Loading half-dataset reconstructions ...\n')
 
 # (method -> (npz_filename, half0_dir, half1_dir, key, required))
+_TP = 'twopass_reconstruction.npz'
+_FB = 'fbap_reconstruction.npz'
 _method_spec = {
-    'FBP':      ('twopass_reconstruction.npz',
-                 TWOPASS_HALF0_DIR, TWOPASS_HALF1_DIR, 'delta_fbp', True),
-    'FBaP':     ('fbap_reconstruction.npz',
-                 FBAP_HALF0_DIR, FBAP_HALF1_DIR, 'delta_fbap', True),
-    'Two-pass': ('twopass_reconstruction.npz',
-                 TWOPASS_HALF0_DIR, TWOPASS_HALF1_DIR, 'delta_tp', True),
-    # Optional 4th curve: only included if the _snr run is present.
-    'Two-pass (snr)': ('twopass_reconstruction.npz',
-                       TWOPASS_SNR_HALF0_DIR, TWOPASS_SNR_HALF1_DIR,
-                       'delta_tp', False),
+    'FBP':       (_TP, *_hdirs(''),                'delta_fbp', True),
+    'FBaP':      (_FB, FBAP_HALF0_DIR, FBAP_HALF1_DIR, 'delta_fbap', True),
+    'Two-pass':  (_TP, *_hdirs(''),                'delta_tp', True),
+    # Optional variants (auto-included if present):
+    'Two-pass (snr)':      (_TP, *VARIANT_DIRS['snr'],      'delta_tp', False),
+    'Two-pass (grid)':     (_TP, *VARIANT_DIRS['grid'],     'delta_tp', False),
+    'Two-pass (grid+snr)': (_TP, *VARIANT_DIRS['grid_snr'], 'delta_tp', False),
+    # The gridding back-projector also changes the *FBP init* itself; compare
+    # it directly to the iradon FBP (isolates the back-projector, pre-refine):
+    'FBP (grid)':          (_TP, *VARIANT_DIRS['grid'],     'delta_fbp', False),
 }
 
 methods = []
@@ -248,17 +259,15 @@ for method, (fname, d0, d1, key, required) in _method_spec.items():
             print(f'  ✗ {method}: missing {path0} or {path1}')
             sys.exit(1)
         else:
-            print(f'  – {method:16s}  not found (optional) — skipped')
+            print(f'  – {method:20s} not found (optional) — skipped')
             continue
 
     data0 = np.load(path0, allow_pickle=True)
     data1 = np.load(path1, allow_pickle=True)
     vol0, vol1 = data0[key], data1[key]
-    print(f'  ✓ {method:16s}  half-0: {vol0.shape}  half-1: {vol1.shape}')
+    print(f'  ✓ {method:20s} half-0: {vol0.shape}  half-1: {vol1.shape}')
     methods.append(method)
     volumes[method] = (vol0, vol1)
-
-_HAVE_SNR = 'Two-pass (snr)' in methods
 
 # ── 2. Compute FSC for each method ─────────────────────────────────────────
 
@@ -284,28 +293,44 @@ for method in methods:
     res_143 = estimate_resolution(freq_nm, fsc, threshold=0.143)
     resolutions[method] = (res_50, res_143)
 
-    print(f'  {method:16s}  FSC=0.5: {res_50:6.2f} nm    FSC=0.143: {res_143:6.2f} nm')
+    print(f'  {method:20s} FSC=0.5: {res_50:6.2f} nm    FSC=0.143: {res_143:6.2f} nm')
 
-# ── 3b. Before/after weighting diff (only if the _snr run is present) ────────
-def _delta_str(before, after):
-    """Resolution gain (nm) and %; smaller resolution = better."""
+# ── 3b. Before/after diffs for each present variant ─────────────────────────
+# Each entry: (after_label, before_label, what_changed).  Reported only when
+# BOTH labels are present.  Positive % = the variant improved resolution.
+_COMPARISONS = [
+    ('Two-pass (snr)',      'Two-pass', 'per-angle weighting (uniform -> snr)'),
+    ('Two-pass (grid)',     'Two-pass', 'FBP back-projector (iradon -> gridding)'),
+    ('Two-pass (grid+snr)', 'Two-pass', 'gridding + snr weighting (combined)'),
+    ('FBP (grid)',          'FBP',      'FBP back-projector, pre-refinement '
+                                        '(iradon -> gridding)'),
+]
+
+
+def _delta_line(label_thr, before, after):
     if not (np.isfinite(before) and np.isfinite(after)):
-        return 'n/a'
-    d = before - after                      # >0 => weighting improved (smaller nm)
+        return f'  {label_thr}: {before:6.2f} -> {after:6.2f} nm  (n/a)'
+    d = before - after                      # >0 => improved (smaller nm)
     pct = 100.0 * d / before
     sign = '+' if d >= 0 else ''
-    return f'{after:6.2f} nm  ({sign}{d:.2f} nm, {sign}{pct:.1f}% vs uniform)'
+    return (f'  {label_thr}: {before:6.2f} -> {after:6.2f} nm  '
+            f'({sign}{d:.2f} nm, {sign}{pct:.1f}%)')
 
-weighting_summary = None
-if _HAVE_SNR:
-    b50, b143 = resolutions['Two-pass']
-    a50, a143 = resolutions['Two-pass (snr)']
-    weighting_summary = (
-        '\nPer-angle weighting effect (Two-pass: uniform -> snr):\n'
-        f'  FSC=0.5  : {b50:6.2f} nm  ->  {_delta_str(b50, a50)}\n'
-        f'  FSC=0.143: {b143:6.2f} nm  ->  {_delta_str(b143, a143)}\n'
-        '  (positive % = weighting improved resolution)')
-    print(weighting_summary)
+
+diff_summaries = []
+for after, before, what in _COMPARISONS:
+    if after in resolutions and before in resolutions:
+        b50, b143 = resolutions[before]
+        a50, a143 = resolutions[after]
+        block = (f'\n{what}:\n'
+                 f'{_delta_line("FSC=0.5  ", b50, a50)}\n'
+                 f'{_delta_line("FSC=0.143", b143, a143)}')
+        diff_summaries.append(block)
+
+if diff_summaries:
+    print('\nBefore/after effects (positive % = improved resolution):')
+    for b in diff_summaries:
+        print(b)
 
 # ── 4. Save resolution table ───────────────────────────────────────────────
 
@@ -315,13 +340,15 @@ with open(res_file, 'w') as f:
     f.write('=' * 60 + '\n')
     f.write(f'Pixel size: {PIXEL_SIZE*1e9:.2f} nm\n')
     f.write(f'Nyquist limit: {2*PIXEL_SIZE*1e9:.2f} nm\n\n')
-    f.write('Method             FSC=0.5 [nm]    FSC=0.143 [nm]\n')
+    f.write('Method                 FSC=0.5 [nm]    FSC=0.143 [nm]\n')
     f.write('-' * 60 + '\n')
     for method in methods:
         res_50, res_143 = resolutions[method]
-        f.write(f'{method:16s}   {res_50:8.2f}        {res_143:8.2f}\n')
-    if weighting_summary:
-        f.write('\n' + weighting_summary.strip() + '\n')
+        f.write(f'{method:20s}   {res_50:8.2f}        {res_143:8.2f}\n')
+    if diff_summaries:
+        f.write('\nBefore/after effects (positive % = improved resolution):\n')
+        for b in diff_summaries:
+            f.write(b + '\n')
 
 print(f'\n  → Saved: {res_file}')
 
@@ -331,15 +358,19 @@ print('\n4. Plotting FSC curves ...\n')
 
 fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 
-colors = {'FBP': 'C0', 'FBaP': 'C1', 'Two-pass': 'C2',
-          'Two-pass (snr)': 'C3'}
-linestyles = {'FBP': '--', 'FBaP': '-.', 'Two-pass': '-',
-              'Two-pass (snr)': '-'}
+# Fixed style for the core three; variants get distinct colours from the cycle.
+_fixed_color = {'FBP': 'C0', 'FBaP': 'C1', 'Two-pass': 'C2'}
+_fixed_ls    = {'FBP': '--', 'FBaP': '-.', 'Two-pass': '-'}
+_variant_colors = ['C3', 'C4', 'C5', 'C6', 'C7']
+_vc = iter(_variant_colors)
 
 for method in methods:
     freq_nm, fsc = fsc_results[method]
-    ax.plot(freq_nm, fsc, label=method, color=colors[method],
-            linestyle=linestyles[method], linewidth=2)
+    color = _fixed_color.get(method) or next(_vc, 'k')
+    # FBP variants dashed (compare to FBP); two-pass variants solid.
+    ls = _fixed_ls.get(method) or (':' if method.startswith('FBP') else '-')
+    ax.plot(freq_nm, fsc, label=method, color=color,
+            linestyle=ls, linewidth=2)
 
 # Threshold lines
 ax.axhline(0.5, color='k', linestyle=':', linewidth=1, label='FSC = 0.5')
@@ -352,9 +383,10 @@ ax.axvline(f_nyquist_nm, color='red', linestyle=':', linewidth=1,
 
 ax.set_xlabel('Spatial frequency [1/nm]', fontsize=12)
 ax.set_ylabel('Fourier Shell Correlation', fontsize=12)
+_n_variants = sum(m not in ('FBP', 'FBaP', 'Two-pass') for m in methods)
 _title = 'FSC comparison: FBP vs FBaP vs Two-pass'
-if _HAVE_SNR:
-    _title += ' (+ snr-weighted)'
+if _n_variants:
+    _title += f' (+{_n_variants} variant{"s" if _n_variants > 1 else ""})'
 ax.set_title(_title, fontsize=13, fontweight='bold')
 ax.legend(loc='upper right', fontsize=10)
 ax.grid(True, alpha=0.3)
@@ -372,10 +404,15 @@ print(f'  → Saved: {fig_file}')
 
 npz_file = os.path.join(OUT_DIR, 'fsc_data.npz')
 _save = {'pixel_size': PIXEL_SIZE, 'resolutions': resolutions}
-_tag = {'FBP': 'fbp', 'FBaP': 'fbap', 'Two-pass': 'twopass',
-        'Two-pass (snr)': 'twopass_snr'}
+
+
+def _safe_tag(label):
+    return (label.lower().replace(' ', '_').replace('(', '')
+            .replace(')', '').replace('+', '_').replace('-', ''))
+
+
 for method in methods:
-    t = _tag[method]
+    t = _safe_tag(method)
     _save[f'freq_nm_{t}'] = fsc_results[method][0]
     _save[f'fsc_{t}'] = fsc_results[method][1]
 np.savez_compressed(npz_file, **_save)

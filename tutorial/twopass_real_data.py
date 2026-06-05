@@ -288,14 +288,17 @@ else:
         print(f"  [Subsampling] Using {N_use}/{N_ANGLES} angles "
               f"(every {ANGLE_STEP}th)\n")
 
-# Output directory.
-#   - appends a weighting tag ('_snr') for non-uniform ANGLE_WEIGHT, so a
-#     weighted run does NOT overwrite the baseline 'uniform' run and the two
-#     can be compared (see fsc_threeway_comparison.py);
-#   - appends _half0 / _half1 when FSC_HALF is set.
+# Output directory.  Tags keep variant runs from overwriting each other so
+# fsc_threeway_comparison.py can show before/after diffs:
+#   - FBP back-projector tag: '_grid' when FBP_METHOD='gridding' (else none);
+#   - weighting tag:          '_snr' for non-uniform ANGLE_WEIGHT (else none);
+#   - half tag:               '_half0' / '_half1' when FSC_HALF is set.
+# Baseline (auto/iradon/gpu + uniform) is untagged -> twopass_real_figures[...].
+_ftag = "_grid" if FBP_METHOD == "gridding" else ""
 _wtag = "" if ANGLE_WEIGHT == "uniform" else f"_{ANGLE_WEIGHT}"
 _out_suffix = f"_half{FSC_HALF}" if FSC_HALF is not None else ""
-OUT_DIR = os.path.join(_HERE, f"twopass_real_figures{_wtag}{_out_suffix}")
+OUT_DIR = os.path.join(_HERE,
+                       f"twopass_real_figures{_ftag}{_wtag}{_out_suffix}")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 print("Reconstruction parameters")
