@@ -82,12 +82,15 @@ def gridding_reconstruct_slice(sino, theta_deg):
     ramp = np.abs(rho)[:, None]                                    # density comp.
     c = (S * ramp).astype(np.complex128).ravel()
 
-    # finufft type-1: f[k] = sum_j c_j exp(i (x_j k1 + y_j k2)),  x in [-pi,pi)
+    # finufft type-1: f[k1,k2] = sum_j c_j exp(i (x_j k1 + y_j k2)),  x in [-pi,pi).
+    # With the default modeord=0 the output modes are already centre-ordered
+    # (k = -N/2 .. N/2-1), so f IS the centred image directly -- do NOT fftshift
+    # (an earlier fftshift here scrambled the result; the self-test caught it).
     x = (2.0 * np.pi * KX).ravel()
     y = (2.0 * np.pi * KY).ravel()
 
-    f = finufft.nufft2d1(x, y, c, (N, N), isign=+1, eps=1e-6)
-    img = np.fft.fftshift(f).real / N                              # normalise
+    f = finufft.nufft2d1(x, y, c, (N, N), isign=+1, eps=1e-9)
+    img = f.real / N                                               # scale fixed by calib
 
     return img
 

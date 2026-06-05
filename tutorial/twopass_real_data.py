@@ -419,7 +419,9 @@ if _method == 'gridding':
     try:
         _grid_mod = _load_module(
             'nufft_gridding', os.path.join(_HERE, 'nufft_gridding.py'))
-        _ok, _cc, _grid_calib = _grid_mod.self_test()
+        # Calibrate at the REAL reconstruction dimensions so the amplitude
+        # scale (gridding -> iradon) is exact; orientation is N-independent.
+        _ok, _cc, _grid_calib = _grid_mod.self_test(N=Nx, n_ang=N_use)
         if not _ok:
             print(f"  [FBP] gridding self-test did not pass (corr={_cc:.4f}); "
                   f"falling back to iradon.", flush=True)
