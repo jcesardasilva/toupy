@@ -54,6 +54,13 @@ TWOPASS_HALF1_DIR = os.path.join(_HERE, 'twopass_real_figures_half1')
 FBAP_HALF0_DIR    = os.path.join(_HERE, 'twopass_real_figures_fbap_half0')
 FBAP_HALF1_DIR    = os.path.join(_HERE, 'twopass_real_figures_fbap_half1')
 
+# Optional: per-angle-weighted two-pass run (ANGLE_WEIGHT='snr' in
+# twopass_real_data.py writes here).  If both halves are present a fourth
+# curve "Two-pass (snr)" is added and a before/after weighting diff is
+# reported.  Absent -> the script runs as the usual three-way comparison.
+TWOPASS_SNR_HALF0_DIR = os.path.join(_HERE, 'twopass_real_figures_snr_half0')
+TWOPASS_SNR_HALF1_DIR = os.path.join(_HERE, 'twopass_real_figures_snr_half1')
+
 # Output directory
 OUT_DIR = os.path.join(_HERE, 'fsc_threeway')
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -215,40 +222,43 @@ print('='*70)
 
 print('\n1. Loading half-dataset reconstructions ...\n')
 
-methods = ['FBP', 'FBaP', 'Two-pass']
+# (method -> (npz_filename, half0_dir, half1_dir, key, required))
+_method_spec = {
+    'FBP':      ('twopass_reconstruction.npz',
+                 TWOPASS_HALF0_DIR, TWOPASS_HALF1_DIR, 'delta_fbp', True),
+    'FBaP':     ('fbap_reconstruction.npz',
+                 FBAP_HALF0_DIR, FBAP_HALF1_DIR, 'delta_fbap', True),
+    'Two-pass': ('twopass_reconstruction.npz',
+                 TWOPASS_HALF0_DIR, TWOPASS_HALF1_DIR, 'delta_tp', True),
+    # Optional 4th curve: only included if the _snr run is present.
+    'Two-pass (snr)': ('twopass_reconstruction.npz',
+                       TWOPASS_SNR_HALF0_DIR, TWOPASS_SNR_HALF1_DIR,
+                       'delta_tp', False),
+}
+
+methods = []
 volumes = {}
 
-for method in methods:
-    if method == 'FBP':
-        # FBP stored inside twopass_reconstruction.npz
-        path0 = os.path.join(TWOPASS_HALF0_DIR, 'twopass_reconstruction.npz')
-        path1 = os.path.join(TWOPASS_HALF1_DIR, 'twopass_reconstruction.npz')
-        key = 'delta_fbp'
-    elif method == 'FBaP':
-        path0 = os.path.join(FBAP_HALF0_DIR, 'fbap_reconstruction.npz')
-        path1 = os.path.join(FBAP_HALF1_DIR, 'fbap_reconstruction.npz')
-        key = 'delta_fbap'
-    else:  # Two-pass
-        path0 = os.path.join(TWOPASS_HALF0_DIR, 'twopass_reconstruction.npz')
-        path1 = os.path.join(TWOPASS_HALF1_DIR, 'twopass_reconstruction.npz')
-        key = 'delta_tp'
+for method, (fname, d0, d1, key, required) in _method_spec.items():
+    path0 = os.path.join(d0, fname)
+    path1 = os.path.join(d1, fname)
 
-    if not os.path.exists(path0):
-        print(f'  ✗ {method} half-0: {path0} not found')
-        sys.exit(1)
-    if not os.path.exists(path1):
-        print(f'  ✗ {method} half-1: {path1} not found')
-        sys.exit(1)
+    if not (os.path.exists(path0) and os.path.exists(path1)):
+        if required:
+            print(f'  ✗ {method}: missing {path0} or {path1}')
+            sys.exit(1)
+        else:
+            print(f'  – {method:16s}  not found (optional) — skipped')
+            continue
 
     data0 = np.load(path0, allow_pickle=True)
     data1 = np.load(path1, allow_pickle=True)
-
-    vol0 = data0[key]
-    vol1 = data1[key]
-
-    print(f'  ✓ {method:10s}  half-0: {vol0.shape}  half-1: {vol1.shape}')
-
+    vol0, vol1 = data0[key], data1[key]
+    print(f'  ✓ {method:16s}  half-0: {vol0.shape}  half-1: {vol1.shape}')
+    methods.append(method)
     volumes[method] = (vol0, vol1)
+
+_HAVE_SNR = 'Two-pass (snr)' in methods
 
 # ── 2. Compute FSC for each method ─────────────────────────────────────────
 
@@ -274,21 +284,44 @@ for method in methods:
     res_143 = estimate_resolution(freq_nm, fsc, threshold=0.143)
     resolutions[method] = (res_50, res_143)
 
-    print(f'  {method:10s}  FSC=0.5: {res_50:6.2f} nm    FSC=0.143: {res_143:6.2f} nm')
+    print(f'  {method:16s}  FSC=0.5: {res_50:6.2f} nm    FSC=0.143: {res_143:6.2f} nm')
+
+# ── 3b. Before/after weighting diff (only if the _snr run is present) ────────
+def _delta_str(before, after):
+    """Resolution gain (nm) and %; smaller resolution = better."""
+    if not (np.isfinite(before) and np.isfinite(after)):
+        return 'n/a'
+    d = before - after                      # >0 => weighting improved (smaller nm)
+    pct = 100.0 * d / before
+    sign = '+' if d >= 0 else ''
+    return f'{after:6.2f} nm  ({sign}{d:.2f} nm, {sign}{pct:.1f}% vs uniform)'
+
+weighting_summary = None
+if _HAVE_SNR:
+    b50, b143 = resolutions['Two-pass']
+    a50, a143 = resolutions['Two-pass (snr)']
+    weighting_summary = (
+        '\nPer-angle weighting effect (Two-pass: uniform -> snr):\n'
+        f'  FSC=0.5  : {b50:6.2f} nm  ->  {_delta_str(b50, a50)}\n'
+        f'  FSC=0.143: {b143:6.2f} nm  ->  {_delta_str(b143, a143)}\n'
+        '  (positive % = weighting improved resolution)')
+    print(weighting_summary)
 
 # ── 4. Save resolution table ───────────────────────────────────────────────
 
 res_file = os.path.join(OUT_DIR, 'fsc_resolution.txt')
 with open(res_file, 'w') as f:
-    f.write('Three-way FSC resolution comparison\n')
+    f.write('FSC resolution comparison\n')
     f.write('=' * 60 + '\n')
     f.write(f'Pixel size: {PIXEL_SIZE*1e9:.2f} nm\n')
     f.write(f'Nyquist limit: {2*PIXEL_SIZE*1e9:.2f} nm\n\n')
-    f.write('Method       FSC=0.5 [nm]    FSC=0.143 [nm]\n')
+    f.write('Method             FSC=0.5 [nm]    FSC=0.143 [nm]\n')
     f.write('-' * 60 + '\n')
     for method in methods:
         res_50, res_143 = resolutions[method]
-        f.write(f'{method:10s}   {res_50:8.2f}        {res_143:8.2f}\n')
+        f.write(f'{method:16s}   {res_50:8.2f}        {res_143:8.2f}\n')
+    if weighting_summary:
+        f.write('\n' + weighting_summary.strip() + '\n')
 
 print(f'\n  → Saved: {res_file}')
 
@@ -298,8 +331,10 @@ print('\n4. Plotting FSC curves ...\n')
 
 fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 
-colors = {'FBP': 'C0', 'FBaP': 'C1', 'Two-pass': 'C2'}
-linestyles = {'FBP': '--', 'FBaP': '-.', 'Two-pass': '-'}
+colors = {'FBP': 'C0', 'FBaP': 'C1', 'Two-pass': 'C2',
+          'Two-pass (snr)': 'C3'}
+linestyles = {'FBP': '--', 'FBaP': '-.', 'Two-pass': '-',
+              'Two-pass (snr)': '-'}
 
 for method in methods:
     freq_nm, fsc = fsc_results[method]
@@ -317,7 +352,10 @@ ax.axvline(f_nyquist_nm, color='red', linestyle=':', linewidth=1,
 
 ax.set_xlabel('Spatial frequency [1/nm]', fontsize=12)
 ax.set_ylabel('Fourier Shell Correlation', fontsize=12)
-ax.set_title('FSC comparison: FBP vs FBaP vs Two-pass', fontsize=14, fontweight='bold')
+_title = 'FSC comparison: FBP vs FBaP vs Two-pass'
+if _HAVE_SNR:
+    _title += ' (+ snr-weighted)'
+ax.set_title(_title, fontsize=13, fontweight='bold')
 ax.legend(loc='upper right', fontsize=10)
 ax.grid(True, alpha=0.3)
 ax.set_xlim(0, f_nyquist_nm * 1.1)
@@ -333,17 +371,14 @@ print(f'  → Saved: {fig_file}')
 # ── 6. Save raw FSC data ───────────────────────────────────────────────────
 
 npz_file = os.path.join(OUT_DIR, 'fsc_data.npz')
-np.savez_compressed(
-    npz_file,
-    freq_nm_fbp=fsc_results['FBP'][0],
-    fsc_fbp=fsc_results['FBP'][1],
-    freq_nm_fbap=fsc_results['FBaP'][0],
-    fsc_fbap=fsc_results['FBaP'][1],
-    freq_nm_twopass=fsc_results['Two-pass'][0],
-    fsc_twopass=fsc_results['Two-pass'][1],
-    pixel_size=PIXEL_SIZE,
-    resolutions=resolutions,
-)
+_save = {'pixel_size': PIXEL_SIZE, 'resolutions': resolutions}
+_tag = {'FBP': 'fbp', 'FBaP': 'fbap', 'Two-pass': 'twopass',
+        'Two-pass (snr)': 'twopass_snr'}
+for method in methods:
+    t = _tag[method]
+    _save[f'freq_nm_{t}'] = fsc_results[method][0]
+    _save[f'fsc_{t}'] = fsc_results[method][1]
+np.savez_compressed(npz_file, **_save)
 
 print(f'  → Saved: {npz_file}')
 

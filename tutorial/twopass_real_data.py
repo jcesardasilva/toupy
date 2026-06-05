@@ -288,9 +288,14 @@ else:
         print(f"  [Subsampling] Using {N_use}/{N_ANGLES} angles "
               f"(every {ANGLE_STEP}th)\n")
 
-# Output directory — appends _half0 / _half1 when FSC_HALF is set
+# Output directory.
+#   - appends a weighting tag ('_snr') for non-uniform ANGLE_WEIGHT, so a
+#     weighted run does NOT overwrite the baseline 'uniform' run and the two
+#     can be compared (see fsc_threeway_comparison.py);
+#   - appends _half0 / _half1 when FSC_HALF is set.
+_wtag = "" if ANGLE_WEIGHT == "uniform" else f"_{ANGLE_WEIGHT}"
 _out_suffix = f"_half{FSC_HALF}" if FSC_HALF is not None else ""
-OUT_DIR = os.path.join(_HERE, f"twopass_real_figures{_out_suffix}")
+OUT_DIR = os.path.join(_HERE, f"twopass_real_figures{_wtag}{_out_suffix}")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 print("Reconstruction parameters")
