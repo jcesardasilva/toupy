@@ -217,6 +217,17 @@ FSC_HALF = None   # None | 0 | 1
 N_SLICES    = 64
 SLICE_DZ    = Nz * PIXEL_SIZE / N_SLICES          # [m] slab thickness
 
+# ── Pass-1 (FBP) back-projector ─────────────────────────────────────────────
+# 'auto'     -> _fbp_gpu on CUDA, else skimage.iradon  (default, unchanged)
+# 'iradon'   -> force skimage.iradon (CPU)
+# 'gpu'      -> force the custom GPU back-projector (requires CUDA)
+# 'gridding' -> experimental NUFFT direct-Fourier back-projector
+#               (tutorial/nufft_gridding.py, needs `pip install finufft`).
+#               It self-tests against iradon at start-up and AUTOMATICALLY
+#               FALLS BACK to iradon if the test fails or finufft is missing,
+#               so it can never silently corrupt the reconstruction.
+FBP_METHOD  = 'auto'
+
 # ── Pass 2 optimisation ────────────────────────────────────────────────────
 # Convergence guide (from experimental loss curves):
 #   Loss drops ~65% in first 20 iters, then approaches the noise floor set
@@ -229,6 +240,19 @@ LR           = 5e-6       # Adam peak learning rate
                           # Hard X-ray data: δ ~ 1e-5–1e-6; was 5e-4 (suited for δ ~ 1e-3)
 LAMBDA_TV    = 1e-5       # TV regularisation weight (0 to disable)
 WARMUP_ITERS = 3          # linear LR warm-up iterations
+
+# ── Per-angle noise weighting (statistically-weighted data term) ───────────
+# The Pass-2 data term is Sum_theta w_theta |model - measured|^2.  Weighting
+# each projection by its inverse noise variance (a maximum-likelihood data
+# term) uses the photon budget more efficiently than uniform least-squares,
+# down-weighting noisy angles that would otherwise inject noise into the
+# volume at full strength.
+#   'uniform' -> w_theta = 1   (default; reproduces the unweighted result EXACTLY)
+#   'snr'     -> w_theta = 1/sigma_theta^2, sigma from a robust high-frequency
+#                noise estimate (MAD of horizontal first differences) per
+#                projection.  Weights are normalised to mean 1 so the gradient
+#                scale (and hence the tuned LR) is unchanged.
+ANGLE_WEIGHT = 'uniform'   # 'uniform' | 'snr'
 
 # ── Angle subsampling (for fast prototyping) ───────────────────────────────
 # Set ANGLE_STEP = 1 to use all angles; 2 = every other angle, etc.
@@ -275,6 +299,8 @@ print(f"  N_SLICES   = {N_SLICES}  (slab Δz = {SLICE_DZ*1e9:.1f} nm = "
 print(f"  N_ITER     = {N_ITER}")
 print(f"  LR         = {LR}")
 print(f"  LAMBDA_TV  = {LAMBDA_TV}")
+print(f"  ANGLE_WEIGHT = {ANGLE_WEIGHT}")
+print(f"  FBP_METHOD = {FBP_METHOD}")
 print(f"  backend    = {'torch/' + str(DEVICE) if TORCH_AVAILABLE else 'numpy'}")
 print()
 
@@ -377,21 +403,46 @@ def _fbp_gpu(phase_arr, theta_deg, dev):
 # orientation that the Pass-2 multislice forward model expects.  Feeding the
 # wrong z-orientation makes Pass 2 fight the FBP initial guess and produces
 # spurious +/- sector artefacts in the xz/yz difference maps.
+# Resolve FBP_METHOD ('auto' -> gpu on CUDA else iradon).
+_method = FBP_METHOD
+if _method == 'auto':
+    _method = 'gpu' if (TORCH_AVAILABLE and DEVICE.type == 'cuda') else 'iradon'
+if _method == 'gpu' and not (TORCH_AVAILABLE and DEVICE.type == 'cuda'):
+    print("  [FBP] 'gpu' requested but CUDA unavailable; using iradon.",
+          flush=True)
+    _method = 'iradon'
+
+# Experimental gridding backend: load + self-test, fall back to iradon on any
+# failure (missing finufft, failed orientation self-test, import error).
+_grid_mod, _grid_calib = None, None
+if _method == 'gridding':
+    try:
+        _grid_mod = _load_module(
+            'nufft_gridding', os.path.join(_HERE, 'nufft_gridding.py'))
+        _ok, _cc, _grid_calib = _grid_mod.self_test()
+        if not _ok:
+            print(f"  [FBP] gridding self-test did not pass (corr={_cc:.4f}); "
+                  f"falling back to iradon.", flush=True)
+            _method = 'iradon'
+    except Exception as _e:
+        print(f"  [FBP] gridding backend unavailable ({_e}); "
+              f"falling back to iradon.", flush=True)
+        _method = 'iradon'
+
 _fbp_used_gpu = False
-if TORCH_AVAILABLE and DEVICE.type == 'cuda':
+if _method == 'gpu':
     print(f"  GPU FBP on {DEVICE} …", flush=True)
     delta_fbp = _fbp_gpu(phase_use, theta_use, DEVICE)
     _fbp_used_gpu = True
 
-elif TORCH_AVAILABLE and DEVICE.type == 'mps':
-    # MPS kernel-launch overhead makes the Ny-loop slow; use CPU FBP instead.
-    print("  MPS device detected — using parallel CPU FBP (lower overhead) …",
-          flush=True)
-    TORCH_AVAILABLE_FBP = False   # flag: fall through to CPU branch
-else:
-    TORCH_AVAILABLE_FBP = False
+elif _method == 'gridding':
+    print("  NUFFT gridding FBP (self-test passed) …", flush=True)
+    # Output is aligned to the iradon convention -> natural orientation,
+    # so it takes NO z-flip below (same as the iradon path).
+    delta_fbp = _grid_mod.gridding_reconstruct_volume(
+        phase_use, theta_use, calib=_grid_calib)
 
-if not (TORCH_AVAILABLE and DEVICE.type == 'cuda'):
+if _method == 'iradon':
     # ── CPU FBP (joblib threads) ─────────────────────────────────────────────
     # Respect SLURM CPU allocation; avoid saturating all cores on a shared node.
     _slurm_cpus = os.environ.get('SLURM_CPUS_PER_TASK')
@@ -558,6 +609,45 @@ print(f"  backend={_backend}, n_iter={N_ITER}, lr={LR}, "
 delta_tp = delta_fbp.copy()
 beta_tp  = beta_fbp.copy()
 
+# ── Per-angle weights ──────────────────────────────────────────────────────
+def _compute_angle_weights(phase_arr, mode):
+    """
+    Per-projection weights for the Pass-2 data term.
+
+    phase_arr : (N_use, Ny, Nx) phase projections.
+    mode      : 'uniform' or 'snr'.
+
+    Returns w (N_use,) normalised to mean 1, so that with the existing
+    'grad /= N_use' the gradient scale is unchanged for 'uniform'.
+    """
+    n = phase_arr.shape[0]
+    if mode == 'uniform':
+        return np.ones(n, dtype=np.float64)
+    if mode == 'snr':
+        # Robust per-projection noise estimate: MAD of horizontal first
+        # differences (high-frequency content) divided by sqrt(2).  MAD is
+        # insensitive to sparse real edges, so it tracks the noise floor.
+        sig = np.empty(n, dtype=np.float64)
+        for i in range(n):
+            d = np.diff(phase_arr[i], axis=-1).ravel()
+            mad = np.median(np.abs(d - np.median(d)))
+            sig[i] = 1.4826 * mad / np.sqrt(2.0)
+        sig = np.maximum(sig, np.median(sig) * 1e-3)   # guard zeros
+        w = 1.0 / sig ** 2
+        w *= n / w.sum()                               # normalise to mean 1
+        return w
+    raise ValueError(f"Unknown ANGLE_WEIGHT={mode!r}. Use 'uniform' or 'snr'.")
+
+
+angle_w = _compute_angle_weights(phase_use, ANGLE_WEIGHT)
+if ANGLE_WEIGHT != 'uniform':
+    print(f"  Per-angle weighting '{ANGLE_WEIGHT}': "
+          f"w in [{angle_w.min():.3f}, {angle_w.max():.3f}], "
+          f"mean={angle_w.mean():.3f}  "
+          f"(down-weighting {int((angle_w < 0.5).sum())} noisy angles)")
+else:
+    print(f"  Per-angle weighting: uniform (w=1)")
+
 loss_history = []
 t_total = time.time()
 
@@ -604,12 +694,13 @@ if TORCH_AVAILABLE:
                 u_meas_t[ai],
                 delta_means=delta_means,
             )
-            total_loss += loss_i
+            w_i = float(angle_w[ai])          # per-angle noise weight (mean 1)
+            total_loss += w_i * loss_i
 
             gd_vol, gb_vol = scatter_gradient_torch(
                 gd_i, gb_i, theta, delta_tp_t.shape, n_slices=N_SLICES)
-            grad_delta += gd_vol
-            grad_beta  += gb_vol
+            grad_delta += w_i * gd_vol
+            grad_beta  += w_i * gb_vol
 
         grad_delta /= N_use
         grad_beta  /= N_use
@@ -672,12 +763,13 @@ else:
                 u_measured[ai],
                 delta_means=delta_means,
             )
-            total_loss += loss_i
+            w_i = float(angle_w[ai])          # per-angle noise weight (mean 1)
+            total_loss += w_i * loss_i
 
             gd_vol, gb_vol = scatter_gradient_to_volume(
                 gd_i, gb_i, theta, delta_tp.shape, n_slices=N_SLICES)
-            grad_delta += gd_vol
-            grad_beta  += gb_vol
+            grad_delta += w_i * gd_vol
+            grad_beta  += w_i * gb_vol
 
         grad_delta /= N_use
         grad_beta  /= N_use

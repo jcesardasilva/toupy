@@ -103,6 +103,8 @@ LR=5e-6          # Adam peak learning rate  (hard X-ray data: δ ~ 1e-5–1e-6)
 LAMBDA_TV=1e-5   # TV regularisation weight  (0 to disable)
 WARMUP_ITERS=5   # linear LR warm-up iterations
 ANGLE_STEP=1     # 1 = all angles;  >1 = subsample for fast prototyping
+ANGLE_WEIGHT=uniform  # per-angle noise weighting: 'uniform' | 'snr'
+FBP_METHOD=auto       # Pass-1 back-projector: 'auto'|'iradon'|'gpu'|'gridding'
 
 # ── Projection boundary crop (removes ptychography edge noise) ─────────────
 # Ptychography has insufficient probe overlap near the scan boundaries,
@@ -204,6 +206,8 @@ sed -i \
     -e "s|^LAMBDA_TV\s*=.*|LAMBDA_TV    = ${LAMBDA_TV}|" \
     -e "s|^WARMUP_ITERS\s*=.*|WARMUP_ITERS = ${WARMUP_ITERS}|" \
     -e "s|^ANGLE_STEP\s*=.*|ANGLE_STEP   = ${ANGLE_STEP}|" \
+    -e "s|^ANGLE_WEIGHT\s*=.*|ANGLE_WEIGHT = '${ANGLE_WEIGHT}'|" \
+    -e "s|^FBP_METHOD\s*=.*|FBP_METHOD  = '${FBP_METHOD}'|" \
     -e "s|^CROP_X\s*=.*|CROP_X = ${CROP_X}|" \
     -e "s|^CROP_Y\s*=.*|CROP_Y = ${CROP_Y}|" \
     -e "s|^FSC_HALF\s*=.*|FSC_HALF = ${FSC_HALF}|" \
@@ -212,7 +216,7 @@ sed -i \
     "${PATCHED}"
 
 echo "Reconstruction parameters (as patched):"
-grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|CROP_X|CROP_Y|FSC_HALF|DATA_FILE|OUT_DIR)" \
+grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|ANGLE_WEIGHT|FBP_METHOD|CROP_X|CROP_Y|FSC_HALF|DATA_FILE|OUT_DIR)" \
      "${PATCHED}" | sed 's/^/  /'
 echo ""
 
