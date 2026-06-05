@@ -2,6 +2,22 @@
 
 All notable changes to **toupy** are documented in this file.
 
+## Unreleased
+
+### Added — cone-beam phase-contrast tomography (`toupy.tomo`)
+
+- **`cone_phase_retrieval_fdk`** — couples the non-linear iterative phase
+  retrieval to the FDK cone-beam reconstruction. Each projection is retrieved
+  in the *effective* parallel-beam frame given by the Fresnel scaling theorem
+  (`z_eff = R1·R2/(R1+R2)`, `Δ_eff = det_pixel/M`), then the retrieved
+  projected-phase stack is reconstructed with FDK. The cone-beam analogue of
+  Paganin+FDK, with the exact-Fresnel solver instead. Optional TV
+  regularisation; GPU path forwarded.
+- **`effective_fresnel_distance`** — effective propagation distance for a
+  `ConeBeamGeometry`.
+- Example `tutorial/example_cone_phase_fdk.py` and self-checking test
+  `test/cone_phase_test.py`.
+
 ## 0.4.0 — 2026-05-31 — phase retrieval, ring correction, TV reconstruction
 
 New methods for propagation-based / holotomographic X-ray nanotomography.
