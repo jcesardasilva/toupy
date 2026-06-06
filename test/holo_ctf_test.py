@@ -127,6 +127,23 @@ def test_full_pipeline_recovers_phase():
     assert corr > 0.8, "full-pipeline phase correlation too low: {:.3f}".format(corr)
 
 
+def test_nonlinear_and_refine_align():
+    S, R, dark, gt = _build_dataset()
+    m = gt > 0.01 * gt.max()
+
+    def corr(method, refine=False):
+        p = holo_ctf_reconstruct(S, R, dark, ZS, ZD, DET_PX, WAVELENGTH,
+                                 alpha=1e-4, delta_beta=DELTA_BETA,
+                                 method=method, refine_align=refine,
+                                 nl_n_iter=80, nl_reg_tv=1e-3)
+        p = p - p[~m].mean()
+        return np.corrcoef(p[m], gt[m])[0, 1]
+
+    # the non-linear refinement should not hurt, and recovers a good phase
+    assert corr("nonlinear") >= corr("ctf") - 1e-3
+    assert corr("nonlinear", refine=True) > 0.8
+
+
 def test_alignment_helps():
     S, R, dark, gt = _build_dataset()
     m = gt > 0.01 * gt.max()

@@ -42,9 +42,11 @@ from toupy.restoration import holo_ctf_reconstruct, holo_geometry
 ENERGY_keV = 17.0
 WAVELENGTH = 1.23984193e-6 / (ENERGY_keV * 1e3)
 DELTA_BETA = 50.0
-ZD = 0.10                                        # focus-detector distance [m]
+ZD = 0.40                                        # focus-detector distance [m]
 DET_PIXEL = 1.0e-6                               # detector pixel [m]
-ZS = np.array([12.5, 16.7, 25.0, 40.0]) * 1e-3   # focus-sample distances [m]
+ZS = np.array([50.0, 85.0, 130.0, 200.0]) * 1e-3  # focus-sample distances [m]
+# (a wide z_eff spread, ~44-100 mm, gives the low-frequency coverage needed for
+#  quantitative grey levels; a too-small max distance leaves interior cupping)
 
 geom = holo_geometry(ZS, ZD, DET_PIXEL)
 NF = geom.effective_pixel_size**2 / (WAVELENGTH * geom.effective_distance)
@@ -123,11 +125,12 @@ def holograms(beam_modes=None, n_flats=1, seed=0):
     return S, np.array(R)
 
 
-def reco(samples, references, flat_method, alpha):
+def reco(samples, references, flat_method="simple", alpha=1e-4,
+         method="ctf", refine_align=False):
     p = holo_ctf_reconstruct(samples, references, DARK, ZS, ZD, DET_PIXEL,
                              WAVELENGTH, alpha=alpha, delta_beta=DELTA_BETA,
-                             flat_method=flat_method, n_eigen=4,
-                             align=True, align_blur=2.0)
+                             flat_method=flat_method, n_eigen=4, method=method,
+                             align=True, align_blur=2.0, refine_align=refine_align)
     return p - p[~mask].mean()
 
 
@@ -136,21 +139,21 @@ def corr(p):
 
 
 # ---------------------------------------------------------------------------
-# 2. Stable-beam acquisition: the alpha / cupping trade-off
+# 2. Stable-beam acquisition: linear CTF vs non-linear refinement (cupping)
 # ---------------------------------------------------------------------------
 S_stable, R_stable = holograms(beam_modes=None)
-p_cup = reco(S_stable, R_stable, "simple", 1e-2)        # too large -> cupping
-p_good = reco(S_stable, R_stable, "simple", 1e-4)       # recommended
-print("\n--- alpha / cupping (stable beam) ---")
-print("  alpha=1e-2 : corr={:.3f}  interior cupping (see profile)".format(corr(p_cup)))
-print("  alpha=1e-4 : corr={:.3f}  (flat interior)".format(corr(p_good)))
+p_ctf = reco(S_stable, R_stable, method="ctf")                       # cupping
+p_good = reco(S_stable, R_stable, method="nonlinear", refine_align=True)
+print("\n--- quantitative grey levels (stable beam) ---")
+print("  linear CTF                : corr={:.3f}  (interior cupping)".format(corr(p_ctf)))
+print("  non-linear + refine-align : corr={:.3f}  (quantitative interior)".format(corr(p_good)))
 
 # ---------------------------------------------------------------------------
 # 3. Drifting beam: simple flat-field vs eigen-flat
 # ---------------------------------------------------------------------------
 S_drift, R_drift = holograms(beam_modes=True, n_flats=10, seed=1)
-p_simple = reco(S_drift, R_drift, "simple", 1e-2)
-p_eigen = reco(S_drift, R_drift, "eigen", 1e-2)
+p_simple = reco(S_drift, R_drift, flat_method="simple", alpha=1e-2)
+p_eigen = reco(S_drift, R_drift, flat_method="eigen", alpha=1e-2)
 print("\n--- beam drift: flat-field method ---")
 print("  simple flat (mean) : corr={:.3f}  (drift residual fringes)".format(corr(p_simple)))
 print("  eigen-flat         : corr={:.3f}  (drift modelled & removed)".format(corr(p_eigen)))
@@ -189,15 +192,15 @@ axA.set_title("frequency coverage (4 distances)", fontsize=9)
 axA.legend(fontsize=6, ncol=2)
 for ax_i, (img, title) in zip(
     (6, 7), [(gt, "Ground-truth phase"),
-             (p_good, "Retrieved (alpha=1e-4)")]):
+             (p_good, "Non-linear + refine-align")]):
     ax = fig.add_subplot(2, 4, ax_i)
     im = ax.imshow(img, cmap="gray"); ax.axis("off")
     ax.set_title(title, fontsize=9)
     plt.colorbar(im, ax=ax, fraction=0.046)
 axP = fig.add_subplot(2, 4, 8)
 axP.plot(gt[N_DET // 2], "k-", lw=2, label="truth")
-axP.plot(p_good[N_DET // 2], "C0-", label="alpha=1e-4")
-axP.plot(p_cup[N_DET // 2], "C3--", lw=1, label="alpha=1e-2 (cupping)")
+axP.plot(p_good[N_DET // 2], "C0-", label="non-linear (quantitative)")
+axP.plot(p_ctf[N_DET // 2], "C3--", lw=1, label="linear CTF (cupping)")
 axP.set_title("central line profile", fontsize=9)
 axP.legend(fontsize=7)
 plt.suptitle(

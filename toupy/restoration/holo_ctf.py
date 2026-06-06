@@ -43,7 +43,7 @@ from scipy.ndimage import affine_transform as _affine
 from scipy.ndimage import fourier_shift as _fourier_shift
 from scipy.ndimage import gaussian_filter as _gaussian_filter
 
-from .phase_retrieval import ctf_retrieve
+from .phase_retrieval import ctf_retrieve, iterative_phase_retrieval
 
 try:
     from skimage.registration import phase_cross_correlation as _pcc
@@ -383,9 +383,13 @@ def holo_ctf_reconstruct(
     delta_beta=None,
     flat_method="simple",
     n_eigen=4,
+    method="ctf",
+    nl_n_iter=200,
+    nl_reg_tv=1e-3,
     align=True,
     upsample=20,
     align_blur=2.0,
+    refine_align=False,
     interp_order=3,
     cuda=False,
     return_intermediates=False,
@@ -430,6 +434,20 @@ def holo_ctf_reconstruct(
         robust to beam drift; needs several flat frames per distance).
     n_eigen : int, optional
         Number of eigen-flats when ``flat_method='eigen'``.  Default 4.
+    method : {'ctf', 'nonlinear'}, optional
+        ``'ctf'`` → linear multi-distance CTF (fast).  ``'nonlinear'`` →
+        refine the CTF result with the exact-Fresnel non-linear multi-distance
+        solver (:func:`iterative_phase_retrieval`), which recovers the low
+        frequencies / DC through the homogeneous coupling and reduces the
+        interior *cupping* --- recommended for quantitative grey levels.
+    nl_n_iter : int, optional
+        Conjugate-gradient iterations for the non-linear refinement.  Default 200.
+    nl_reg_tv : float, optional
+        Total-variation weight for the non-linear refinement.  Default 1e-3.
+    refine_align : bool, optional
+        After the initial hologram alignment, refine the shifts by registering
+        rough single-distance phase retrievals (which look alike across
+        distances, unlike the raw holograms).  Default False.
     align : bool, optional
         Perform sub-pixel alignment (default True).
     upsample, interp_order : optional
@@ -472,15 +490,41 @@ def holo_ctf_reconstruct(
 
     # 3. sub-pixel align
     if align:
-        aligned = align_holograms(common, reference_index=ref_idx,
-                                  upsample=upsample, blur=align_blur)
+        aligned, shifts = align_holograms(
+            common, reference_index=ref_idx, upsample=upsample,
+            blur=align_blur, return_shifts=True)
+        # Refine: register *rough single-distance retrievals* (alike across
+        # distances) rather than the raw fringe patterns, then re-shift.
+        if refine_align:
+            rough = np.array([
+                ctf_retrieve(aligned[d], float(geom.effective_distance[d]),
+                             wavelength, px_common, alpha=1e-2,
+                             delta_beta=delta_beta)
+                for d in range(aligned.shape[0])])
+            _, extra = align_holograms(rough, reference_index=ref_idx,
+                                       upsample=upsample, blur=0.0,
+                                       return_shifts=True)
+            for d in range(aligned.shape[0]):
+                if d != ref_idx and np.any(extra[d]):
+                    aligned[d] = _subpixel_shift(aligned[d], extra[d])
+                    shifts[d] = shifts[d] + extra[d]
     else:
         aligned = common
+        shifts = np.zeros((aligned.shape[0], 2))
 
     # 4. multi-distance CTF on the common grid
     phase = ctf_retrieve(
         aligned, list(geom.effective_distance), wavelength, px_common,
         alpha=alpha, delta_beta=delta_beta, cuda=cuda)
+
+    # 4b. optional non-linear (exact-Fresnel) multi-distance refinement
+    if method == "nonlinear":
+        phase = iterative_phase_retrieval(
+            aligned, list(geom.effective_distance), wavelength, px_common,
+            delta_beta=delta_beta, init=phase, n_iter=nl_n_iter,
+            reg_tv=nl_reg_tv, cuda=cuda)
+    elif method != "ctf":
+        raise ValueError("method must be 'ctf' or 'nonlinear'.")
 
     if return_intermediates:
         info = {
@@ -490,6 +534,7 @@ def holo_ctf_reconstruct(
             "flat": flat,
             "rescaled": common,
             "aligned": aligned,
+            "shifts": shifts,
         }
         return phase, info
     return phase
