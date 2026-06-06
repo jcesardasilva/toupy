@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from toupy.simulation import phantom
 from toupy.restoration import (holo_geometry, flat_field_correct,
-                               rescale_to_common_pixel, align_holograms,
-                               holo_ctf_reconstruct)
+                               eigenflat_correct, rescale_to_common_pixel,
+                               align_holograms, holo_ctf_reconstruct)
 
 WAVELENGTH = 1.23984193e-6 / (17.0 * 1e3)
 DELTA_BETA = 50.0
@@ -48,6 +48,24 @@ def test_flat_field():
     R = beam + dark
     out = flat_field_correct(S, R, dark)
     assert np.allclose(out, sample_true, atol=1e-9)
+
+
+def test_eigenflat_beats_simple_on_drift():
+    # empty-beam transmission (no sample) -> a perfect flat-field should give 1
+    rng = np.random.default_rng(2)
+    M = 48
+    yy, xx = np.mgrid[0:M, 0:M]
+    beam0 = 1.0 + 0.4 * np.sin(2 * np.pi * xx / M) * np.cos(2 * np.pi * yy / M)
+    mode = 0.2 * np.sin(2 * np.pi * yy / M * 2)
+    dark = 5.0
+    # flats at random drift states
+    flats = np.array([beam0 + rng.normal(0, 1) * mode + dark for _ in range(8)])
+    # a sample frame: empty beam at a *particular* drift state (no object -> T=1)
+    sample = beam0 + 0.9 * mode + dark
+    simple = flat_field_correct(sample, flats.mean(0), dark)
+    eigen = eigenflat_correct(sample, flats, dark, n_components=3)
+    # the eigen-corrected empty frame is flatter (closer to 1)
+    assert eigen.std() < 0.5 * simple.std(), (eigen.std(), simple.std())
 
 
 def test_align_recovers_shift():

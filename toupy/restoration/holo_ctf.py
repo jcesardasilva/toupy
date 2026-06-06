@@ -53,6 +53,7 @@ except ImportError:                                    # pragma: no cover
 
 __all__ = [
     "flat_field_correct",
+    "eigenflat_correct",
     "holo_geometry",
     "rescale_to_common_pixel",
     "align_holograms",
@@ -107,6 +108,96 @@ def flat_field_correct(sample, reference, dark, eps=1e-6):
     denom = reference - dark
     denom = np.where(np.abs(denom) < eps, np.sign(denom) * eps + eps, denom)
     return (sample - dark) / denom
+
+
+def _total_variation(img):
+    return float(np.abs(np.diff(img, axis=0)).sum()
+                 + np.abs(np.diff(img, axis=1)).sum())
+
+
+def eigenflat_correct(samples, references, dark, n_components=4,
+                      maxiter=60, eps=1e-6):
+    r"""
+    Dynamic flat-field correction with **eigen flat fields** (PCA of the flats).
+
+    When the beam (probe) drifts between the flat and the sample acquisitions,
+    a single division ``(S-dark)/(ref-dark)`` leaves residual fringes.  This
+    routine instead builds a low-dimensional basis of the beam variations from
+    *many* flat frames and, for each sample, finds the linear combination of
+    eigen-flats that best removes the beam --- by minimising the total variation
+    of the corrected image (Van Nieuwenhove et al., Opt.\ Express 23, 27975,
+    2015).
+
+    Parameters
+    ----------
+    samples : ndarray, shape ``(M, N)`` or ``(D, M, N)``
+        Raw sample hologram(s).
+    references : ndarray, shape ``(K, M, N)`` (for a 2-D *sample*) or
+        ``(D, K, M, N)`` (for a 3-D *sample*)
+        Stack of ``K`` empty-beam flat frames (per distance, if 4-D).
+    dark : ndarray or float
+        Dark frame.
+    n_components : int, optional
+        Number of eigen-flats (principal components) to use.  Default 4.
+    maxiter : int, optional
+        Max iterations of the per-sample TV minimisation.  Default 60.
+
+    Returns
+    -------
+    corrected : ndarray, same leading shape as *samples*
+        Dynamically flat-field-corrected hologram(s).
+
+    Notes
+    -----
+    Falls back to the mean-flat division when fewer than two flat frames are
+    supplied (no variations to model).
+    """
+    from scipy.optimize import minimize
+
+    samples = np.asarray(samples, dtype=float)
+    dark = np.asarray(dark, dtype=float)
+    references = np.asarray(references, dtype=float)
+    single = samples.ndim == 2
+    S = samples[np.newaxis] if single else samples
+    D = S.shape[0]
+
+    # references → per-distance stacks of flats: (D, K, M, N)
+    if references.ndim == 3:
+        refs = np.broadcast_to(references[np.newaxis], (D,) + references.shape)
+    elif references.ndim == 4:
+        refs = references
+    else:
+        raise ValueError("references must be (K, M, N) or (D, K, M, N).")
+
+    out = np.empty_like(S)
+    for d in range(D):
+        flats = refs[d] - dark                       # (K, M, N)
+        K = flats.shape[0]
+        mean_flat = flats.mean(axis=0)
+        if K < 2:
+            denom = np.where(np.abs(mean_flat) < eps, eps, mean_flat)
+            out[d] = (S[d] - dark) / denom
+            continue
+        # PCA of the flat variations via SVD
+        A = (flats - mean_flat).reshape(K, -1)
+        _, _, Vt = np.linalg.svd(A, full_matrices=False)
+        nc = min(n_components, Vt.shape[0])
+        eig = Vt[:nc].reshape(nc, *mean_flat.shape)   # eigen-flats
+
+        s_d = S[d] - dark
+
+        def _cost(w):
+            flat = mean_flat + np.tensordot(w, eig, axes=(0, 0))
+            flat = np.where(np.abs(flat) < eps, eps, flat)
+            return _total_variation(s_d / flat)
+
+        res = minimize(_cost, np.zeros(nc), method="Powell",
+                       options={"maxiter": maxiter, "xtol": 1e-3, "ftol": 1e-3})
+        flat = mean_flat + np.tensordot(res.x, eig, axes=(0, 0))
+        flat = np.where(np.abs(flat) < eps, eps, flat)
+        out[d] = s_d / flat
+
+    return out[0] if single else out
 
 
 # ---------------------------------------------------------------------------
@@ -288,8 +379,10 @@ def holo_ctf_reconstruct(
     focus_detector_distance,
     detector_pixel_size,
     wavelength,
-    alpha=1e-2,
+    alpha=1e-4,
     delta_beta=None,
+    flat_method="simple",
+    n_eigen=4,
     align=True,
     upsample=20,
     align_blur=2.0,
@@ -321,10 +414,22 @@ def holo_ctf_reconstruct(
     wavelength : float
         X-ray wavelength [m].
     alpha : float, optional
-        CTF Tikhonov regularisation (see :func:`ctf_retrieve`).  Default 1e-2.
+        CTF Tikhonov regularisation (see :func:`ctf_retrieve`).  Default 1e-4.
+        **Controls the low-frequency / cupping behaviour:** at small Fresnel
+        numbers the DC is carried only by the absorption term
+        :math:`\varepsilon=\beta/\delta`, so ``alpha`` must be
+        :math:`\lesssim (2\varepsilon)^2` to recover the interior grey levels;
+        a too-large ``alpha`` attenuates the low frequencies and produces
+        cupping.  Raise it only if high-frequency noise dominates.
     delta_beta : float or None, optional
         :math:`\delta/\beta` for the homogeneous model (enables DC / low-
         frequency recovery).  ``None`` → pure-phase object.
+    flat_method : {'simple', 'eigen'}, optional
+        ``'simple'`` → :func:`flat_field_correct` (``(S-d)/(ref-d)``);
+        ``'eigen'`` → :func:`eigenflat_correct` (dynamic eigen-flat correction,
+        robust to beam drift; needs several flat frames per distance).
+    n_eigen : int, optional
+        Number of eigen-flats when ``flat_method='eigen'``.  Default 4.
     align : bool, optional
         Perform sub-pixel alignment (default True).
     upsample, interp_order : optional
@@ -350,7 +455,13 @@ def holo_ctf_reconstruct(
                          detector_pixel_size)
 
     # 1. flat-field
-    flat = flat_field_correct(samples, references, dark)
+    if flat_method == "eigen":
+        flat = eigenflat_correct(samples, references, dark,
+                                 n_components=n_eigen)
+    elif flat_method == "simple":
+        flat = flat_field_correct(samples, references, dark)
+    else:
+        raise ValueError("flat_method must be 'simple' or 'eigen'.")
 
     # 2. rescale to the finest effective pixel (closest-to-focus position)
     common, px_common = rescale_to_common_pixel(

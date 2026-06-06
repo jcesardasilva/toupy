@@ -10,10 +10,13 @@ defocus positions and reconstructs the phase with the full
 
     flat-field  ->  rescale to a common pixel  ->  sub-pixel align  ->  CTF
 
-The four positions have **different magnifications** (hence different effective
-pixel sizes and Fresnel fringes), each hologram carries a **structured beam**
-and **dark** offset (removed by flat-fielding), and each is **misaligned** by a
-sub-pixel amount (removed by registration).
+Demonstrations:
+  * the four positions' magnifications / effective pixels / Fresnel fringes and
+    a **frequency-coverage diagnostic** of the multi-distance CTF;
+  * the **regularisation / cupping** trade-off (``alpha``): too large an alpha
+    attenuates the low frequencies and bows the interior grey levels;
+  * dynamic **eigen-flat** correction recovering a **drifting beam** that plain
+    flat-fielding cannot remove.
 
 Run with:
     python tutorial/example_holo_ctf_id16a.py
@@ -39,35 +42,32 @@ from toupy.restoration import holo_ctf_reconstruct, holo_geometry
 ENERGY_keV = 17.0
 WAVELENGTH = 1.23984193e-6 / (ENERGY_keV * 1e3)
 DELTA_BETA = 50.0
-ZD = 0.10                                       # focus-detector distance [m]
-DET_PIXEL = 1.0e-6                              # detector pixel [m]
-ZS = np.array([12.5, 16.7, 25.0, 40.0]) * 1e-3  # focus-sample distances [m]
+ZD = 0.10                                        # focus-detector distance [m]
+DET_PIXEL = 1.0e-6                               # detector pixel [m]
+ZS = np.array([12.5, 16.7, 25.0, 40.0]) * 1e-3   # focus-sample distances [m]
 
 geom = holo_geometry(ZS, ZD, DET_PIXEL)
+NF = geom.effective_pixel_size**2 / (WAVELENGTH * geom.effective_distance)
 print("Magnifications     :", np.round(geom.magnification, 2))
 print("Effective pixel nm :", np.round(geom.effective_pixel_size * 1e9, 1))
 print("Effective dist mm  :", np.round(geom.effective_distance * 1e3, 2))
-print("Effective NF       :", np.round(
-    geom.effective_pixel_size**2 / (WAVELENGTH * geom.effective_distance), 4))
+print("Effective NF       :", np.round(NF, 4))
 
-N_DET = 128                                     # detector size
-N_FINE = 512                                    # simulation grid (object plane)
-PX1 = geom.effective_pixel_size.min()           # finest (closest to focus)
+N_DET = 128
+N_FINE = 512
+PX1 = geom.effective_pixel_size.min()
 
 # ---------------------------------------------------------------------------
-# 1. Object (weak-phase, compact enough to fit the smallest field of view)
+# 1. Object + forward model
 # ---------------------------------------------------------------------------
-CORE = 80                                       # 80 * PX1 ~ 10 um < FOV_1 (16 um)
+CORE = 80
 obj = phantom(CORE, "Modified Shepp-Logan") * 0.3
 phase_fine = np.zeros((N_FINE, N_FINE))
 o = (N_FINE - CORE) // 2
 phase_fine[o:o + CORE, o:o + CORE] = obj
-c = (-1.0 / DELTA_BETA + 1j)                     # homogeneous object
+c = (-1.0 / DELTA_BETA + 1j)
 
 
-# ---------------------------------------------------------------------------
-# 2. Forward model: propagate (fine grid) -> detector (magnified, band-limited)
-# ---------------------------------------------------------------------------
 def propagate(psi, z, px, pad=2):
     n = psi.shape[0]; m = n * pad; off = (m - n) // 2
     f = fftfreq(m, d=px); FY, FX = np.meshgrid(f, f, indexing="ij")
@@ -77,7 +77,6 @@ def propagate(psi, z, px, pad=2):
 
 
 def to_detector(img_fine, scale):
-    """Anti-aliased magnification downsample (px1 -> px_eff_i), centre-preserving."""
     img = gaussian_filter(img_fine, 0.5 * scale) if scale > 1 else img_fine
     ni = img.shape[0]
     off = (ni - 1) / 2.0 - scale * (N_DET - 1) / 2.0
@@ -85,85 +84,125 @@ def to_detector(img_fine, scale):
                             output_shape=(N_DET, N_DET), order=3, mode="nearest")
 
 
-# structured beam on the fine grid + a per-position sub-pixel misalignment
 yy, xx = np.mgrid[0:N_FINE, 0:N_FINE]
-beam_fine = (1.0 + 0.3 * np.sin(2 * np.pi * xx / N_FINE * 4)
-             * np.cos(2 * np.pi * yy / N_FINE * 4) + 0.1 * xx / N_FINE)
+beam0 = (1.0 + 0.3 * np.sin(2 * np.pi * xx / N_FINE * 4)
+         * np.cos(2 * np.pi * yy / N_FINE * 4) + 0.1 * xx / N_FINE)
+mode1 = 0.15 * np.sin(2 * np.pi * yy / N_FINE * 3)
+mode2 = 0.15 * np.cos(2 * np.pi * (xx + yy) / N_FINE * 5)
 DARK = 50.0
-shifts = np.array([[0, 0], [1.3, -0.7], [-0.8, 1.1], [0.6, 2.2]])   # px (common grid)
+shifts = np.array([[0, 0], [1.3, -0.7], [-0.8, 1.1], [0.6, 2.2]])
 
-print("\nSimulating four holograms (flat-field + magnification + misalignment)...")
-samples, references = [], []
-rng = np.random.default_rng(0)
-for i in range(4):
-    field = propagate(np.exp(c * phase_fine), geom.effective_distance[i], PX1)
-    field = np.real(ifft2(fourier_shift(fft2(field), shifts[i])))      # misalign
-    s = geom.effective_pixel_size[i] / PX1
-    beam_i = to_detector(beam_fine, s)
-    hologram = to_detector(field, s)
-    samples.append(beam_i * hologram + DARK)            # S = beam * sample + dark
-    references.append(beam_i + DARK)                    # R = beam + dark (empty)
-samples = np.array(samples) + rng.normal(0, 0.003, (4, N_DET, N_DET))
-references = np.array(references)
-
-# ---------------------------------------------------------------------------
-# 3. Reconstruction (the whole pipeline in one call)
-# ---------------------------------------------------------------------------
-print("Reconstructing (flat-field -> rescale -> align -> multi-distance CTF)...")
-phase, info = holo_ctf_reconstruct(
-    samples, references, DARK, ZS, ZD, DET_PIXEL, WAVELENGTH,
-    alpha=1e-2, delta_beta=DELTA_BETA, align=True, align_blur=2.0,
-    return_intermediates=True)
-
-# ground truth on the common (finest) grid
 gt = phase_fine[(N_FINE - N_DET) // 2:(N_FINE + N_DET) // 2,
                 (N_FINE - N_DET) // 2:(N_FINE + N_DET) // 2]
 mask = gt > 0.01 * gt.max()
-phase = phase - phase[~mask].mean()
 
 
-def nrm(x):
-    return (x - x.min()) / (x.max() - x.min() + 1e-30)
+def holograms(beam_modes=None, n_flats=1, seed=0):
+    """Return (samples, references) for a 4-distance acquisition.
+
+    beam_modes : None for a stable beam, else amplitudes of the drift modes."""
+    rng = np.random.default_rng(seed)
+    S, R = [], []
+    for i in range(4):
+        field = propagate(np.exp(c * phase_fine), geom.effective_distance[i], PX1)
+        field = np.real(ifft2(fourier_shift(fft2(field), shifts[i])))
+        s = geom.effective_pixel_size[i] / PX1
+        if beam_modes is None:
+            beam_s = to_detector(beam0, s)
+            flats = (to_detector(beam0, s) + DARK)[None]
+        else:
+            w = rng.normal(0, 1, 2)
+            beam_s = to_detector(beam0 + w[0] * mode1 + w[1] * mode2, s)
+            flats = np.array([
+                to_detector(beam0 + rng.normal(0, 1) * mode1
+                            + rng.normal(0, 1) * mode2, s) + DARK
+                for _ in range(n_flats)])
+        S.append(beam_s * to_detector(field, s) + DARK)
+        R.append(flats)
+    S = np.array(S) + rng.normal(0, 0.003, (4, N_DET, N_DET))
+    return S, np.array(R)
 
 
-corr = np.corrcoef(phase[mask], gt[mask])[0, 1]
-print("\nCommon pixel size  : {:.0f} nm".format(info["common_pixel_size"] * 1e9))
-print("Retrieved phase corr: {:.4f}".format(corr))
-print("Retrieved range     : [{:.3f}, {:.3f}] rad  (truth peak {:.2f})".format(
-    phase.min(), phase.max(), gt.max()))
+def reco(samples, references, flat_method, alpha):
+    p = holo_ctf_reconstruct(samples, references, DARK, ZS, ZD, DET_PIXEL,
+                             WAVELENGTH, alpha=alpha, delta_beta=DELTA_BETA,
+                             flat_method=flat_method, n_eigen=4,
+                             align=True, align_blur=2.0)
+    return p - p[~mask].mean()
+
+
+def corr(p):
+    return np.corrcoef(p[mask], gt[mask])[0, 1]
+
 
 # ---------------------------------------------------------------------------
-# 4. Figure
+# 2. Stable-beam acquisition: the alpha / cupping trade-off
 # ---------------------------------------------------------------------------
-fig = plt.figure(figsize=(16, 7))
-# top row: the four flat-fielded holograms (different fringes / magnification)
+S_stable, R_stable = holograms(beam_modes=None)
+p_cup = reco(S_stable, R_stable, "simple", 1e-2)        # too large -> cupping
+p_good = reco(S_stable, R_stable, "simple", 1e-4)       # recommended
+print("\n--- alpha / cupping (stable beam) ---")
+print("  alpha=1e-2 : corr={:.3f}  interior cupping (see profile)".format(corr(p_cup)))
+print("  alpha=1e-4 : corr={:.3f}  (flat interior)".format(corr(p_good)))
+
+# ---------------------------------------------------------------------------
+# 3. Drifting beam: simple flat-field vs eigen-flat
+# ---------------------------------------------------------------------------
+S_drift, R_drift = holograms(beam_modes=True, n_flats=10, seed=1)
+p_simple = reco(S_drift, R_drift, "simple", 1e-2)
+p_eigen = reco(S_drift, R_drift, "eigen", 1e-2)
+print("\n--- beam drift: flat-field method ---")
+print("  simple flat (mean) : corr={:.3f}  (drift residual fringes)".format(corr(p_simple)))
+print("  eigen-flat         : corr={:.3f}  (drift modelled & removed)".format(corr(p_eigen)))
+
+# ---------------------------------------------------------------------------
+# 4. Frequency-coverage diagnostic of the multi-distance CTF
+# ---------------------------------------------------------------------------
+u = np.linspace(0, 1.0 / (2 * PX1), 1500)
+fnorm = u / (1.0 / (2 * PX1))
+eps = 1.0 / DELTA_BETA
+w = [np.sin(np.pi * WAVELENGTH * z * u**2) + eps * np.cos(np.pi * WAVELENGTH * z * u**2)
+     for z in geom.effective_distance]
+combined = np.sqrt(np.mean([wi**2 for wi in w], axis=0))
+
+# ---------------------------------------------------------------------------
+# 5. Figure
+# ---------------------------------------------------------------------------
+_, info = holo_ctf_reconstruct(S_stable, R_stable, DARK, ZS, ZD, DET_PIXEL,
+                               WAVELENGTH, alpha=1e-4, delta_beta=DELTA_BETA,
+                               return_intermediates=True)
+fig = plt.figure(figsize=(16, 8))
 for i in range(4):
     ax = fig.add_subplot(2, 4, i + 1)
-    ax.imshow(info["rescaled"][i], cmap="gray")
+    ax.imshow(info["aligned"][i], cmap="gray")
     ax.set_title("hologram {}  (M={:.1f}, NF={:.3f})".format(
-        i + 1, geom.magnification[i],
-        geom.effective_pixel_size[i]**2 /
-        (WAVELENGTH * geom.effective_distance[i])), fontsize=8)
+        i + 1, geom.magnification[i], NF[i]), fontsize=8)
     ax.axis("off")
-# bottom row: truth, retrieved, difference
+axA = fig.add_subplot(2, 4, 5)
+for i, wi in enumerate(w):
+    axA.plot(fnorm, np.abs(wi), lw=0.8, label="z{} ({:.0f}mm)".format(
+        i + 1, geom.effective_distance[i] * 1e3))
+axA.plot(fnorm, combined, "k", lw=2, label=r"$\sqrt{\langle w^2\rangle}$")
+axA.set_xlabel(r"$u/u_{\rm Nyq}$", fontsize=8)
+axA.set_ylabel("|CTF transfer|", fontsize=8)
+axA.set_title("frequency coverage (4 distances)", fontsize=9)
+axA.legend(fontsize=6, ncol=2)
 for ax_i, (img, title) in zip(
-    (5, 6, 7),
-    [(gt, "Ground-truth phase"),
-     (phase, "Retrieved (multi-distance CTF)"),
-     (phase - gt, "Difference")]):
+    (6, 7), [(gt, "Ground-truth phase"),
+             (p_good, "Retrieved (alpha=1e-4)")]):
     ax = fig.add_subplot(2, 4, ax_i)
-    im = ax.imshow(img, cmap="gray")
+    im = ax.imshow(img, cmap="gray"); ax.axis("off")
     ax.set_title(title, fontsize=9)
-    ax.axis("off")
     plt.colorbar(im, ax=ax, fraction=0.046)
-ax = fig.add_subplot(2, 4, 8)
-ax.plot(gt[N_DET // 2], "k-", lw=2, label="truth")
-ax.plot(phase[N_DET // 2], "C0-", label="retrieved")
-ax.set_title("central line profile", fontsize=9)
-ax.legend(fontsize=8)
+axP = fig.add_subplot(2, 4, 8)
+axP.plot(gt[N_DET // 2], "k-", lw=2, label="truth")
+axP.plot(p_good[N_DET // 2], "C0-", label="alpha=1e-4")
+axP.plot(p_cup[N_DET // 2], "C3--", lw=1, label="alpha=1e-2 (cupping)")
+axP.set_title("central line profile", fontsize=9)
+axP.legend(fontsize=7)
 plt.suptitle(
-    "Magnified inline-holography multi-distance CTF (ID16A style)  "
-    "(corr = {:.3f})".format(corr), fontsize=11)
+    "Magnified inline-holography multi-distance CTF (ID16A)  "
+    "(corr = {:.3f})".format(corr(p_good)), fontsize=11)
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.savefig("holo_ctf_id16a.png", dpi=150, bbox_inches="tight")
 print("\nSaved holo_ctf_id16a.png")

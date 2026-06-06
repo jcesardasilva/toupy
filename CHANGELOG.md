@@ -11,11 +11,17 @@ All notable changes to **toupy** are documented in this file.
   `(S−dark)/(ref−dark)` → rescale the magnified holograms onto a common
   effective pixel (Fresnel scaling theorem, centre-preserving affine resample)
   → sub-pixel alignment → multi-distance CTF inversion (`ctf_retrieve`).
-- Helpers **`flat_field_correct`**, **`holo_geometry`** (magnification,
-  effective distance/pixel per defocus position), **`rescale_to_common_pixel`**,
-  **`align_holograms`** (cross-correlation with low-pass + `normalization=None`,
-  robust to the differing Fresnel fringes between distances).
-- Example `tutorial/example_holo_ctf_id16a.py` and test `test/holo_ctf_test.py`.
+- Helpers **`flat_field_correct`**, **`eigenflat_correct`** (dynamic eigen
+  flat-field correction, robust to beam drift), **`holo_geometry`**
+  (magnification, effective distance/pixel per defocus position),
+  **`rescale_to_common_pixel`**, **`align_holograms`** (cross-correlation with
+  low-pass + `normalization=None`, robust to the differing Fresnel fringes
+  between distances).
+- `holo_ctf_reconstruct` exposes `flat_method='simple'|'eigen'`; the default
+  CTF `alpha` is `1e-4` (must be ≲ `(2β/δ)²` so the absorption term carries the
+  low frequencies — a larger alpha bows the interior grey levels / cupping).
+- Example `tutorial/example_holo_ctf_id16a.py` (with a CTF frequency-coverage
+  diagnostic) and test `test/holo_ctf_test.py` (6 tests).
 
 ## 0.4.0 — 2026-05-31 — phase retrieval, ring correction, TV reconstruction
 
