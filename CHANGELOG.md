@@ -2,6 +2,21 @@
 
 All notable changes to **toupy** are documented in this file.
 
+## Unreleased
+
+### Added — magnified inline-holography CTF (`toupy.restoration`)
+
+- **`holo_ctf_reconstruct`** — ESRF ID16A-style multi-distance CTF pipeline for
+  focused-beam (cone-beam) inline holography: flat-field correction
+  `(S−dark)/(ref−dark)` → rescale the magnified holograms onto a common
+  effective pixel (Fresnel scaling theorem, centre-preserving affine resample)
+  → sub-pixel alignment → multi-distance CTF inversion (`ctf_retrieve`).
+- Helpers **`flat_field_correct`**, **`holo_geometry`** (magnification,
+  effective distance/pixel per defocus position), **`rescale_to_common_pixel`**,
+  **`align_holograms`** (cross-correlation with low-pass + `normalization=None`,
+  robust to the differing Fresnel fringes between distances).
+- Example `tutorial/example_holo_ctf_id16a.py` and test `test/holo_ctf_test.py`.
+
 ## 0.4.0 — 2026-05-31 — phase retrieval, ring correction, TV reconstruction
 
 New methods for propagation-based / holotomographic X-ray nanotomography.
