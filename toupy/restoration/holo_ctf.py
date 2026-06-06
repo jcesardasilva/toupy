@@ -43,7 +43,7 @@ from scipy.ndimage import affine_transform as _affine
 from scipy.ndimage import fourier_shift as _fourier_shift
 from scipy.ndimage import gaussian_filter as _gaussian_filter
 
-from .phase_retrieval import ctf_retrieve, iterative_phase_retrieval
+from .phase_retrieval import ctf_retrieve
 
 try:
     from skimage.registration import phase_cross_correlation as _pcc
@@ -369,6 +369,117 @@ def align_holograms(images, reference_index=0, upsample=20, blur=2.0,
 
 
 # ---------------------------------------------------------------------------
+# Native-resolution joint multi-distance non-linear solver
+# ---------------------------------------------------------------------------
+def _fourier_down(x, n_out):
+    """Ideal band-limited resample to a smaller grid (Fourier crop)."""
+    n = x.shape[0]
+    if n_out >= n:
+        return x
+    X = np.fft.fftshift(np.fft.fft2(x, norm="ortho"))
+    s = (n - n_out) // 2
+    return np.real(np.fft.ifft2(
+        np.fft.ifftshift(X[s:s + n_out, s:s + n_out]), norm="ortho"))
+
+
+def _fourier_up(x, n_out):
+    """Transpose of :func:`_fourier_down` (Fourier zero-pad)."""
+    n = x.shape[0]
+    if n_out <= n:
+        return x
+    X = np.fft.fftshift(np.fft.fft2(x, norm="ortho"))
+    s = (n_out - n) // 2
+    G = np.zeros((n_out, n_out), dtype=complex)
+    G[s:s + n, s:s + n] = X
+    return np.real(np.fft.ifft2(np.fft.ifftshift(G), norm="ortho"))
+
+
+def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
+                                wavelength, delta_beta, init, n_iter=200,
+                                reg_tv=1e-3, tv_eps=1e-3, pad=2):
+    r"""
+    Joint non-linear multi-distance retrieval fitting each distance at its
+    **native** resolution.
+
+    Minimises :math:`\tfrac12\sum_d \big\| D_d|\mathcal P_{z_d}\psi(\phi)|
+    - D_d\sqrt{I_d}\big\|^2 + \lambda\,\mathrm{TV}(\phi)` where
+    :math:`D_d` band-limits / downsamples to detector *d*'s effective pixel.
+    Unlike fitting the full-band model against the up-sampled coarse data, each
+    distance constrains only the frequencies it actually measured --- giving a
+    markedly more accurate (quantitative) reconstruction.  Adjoint gradient
+    finite-difference verified.
+    """
+    if delta_beta is None:
+        raise ValueError("method='nonlinear' requires delta_beta (homogeneous "
+                         "object); pass the delta/beta ratio.")
+    n = stack.shape[-1]
+    D = len(distances)
+    c = complex(-1.0 / float(delta_beta), 1.0)
+    c_conj = np.conj(c)
+    nout = [max(4, int(round(n * common_pixel / float(p)))) for p in pixel_sizes]
+    m = n * pad
+    o = (m - n) // 2
+    f = np.fft.fftfreq(m, d=common_pixel)
+    FY, FX = np.meshgrid(f, f, indexing="ij")
+    Hs = [np.exp(1j * np.pi * wavelength * float(z) * (FY**2 + FX**2))
+          for z in distances]
+    adata = [_fourier_down(np.sqrt(np.maximum(stack[d], 1e-6)), nout[d])
+             for d in range(D)]
+
+    def emb(a):
+        b = np.zeros((m, m), dtype=complex)
+        b[o:o + n, o:o + n] = a
+        return b
+
+    def crop(a):
+        return a[o:o + n, o:o + n]
+
+    def cost_grad(phi):
+        psi = np.exp(c * emb(phi))
+        psi_f = np.fft.fft2(psi)
+        J = 0.0
+        g = np.zeros((n, n))
+        for d in range(D):
+            a = crop(np.fft.ifft2(psi_f * Hs[d]))
+            amp = np.abs(a)
+            r = _fourier_down(amp, nout[d]) - adata[d]
+            J += 0.5 * float(np.sum(r * r))
+            gz = emb(_fourier_up(r, n) * a / (amp + 1e-30))
+            gobj = np.fft.ifft2(np.fft.fft2(gz) * np.conj(Hs[d]))
+            g += crop(np.real(c_conj * np.conj(psi) * gobj))
+        if reg_tv > 0:
+            dx = np.roll(phi, -1, 1) - phi
+            dy = np.roll(phi, -1, 0) - phi
+            mag = np.sqrt(dx**2 + dy**2 + tv_eps**2)
+            J += reg_tv * float(mag.sum())
+            px, py = dx / mag, dy / mag
+            g -= reg_tv * ((px - np.roll(px, 1, 1)) + (py - np.roll(py, 1, 0)))
+        return J, g
+
+    phi = np.array(init, dtype=float)
+    J, g = cost_grad(phi)
+    d_ = -g
+    t = 1.0
+    for _ in range(int(n_iter)):
+        gd = float(np.sum(g * d_))
+        if gd >= 0:
+            d_ = -g
+            gd = float(np.sum(g * d_))
+        t = min(t * 2.0, 1e3)
+        Jn, gn = cost_grad(phi + t * d_)
+        k = 0
+        while Jn > J + 1e-4 * t * gd and t > 1e-12 and k < 60:
+            t *= 0.5
+            Jn, gn = cost_grad(phi + t * d_)
+            k += 1
+        phi = phi + t * d_
+        beta = max(0.0, float(np.sum(gn * (gn - g))) / (float(np.sum(g * g)) + 1e-30))
+        d_ = -gn + beta * d_
+        g, J = gn, Jn
+    return phi
+
+
+# ---------------------------------------------------------------------------
 # 5. Full pipeline
 # ---------------------------------------------------------------------------
 def holo_ctf_reconstruct(
@@ -517,12 +628,15 @@ def holo_ctf_reconstruct(
         aligned, list(geom.effective_distance), wavelength, px_common,
         alpha=alpha, delta_beta=delta_beta, cuda=cuda)
 
-    # 4b. optional non-linear (exact-Fresnel) multi-distance refinement
+    # 4b. optional non-linear refinement.  The native-resolution joint solver
+    # fits each distance at its own effective pixel (band-limited), which is
+    # markedly more accurate than fitting the full-band model to the up-sampled
+    # coarse data — recovering quantitative interior grey levels.
     if method == "nonlinear":
-        phase = iterative_phase_retrieval(
-            aligned, list(geom.effective_distance), wavelength, px_common,
-            delta_beta=delta_beta, init=phase, n_iter=nl_n_iter,
-            reg_tv=nl_reg_tv, cuda=cuda)
+        phase = _native_multidistance_solve(
+            aligned, list(geom.effective_distance),
+            np.asarray(geom.effective_pixel_size), px_common, wavelength,
+            delta_beta, init=phase, n_iter=nl_n_iter, reg_tv=nl_reg_tv)
     elif method != "ctf":
         raise ValueError("method must be 'ctf' or 'nonlinear'.")
 

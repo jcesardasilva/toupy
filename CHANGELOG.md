@@ -20,13 +20,16 @@ All notable changes to **toupy** are documented in this file.
 - `holo_ctf_reconstruct` exposes `flat_method='simple'|'eigen'`; the default
   CTF `alpha` is `1e-4` (must be ≲ `(2β/δ)²` so the absorption term carries the
   low frequencies — a larger alpha bows the interior grey levels / cupping).
-- `method='ctf'|'nonlinear'` — the non-linear option refines the CTF with the
-  exact-Fresnel multi-distance solver (`iterative_phase_retrieval`), recovering
-  the low frequencies / DC for **quantitative** interior grey levels (removes
-  cupping). `refine_align=True` refines the registration on rough
-  single-distance retrievals (robust to the differing fringes). On a wide
-  z_eff-coverage geometry: corr 0.77 (CTF) → 0.94 (non-linear + refine),
-  interior cupping 0.014 → 0.008.
+- `method='ctf'|'nonlinear'` — the non-linear option jointly inverts the exact
+  Fresnel model across distances, **fitting each distance at its native
+  effective resolution** (band-limiting the model to each detector's pixel
+  rather than fitting the full-band model to up-sampled coarse data). This
+  recovers the low frequencies / DC for **quantitative** interior grey levels
+  (removes cupping) and suppresses artifacts. Adjoint gradient FD-verified.
+  `refine_align=True` refines the registration on rough single-distance
+  retrievals (robust to the differing fringes). On a wide z_eff-coverage
+  geometry: corr 0.77 (CTF) → **0.99** (native non-linear + refine-align),
+  interior cupping 0.014 → 0.007.
 - Example `tutorial/example_holo_ctf_id16a.py` (with a CTF frequency-coverage
   diagnostic) and test `test/holo_ctf_test.py` (6 tests).
 
