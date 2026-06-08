@@ -709,8 +709,10 @@ if TORCH_AVAILABLE:
 
             gd_vol, gb_vol = scatter_gradient_torch(
                 gd_i, gb_i, theta, delta_tp_t.shape, n_slices=N_SLICES)
-            grad_delta += w_i * gd_vol
-            grad_beta  += w_i * gb_vol
+            # Fused in-place scaled add: same cost as '+= gd_vol' regardless of
+            # w_i (no temporary tensor), so 'uniform' has zero overhead.
+            grad_delta.add_(gd_vol, alpha=w_i)
+            grad_beta.add_(gb_vol,  alpha=w_i)
 
         grad_delta /= N_use
         grad_beta  /= N_use
@@ -778,8 +780,12 @@ else:
 
             gd_vol, gb_vol = scatter_gradient_to_volume(
                 gd_i, gb_i, theta, delta_tp.shape, n_slices=N_SLICES)
-            grad_delta += w_i * gd_vol
-            grad_beta  += w_i * gb_vol
+            if w_i == 1.0:                     # uniform: plain in-place add
+                grad_delta += gd_vol
+                grad_beta  += gb_vol
+            else:                             # weighted: fused scaled add
+                np.add(grad_delta, w_i * gd_vol, out=grad_delta)
+                np.add(grad_beta,  w_i * gb_vol, out=grad_beta)
 
         grad_delta /= N_use
         grad_beta  /= N_use
