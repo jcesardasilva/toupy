@@ -529,6 +529,47 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
     return _cp.asnumpy(phi) if use_gpu else np.asarray(phi)
 
 
+def _refine_distance_scale(stack, z_eff, common_pixel, wavelength, delta_beta,
+                           alpha, bounds=(0.7, 1.3)):
+    r"""
+    Auto-focus: find the multiplicative correction to the effective propagation
+    distances that **minimises the multi-distance CTF data inconsistency**.
+
+    Slightly mis-calibrated distances make the four holograms mutually
+    inconsistent; the least-squares CTF residual
+    :math:`\sum_d\|\hat H_d + 2 w_d(s\,z_{\mathrm{eff}})\,\hat\phi\|^2`
+    is minimised at the correct (common-scaled) distances.
+
+    Returns the scalar scale ``s`` (apply as ``z_eff * s``).
+    """
+    from scipy.optimize import minimize_scalar
+
+    n = stack.shape[-1]
+    f = np.fft.fftfreq(n, d=common_pixel)
+    FY, FX = np.meshgrid(f, f, indexing="ij")
+    u2 = FY**2 + FX**2
+    eps = 0.0 if delta_beta is None else 1.0 / float(delta_beta)
+    Hd = [np.fft.fft2(stack[d] - 1.0) for d in range(len(z_eff))]
+    z_eff = np.asarray(z_eff, dtype=float)
+
+    def residual(scale):
+        num = np.zeros((n, n), dtype=complex)
+        den = np.zeros((n, n))
+        ws = []
+        for d in range(len(z_eff)):
+            chi = np.pi * wavelength * scale * z_eff[d] * u2
+            w = np.sin(chi) + eps * np.cos(chi)
+            ws.append(w)
+            num += w * Hd[d]
+            den += w * w
+        phi_h = -num / (2.0 * (den + alpha))
+        return sum(float(np.sum(np.abs(Hd[d] + 2.0 * ws[d] * phi_h)**2))
+                   for d in range(len(z_eff)))
+
+    res = minimize_scalar(residual, bounds=bounds, method="bounded")
+    return float(res.x)
+
+
 # ---------------------------------------------------------------------------
 # 5. Full pipeline
 # ---------------------------------------------------------------------------
@@ -549,6 +590,8 @@ def holo_ctf_reconstruct(
     nl_reg_tv=1e-3,
     support=None,
     support_weight=1.0,
+    refine_distances=False,
+    refine_bounds=(0.7, 1.3),
     align=True,
     upsample=20,
     align_blur=2.0,
@@ -613,6 +656,14 @@ def holo_ctf_reconstruct(
         zero, removing the low-frequency air halo.  Default None.
     support_weight : float, optional
         Strength of the support (air-zeroing) penalty.  Default 1.0.
+    refine_distances : bool, optional
+        Auto-focus: refine a global multiplicative correction to the effective
+        propagation distances by minimising the multi-distance CTF data
+        inconsistency, before the final retrieval.  Use when the measured
+        focus/distance calibration is only approximate.  Default False (the
+        distances are taken directly from the geometry).
+    refine_bounds : (float, float), optional
+        Search bounds for the distance-scale correction.  Default (0.7, 1.3).
     refine_align : bool, optional
         After the initial hologram alignment, refine the shifts by registering
         rough single-distance phase retrievals (which look alike across
@@ -685,9 +736,19 @@ def holo_ctf_reconstruct(
         aligned = common
         shifts = np.zeros((aligned.shape[0], 2))
 
+    # 3b. optional auto-focus: correct a global mis-calibration of the
+    #     effective propagation distances (default: use the geometry values).
+    z_eff = np.asarray(geom.effective_distance, dtype=float)
+    dist_scale = 1.0
+    if refine_distances:
+        dist_scale = _refine_distance_scale(
+            aligned, z_eff, px_common, wavelength, delta_beta, alpha,
+            bounds=refine_bounds)
+        z_eff = z_eff * dist_scale
+
     # 4. multi-distance CTF on the common grid
     phase = ctf_retrieve(
-        aligned, list(geom.effective_distance), wavelength, px_common,
+        aligned, list(z_eff), wavelength, px_common,
         alpha=alpha, delta_beta=delta_beta, cuda=cuda)
 
     # 4b. optional non-linear refinement.  The native-resolution joint solver
@@ -696,7 +757,7 @@ def holo_ctf_reconstruct(
     # coarse data — recovering quantitative interior grey levels.
     if method == "nonlinear":
         phase = _native_multidistance_solve(
-            aligned, list(geom.effective_distance),
+            aligned, list(z_eff),
             np.asarray(geom.effective_pixel_size), px_common, wavelength,
             delta_beta, init=phase, n_iter=nl_n_iter, reg_tv=nl_reg_tv,
             support=support, support_weight=support_weight, cuda=cuda)
@@ -712,6 +773,8 @@ def holo_ctf_reconstruct(
             "rescaled": common,
             "aligned": aligned,
             "shifts": shifts,
+            "distance_scale": dist_scale,
+            "effective_distance_used": z_eff,
         }
         return phase, info
     return phase

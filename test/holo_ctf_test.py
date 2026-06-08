@@ -144,6 +144,29 @@ def test_nonlinear_and_refine_align():
     assert corr("nonlinear", refine=True) > 0.8
 
 
+def test_refine_distances():
+    S, R, dark, gt = _build_dataset()
+    m = gt > 0.01 * gt.max()
+
+    def cor(p):
+        p = p - p[~m].mean()
+        return np.corrcoef(p[m], gt[m])[0, 1]
+
+    # correct geometry: the auto-focus should not move far from scale 1
+    _, info = holo_ctf_reconstruct(S, R, dark, ZS, ZD, DET_PX, WAVELENGTH,
+                                   delta_beta=DELTA_BETA, method="ctf",
+                                   refine_distances=True, return_intermediates=True)
+    assert 0.85 < info["distance_scale"] < 1.15, info["distance_scale"]
+
+    # mis-calibrated distance (z_D wrong): refinement must improve the result
+    bad = cor(holo_ctf_reconstruct(S, R, dark, ZS, ZD * 1.12, DET_PX, WAVELENGTH,
+                                   delta_beta=DELTA_BETA, method="ctf"))
+    good = cor(holo_ctf_reconstruct(S, R, dark, ZS, ZD * 1.12, DET_PX, WAVELENGTH,
+                                    delta_beta=DELTA_BETA, method="ctf",
+                                    refine_distances=True))
+    assert good > bad + 0.1, (bad, good)
+
+
 def test_alignment_helps():
     S, R, dark, gt = _build_dataset()
     m = gt > 0.01 * gt.max()

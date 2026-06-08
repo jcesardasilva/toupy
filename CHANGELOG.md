@@ -30,6 +30,10 @@ All notable changes to **toupy** are documented in this file.
   retrievals (robust to the differing fringes). On a wide z_eff-coverage
   geometry: corr 0.77 (CTF) → **0.99** (native non-linear + refine-align),
   interior cupping 0.014 → 0.007.
+- `refine_distances=True` — optional auto-focus that refines a global
+  correction to the effective propagation distances by minimising the
+  multi-distance CTF data inconsistency (use when the focus/distance
+  calibration is approximate). Default off (distances taken from the geometry).
 - GPU: the native-resolution non-linear solver (the CG/FFT bottleneck) runs
   entirely on CuPy when `cuda=True` (whole loop on-device, result returned on
   CPU; graceful CPU fallback). Flat-field/rescale/align stay on CPU.
