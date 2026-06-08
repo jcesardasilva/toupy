@@ -297,8 +297,9 @@ else:
 _ftag = "_grid" if FBP_METHOD == "gridding" else ""
 _wtag = "" if ANGLE_WEIGHT == "uniform" else f"_{ANGLE_WEIGHT}"
 _out_suffix = f"_half{FSC_HALF}" if FSC_HALF is not None else ""
-OUT_DIR = os.path.join(_HERE,
-                       f"twopass_real_figures{_ftag}{_wtag}{_out_suffix}")
+# NOTE: keep this a SINGLE line — slurm_twopass.sh patches it with
+# `sed s|^OUT_DIR=.*|...|`, which only replaces one line.
+OUT_DIR = os.path.join(_HERE, f"twopass_real_figures{_ftag}{_wtag}{_out_suffix}")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 print("Reconstruction parameters")
