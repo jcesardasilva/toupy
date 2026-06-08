@@ -371,23 +371,46 @@ def align_holograms(images, reference_index=0, upsample=20, blur=2.0,
 # ---------------------------------------------------------------------------
 # Native-resolution joint multi-distance non-linear solver
 # ---------------------------------------------------------------------------
+_BAND_TAPER = 0.4          # raised-cosine apodisation of the spectral window
+_band_win_cache = {}
+
+
+def _band_window(n, taper=_BAND_TAPER):
+    """Separable raised-cosine (Tukey) window of size n×n (cached, self-adjoint)."""
+    key = (n, taper)
+    W = _band_win_cache.get(key)
+    if W is None:
+        w = np.ones(n)
+        e = max(1, int(taper * n / 2))
+        t = 0.5 * (1.0 - np.cos(np.pi * np.arange(e) / e))
+        w[:e] *= t
+        w[-e:] *= t[::-1]
+        W = np.outer(w, w)
+        _band_win_cache[key] = W
+    return W
+
+
 def _fourier_down(x, n_out):
-    """Ideal band-limited resample to a smaller grid (Fourier crop)."""
+    """Apodised band-limited resample to a smaller grid (Fourier crop + taper).
+
+    The raised-cosine window suppresses the Gibbs ringing of a brick-wall crop,
+    which otherwise injects oscillations into the reconstruction.
+    """
     n = x.shape[0]
     if n_out >= n:
         return x
     X = np.fft.fftshift(np.fft.fft2(x, norm="ortho"))
     s = (n - n_out) // 2
-    return np.real(np.fft.ifft2(
-        np.fft.ifftshift(X[s:s + n_out, s:s + n_out]), norm="ortho"))
+    Xc = X[s:s + n_out, s:s + n_out] * _band_window(n_out)
+    return np.real(np.fft.ifft2(np.fft.ifftshift(Xc), norm="ortho"))
 
 
 def _fourier_up(x, n_out):
-    """Transpose of :func:`_fourier_down` (Fourier zero-pad)."""
+    """Exact transpose of :func:`_fourier_down` (apodise then Fourier zero-pad)."""
     n = x.shape[0]
     if n_out <= n:
         return x
-    X = np.fft.fftshift(np.fft.fft2(x, norm="ortho"))
+    X = np.fft.fftshift(np.fft.fft2(x, norm="ortho")) * _band_window(n)
     s = (n_out - n) // 2
     G = np.zeros((n_out, n_out), dtype=complex)
     G[s:s + n, s:s + n] = X
@@ -396,7 +419,8 @@ def _fourier_up(x, n_out):
 
 def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
                                 wavelength, delta_beta, init, n_iter=200,
-                                reg_tv=1e-3, tv_eps=1e-3, pad=2):
+                                reg_tv=1e-3, tv_eps=1e-3, pad=2,
+                                support=None, support_weight=1.0):
     r"""
     Joint non-linear multi-distance retrieval fitting each distance at its
     **native** resolution.
@@ -425,6 +449,11 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
           for z in distances]
     adata = [_fourier_down(np.sqrt(np.maximum(stack[d], 1e-6)), nout[d])
              for d in range(D)]
+    # optional support: penalise phase outside the (known/estimated) object,
+    # pinning the background to zero and removing the low-frequency air halo.
+    air = None
+    if support is not None:
+        air = (~np.asarray(support, dtype=bool)).astype(float)
 
     def emb(a):
         b = np.zeros((m, m), dtype=complex)
@@ -454,6 +483,9 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
             J += reg_tv * float(mag.sum())
             px, py = dx / mag, dy / mag
             g -= reg_tv * ((px - np.roll(px, 1, 1)) + (py - np.roll(py, 1, 0)))
+        if air is not None:
+            J += 0.5 * support_weight * float(np.sum((phi * air)**2))
+            g += support_weight * phi * air
         return J, g
 
     phi = np.array(init, dtype=float)
@@ -497,6 +529,8 @@ def holo_ctf_reconstruct(
     method="ctf",
     nl_n_iter=200,
     nl_reg_tv=1e-3,
+    support=None,
+    support_weight=1.0,
     align=True,
     upsample=20,
     align_blur=2.0,
@@ -555,6 +589,12 @@ def holo_ctf_reconstruct(
         Conjugate-gradient iterations for the non-linear refinement.  Default 200.
     nl_reg_tv : float, optional
         Total-variation weight for the non-linear refinement.  Default 1e-3.
+    support : ndarray of bool or None, optional
+        Object support mask (``True`` where the sample may be) for the
+        non-linear solver.  When given, the phase outside it is softly pinned to
+        zero, removing the low-frequency air halo.  Default None.
+    support_weight : float, optional
+        Strength of the support (air-zeroing) penalty.  Default 1.0.
     refine_align : bool, optional
         After the initial hologram alignment, refine the shifts by registering
         rough single-distance phase retrievals (which look alike across
@@ -636,7 +676,8 @@ def holo_ctf_reconstruct(
         phase = _native_multidistance_solve(
             aligned, list(geom.effective_distance),
             np.asarray(geom.effective_pixel_size), px_common, wavelength,
-            delta_beta, init=phase, n_iter=nl_n_iter, reg_tv=nl_reg_tv)
+            delta_beta, init=phase, n_iter=nl_n_iter, reg_tv=nl_reg_tv,
+            support=support, support_weight=support_weight)
     elif method != "ctf":
         raise ValueError("method must be 'ctf' or 'nonlinear'.")
 
