@@ -124,7 +124,8 @@ DATA_FILE = os.path.join(_HERE, "PXCTalignedprojections.npz")
 print(f"Loading data from: {DATA_FILE}")
 
 data        = np.load(DATA_FILE, allow_pickle=True)
-phase_stack = data["projections"].astype(np.float64)   # (N_ANGLES, Ny, Nx) [rad]
+# float32 phases (O(1) rad) halve host RAM vs float64 with no practical loss.
+phase_stack = data["projections"].astype(np.float32)   # (N_ANGLES, Ny, Nx) [rad]
 WAVELENGTH  = float(data["wavelen"])                   # [m]
 PIXEL_SIZE  = float(data["psize"])                     # [m]
 THETA       = data["theta"].astype(np.float64)         # [degrees]
@@ -498,7 +499,8 @@ if _method == 'iradon':
 
 # Convert projected phase → δ:   φ = −k₀ · pixel · Σδ   →   δ = −φ / (k₀ · pixel)
 # If your ptychography code uses the opposite sign convention, remove the minus.
-delta_fbp = -delta_fbp / (K0 * PIXEL_SIZE)
+# Keep float32 to halve host RAM (a 988^3 float64 volume is 6 GB).
+delta_fbp = (-delta_fbp / (K0 * PIXEL_SIZE)).astype(np.float32)
 
 # ── Orientation correction ────────────────────────────────────────────────
 # skimage.iradon already reconstructs in the natural (true-sample) z
@@ -768,8 +770,17 @@ if TORCH_AVAILABLE:
               f"δ∈[{float(delta_tp_t.min()):.2e},{float(delta_tp_t.max()):.2e}]",
               flush=True)
 
-    delta_tp = delta_tp_t.cpu().numpy().astype(np.float64)
-    beta_tp  = beta_tp_t.cpu().numpy().astype(np.float64)
+    # Keep host arrays float32 (half the RAM of float64) — important for large
+    # volumes (a 988^3 float64 volume is 6 GB; figures hold several at once).
+    delta_tp = delta_tp_t.cpu().numpy().astype(np.float32)
+    beta_tp  = beta_tp_t.cpu().numpy().astype(np.float32)
+
+    # Free GPU + large optimiser buffers before figure generation (rebind to
+    # None so the references drop and empty_cache can reclaim the VRAM).
+    delta_tp_t = beta_tp_t = u_meas_t = probe_t = None
+    grad_delta = grad_beta = adam_d = adam_b = None
+    if DEVICE.type == 'cuda':
+        torch.cuda.empty_cache()
 
 else:
     # ── NumPy fallback ─────────────────────────────────────────────────────

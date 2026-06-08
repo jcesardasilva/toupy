@@ -46,7 +46,12 @@
 #SBATCH --partition=low-gpu
 #SBATCH --gres=gpu:nvidia_a40:1
 #SBATCH --cpus-per-task=8             # SLURM-allocated CPUs (used by GPU FBP fallback)
-#SBATCH --mem=32G                     # host RAM; ~4 GB model + data, 32 GB is safe
+#SBATCH --mem=128G                    # host RAM. 32G is fine for the small tutorial
+                                      # volume, but large volumes hold several
+                                      # full float32 arrays + figures on the CPU
+                                      # (a 988^3 float32 volume is 3 GB; the
+                                      # comparison figures peak at ~5-6 of them).
+                                      # Use 128G for big data; reduce for small.
 #
 # --- Wall-clock time ----------------------------------------------------------
 # Benchmarks at N_SLICES=64, 450 angles, CROP_X=80/CROP_Y=20 (333×354×333):
