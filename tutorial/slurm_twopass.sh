@@ -105,6 +105,8 @@ WARMUP_ITERS=5   # linear LR warm-up iterations
 ANGLE_STEP=1     # 1 = all angles;  >1 = subsample for fast prototyping
 ANGLE_WEIGHT=uniform  # per-angle noise weighting: 'uniform' | 'snr'
 FBP_METHOD=auto       # Pass-1 back-projector: 'auto'|'iradon'|'gpu'|'gridding'
+OPTIMIZE_BETA=True    # False = freeze beta (saves ~3 volumes of VRAM; use for
+                      # large volumes that OOM on a 40-48 GB GPU)
 
 # ── Projection boundary crop (removes ptychography edge noise) ─────────────
 # Ptychography has insufficient probe overlap near the scan boundaries,
@@ -212,6 +214,7 @@ sed -i \
     -e "s|^ANGLE_STEP\s*=.*|ANGLE_STEP   = ${ANGLE_STEP}|" \
     -e "s|^ANGLE_WEIGHT\s*=.*|ANGLE_WEIGHT = '${ANGLE_WEIGHT}'|" \
     -e "s|^FBP_METHOD\s*=.*|FBP_METHOD  = '${FBP_METHOD}'|" \
+    -e "s|^OPTIMIZE_BETA\s*=.*|OPTIMIZE_BETA = ${OPTIMIZE_BETA}|" \
     -e "s|^CROP_X\s*=.*|CROP_X = ${CROP_X}|" \
     -e "s|^CROP_Y\s*=.*|CROP_Y = ${CROP_Y}|" \
     -e "s|^FSC_HALF\s*=.*|FSC_HALF = ${FSC_HALF}|" \
@@ -220,13 +223,17 @@ sed -i \
     "${PATCHED}"
 
 echo "Reconstruction parameters (as patched):"
-grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|ANGLE_WEIGHT|FBP_METHOD|CROP_X|CROP_Y|FSC_HALF|DATA_FILE|OUT_DIR)" \
+grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|ANGLE_WEIGHT|FBP_METHOD|OPTIMIZE_BETA|CROP_X|CROP_Y|FSC_HALF|DATA_FILE|OUT_DIR)" \
      "${PATCHED}" | sed 's/^/  /'
 echo ""
 
 # =============================================================================
 # ── Run ──────────────────────────────────────────────────────────────────────
 # =============================================================================
+
+# Reduce CUDA memory fragmentation on large volumes (the script also sets this
+# internally before importing torch; exporting here covers both paths).
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 
 T_START=$(date +%s)
 

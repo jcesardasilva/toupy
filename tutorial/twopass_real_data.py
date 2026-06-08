@@ -57,6 +57,13 @@ Run
 # ---------------------------------------------------------------------------
 
 import os, sys, time, importlib.util
+
+# Reduce CUDA memory fragmentation (must be set BEFORE torch is imported).
+# Lets the caching allocator grow segments instead of failing on a large
+# contiguous request when free memory is fragmented (the OOM hint suggests
+# this for big volumes).  Honour any value the user already exported.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -241,6 +248,14 @@ LR           = 5e-6       # Adam peak learning rate
 LAMBDA_TV    = 1e-5       # TV regularisation weight (0 to disable)
 WARMUP_ITERS = 3          # linear LR warm-up iterations
 
+# ── Optimise the absorption (beta) volume? ─────────────────────────────────
+# For hard-X-ray phase objects beta ~ 1e-3 * delta and barely affects the
+# forward model, yet optimising it costs THREE extra full-volume GPU buffers
+# (its gradient + Adam m,v).  Freezing beta (=False) saves ~3x the volume
+# size in VRAM with negligible effect on the recovered delta -- essential for
+# large volumes on a 40-48 GB GPU.  True reproduces the original behaviour.
+OPTIMIZE_BETA = True      # set False for large volumes (memory) ; delta-only
+
 # ── Per-angle noise weighting (statistically-weighted data term) ───────────
 # The Pass-2 data term is Sum_theta w_theta |model - measured|^2.  Weighting
 # each projection by its inverse noise variance (a maximum-likelihood data
@@ -308,6 +323,7 @@ print(f"  N_SLICES   = {N_SLICES}  (slab Δz = {SLICE_DZ*1e9:.1f} nm = "
 print(f"  N_ITER     = {N_ITER}")
 print(f"  LR         = {LR}")
 print(f"  LAMBDA_TV  = {LAMBDA_TV}")
+print(f"  OPTIMIZE_BETA = {OPTIMIZE_BETA}")
 print(f"  ANGLE_WEIGHT = {ANGLE_WEIGHT}")
 print(f"  FBP_METHOD = {FBP_METHOD}")
 print(f"  backend    = {'torch/' + str(DEVICE) if TORCH_AVAILABLE else 'numpy'}")
@@ -679,14 +695,19 @@ if TORCH_AVAILABLE:
     probe_t    = torch.from_numpy(probe).to(DEVICE)
     u_meas_t   = torch.from_numpy(u_measured).to(DEVICE)   # (N_use, Ny, Nx)
 
+    # Free the Pass-1 (FBP) GPU scratch before allocating Pass-2 volumes.
+    if DEVICE.type == 'cuda':
+        torch.cuda.empty_cache()
+
     adam_d = TorchAdamState(delta_tp_t.shape, lr=LR, device=DEVICE)
-    adam_b = TorchAdamState(beta_tp_t.shape,  lr=LR, device=DEVICE)
+    adam_b = (TorchAdamState(beta_tp_t.shape, lr=LR, device=DEVICE)
+              if OPTIMIZE_BETA else None)
 
     for it in range(N_ITER):
         t_iter = time.time()
         total_loss = 0.0
         grad_delta = torch.zeros_like(delta_tp_t)
-        grad_beta  = torch.zeros_like(beta_tp_t)
+        grad_beta  = torch.zeros_like(beta_tp_t) if OPTIMIZE_BETA else None
 
         # LR schedule
         if it < WARMUP_ITERS:
@@ -694,7 +715,9 @@ if TORCH_AVAILABLE:
         else:
             progress = (it - WARMUP_ITERS) / max(N_ITER - WARMUP_ITERS, 1)
             lr_t = LR * 0.5 * (1.0 + np.cos(np.pi * progress))
-        adam_d.lr = adam_b.lr = lr_t
+        adam_d.lr = lr_t
+        if OPTIMIZE_BETA:
+            adam_b.lr = lr_t
 
         for ai, theta in enumerate(theta_use):
             delta_sl, beta_sl, delta_means = extract_slices_torch(
@@ -713,24 +736,29 @@ if TORCH_AVAILABLE:
             # Fused in-place scaled add: same cost as '+= gd_vol' regardless of
             # w_i (no temporary tensor), so 'uniform' has zero overhead.
             grad_delta.add_(gd_vol, alpha=w_i)
-            grad_beta.add_(gb_vol,  alpha=w_i)
+            if OPTIMIZE_BETA:
+                grad_beta.add_(gb_vol, alpha=w_i)
+            del gd_vol, gb_vol            # free rotation transients promptly
 
         grad_delta /= N_use
-        grad_beta  /= N_use
+        if OPTIMIZE_BETA:
+            grad_beta /= N_use
 
         tv_str = ""
         if LAMBDA_TV > 0:
             tv_gd, tv_val_d = tv_grad_torch(delta_tp_t)
-            tv_gb, tv_val_b = tv_grad_torch(beta_tp_t)
             grad_delta += LAMBDA_TV * tv_gd
-            grad_beta  += LAMBDA_TV * tv_gb
+            tv_val_b = 0.0
+            if OPTIMIZE_BETA:
+                tv_gb, tv_val_b = tv_grad_torch(beta_tp_t)
+                grad_beta += LAMBDA_TV * tv_gb
             tv_str = f"  tv={LAMBDA_TV*(tv_val_d+tv_val_b):.3e}"
 
         adam_d.step(delta_tp_t, grad_delta)
-        adam_b.step(beta_tp_t,  grad_beta)
-
         delta_tp_t.clamp_(min=0.0)
-        beta_tp_t.clamp_(min=0.0)
+        if OPTIMIZE_BETA:
+            adam_b.step(beta_tp_t, grad_beta)
+            beta_tp_t.clamp_(min=0.0)
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
@@ -752,20 +780,22 @@ else:
     )
 
     adam_d = _Adam(delta_tp.shape, lr=LR)
-    adam_b = _Adam(beta_tp.shape,  lr=LR)
+    adam_b = _Adam(beta_tp.shape, lr=LR) if OPTIMIZE_BETA else None
 
     for it in range(N_ITER):
         t_iter = time.time()
         total_loss = 0.0
         grad_delta = np.zeros_like(delta_tp)
-        grad_beta  = np.zeros_like(beta_tp)
+        grad_beta  = np.zeros_like(beta_tp) if OPTIMIZE_BETA else None
 
         if it < WARMUP_ITERS:
             lr_t = LR * (it + 1) / WARMUP_ITERS
         else:
             progress = (it - WARMUP_ITERS) / max(N_ITER - WARMUP_ITERS, 1)
             lr_t = LR * 0.5 * (1.0 + np.cos(np.pi * progress))
-        adam_d.lr = adam_b.lr = lr_t
+        adam_d.lr = lr_t
+        if OPTIMIZE_BETA:
+            adam_b.lr = lr_t
 
         for ai, theta in enumerate(theta_use):
             delta_sl, beta_sl, delta_means = extract_slices_from_volume(
@@ -783,27 +813,32 @@ else:
                 gd_i, gb_i, theta, delta_tp.shape, n_slices=N_SLICES)
             if w_i == 1.0:                     # uniform: plain in-place add
                 grad_delta += gd_vol
-                grad_beta  += gb_vol
+                if OPTIMIZE_BETA:
+                    grad_beta += gb_vol
             else:                             # weighted: fused scaled add
                 np.add(grad_delta, w_i * gd_vol, out=grad_delta)
-                np.add(grad_beta,  w_i * gb_vol, out=grad_beta)
+                if OPTIMIZE_BETA:
+                    np.add(grad_beta, w_i * gb_vol, out=grad_beta)
 
         grad_delta /= N_use
-        grad_beta  /= N_use
+        if OPTIMIZE_BETA:
+            grad_beta /= N_use
 
         tv_str = ""
         if LAMBDA_TV > 0:
             tv_gd, tv_val_d = tv_grad(delta_tp)
-            tv_gb, tv_val_b = tv_grad(beta_tp)
             grad_delta += LAMBDA_TV * tv_gd
-            grad_beta  += LAMBDA_TV * tv_gb
+            tv_val_b = 0.0
+            if OPTIMIZE_BETA:
+                tv_gb, tv_val_b = tv_grad(beta_tp)
+                grad_beta += LAMBDA_TV * tv_gb
             tv_str = f"  tv={LAMBDA_TV*(tv_val_d+tv_val_b):.3e}"
 
         adam_d.step(delta_tp, grad_delta)
-        adam_b.step(beta_tp,  grad_beta)
-
         np.clip(delta_tp, 0.0, None, out=delta_tp)
-        np.clip(beta_tp,  0.0, None, out=beta_tp)
+        if OPTIMIZE_BETA:
+            adam_b.step(beta_tp, grad_beta)
+            np.clip(beta_tp, 0.0, None, out=beta_tp)
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
