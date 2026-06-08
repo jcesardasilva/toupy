@@ -38,7 +38,9 @@ Usage (production)
 
 import os, sys, time, importlib.util, argparse
 import numpy as np
-os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+# expandable_segments is opt-in (export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# only if a GPU OOM recurs from fragmentation); it can slow large runs, so it
+# is not forced here.
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _TOMO = os.path.join(_HERE, "..", "toupy", "tomo")

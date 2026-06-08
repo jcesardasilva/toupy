@@ -58,11 +58,13 @@ Run
 
 import os, sys, time, importlib.util
 
-# Reduce CUDA memory fragmentation (must be set BEFORE torch is imported).
-# Lets the caching allocator grow segments instead of failing on a large
-# contiguous request when free memory is fragmented (the OOM hint suggests
-# this for big volumes).  Honour any value the user already exported.
-os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+# NOTE on CUDA memory fragmentation: if a *GPU* OOM recurs purely from
+# fragmentation (lots of "reserved but unallocated" memory), export
+#   PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+# BEFORE launching python.  It is NOT enabled here by default because it can
+# slow large runs that churn big alloc/free (our per-angle rotation buffers),
+# and the GPU OOM was actually resolved by OPTIMIZE_BETA=False.  We only honour
+# whatever the user exported.
 
 import numpy as np
 import matplotlib

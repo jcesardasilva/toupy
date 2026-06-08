@@ -236,9 +236,10 @@ echo ""
 # ── Run ──────────────────────────────────────────────────────────────────────
 # =============================================================================
 
-# Reduce CUDA memory fragmentation on large volumes (the script also sets this
-# internally before importing torch; exporting here covers both paths).
-export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+# expandable_segments can REDUCE fragmentation OOM but may SLOW large runs that
+# churn big alloc/free.  Leave it OFF by default (the GPU OOM was solved by
+# OPTIMIZE_BETA=False).  Uncomment ONLY if a CUDA OOM recurs from fragmentation:
+# export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 
 T_START=$(date +%s)
 
