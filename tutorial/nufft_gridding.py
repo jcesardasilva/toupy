@@ -38,17 +38,53 @@ import numpy as np
 
 SELFTEST_MIN_CORR = 0.95
 
+# CPU NUFFT (finufft) and optional GPU NUFFT (cufinufft + cupy).
 try:
     import finufft
     _HAVE_FINUFFT = True
 except ImportError:
     _HAVE_FINUFFT = False
 
+try:
+    import cupy as _cp
+    import cufinufft as _cufinufft
+    _HAVE_CUFINUFFT = True
+except Exception:          # ImportError, or CUDA/driver init failure
+    _HAVE_CUFINUFFT = False
+
+
+def _resolve_grid_device(device):
+    """
+    Resolve the gridding compute device.
+
+    device : 'auto' | 'gpu' | 'cpu' (or None == 'auto')
+      'auto' -> GPU (cufinufft) if available, else CPU (finufft).
+      'gpu'  -> require cufinufft+cupy (raises if absent).
+      'cpu'  -> require finufft.
+    """
+    d = (device or 'auto').lower()
+    if d == 'gpu':
+        if not _HAVE_CUFINUFFT:
+            raise RuntimeError("device='gpu' but cufinufft/cupy not available "
+                               "(pip install cufinufft cupy).")
+        return 'gpu'
+    if d == 'cpu':
+        if not _HAVE_FINUFFT:
+            raise RuntimeError("device='cpu' but finufft not available "
+                               "(pip install finufft).")
+        return 'cpu'
+    # auto
+    if _HAVE_CUFINUFFT:
+        return 'gpu'
+    if _HAVE_FINUFFT:
+        return 'cpu'
+    raise RuntimeError("neither cufinufft (GPU) nor finufft (CPU) is available.")
+
 
 # ---------------------------------------------------------------------------
 # Core: single-slice gridding reconstruction
 # ---------------------------------------------------------------------------
-def gridding_reconstruct_slice(sino, theta_deg):
+def gridding_reconstruct_slice(sino, theta_deg, device='auto'):
     """
     Direct-Fourier (gridding) reconstruction of one 2-D slice.
 
@@ -57,40 +93,47 @@ def gridding_reconstruct_slice(sino, theta_deg):
     sino : (n_det, n_ang) real
         Sinogram; column i is the projection at theta_deg[i].
     theta_deg : (n_ang,) projection angles in degrees.
+    device : 'auto' | 'gpu' | 'cpu'
+        GPU path uses cufinufft+cupy; CPU path uses finufft.  The math is
+        identical; both pin modeord=0 so the output is centre-ordered.
 
     Returns
     -------
-    (N, N) real reconstruction, N = n_det.
+    (N, N) real reconstruction (NumPy array), N = n_det.
     """
-    if not _HAVE_FINUFFT:
-        raise RuntimeError(
-            "finufft is required for the gridding back-projector "
-            "(pip install finufft).")
+    dev = _resolve_grid_device(device)
+    xp = _cp if dev == 'gpu' else np
 
     n_det, n_ang = sino.shape
     N = n_det
 
+    sino_x = xp.asarray(sino)
     # 1-D FFT along the detector -> samples of the object FT on radial lines
-    # (Fourier Slice Theorem).  Center the detector origin first.
-    rho = np.fft.fftshift(np.fft.fftfreq(N))                       # [-0.5, 0.5)
-    S = np.fft.fftshift(
-            np.fft.fft(np.fft.ifftshift(sino, axes=0), axis=0), axes=0)  # (rho,ang)
+    # (Fourier Slice Theorem).  Centre the detector origin first.
+    rho = xp.fft.fftshift(xp.fft.fftfreq(N))                       # [-0.5, 0.5)
+    S = xp.fft.fftshift(
+            xp.fft.fft(xp.fft.ifftshift(sino_x, axes=0), axis=0), axes=0)
 
-    th = np.deg2rad(np.asarray(theta_deg, dtype=np.float64))
-    KX = np.outer(rho, np.cos(th))                                 # (n_rho, n_ang)
-    KY = np.outer(rho, np.sin(th))
-    ramp = np.abs(rho)[:, None]                                    # density comp.
-    c = (S * ramp).astype(np.complex128).ravel()
+    th = xp.asarray(np.deg2rad(np.asarray(theta_deg, dtype=np.float64)))
+    KX = xp.outer(rho, xp.cos(th))                                 # (n_rho, n_ang)
+    KY = xp.outer(rho, xp.sin(th))
+    ramp = xp.abs(rho)[:, None]                                    # density comp.
+    c = (S * ramp).astype(xp.complex128).ravel()
 
-    # finufft type-1: f[k1,k2] = sum_j c_j exp(i (x_j k1 + y_j k2)),  x in [-pi,pi).
-    # With the default modeord=0 the output modes are already centre-ordered
-    # (k = -N/2 .. N/2-1), so f IS the centred image directly -- do NOT fftshift
-    # (an earlier fftshift here scrambled the result; the self-test caught it).
+    # type-1 NUFFT: f[k1,k2] = sum_j c_j exp(i (x_j k1 + y_j k2)),  x in [-pi,pi).
+    # modeord=0 => output modes are centre-ordered (k = -N/2 .. N/2-1), so f IS
+    # the centred image directly (do NOT fftshift; an earlier fftshift here
+    # scrambled the result and the self-test caught it).  We pin modeord=0
+    # explicitly because cufinufft has historically defaulted differently.
     x = (2.0 * np.pi * KX).ravel()
     y = (2.0 * np.pi * KY).ravel()
 
-    f = finufft.nufft2d1(x, y, c, (N, N), isign=+1, eps=1e-9)
-    img = f.real / N                                               # scale fixed by calib
+    if dev == 'gpu':
+        f = _cufinufft.nufft2d1(x, y, c, (N, N), isign=+1, eps=1e-9, modeord=0)
+        img = _cp.asnumpy(f.real) / N
+    else:
+        f = finufft.nufft2d1(x, y, c, (N, N), isign=+1, eps=1e-9, modeord=0)
+        img = f.real / N                                           # scale fixed by calib
 
     return img
 
@@ -108,10 +151,11 @@ def gridding_reconstruct_volume(phase_use, theta_use, calib=None):
     theta_use : (N_ang,) angles [deg].
     calib : dict or None
         Calibration from self_test():
-          {'op': (k, flip), 'scale': s}
+          {'op': (k, flip), 'scale': s, 'device': 'gpu'|'cpu'}
         `op` orients each slice to the iradon convention; `scale` matches the
         amplitude to iradon (correlation alone is scale-blind, so without this
-        the absolute delta values would be wrong).  None => no correction.
+        the absolute delta values would be wrong); `device` is the backend the
+        self-test validated.  None => no correction, auto device.
 
     Returns
     -------
@@ -119,13 +163,14 @@ def gridding_reconstruct_volume(phase_use, theta_use, calib=None):
     """
     op = calib['op'] if calib else None
     scale = calib['scale'] if calib else 1.0
+    device = calib.get('device', 'auto') if calib else 'auto'
 
     N_ang, Ny, Nx = phase_use.shape
     Nz = Nx
     vol = np.zeros((Nz, Ny, Nx), dtype=np.float64)
     for iy in range(Ny):
         sino = phase_use[:, iy, :].T                # (n_det=Nx, n_ang)
-        rec = gridding_reconstruct_slice(sino, theta_use)
+        rec = gridding_reconstruct_slice(sino, theta_use, device=device)
         if op is not None:
             k, flip = op
             rec = np.rot90(rec, k)
@@ -150,30 +195,42 @@ def _make_phantom(n):
     return ph
 
 
-def self_test(N=128, n_ang=180, verbose=True):
+def self_test(N=128, n_ang=180, device='auto', verbose=True):
     """
-    Validate the gridding reconstructor against skimage.iradon on a phantom.
+    Validate the gridding reconstructor against skimage.iradon on a phantom,
+    on the SAME device that will be used for the real reconstruction.  This
+    gates the (CPU or GPU) backend: the pipeline only uses gridding if the
+    test passes, so an untested convention (e.g. a GPU modeord difference)
+    fails safely back to iradon rather than corrupting the volume.
 
     Returns
     -------
     (passed: bool, corr: float, calib: dict or None)
-        calib = {'op': (k, flip), 'scale': s} maps the gridding output onto the
-        iradon convention (orientation AND amplitude); pass it to
+        calib = {'op': (k, flip), 'scale': s, 'device': 'gpu'|'cpu'} maps the
+        gridding output onto the iradon convention (orientation AND amplitude)
+        and records the validated device; pass it to
         gridding_reconstruct_volume.
     """
     from skimage.transform import radon, iradon
 
-    if not _HAVE_FINUFFT:
+    try:
+        dev = _resolve_grid_device(device)
+    except RuntimeError as e:
         if verbose:
-            print("  [nufft_gridding] finufft not installed -> cannot use "
-                  "gridding backend (pip install finufft).")
+            print(f"  [nufft_gridding] {e}")
         return False, float("nan"), None
 
     ph = _make_phantom(N)
     theta = np.linspace(0.0, 180.0, n_ang, endpoint=False)
     sino = radon(ph, theta=theta, circle=True)
     ref = iradon(sino, theta=theta, filter_name="ramp", circle=True)
-    rec = gridding_reconstruct_slice(sino, theta)
+    try:
+        rec = gridding_reconstruct_slice(sino, theta, device=dev)
+    except Exception as e:
+        if verbose:
+            print(f"  [nufft_gridding] {dev} reconstruction failed ({e}); "
+                  f"backend unusable.")
+        return False, float("nan"), None
 
     def corr(a, b):
         return float(np.corrcoef(a.ravel(), b.ravel())[0, 1])
@@ -194,12 +251,12 @@ def self_test(N=128, n_ang=180, verbose=True):
     scale = float(np.sum(ref * r) / denom) if denom > 0 else 1.0
 
     passed = best_c >= SELFTEST_MIN_CORR
-    calib = {'op': best_op, 'scale': scale}
+    calib = {'op': best_op, 'scale': scale, 'device': dev}
     if verbose:
         status = "PASS" if passed else "FAIL"
-        print(f"  [nufft_gridding] self-test vs iradon: corr={best_c:.4f} "
-              f"(orient rot90^{best_op[0]}, flip={best_op[1]}, "
-              f"scale={scale:.3e})  -> {status}")
+        print(f"  [nufft_gridding] self-test vs iradon ({dev}): "
+              f"corr={best_c:.4f} (orient rot90^{best_op[0]}, "
+              f"flip={best_op[1]}, scale={scale:.3e})  -> {status}")
     return passed, best_c, (calib if passed else None)
 
 
@@ -207,12 +264,15 @@ if __name__ == "__main__":
     print("=" * 60)
     print("NUFFT gridding back-projector — self-test")
     print("=" * 60)
-    ok, c, calib = self_test()
-    if not _HAVE_FINUFFT:
-        raise SystemExit("finufft not installed; install with: pip install finufft")
+    print(f"  finufft (CPU)   available: {_HAVE_FINUFFT}")
+    print(f"  cufinufft (GPU) available: {_HAVE_CUFINUFFT}")
+    if not (_HAVE_FINUFFT or _HAVE_CUFINUFFT):
+        raise SystemExit("Install a NUFFT backend: pip install finufft "
+                         "(CPU) and/or cufinufft cupy (GPU).")
+    ok, c, calib = self_test(device='auto')
     print(f"\nResult: {'USABLE' if ok else 'NOT USABLE'}  "
           f"(corr={c:.4f}, threshold={SELFTEST_MIN_CORR})")
     if ok:
         print(f"Calibration: {calib}")
-    if not ok:
+    else:
         print("Do NOT use the gridding backend until the self-test passes.")
