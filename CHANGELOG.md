@@ -30,8 +30,11 @@ All notable changes to **toupy** are documented in this file.
   retrievals (robust to the differing fringes). On a wide z_eff-coverage
   geometry: corr 0.77 (CTF) → **0.99** (native non-linear + refine-align),
   interior cupping 0.014 → 0.007.
+- GPU: the native-resolution non-linear solver (the CG/FFT bottleneck) runs
+  entirely on CuPy when `cuda=True` (whole loop on-device, result returned on
+  CPU; graceful CPU fallback). Flat-field/rescale/align stay on CPU.
 - Example `tutorial/example_holo_ctf_id16a.py` (with a CTF frequency-coverage
-  diagnostic) and test `test/holo_ctf_test.py` (6 tests).
+  diagnostic) and test `test/holo_ctf_test.py` (7 tests).
 
 ## 0.4.0 — 2026-05-31 — phase retrieval, ring correction, TV reconstruction
 

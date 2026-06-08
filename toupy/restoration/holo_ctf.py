@@ -46,6 +46,12 @@ from scipy.ndimage import gaussian_filter as _gaussian_filter
 from .phase_retrieval import ctf_retrieve
 
 try:
+    import cupy as _cp
+    _CUDA_AVAILABLE = True
+except ImportError:
+    _CUDA_AVAILABLE = False
+
+try:
     from skimage.registration import phase_cross_correlation as _pcc
     _HAVE_SKIMAGE = True
 except ImportError:                                    # pragma: no cover
@@ -375,22 +381,22 @@ _BAND_TAPER = 0.4          # raised-cosine apodisation of the spectral window
 _band_win_cache = {}
 
 
-def _band_window(n, taper=_BAND_TAPER):
+def _band_window(n, xp=np, taper=_BAND_TAPER):
     """Separable raised-cosine (Tukey) window of size n×n (cached, self-adjoint)."""
-    key = (n, taper)
+    key = (n, taper, xp.__name__)
     W = _band_win_cache.get(key)
     if W is None:
-        w = np.ones(n)
+        w = xp.ones(n)
         e = max(1, int(taper * n / 2))
-        t = 0.5 * (1.0 - np.cos(np.pi * np.arange(e) / e))
+        t = 0.5 * (1.0 - xp.cos(np.pi * xp.arange(e) / e))
         w[:e] *= t
         w[-e:] *= t[::-1]
-        W = np.outer(w, w)
+        W = xp.outer(w, w)
         _band_win_cache[key] = W
     return W
 
 
-def _fourier_down(x, n_out):
+def _fourier_down(x, n_out, xp=np):
     """Apodised band-limited resample to a smaller grid (Fourier crop + taper).
 
     The raised-cosine window suppresses the Gibbs ringing of a brick-wall crop,
@@ -399,28 +405,28 @@ def _fourier_down(x, n_out):
     n = x.shape[0]
     if n_out >= n:
         return x
-    X = np.fft.fftshift(np.fft.fft2(x, norm="ortho"))
+    X = xp.fft.fftshift(xp.fft.fft2(x, norm="ortho"))
     s = (n - n_out) // 2
-    Xc = X[s:s + n_out, s:s + n_out] * _band_window(n_out)
-    return np.real(np.fft.ifft2(np.fft.ifftshift(Xc), norm="ortho"))
+    Xc = X[s:s + n_out, s:s + n_out] * _band_window(n_out, xp)
+    return xp.real(xp.fft.ifft2(xp.fft.ifftshift(Xc), norm="ortho"))
 
 
-def _fourier_up(x, n_out):
+def _fourier_up(x, n_out, xp=np):
     """Exact transpose of :func:`_fourier_down` (apodise then Fourier zero-pad)."""
     n = x.shape[0]
     if n_out <= n:
         return x
-    X = np.fft.fftshift(np.fft.fft2(x, norm="ortho")) * _band_window(n)
+    X = xp.fft.fftshift(xp.fft.fft2(x, norm="ortho")) * _band_window(n, xp)
     s = (n_out - n) // 2
-    G = np.zeros((n_out, n_out), dtype=complex)
+    G = xp.zeros((n_out, n_out), dtype=complex)
     G[s:s + n, s:s + n] = X
-    return np.real(np.fft.ifft2(np.fft.ifftshift(G), norm="ortho"))
+    return xp.real(xp.fft.ifft2(xp.fft.ifftshift(G), norm="ortho"))
 
 
 def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
                                 wavelength, delta_beta, init, n_iter=200,
                                 reg_tv=1e-3, tv_eps=1e-3, pad=2,
-                                support=None, support_weight=1.0):
+                                support=None, support_weight=1.0, cuda=False):
     r"""
     Joint non-linear multi-distance retrieval fitting each distance at its
     **native** resolution.
@@ -432,10 +438,20 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
     distance constrains only the frequencies it actually measured --- giving a
     markedly more accurate (quantitative) reconstruction.  Adjoint gradient
     finite-difference verified.
+
+    Runs entirely on the GPU when ``cuda=True`` and CuPy is available (the whole
+    conjugate-gradient loop stays on the device); the result is returned as a
+    CPU array.
     """
     if delta_beta is None:
         raise ValueError("method='nonlinear' requires delta_beta (homogeneous "
                          "object); pass the delta/beta ratio.")
+    use_gpu = bool(cuda) and _CUDA_AVAILABLE
+    if cuda and not _CUDA_AVAILABLE:
+        warnings.warn("CuPy not available — running the non-linear solver on "
+                      "the CPU.", stacklevel=3)
+    xp = _cp if use_gpu else np
+
     n = stack.shape[-1]
     D = len(distances)
     c = complex(-1.0 / float(delta_beta), 1.0)
@@ -443,20 +459,22 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
     nout = [max(4, int(round(n * common_pixel / float(p)))) for p in pixel_sizes]
     m = n * pad
     o = (m - n) // 2
-    f = np.fft.fftfreq(m, d=common_pixel)
-    FY, FX = np.meshgrid(f, f, indexing="ij")
-    Hs = [np.exp(1j * np.pi * wavelength * float(z) * (FY**2 + FX**2))
-          for z in distances]
-    adata = [_fourier_down(np.sqrt(np.maximum(stack[d], 1e-6)), nout[d])
+
+    stack = xp.asarray(stack, dtype=float)
+    f = xp.fft.fftfreq(m, d=common_pixel)
+    FY, FX = xp.meshgrid(f, f, indexing="ij")
+    freq2 = FY**2 + FX**2
+    Hs = [xp.exp(1j * np.pi * wavelength * float(z) * freq2) for z in distances]
+    adata = [_fourier_down(xp.sqrt(xp.maximum(stack[d], 1e-6)), nout[d], xp)
              for d in range(D)]
     # optional support: penalise phase outside the (known/estimated) object,
     # pinning the background to zero and removing the low-frequency air halo.
     air = None
     if support is not None:
-        air = (~np.asarray(support, dtype=bool)).astype(float)
+        air = xp.asarray((~np.asarray(support, dtype=bool)).astype(float))
 
     def emb(a):
-        b = np.zeros((m, m), dtype=complex)
+        b = xp.zeros((m, m), dtype=complex)
         b[o:o + n, o:o + n] = a
         return b
 
@@ -464,39 +482,39 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
         return a[o:o + n, o:o + n]
 
     def cost_grad(phi):
-        psi = np.exp(c * emb(phi))
-        psi_f = np.fft.fft2(psi)
+        psi = xp.exp(c * emb(phi))
+        psi_f = xp.fft.fft2(psi)
         J = 0.0
-        g = np.zeros((n, n))
+        g = xp.zeros((n, n))
         for d in range(D):
-            a = crop(np.fft.ifft2(psi_f * Hs[d]))
-            amp = np.abs(a)
-            r = _fourier_down(amp, nout[d]) - adata[d]
-            J += 0.5 * float(np.sum(r * r))
-            gz = emb(_fourier_up(r, n) * a / (amp + 1e-30))
-            gobj = np.fft.ifft2(np.fft.fft2(gz) * np.conj(Hs[d]))
-            g += crop(np.real(c_conj * np.conj(psi) * gobj))
+            a = crop(xp.fft.ifft2(psi_f * Hs[d]))
+            amp = xp.abs(a)
+            r = _fourier_down(amp, nout[d], xp) - adata[d]
+            J += 0.5 * float(xp.sum(r * r))
+            gz = emb(_fourier_up(r, n, xp) * a / (amp + 1e-30))
+            gobj = xp.fft.ifft2(xp.fft.fft2(gz) * xp.conj(Hs[d]))
+            g += crop(xp.real(c_conj * xp.conj(psi) * gobj))
         if reg_tv > 0:
-            dx = np.roll(phi, -1, 1) - phi
-            dy = np.roll(phi, -1, 0) - phi
-            mag = np.sqrt(dx**2 + dy**2 + tv_eps**2)
+            dx = xp.roll(phi, -1, 1) - phi
+            dy = xp.roll(phi, -1, 0) - phi
+            mag = xp.sqrt(dx**2 + dy**2 + tv_eps**2)
             J += reg_tv * float(mag.sum())
             px, py = dx / mag, dy / mag
-            g -= reg_tv * ((px - np.roll(px, 1, 1)) + (py - np.roll(py, 1, 0)))
+            g -= reg_tv * ((px - xp.roll(px, 1, 1)) + (py - xp.roll(py, 1, 0)))
         if air is not None:
-            J += 0.5 * support_weight * float(np.sum((phi * air)**2))
+            J += 0.5 * support_weight * float(xp.sum((phi * air)**2))
             g += support_weight * phi * air
         return J, g
 
-    phi = np.array(init, dtype=float)
+    phi = xp.asarray(np.asarray(init, dtype=float))
     J, g = cost_grad(phi)
     d_ = -g
     t = 1.0
     for _ in range(int(n_iter)):
-        gd = float(np.sum(g * d_))
+        gd = float(xp.sum(g * d_))
         if gd >= 0:
             d_ = -g
-            gd = float(np.sum(g * d_))
+            gd = float(xp.sum(g * d_))
         t = min(t * 2.0, 1e3)
         Jn, gn = cost_grad(phi + t * d_)
         k = 0
@@ -505,10 +523,10 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
             Jn, gn = cost_grad(phi + t * d_)
             k += 1
         phi = phi + t * d_
-        beta = max(0.0, float(np.sum(gn * (gn - g))) / (float(np.sum(g * g)) + 1e-30))
+        beta = max(0.0, float(xp.sum(gn * (gn - g))) / (float(xp.sum(g * g)) + 1e-30))
         d_ = -gn + beta * d_
         g, J = gn, Jn
-    return phi
+    return _cp.asnumpy(phi) if use_gpu else np.asarray(phi)
 
 
 # ---------------------------------------------------------------------------
@@ -604,7 +622,11 @@ def holo_ctf_reconstruct(
     upsample, interp_order : optional
         Alignment upsampling factor and rescaling spline order.
     cuda : bool, optional
-        Use the GPU path in :func:`ctf_retrieve`.
+        Use the GPU (CuPy) path for the CTF init and, for ``method='nonlinear'``,
+        the entire native-resolution conjugate-gradient solver (the compute
+        bottleneck).  Falls back to CPU with a warning if CuPy is unavailable.
+        Flat-field, rescale and alignment always run on the CPU (they execute
+        once and are cheap).
     return_intermediates : bool, optional
         If True, also return a dict with the geometry and the
         flat-fielded / rescaled / aligned stacks for inspection.
@@ -677,7 +699,7 @@ def holo_ctf_reconstruct(
             aligned, list(geom.effective_distance),
             np.asarray(geom.effective_pixel_size), px_common, wavelength,
             delta_beta, init=phase, n_iter=nl_n_iter, reg_tv=nl_reg_tv,
-            support=support, support_weight=support_weight)
+            support=support, support_weight=support_weight, cuda=cuda)
     elif method != "ctf":
         raise ValueError("method must be 'ctf' or 'nonlinear'.")
 
