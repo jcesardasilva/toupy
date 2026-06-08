@@ -732,7 +732,8 @@ if TORCH_AVAILABLE:
             total_loss += w_i * loss_i
 
             gd_vol, gb_vol = scatter_gradient_torch(
-                gd_i, gb_i, theta, delta_tp_t.shape, n_slices=N_SLICES)
+                gd_i, gb_i, theta, delta_tp_t.shape, n_slices=N_SLICES,
+                compute_beta=OPTIMIZE_BETA)   # skip beta rotation when frozen
             # Fused in-place scaled add: same cost as '+= gd_vol' regardless of
             # w_i (no temporary tensor), so 'uniform' has zero overhead.
             grad_delta.add_(gd_vol, alpha=w_i)

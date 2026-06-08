@@ -618,7 +618,8 @@ def scatter_gradient_torch(
     theta_deg:         float,
     volume_shape:      Tuple[int, int, int],
     n_slices:          Optional[int] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    compute_beta:      bool = True,
+) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
     """
     Torch version of ``scatter_gradient_to_volume``.
 
@@ -632,34 +633,37 @@ def scatter_gradient_torch(
     theta_deg : float
     volume_shape : tuple (Nz, Ny, Nx)
     n_slices : int, optional
+    compute_beta : bool
+        If False, skip the beta back-rotation entirely and return
+        ``(grad_delta_vol, None)``.  This avoids one full-volume rotation
+        (and its grid_sample transients) per angle when beta is frozen ---
+        a significant VRAM saving for large volumes.
 
     Returns
     -------
     grad_delta_vol : torch.Tensor, shape (Nz, Ny, Nx)
-    grad_beta_vol  : torch.Tensor, shape (Nz, Ny, Nx)
+    grad_beta_vol  : torch.Tensor or None
     """
     Nz, Ny, Nx = volume_shape
     device = grad_delta_slices.device
 
-    if n_slices is not None and n_slices < Nz:
-        k     = Nz // n_slices
-        n_use = k * n_slices
-        # Each slab gradient is distributed equally over k z-layers
-        gd_full = grad_delta_slices.repeat_interleave(k, dim=0) / k
-        gb_full = grad_beta_slices.repeat_interleave(k, dim=0) / k
-        if n_use < Nz:
-            pad = torch.zeros(Nz - n_use, Ny, Nx,
-                              dtype=gd_full.dtype, device=device)
-            gd_full = torch.cat([gd_full, pad], dim=0)
-            gb_full = torch.cat([gb_full, pad], dim=0)
-    else:
-        gd_full = grad_delta_slices
-        gb_full = grad_beta_slices
+    def _to_full(slices):
+        if n_slices is not None and n_slices < Nz:
+            k     = Nz // n_slices
+            n_use = k * n_slices
+            full = slices.repeat_interleave(k, dim=0) / k   # spread over k layers
+            if n_use < Nz:
+                pad = torch.zeros(Nz - n_use, Ny, Nx,
+                                  dtype=full.dtype, device=device)
+                full = torch.cat([full, pad], dim=0)
+            return full
+        return slices
 
     # Back-rotate by −theta (adjoint of the forward rotation)
-    grad_delta_vol = rotate_volume_torch(gd_full, -theta_deg)
-    grad_beta_vol  = rotate_volume_torch(gb_full, -theta_deg)
-
+    grad_delta_vol = rotate_volume_torch(_to_full(grad_delta_slices), -theta_deg)
+    if not compute_beta:
+        return grad_delta_vol, None
+    grad_beta_vol = rotate_volume_torch(_to_full(grad_beta_slices), -theta_deg)
     return grad_delta_vol, grad_beta_vol
 
 
