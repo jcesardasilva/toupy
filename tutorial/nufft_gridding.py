@@ -45,12 +45,14 @@ try:
 except ImportError:
     _HAVE_FINUFFT = False
 
+_CUFINUFFT_ERR = None
 try:
     import cupy as _cp
     import cufinufft as _cufinufft
     _HAVE_CUFINUFFT = True
-except Exception:          # ImportError, or CUDA/driver init failure
+except Exception as _e:    # ImportError, missing CUDA runtime lib, driver init
     _HAVE_CUFINUFFT = False
+    _CUFINUFFT_ERR = f"{type(_e).__name__}: {_e}"
 
 
 def _resolve_grid_device(device):
@@ -266,6 +268,10 @@ if __name__ == "__main__":
     print("=" * 60)
     print(f"  finufft (CPU)   available: {_HAVE_FINUFFT}")
     print(f"  cufinufft (GPU) available: {_HAVE_CUFINUFFT}")
+    if not _HAVE_CUFINUFFT and _CUFINUFFT_ERR:
+        print(f"    GPU NUFFT disabled — {_CUFINUFFT_ERR}")
+        print("    (this is harmless: the backend falls back to CPU finufft / "
+              "iradon)")
     if not (_HAVE_FINUFFT or _HAVE_CUFINUFFT):
         raise SystemExit("Install a NUFFT backend: pip install finufft "
                          "(CPU) and/or cufinufft cupy (GPU).")
