@@ -183,6 +183,74 @@ def gridding_reconstruct_volume(phase_use, theta_use, calib=None):
 
 
 # ---------------------------------------------------------------------------
+# Forward projector (re-projection): type-2 NUFFT, the matched adjoint of the
+# type-1 back-projector above.  Use in consistency-based alignment so the
+# forward and inverse operators are a matched pair (no operator mismatch).
+# ---------------------------------------------------------------------------
+def gridding_reproject_slice(obj, theta_deg, device='auto'):
+    """
+    Forward Radon (re-projection) of one 2-D slice via the Fourier Slice
+    Theorem: P_theta(rho) = FT2(obj)|_(rho cos, rho sin), then 1-D IFFT over rho.
+
+    Parameters
+    ----------
+    obj : (N, N) real   square slice (Nz == Nx).
+    theta_deg : (n_ang,) angles [deg].
+
+    Returns
+    -------
+    (N, n_ang) real sinogram (detector x angle).
+    """
+    dev = _resolve_grid_device(device)
+    xp = _cp if dev == 'gpu' else np
+    N = obj.shape[0]
+    n_ang = len(theta_deg)
+
+    rho = xp.fft.fftshift(xp.fft.fftfreq(N))
+    th = xp.asarray(np.deg2rad(np.asarray(theta_deg, dtype=np.float64)))
+    KX = xp.outer(rho, xp.cos(th))
+    KY = xp.outer(rho, xp.sin(th))
+    x = (2.0 * np.pi * KX).ravel()
+    y = (2.0 * np.pi * KY).ravel()
+    f = xp.asarray(obj).astype(xp.complex128)
+
+    # type-2 NUFFT (uniform object -> nonuniform polar Fourier samples).
+    # modeord=0 so f is interpreted centre-ordered (object centred in array).
+    if dev == 'gpu':
+        P = _cufinufft.nufft2d2(x, y, f, isign=+1, eps=1e-9, modeord=0)
+    else:
+        P = finufft.nufft2d2(x, y, f, isign=+1, eps=1e-9, modeord=0)
+    P = P.reshape(N, n_ang)
+
+    # radial samples -> projection: 1-D inverse FFT along rho
+    sino = xp.fft.fftshift(
+        xp.fft.ifft(xp.fft.ifftshift(P, axes=0), axis=0), axes=0).real
+    return _cp.asnumpy(sino) if dev == 'gpu' else sino
+
+
+def gridding_reproject_volume(vol, theta, calib=None):
+    """
+    Re-project a (Nz, Ny, Nx) volume to phase projections (N_ang, Ny, Nx),
+    matching the phase_use layout used for alignment / self-consistency.
+
+    calib : dict from self_test_forward(): {'flip': bool, 'scale': s, 'device'}.
+    """
+    flip = calib['flip'] if calib else False
+    scale = calib['scale'] if calib else 1.0
+    device = calib.get('device', 'auto') if calib else 'auto'
+
+    Nz, Ny, Nx = vol.shape
+    n_ang = len(theta)
+    out = np.zeros((n_ang, Ny, Nx), dtype=np.float64)
+    for iy in range(Ny):
+        s = gridding_reproject_slice(vol[:, iy, :], theta, device=device)  # (Nx,n_ang)
+        if flip:
+            s = s[::-1]
+        out[:, iy, :] = (scale * s).T
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Self-test against skimage.iradon
 # ---------------------------------------------------------------------------
 def _make_phantom(n):
@@ -262,6 +330,56 @@ def self_test(N=128, n_ang=180, device='auto', verbose=True):
     return passed, best_c, (calib if passed else None)
 
 
+def self_test_forward(N=128, n_ang=180, device='auto', verbose=True):
+    """
+    Validate the type-2 forward projector (re-projection) against
+    skimage.radon on the same device.  Returns (passed, corr, calib) with
+    calib = {'flip': bool, 'scale': s, 'device': dev}.  Sinogram orientation
+    only admits a detector-axis flip (the angle axis is fixed), so the search
+    is simpler than the back-projector's dihedral one.
+    """
+    from skimage.transform import radon
+
+    try:
+        dev = _resolve_grid_device(device)
+    except RuntimeError as e:
+        if verbose:
+            print(f"  [nufft_gridding] {e}")
+        return False, float("nan"), None
+
+    ph = _make_phantom(N)
+    theta = np.linspace(0.0, 180.0, n_ang, endpoint=False)
+    sino_ref = radon(ph, theta=theta, circle=True)             # (N, n_ang)
+    try:
+        sino = gridding_reproject_slice(ph, theta, device=dev)
+    except Exception as e:
+        if verbose:
+            print(f"  [nufft_gridding] {dev} re-projection failed ({e}).")
+        return False, float("nan"), None
+
+    def corr(a, b):
+        return float(np.corrcoef(a.ravel(), b.ravel())[0, 1])
+
+    best_c, best_flip = -2.0, False
+    for fl in (False, True):
+        s = sino[::-1] if fl else sino
+        cc = corr(s, sino_ref)
+        if cc > best_c:
+            best_c, best_flip = cc, fl
+    s = sino[::-1] if best_flip else sino
+    denom = float(np.sum(s * s))
+    scale = float(np.sum(sino_ref * s) / denom) if denom > 0 else 1.0
+
+    passed = best_c >= SELFTEST_MIN_CORR
+    calib = {'flip': best_flip, 'scale': scale, 'device': dev}
+    if verbose:
+        status = "PASS" if passed else "FAIL"
+        print(f"  [nufft_gridding] forward self-test vs radon ({dev}): "
+              f"corr={best_c:.4f} (flip={best_flip}, scale={scale:.3e})  "
+              f"-> {status}")
+    return passed, best_c, (calib if passed else None)
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("NUFFT gridding back-projector — self-test")
@@ -275,10 +393,18 @@ if __name__ == "__main__":
     if not (_HAVE_FINUFFT or _HAVE_CUFINUFFT):
         raise SystemExit("Install a NUFFT backend: pip install finufft "
                          "(CPU) and/or cufinufft cupy (GPU).")
+    print("\n-- back-projection (reconstruction) --")
     ok, c, calib = self_test(device='auto')
-    print(f"\nResult: {'USABLE' if ok else 'NOT USABLE'}  "
+    print("\n-- forward projection (re-projection, for alignment) --")
+    okf, cf, calibf = self_test_forward(device='auto')
+
+    print(f"\nBack-projector : {'USABLE' if ok else 'NOT USABLE'}  "
           f"(corr={c:.4f}, threshold={SELFTEST_MIN_CORR})")
     if ok:
-        print(f"Calibration: {calib}")
-    else:
-        print("Do NOT use the gridding backend until the self-test passes.")
+        print(f"  calib: {calib}")
+    print(f"Forward proj.  : {'USABLE' if okf else 'NOT USABLE'}  "
+          f"(corr={cf:.4f}, threshold={SELFTEST_MIN_CORR})")
+    if okf:
+        print(f"  calib: {calibf}")
+    if not (ok and okf):
+        print("\nDo NOT use a backend whose self-test did not pass.")
