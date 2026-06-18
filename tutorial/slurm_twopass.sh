@@ -123,17 +123,25 @@ CROP_Y=55        # pixels to remove from each side in the row (y) direction
 
 # Output directory — must match the tagged path twopass_real_data.py computes
 # (and that fsc_threeway_comparison.py looks for):
-#   twopass_real_figures[_grid][_snr][_halfN]
+#   twopass_real_figures[_DATA][_grid][_snr][_halfN]
+#     _DATA : derived from DATA_FILE so different inputs (big volume, jittered
+#             copies, ...) NEVER overwrite each other; empty for the canonical
+#             PXCTalignedprojections.npz.
 #     _grid : FBP_METHOD=gridding
 #     _snr  : ANGLE_WEIGHT=snr (or other non-uniform mode)
 #     _halfN: FSC_HALF=0 / 1
+_BASENAME="$(basename "${DATA_FILE}" .npz)"
+_DATA_TAG="${_BASENAME#PXCTalignedprojections}"     # strip canonical prefix
+_DATA_TAG="${_DATA_TAG#_}"                            # strip a leading underscore
+_DTAG=""
+if [ -n "${_DATA_TAG}" ]; then _DTAG="_${_DATA_TAG}"; fi
 _FTAG=""
 if [ "${FBP_METHOD}" = "gridding" ]; then _FTAG="_grid"; fi
 _WTAG=""
 if [ "${ANGLE_WEIGHT}" != "uniform" ]; then _WTAG="_${ANGLE_WEIGHT}"; fi
 _HTAG=""
 if [ "${FSC_HALF}" != "None" ]; then _HTAG="_half${FSC_HALF}"; fi
-OUT_DIR="${WORK_DIR}/twopass_real_figures${_FTAG}${_WTAG}${_HTAG}"
+OUT_DIR="${WORK_DIR}/twopass_real_figures${_DTAG}${_FTAG}${_WTAG}${_HTAG}"
 
 # =============================================================================
 # ── Environment setup — uncomment the block matching your cluster ─────────────

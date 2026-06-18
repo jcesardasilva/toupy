@@ -306,19 +306,25 @@ else:
         print(f"  [Subsampling] Using {N_use}/{N_ANGLES} angles "
               f"(every {ANGLE_STEP}th)\n")
 
-# Output directory.  Tags keep variant runs from overwriting each other so
-# fsc_threeway_comparison.py can show before/after diffs:
+# Output directory.  Tags keep DIFFERENT runs from overwriting each other:
+#   - dataset tag: derived from the input filename, so each DATA_FILE (the big
+#     volume, jittered copies, etc.) writes to its OWN folder automatically.
+#     The canonical 'PXCTalignedprojections.npz' yields no tag, preserving the
+#     original 'twopass_real_figures...' name (backward compatible).
 #   - FBP back-projector tag: '_grid' when FBP_METHOD='gridding' (else none);
 #   - weighting tag:          '_snr' for non-uniform ANGLE_WEIGHT (else none);
 #   - half tag:               '_half0' / '_half1' when FSC_HALF is set.
-# Baseline (auto/iradon/gpu + uniform) is untagged -> twopass_real_figures[...].
+_data_stem = os.path.splitext(os.path.basename(DATA_FILE))[0]
+_data_tag  = _data_stem.replace("PXCTalignedprojections", "").lstrip("_")
+_dtag = f"_{_data_tag}" if _data_tag else ""        # '', '_big', '_jitter0.50px_x', ...
 _ftag = "_grid" if FBP_METHOD == "gridding" else ""
 _wtag = "" if ANGLE_WEIGHT == "uniform" else f"_{ANGLE_WEIGHT}"
 _out_suffix = f"_half{FSC_HALF}" if FSC_HALF is not None else ""
 # NOTE: keep this a SINGLE line — slurm_twopass.sh patches it with
 # `sed s|^OUT_DIR=.*|...|`, which only replaces one line.
-OUT_DIR = os.path.join(_HERE, f"twopass_real_figures{_ftag}{_wtag}{_out_suffix}")
+OUT_DIR = os.path.join(_HERE, f"twopass_real_figures{_dtag}{_ftag}{_wtag}{_out_suffix}")
 os.makedirs(OUT_DIR, exist_ok=True)
+print(f"  Output dir : {OUT_DIR}")
 
 print("Reconstruction parameters")
 print(f"  N_SLICES   = {N_SLICES}  (slab Δz = {SLICE_DZ*1e9:.1f} nm = "

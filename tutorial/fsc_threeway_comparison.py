@@ -48,21 +48,31 @@ from scipy.ndimage import fourier_shift
 # ---------------------------------------------------------------------------
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
+# DATASET_TAG selects which dataset's reconstructions to compare, matching the
+# tag twopass_real_data.py derives from DATA_FILE.  Examples:
+#   ''               -> twopass_real_figures_half{0,1}        (canonical data)
+#   'big'            -> twopass_real_figures_big_half{0,1}
+#   'jitter0.50px_x' -> twopass_real_figures_jitter0.50px_x_half{0,1}
+# (Set the bare tag, no leading underscore.)  Results go to a matching
+# fsc_threeway[_TAG] folder so different datasets never overwrite each other.
+DATASET_TAG = ''
+_dtag = f'_{DATASET_TAG}' if DATASET_TAG else ''
+
 # Input directories (half-dataset reconstructions)
-TWOPASS_HALF0_DIR = os.path.join(_HERE, 'twopass_real_figures_half0')
-TWOPASS_HALF1_DIR = os.path.join(_HERE, 'twopass_real_figures_half1')
-FBAP_HALF0_DIR    = os.path.join(_HERE, 'twopass_real_figures_fbap_half0')
-FBAP_HALF1_DIR    = os.path.join(_HERE, 'twopass_real_figures_fbap_half1')
+TWOPASS_HALF0_DIR = os.path.join(_HERE, f'twopass_real_figures{_dtag}_half0')
+TWOPASS_HALF1_DIR = os.path.join(_HERE, f'twopass_real_figures{_dtag}_half1')
+FBAP_HALF0_DIR    = os.path.join(_HERE, f'twopass_real_figures{_dtag}_fbap_half0')
+FBAP_HALF1_DIR    = os.path.join(_HERE, f'twopass_real_figures{_dtag}_fbap_half1')
 
 # Optional variant runs of twopass_real_data.py.  Each is auto-included only
 # if BOTH its half-volumes are present; otherwise it is silently skipped.
-# Directory tags (set by twopass_real_data.py):
+# Variant tags (set by twopass_real_data.py), combined with the dataset tag:
 #   _snr       -> ANGLE_WEIGHT='snr'         (per-angle noise weighting)
 #   _grid      -> FBP_METHOD='gridding'      (NUFFT back-projector)
 #   _grid_snr  -> both
 def _hdirs(tag):
-    return (os.path.join(_HERE, f'twopass_real_figures{tag}_half0'),
-            os.path.join(_HERE, f'twopass_real_figures{tag}_half1'))
+    return (os.path.join(_HERE, f'twopass_real_figures{_dtag}{tag}_half0'),
+            os.path.join(_HERE, f'twopass_real_figures{_dtag}{tag}_half1'))
 
 VARIANT_DIRS = {
     'snr':      _hdirs('_snr'),
@@ -70,8 +80,8 @@ VARIANT_DIRS = {
     'grid_snr': _hdirs('_grid_snr'),
 }
 
-# Output directory
-OUT_DIR = os.path.join(_HERE, 'fsc_threeway')
+# Output directory (tagged so per-dataset FSC results don't overwrite)
+OUT_DIR = os.path.join(_HERE, f'fsc_threeway{_dtag}')
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # Physical parameters (from PXCTalignedprojections.npz metadata)
@@ -236,7 +246,9 @@ _TP = 'twopass_reconstruction.npz'
 _FB = 'fbap_reconstruction.npz'
 _method_spec = {
     'FBP':       (_TP, *_hdirs(''),                'delta_fbp', True),
-    'FBaP':      (_FB, FBAP_HALF0_DIR, FBAP_HALF1_DIR, 'delta_fbap', True),
+    # FBaP optional: not needed for an FBP-vs-two-pass study (e.g. the
+    # alignment-jitter sweep), so the comparison runs without it if absent.
+    'FBaP':      (_FB, FBAP_HALF0_DIR, FBAP_HALF1_DIR, 'delta_fbap', False),
     'Two-pass':  (_TP, *_hdirs(''),                'delta_tp', True),
     # Optional variants (auto-included if present):
     'Two-pass (snr)':      (_TP, *VARIANT_DIRS['snr'],      'delta_tp', False),
