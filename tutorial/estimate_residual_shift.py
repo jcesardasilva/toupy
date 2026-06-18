@@ -134,6 +134,25 @@ def _fit_geometry(theta_deg, d):
     return fit, d - fit, amp
 
 
+def _angle_to_angle_jitter(theta_deg, d):
+    """
+    Trend-immune estimate of the *random* per-angle jitter.
+
+    The first difference of the angle-sorted shifts cancels ANY smooth angular
+    trend (centring, axis tilt, higher harmonics, slow drift -- all coherent and
+    correctable), leaving only the white, angle-to-angle component, which is what
+    the FSC jitter sweep modelled.  For independent jitter with std sigma the
+    successive difference has std sqrt(2)*sigma, so sigma = MAD(diff)/sqrt(2)
+    (robust 1.4826*MAD, immune to the occasional registration outlier).
+
+    Returns sigma_random [px].
+    """
+    order = np.argsort(theta_deg)
+    dd = np.diff(d[order])
+    mad = np.median(np.abs(dd - np.median(dd)))
+    return float(1.4826 * mad / np.sqrt(2.0))
+
+
 def _match_angles(theta_recon, theta_data, tol=1e-3):
     """Index into theta_data for each theta_recon (nearest within tol deg).
     Lets you point at the full data file even when the recon used a subset."""
@@ -260,6 +279,10 @@ def main():
     fit_x, res_x, amp_x = _fit_geometry(theta_recon, dx)
     fit_y, res_y, amp_y = _fit_geometry(theta_recon, dy)
     jit_x = float(np.std(res_x)); jit_y = float(np.std(res_y))
+    # trend-immune random jitter (cancels ALL smooth angular structure, not just
+    # the first cos/sin harmonic) -- the honest sweep-comparable number.
+    rnd_x = _angle_to_angle_jitter(theta_recon, dx)
+    rnd_y = _angle_to_angle_jitter(theta_recon, dy)
 
     print("\n" + "=" * 64)
     print("Residual per-projection shift (pixels)")
@@ -268,40 +291,45 @@ def main():
           f"(low => estimate unreliable)")
     print(f"  x (horizontal, tomographically critical):")
     print(f"      raw std {sx:.3f}   max|.| {np.abs(dx_c).max():.3f}")
-    print(f"      = rigid geometry (cos/sin) amp {amp_x:.3f}  "
-          f"+  random jitter std {jit_x:.3f}")
+    print(f"      rigid 1st-harmonic amp {amp_x:.3f}  |  1st-harm residual "
+          f"std {jit_x:.3f}  |  random (trend-immune) {rnd_x:.3f}")
     print(f"  y (along rotation axis):")
     print(f"      raw std {sy_:.3f}   max|.| {np.abs(dy_c).max():.3f}")
-    print(f"      = rigid geometry (cos/sin) amp {amp_y:.3f}  "
-          f"+  random jitter std {jit_y:.3f}")
-    print("\n  The rigid term is a centre-of-rotation / lateral-offset (or a "
-          "re-projection\n  vs back-projector convention) error: a single global "
-          "registration removes it,\n  and it is NOT what the FSC jitter sweep "
-          "modelled.  The random jitter std is\n  the apples-to-apples number "
-          "for the sweep.")
+    print(f"      rigid 1st-harmonic amp {amp_y:.3f}  |  1st-harm residual "
+          f"std {jit_y:.3f}  |  random (trend-immune) {rnd_y:.3f}")
+    print("\n  Three layers, from most to least correctable:")
+    print("   - rigid 1st-harmonic amp : centre-of-rotation / lateral-offset (or "
+          "a NUFFT-vs-\n     iradon centre-convention) error; one global "
+          "registration removes it.")
+    print("   - 1st-harm residual std  : still contains higher-harmonic coherent "
+          "structure\n     (axis tilt, operator non-ideality) -> OVER-estimates "
+          "the random part.")
+    print("   - random (trend-immune)  : MAD of angle-to-angle differences; "
+          "cancels ALL smooth\n     structure -> the honest number to compare "
+          "with the FSC jitter sweep.")
 
-    # ---- verdict against the jitter sweep (use the DETRENDED jitter) -------
-    print("\nVerdict (random jitter sigma_x vs the jitter-sweep curve):")
-    print(f"  detrended random sigma_x = {jit_x:.3f} px   "
-          f"(rigid geometry term = {amp_x:.2f} px, removable separately)")
-    if jit_x >= 0.4:
+    # ---- verdict against the jitter sweep (use the TREND-IMMUNE jitter) ----
+    print("\nVerdict (trend-immune random jitter vs the jitter-sweep curve):")
+    print(f"  random sigma_x = {rnd_x:.3f} px   "
+          f"(coherent/correctable part = {np.hypot(amp_x, jit_x):.2f} px, "
+          f"separable)")
+    if rnd_x >= 0.4:
         print("  => RANDOM JITTER ON THE STEEP PART (>~0.4 px): alignment is a "
               "live lever.\n     Matched-reprojection re-registration should "
               "recover resolution\n     (the sweep showed ~+14% FSC loss at 0.5 "
               "px).")
-    elif jit_x >= 0.2:
+    elif rnd_x >= 0.2:
         print("  => MARGINAL random jitter (0.2-0.4 px): some head-room; one "
               "consistency-\n     alignment pass to confirm.")
     else:
         print("  => RANDOM JITTER ON THE FLAT FOOT (<0.2 px): the per-angle "
-              "scatter is small.\n     If a rigid term is present, fix THAT "
-              "(global re-centre); the random part\n     is not the ceiling "
-              "(dose / phase-retrieval is).")
-    if amp_x >= 1.0:
-        print(f"  NOTE: the {amp_x:.1f} px rigid geometry term is large; verify "
-              f"it is a real\n        centring error and not a re-projection "
-              f"centre-convention offset\n        (a half-pixel origin mismatch "
-              f"between NUFFT and iradon shows up here).")
+              "scatter is small.\n     The random part is NOT the ceiling "
+              "(dose / phase-retrieval is); any\n     coherent term is a separate "
+              "global re-centre, not a resolution lever.")
+    if rnd_x < 0.4 <= jit_x:
+        print("  (Note: the 1st-harmonic residual looked large, but it was "
+              "coherent\n   structure, not random jitter -- the trend-immune "
+              "estimate is the real one.)")
     print("  (Sweep reference: 0.25 px ~ noise, 0.5 px ~ +14% FSC loss.)")
 
     # ---- plot -------------------------------------------------------------
@@ -325,11 +353,12 @@ def main():
         ax[0].legend(); ax[0].grid(alpha=0.3)
         # right: histogram of the DETRENDED random jitter (sweep-comparable)
         ax[1].hist(res_x, bins=31, color="C1", alpha=0.8,
-                   label=f"dx jitter  s={jit_x:.3f}")
+                   label=f"dx  1st-harm s={jit_x:.2f}, rand {rnd_x:.2f}")
         ax[1].hist(res_y, bins=31, color="C0", alpha=0.5,
-                   label=f"dy jitter  s={jit_y:.3f}")
-        ax[1].set_xlabel("detrended residual shift [px]"); ax[1].set_ylabel("count")
-        ax[1].set_title("Random jitter (rigid term removed)")
+                   label=f"dy  1st-harm s={jit_y:.2f}, rand {rnd_y:.2f}")
+        ax[1].set_xlabel("1st-harmonic residual shift [px]")
+        ax[1].set_ylabel("count")
+        ax[1].set_title(f"Residual (trend-immune random sigma_x={rnd_x:.2f} px)")
         ax[1].legend(); ax[1].grid(alpha=0.3)
         fig.tight_layout()
         fpath = os.path.join(out_dir, f"residual_shift_{args.use}.png")
@@ -344,6 +373,7 @@ def main():
     np.savez_compressed(npz, theta=theta_recon, dx=dx, dy=dy, corr=cc,
                         sigma_x=sx, sigma_y=sy_,
                         jitter_x=jit_x, jitter_y=jit_y,
+                        random_x=rnd_x, random_y=rnd_y,
                         geom_amp_x=amp_x, geom_amp_y=amp_y,
                         geom_fit_x=fit_x, geom_fit_y=fit_y)
     print(f"Saved: {npz}")
@@ -387,12 +417,17 @@ def selftest():
     ok_sigma = abs(rec_sx - sample_sx) < 0.05      # vs SAMPLE std, not population
     ok_corr = np.median(cc) > 0.9
 
+    # trend-immune estimator: on pure white jitter it must match the sample std
+    rnd = _angle_to_angle_jitter(np.arange(N_ang, dtype=float), dx)
+    ok_rnd = abs(rnd - sample_sx) < 0.12
+    print(f"  trend-immune random sx : {rnd:.3f}  (sample {sample_sx:.3f})")
+
     print(f"  recovered dx err (std) : {err_x:.4f} px   (<0.08 ok)")
     print(f"  recovered dy err (std) : {err_y:.4f} px   (<0.08 ok)")
     print(f"  recovered sigma_x      : {rec_sx:.3f}  "
           f"(sample {sample_sx:.3f}, population {sigma_true})")
     print(f"  median corr            : {np.median(cc):.3f}")
-    ok = ok_recover and ok_sigma and ok_corr
+    ok = ok_recover and ok_sigma and ok_corr and ok_rnd
     print(f"  -> {'PASS' if ok else 'FAIL'}")
     return ok
 
