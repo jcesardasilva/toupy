@@ -107,6 +107,33 @@ def estimate_shifts(measured, model, upsample=50):
 # ---------------------------------------------------------------------------
 # Angle matching
 # ---------------------------------------------------------------------------
+def _fit_geometry(theta_deg, d):
+    """
+    Split a per-angle shift into a coherent rigid-geometry term and random
+    residual jitter.
+
+    A rigid transverse displacement of the object/rotation-axis (a centring or
+    centre-of-rotation error, or a coordinate-convention offset between the
+    re-projection and the back-projector that built the volume) projects onto
+    the detector as  d(theta) = a0 + a1 cos(theta) + a2 sin(theta).  This is a
+    smooth, fully *correctable* global term -- NOT the independent per-angle
+    jitter that the FSC sweep modelled.  The residual after removing it is the
+    genuine random mis-alignment, directly comparable to the sweep's sigma.
+
+    Returns
+    -------
+    fit   : (N,) the a0 + a1 cos + a2 sin model
+    resid : (N,) d - fit
+    amp   : float  sqrt(a1^2 + a2^2), the rigid-offset amplitude [px]
+    """
+    th = np.deg2rad(theta_deg)
+    A = np.column_stack([np.ones_like(th), np.cos(th), np.sin(th)])
+    coef, *_ = np.linalg.lstsq(A, d, rcond=None)
+    fit = A @ coef
+    amp = float(np.hypot(coef[1], coef[2]))
+    return fit, d - fit, amp
+
+
 def _match_angles(theta_recon, theta_data, tol=1e-3):
     """Index into theta_data for each theta_recon (nearest within tol deg).
     Lets you point at the full data file even when the recon used a subset."""
@@ -226,36 +253,56 @@ def main():
     # Gaussian the sweep injected).
     dx_c = dx - dx.mean(); dy_c = dy - dy.mean()
     sx = float(np.std(dx_c)); sy_ = float(np.std(dy_c))
-    rms_x = float(np.sqrt(np.mean(dx**2)))
+
+    # Decompose into rigid geometry (a0 + a1 cos + a2 sin) + random jitter.
+    # The geometry term is a single correctable global registration; only the
+    # detrended residual is comparable to the FSC sweep's independent jitter.
+    fit_x, res_x, amp_x = _fit_geometry(theta_recon, dx)
+    fit_y, res_y, amp_y = _fit_geometry(theta_recon, dy)
+    jit_x = float(np.std(res_x)); jit_y = float(np.std(res_y))
+
     print("\n" + "=" * 64)
     print("Residual per-projection shift (pixels)")
     print("=" * 64)
     print(f"  median model/data corr : {med_cc:.3f}  "
           f"(low => estimate unreliable)")
     print(f"  x (horizontal, tomographically critical):")
-    print(f"      mean {dx.mean():+.3f}   std {sx:.3f}   "
-          f"median|.| {np.median(np.abs(dx_c)):.3f}   max|.| {np.abs(dx_c).max():.3f}")
+    print(f"      raw std {sx:.3f}   max|.| {np.abs(dx_c).max():.3f}")
+    print(f"      = rigid geometry (cos/sin) amp {amp_x:.3f}  "
+          f"+  random jitter std {jit_x:.3f}")
     print(f"  y (along rotation axis):")
-    print(f"      mean {dy.mean():+.3f}   std {sy_:.3f}   "
-          f"median|.| {np.median(np.abs(dy_c)):.3f}   max|.| {np.abs(dy_c).max():.3f}")
+    print(f"      raw std {sy_:.3f}   max|.| {np.abs(dy_c).max():.3f}")
+    print(f"      = rigid geometry (cos/sin) amp {amp_y:.3f}  "
+          f"+  random jitter std {jit_y:.3f}")
+    print("\n  The rigid term is a centre-of-rotation / lateral-offset (or a "
+          "re-projection\n  vs back-projector convention) error: a single global "
+          "registration removes it,\n  and it is NOT what the FSC jitter sweep "
+          "modelled.  The random jitter std is\n  the apples-to-apples number "
+          "for the sweep.")
 
-    # ---- verdict against the jitter sweep ---------------------------------
-    print("\nVerdict (residual sigma_x vs the jitter-sweep curve):")
-    print(f"  estimated residual sigma_x = {sx:.3f} px")
-    if sx >= 0.4:
-        print("  => ON THE STEEP PART (sigma_x >~ 0.4 px): alignment is a live "
-              "lever.\n     Matched-reprojection re-registration should recover "
-              "resolution\n     (the sweep showed ~+14% FSC loss at 0.5 px).")
-    elif sx >= 0.2:
-        print("  => MARGINAL (0.2 <= sigma_x < 0.4 px): some head-room; "
-              "re-registration\n     may help modestly. Worth one consistency-"
-              "alignment pass to confirm.")
+    # ---- verdict against the jitter sweep (use the DETRENDED jitter) -------
+    print("\nVerdict (random jitter sigma_x vs the jitter-sweep curve):")
+    print(f"  detrended random sigma_x = {jit_x:.3f} px   "
+          f"(rigid geometry term = {amp_x:.2f} px, removable separately)")
+    if jit_x >= 0.4:
+        print("  => RANDOM JITTER ON THE STEEP PART (>~0.4 px): alignment is a "
+              "live lever.\n     Matched-reprojection re-registration should "
+              "recover resolution\n     (the sweep showed ~+14% FSC loss at 0.5 "
+              "px).")
+    elif jit_x >= 0.2:
+        print("  => MARGINAL random jitter (0.2-0.4 px): some head-room; one "
+              "consistency-\n     alignment pass to confirm.")
     else:
-        print("  => ON THE FLAT FOOT (sigma_x < 0.2 px): NOT alignment-limited. "
-              "The\n     62-65 nm ceiling is dose / phase-retrieval; better "
-              "alignment won't help.")
-    print("  (Compare sigma_x to the sweep: 0.25 px ~ noise, 0.5 px ~ +14% FSC "
-          "loss.)")
+        print("  => RANDOM JITTER ON THE FLAT FOOT (<0.2 px): the per-angle "
+              "scatter is small.\n     If a rigid term is present, fix THAT "
+              "(global re-centre); the random part\n     is not the ceiling "
+              "(dose / phase-retrieval is).")
+    if amp_x >= 1.0:
+        print(f"  NOTE: the {amp_x:.1f} px rigid geometry term is large; verify "
+              f"it is a real\n        centring error and not a re-projection "
+              f"centre-convention offset\n        (a half-pixel origin mismatch "
+              f"between NUFFT and iradon shows up here).")
+    print("  (Sweep reference: 0.25 px ~ noise, 0.5 px ~ +14% FSC loss.)")
 
     # ---- plot -------------------------------------------------------------
     out_dir = args.out or os.path.dirname(os.path.abspath(args.recon))
@@ -264,19 +311,25 @@ def main():
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+        order = np.argsort(theta_recon)
+        th_s = theta_recon[order]
         fig, ax = plt.subplots(1, 2, figsize=(11, 4))
+        # left: raw dx with the fitted rigid-geometry curve overlaid
         ax[0].plot(theta_recon, dx_c, ".", ms=3, color="C1", label="dx (x)")
-        ax[0].plot(theta_recon, dy_c, ".", ms=3, color="C0", alpha=0.6,
-                   label="dy (y)")
+        ax[0].plot(th_s, (fit_x - dx.mean())[order], "-", color="C3", lw=1.6,
+                   label=f"rigid fit (amp {amp_x:.2f} px)")
         ax[0].axhline(0, color="k", lw=0.6)
         ax[0].set_xlabel("projection angle [deg]")
         ax[0].set_ylabel("residual shift [px] (mean removed)")
-        ax[0].set_title(f"Per-angle residual  (sigma_x={sx:.3f} px)")
+        ax[0].set_title(f"dx: rigid geometry + jitter (jitter std {jit_x:.3f} px)")
         ax[0].legend(); ax[0].grid(alpha=0.3)
-        ax[1].hist(dx_c, bins=31, color="C1", alpha=0.8, label=f"dx  s={sx:.3f}")
-        ax[1].hist(dy_c, bins=31, color="C0", alpha=0.5, label=f"dy  s={sy_:.3f}")
-        ax[1].set_xlabel("residual shift [px]"); ax[1].set_ylabel("count")
-        ax[1].set_title("Residual-shift distribution")
+        # right: histogram of the DETRENDED random jitter (sweep-comparable)
+        ax[1].hist(res_x, bins=31, color="C1", alpha=0.8,
+                   label=f"dx jitter  s={jit_x:.3f}")
+        ax[1].hist(res_y, bins=31, color="C0", alpha=0.5,
+                   label=f"dy jitter  s={jit_y:.3f}")
+        ax[1].set_xlabel("detrended residual shift [px]"); ax[1].set_ylabel("count")
+        ax[1].set_title("Random jitter (rigid term removed)")
         ax[1].legend(); ax[1].grid(alpha=0.3)
         fig.tight_layout()
         fpath = os.path.join(out_dir, f"residual_shift_{args.use}.png")
@@ -289,7 +342,10 @@ def main():
     # ---- save the per-angle shifts (feed a re-registration if wanted) -----
     npz = os.path.join(out_dir, f"residual_shift_{args.use}.npz")
     np.savez_compressed(npz, theta=theta_recon, dx=dx, dy=dy, corr=cc,
-                        sigma_x=sx, sigma_y=sy_)
+                        sigma_x=sx, sigma_y=sy_,
+                        jitter_x=jit_x, jitter_y=jit_y,
+                        geom_amp_x=amp_x, geom_amp_y=amp_y,
+                        geom_fit_x=fit_x, geom_fit_y=fit_y)
     print(f"Saved: {npz}")
 
 
