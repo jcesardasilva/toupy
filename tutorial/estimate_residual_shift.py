@@ -134,6 +134,43 @@ def _fit_geometry(theta_deg, d):
     return fit, d - fit, amp
 
 
+def _subscan_id(theta_deg, nsub):
+    """Sub-scan index per projection for a fully interlaced acquisition: the
+    nsub sub-scans are angularly offset by dtheta/nsub and never repeat an
+    angle, so the angle-sorted projections cycle through the sub-scans in order
+    -> sub-scan = (angle-sorted rank) mod nsub."""
+    order = np.argsort(theta_deg)
+    sub = np.empty(len(theta_deg), dtype=int)
+    sub[order] = np.arange(len(theta_deg)) % nsub
+    return sub
+
+
+def _fit_geometry_subscan(theta_deg, d, sub, nsub):
+    """
+    Joint least-squares split of a per-angle shift into
+        d = a1 cos(theta) + a2 sin(theta) + sum_k b_k 1[sub==k] + residual
+    i.e. a global centring (cos/sin) term plus a constant offset per sub-scan
+    (the per-sub-scan column absorbs the overall constant, so no separate a0).
+
+    Returns
+    -------
+    fit     : (N,) model
+    resid   : (N,) d - fit  (the genuine random jitter)
+    amp     : float  cos/sin amplitude [px]
+    offs    : (nsub,) per-sub-scan offsets, mean-removed [px]  (the correctable
+              sub-scan misalignment to apply back to the projections)
+    """
+    th = np.deg2rad(theta_deg)
+    onehot = np.stack([(sub == k).astype(float) for k in range(nsub)], axis=1)
+    A = np.column_stack([np.cos(th), np.sin(th), onehot])
+    coef, *_ = np.linalg.lstsq(A, d, rcond=None)
+    fit = A @ coef
+    amp = float(np.hypot(coef[0], coef[1]))
+    offs = coef[2:]
+    offs = offs - offs.mean()
+    return fit, d - fit, amp, offs
+
+
 def _diff_jitter(theta_deg, d, lag):
     """Robust white-jitter estimate from the lag-`lag` difference of the
     angle-sorted shifts.  sigma = 1.4826*MAD(diff)/sqrt(2)."""
@@ -199,6 +236,12 @@ def main():
                     help="sub-pixel registration precision (1/upsample px)")
     ap.add_argument("--max-angles", type=int, default=0,
                     help="subsample to this many angles for speed (0 = all)")
+    ap.add_argument("--subscans", type=int, default=0,
+                    help="number of fully-interlaced sub-scans (angle-sorted "
+                         "rank mod N = sub-scan).  Estimates & removes a rigid "
+                         "offset per sub-scan -- the dominant correctable term "
+                         "for interlaced acquisitions -- before reading the "
+                         "random floor.  0 = off.")
     ap.add_argument("--corr-min", type=float, default=0.3,
                     help="warn if median model/data corr falls below this "
                          "(orientation/scale mismatch).")
@@ -295,6 +338,18 @@ def main():
     band_x = lag1_x > 1.5 * rnd_x      # period-2 (even/odd) coherent band present
     band_y = lag1_y > 1.5 * rnd_y
 
+    # ---- interlaced sub-scan decomposition (the dominant correctable term) --
+    sub_info = None
+    if args.subscans and args.subscans > 1:
+        nsub = args.subscans
+        sub = _subscan_id(theta_recon, nsub)
+        fsx, rsx, asx, offx = _fit_geometry_subscan(theta_recon, dx, sub, nsub)
+        fsy, rsy, asy, offy = _fit_geometry_subscan(theta_recon, dy, sub, nsub)
+        # genuine random floor AFTER removing geometry + per-sub-scan offsets
+        corr_x = float(np.std(rsx)); corr_y = float(np.std(rsy))
+        sub_info = dict(nsub=nsub, sub=sub, offx=offx, offy=offy,
+                        corr_x=corr_x, corr_y=corr_y, resx=rsx, resy=rsy)
+
     print("\n" + "=" * 64)
     print("Residual per-projection shift (pixels)")
     print("=" * 64)
@@ -322,11 +377,41 @@ def main():
           "smooth trend\n     AND the period-2 band -> the honest number to "
           "compare with the FSC sweep.")
 
-    # ---- verdict against the jitter sweep (use the TREND-IMMUNE jitter) ----
-    print("\nVerdict (trend-immune random jitter vs the jitter-sweep curve):")
-    print(f"  random sigma_x = {rnd_x:.3f} px   "
+    # ---- interlaced sub-scan report ---------------------------------------
+    floor_x, floor_y = rnd_x, rnd_y          # the number the verdict will use
+    if sub_info is not None:
+        ns = sub_info["nsub"]
+        offx, offy = sub_info["offx"], sub_info["offy"]
+        floor_x, floor_y = sub_info["corr_x"], sub_info["corr_y"]
+        print("\n" + "-" * 64)
+        print(f"Interlaced sub-scan decomposition ({ns} sub-scans, "
+              f"rank mod {ns})")
+        print("-" * 64)
+        print("  per-sub-scan rigid offset [px] (mean-removed; apply back to "
+              "correct):")
+        print("    k :  " + "  ".join(f"{k:5d}" for k in range(ns)))
+        print("    dx:  " + "  ".join(f"{v:5.2f}" for v in offx))
+        print("    dy:  " + "  ".join(f"{v:5.2f}" for v in offy))
+        print(f"  sub-scan offset spread : dx std {np.std(offx):.3f} "
+              f"(ptp {np.ptp(offx):.3f}) | dy std {np.std(offy):.3f} "
+              f"(ptp {np.ptp(offy):.3f})  px")
+        print(f"  random floor AFTER removing geometry + sub-scan offsets:")
+        print(f"      sigma_x {floor_x:.3f}   sigma_y {floor_y:.3f}  px   "
+              f"(vs lag-2 {rnd_x:.3f}/{rnd_y:.3f} before)")
+        if max(np.std(offx), np.std(offy)) >= 0.3:
+            print("  => SUB-SCAN MISALIGNMENT is significant and is the dominant "
+                  "correctable\n     term: align the 8 sub-scans (one rigid shift "
+                  "each) for a coherent, cheap\n     gain BEFORE chasing the "
+                  "random floor.")
+
+    # ---- verdict against the jitter sweep ---------------------------------
+    label = ("random jitter AFTER sub-scan removal" if sub_info is not None
+             else "trend-immune random jitter")
+    print(f"\nVerdict ({label} vs the jitter-sweep curve):")
+    print(f"  random sigma_x = {floor_x:.3f} px   "
           f"(coherent/correctable part = {np.hypot(amp_x, jit_x):.2f} px, "
           f"separable)")
+    rnd_x = floor_x   # let the thresholds below act on the corrected floor
     if rnd_x >= 0.4:
         print("  => RANDOM JITTER ON THE STEEP PART (>~0.4 px): alignment is a "
               "live lever.\n     Matched-reprojection re-registration should "
@@ -386,12 +471,17 @@ def main():
 
     # ---- save the per-angle shifts (feed a re-registration if wanted) -----
     npz = os.path.join(out_dir, f"residual_shift_{args.use}.npz")
+    extra = {}
+    if sub_info is not None:
+        extra = dict(nsub=sub_info["nsub"], subscan_id=sub_info["sub"],
+                     subscan_offx=sub_info["offx"], subscan_offy=sub_info["offy"],
+                     floor_x=sub_info["corr_x"], floor_y=sub_info["corr_y"])
     np.savez_compressed(npz, theta=theta_recon, dx=dx, dy=dy, corr=cc,
                         sigma_x=sx, sigma_y=sy_,
                         jitter_x=jit_x, jitter_y=jit_y,
                         random_x=rnd_x, random_y=rnd_y,
                         geom_amp_x=amp_x, geom_amp_y=amp_y,
-                        geom_fit_x=fit_x, geom_fit_y=fit_y)
+                        geom_fit_x=fit_x, geom_fit_y=fit_y, **extra)
     print(f"Saved: {npz}")
 
 
@@ -444,12 +534,30 @@ def selftest():
     print(f"  lag-2 random sx        : {rnd2:.3f}  (sample {sample_sx:.3f})")
     print(f"  +period-2 band: lag2 {r2_b:.3f} (stable), lag1 {r1_b:.3f} (inflated)")
 
+    # sub-scan decomposition (algebra check on a clean, well-sampled vector):
+    # geometry (cos/sin) + 8 per-sub-scan offsets + white jitter -> recover all.
+    nsub, Ns = 8, 480
+    rng2 = np.random.default_rng(7)
+    th2 = np.linspace(0.0, 180.0, Ns, endpoint=False)
+    sub_t = _subscan_id(th2, nsub)
+    off_t = np.array([1.5, -1.0, 0.5, -0.5, 1.0, -1.5, 0.2, -0.2]); off_t -= off_t.mean()
+    geom = 2.0 * np.cos(np.deg2rad(th2)) - 1.3 * np.sin(np.deg2rad(th2))
+    jit = rng2.normal(0, 0.3, Ns)
+    d_sub = geom + off_t[sub_t] + jit
+    _, res_s, amp_s, off_r = _fit_geometry_subscan(th2, d_sub, sub_t, nsub)
+    off_err = np.std(off_r - off_t)
+    floor_err = abs(np.std(res_s) - 0.3)
+    ok_sub = off_err < 0.05 and floor_err < 0.05 and abs(amp_s - np.hypot(2.0, 1.3)) < 0.05
+    print(f"  sub-scan algebra: offset err {off_err:.4f} px, floor "
+          f"{np.std(res_s):.3f} (true 0.300), geom amp {amp_s:.3f} "
+          f"(true {np.hypot(2.0,1.3):.3f})")
+
     print(f"  recovered dx err (std) : {err_x:.4f} px   (<0.08 ok)")
     print(f"  recovered dy err (std) : {err_y:.4f} px   (<0.08 ok)")
     print(f"  recovered sigma_x      : {rec_sx:.3f}  "
           f"(sample {sample_sx:.3f}, population {sigma_true})")
     print(f"  median corr            : {np.median(cc):.3f}")
-    ok = ok_recover and ok_sigma and ok_corr and ok_rnd and ok_band
+    ok = (ok_recover and ok_sigma and ok_corr and ok_rnd and ok_band and ok_sub)
     print(f"  -> {'PASS' if ok else 'FAIL'}")
     return ok
 
