@@ -22,8 +22,18 @@ fsc_analysis_normfreq.py):
 
 Usage
 -----
+  # default folder convention:
   python tutorial/collect_jitter_fsc.py
   python tutorial/collect_jitter_fsc.py --root /path/to/tutorial --axes x
+
+  # explicit paths (use this if you ran fsc_analysis_normfreq.py with custom
+  # --out-dir, e.g. on a cluster with results_<jobid>/ folders):
+  python tutorial/collect_jitter_fsc.py \\
+      --point 0=/scratch/fsc_ref/fsc_data_normfreq.npz \\
+      --point 0.25=/scratch/fsc_j025/fsc_data_normfreq.npz \\
+      --point 0.5=/scratch/fsc_j050/fsc_data_normfreq.npz \\
+      --point 1.0=/scratch/fsc_j100/fsc_data_normfreq.npz \\
+      --out /scratch
 """
 
 import os
@@ -54,12 +64,29 @@ def main():
                     help="directory containing the twopass_real_figures* folders")
     ap.add_argument("--axes", default=JITTER_AXES, help="jitter axis tag (x|y|xy)")
     ap.add_argument("--out", default=None, help="output dir (default: <root>)")
+    ap.add_argument("--point", action="append", default=[], metavar="SIGMA=PATH",
+                    help="explicit 'sigma=path/to/fsc_data_normfreq.npz' "
+                         "(repeatable).  Use this if you ran "
+                         "fsc_analysis_normfreq.py with custom --out-dir; it "
+                         "bypasses the default folder convention entirely.")
     args = ap.parse_args()
     out_dir = args.out or args.root
 
+    # Build the (sigma, npz_path) list: explicit --point entries take priority;
+    # otherwise fall back to the default folder convention.
+    if args.point:
+        pairs = []
+        for p in args.point:
+            if "=" not in p:
+                raise SystemExit(f"--point must be 'sigma=path', got: {p!r}")
+            s_str, path = p.split("=", 1)
+            pairs.append((float(s_str), os.path.abspath(os.path.expanduser(path))))
+    else:
+        pairs = [(s, _ref_path(args.root) if s == 0.0
+                  else _jitter_path(args.root, s, args.axes)) for s in SIGMA_LIST]
+
     rows = []   # (sigma, fbp_hb, tp_hb, fbp_ob, tp_ob)
-    for s in SIGMA_LIST:
-        path = _ref_path(args.root) if s == 0.0 else _jitter_path(args.root, s, args.axes)
+    for s, path in pairs:
         if not os.path.isfile(path):
             print(f"  [skip] sigma={s:.2f}: not found -> {path}")
             continue
