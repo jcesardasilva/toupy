@@ -345,10 +345,19 @@ def main():
         sub = _subscan_id(theta_recon, nsub)
         fsx, rsx, asx, offx = _fit_geometry_subscan(theta_recon, dx, sub, nsub)
         fsy, rsy, asy, offy = _fit_geometry_subscan(theta_recon, dy, sub, nsub)
-        # genuine random floor AFTER removing geometry + per-sub-scan offsets
-        corr_x = float(np.std(rsx)); corr_y = float(np.std(rsy))
+        # Two distinct quantities, do NOT confuse them:
+        #  - leftover COHERENT structure = std of the joint-fit residual; this is
+        #    higher angular harmonics (axis wobble / NUFFT-vs-iradon operator
+        #    error) still smooth in angle -- correctable, not random.
+        #  - genuine RANDOM floor = lag-1 difference of the de-sub-scanned shift
+        #    (removing the 8 offsets de-aliases period-8, so lag-1 now cleanly
+        #    cancels ALL smooth structure incl. those higher harmonics).
+        coh_x = float(np.std(rsx)); coh_y = float(np.std(rsy))
+        floor_x = _diff_jitter(theta_recon, dx - offx[sub], 1)
+        floor_y = _diff_jitter(theta_recon, dy - offy[sub], 1)
         sub_info = dict(nsub=nsub, sub=sub, offx=offx, offy=offy,
-                        corr_x=corr_x, corr_y=corr_y, resx=rsx, resy=rsy)
+                        corr_x=floor_x, corr_y=floor_y,
+                        coh_x=coh_x, coh_y=coh_y, resx=rsx, resy=rsy)
 
     print("\n" + "=" * 64)
     print("Residual per-projection shift (pixels)")
@@ -395,14 +404,20 @@ def main():
         print(f"  sub-scan offset spread : dx std {np.std(offx):.3f} "
               f"(ptp {np.ptp(offx):.3f}) | dy std {np.std(offy):.3f} "
               f"(ptp {np.ptp(offy):.3f})  px")
-        print(f"  random floor AFTER removing geometry + sub-scan offsets:")
-        print(f"      sigma_x {floor_x:.3f}   sigma_y {floor_y:.3f}  px   "
-              f"(vs lag-2 {rnd_x:.3f}/{rnd_y:.3f} before)")
+        print(f"  leftover COHERENT structure (higher harmonics, smooth in "
+              f"angle):")
+        print(f"      std_x {sub_info['coh_x']:.3f}   std_y "
+              f"{sub_info['coh_y']:.3f}  px  -> axis wobble / NUFFT-vs-iradon "
+              f"operator; correctable, NOT random")
+        print(f"  genuine RANDOM floor (lag-1 after sub-scan removal):")
+        print(f"      sigma_x {floor_x:.3f}   sigma_y {floor_y:.3f}  px")
         if max(np.std(offx), np.std(offy)) >= 0.3:
-            print("  => SUB-SCAN MISALIGNMENT is significant and is the dominant "
-                  "correctable\n     term: align the 8 sub-scans (one rigid shift "
-                  "each) for a coherent, cheap\n     gain BEFORE chasing the "
-                  "random floor.")
+            print("  => SUB-SCAN MISALIGNMENT is significant: align the 8 "
+                  "sub-scans (one rigid\n     shift each) for a coherent, cheap "
+                  "gain.")
+        else:
+            print("  => SUB-SCANS ALREADY WELL-ALIGNED (spread < 0.3 px): "
+                  "inter-sub-scan\n     registration is NOT a lever here.")
 
     # ---- verdict against the jitter sweep ---------------------------------
     label = ("random jitter AFTER sub-scan removal" if sub_info is not None
