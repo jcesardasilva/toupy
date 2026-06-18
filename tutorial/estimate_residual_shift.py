@@ -134,23 +134,32 @@ def _fit_geometry(theta_deg, d):
     return fit, d - fit, amp
 
 
-def _angle_to_angle_jitter(theta_deg, d):
-    """
-    Trend-immune estimate of the *random* per-angle jitter.
-
-    The first difference of the angle-sorted shifts cancels ANY smooth angular
-    trend (centring, axis tilt, higher harmonics, slow drift -- all coherent and
-    correctable), leaving only the white, angle-to-angle component, which is what
-    the FSC jitter sweep modelled.  For independent jitter with std sigma the
-    successive difference has std sqrt(2)*sigma, so sigma = MAD(diff)/sqrt(2)
-    (robust 1.4826*MAD, immune to the occasional registration outlier).
-
-    Returns sigma_random [px].
-    """
+def _diff_jitter(theta_deg, d, lag):
+    """Robust white-jitter estimate from the lag-`lag` difference of the
+    angle-sorted shifts.  sigma = 1.4826*MAD(diff)/sqrt(2)."""
     order = np.argsort(theta_deg)
-    dd = np.diff(d[order])
+    ds = d[order]
+    dd = ds[lag:] - ds[:-lag]
     mad = np.median(np.abs(dd - np.median(dd)))
     return float(1.4826 * mad / np.sqrt(2.0))
+
+
+def _angle_to_angle_jitter(theta_deg, d):
+    """
+    Trend-immune estimate of the *random* per-angle jitter, robust to a
+    coherent period-2 (even/odd) band.
+
+    The lag-1 difference cancels any SMOOTH angular trend but is INFLATED by a
+    period-2 alternation s[n]=A(-1)^n (two interleaved sub-scans / a parity
+    effect): consecutive points then differ by ~2A.  The lag-2 difference
+    cancels BOTH the smooth trend AND the period-2 band (s[n]-s[n-2]=0), so it
+    isolates the genuine white jitter.  We return the lag-2 estimate as the
+    honest number and the lag-1 estimate as a diagnostic: lag1 >> lag2 flags a
+    period-2 band (coherent, correctable -- NOT random jitter).
+
+    Returns (sigma_lag2, sigma_lag1).
+    """
+    return _diff_jitter(theta_deg, d, 2), _diff_jitter(theta_deg, d, 1)
 
 
 def _match_angles(theta_recon, theta_data, tol=1e-3):
@@ -279,34 +288,39 @@ def main():
     fit_x, res_x, amp_x = _fit_geometry(theta_recon, dx)
     fit_y, res_y, amp_y = _fit_geometry(theta_recon, dy)
     jit_x = float(np.std(res_x)); jit_y = float(np.std(res_y))
-    # trend-immune random jitter (cancels ALL smooth angular structure, not just
-    # the first cos/sin harmonic) -- the honest sweep-comparable number.
-    rnd_x = _angle_to_angle_jitter(theta_recon, dx)
-    rnd_y = _angle_to_angle_jitter(theta_recon, dy)
+    # trend-immune random jitter (lag-2 cancels smooth trend AND period-2 band);
+    # lag-1 is a diagnostic for that band.  Headline = lag-2.
+    rnd_x, lag1_x = _angle_to_angle_jitter(theta_recon, dx)
+    rnd_y, lag1_y = _angle_to_angle_jitter(theta_recon, dy)
+    band_x = lag1_x > 1.5 * rnd_x      # period-2 (even/odd) coherent band present
+    band_y = lag1_y > 1.5 * rnd_y
 
     print("\n" + "=" * 64)
     print("Residual per-projection shift (pixels)")
     print("=" * 64)
     print(f"  median model/data corr : {med_cc:.3f}  "
           f"(low => estimate unreliable)")
+    def _bandtag(b, lag1, lag2):
+        return (f"  [period-2 band: lag1={lag1:.2f} >> lag2={lag2:.2f}]"
+                if b else "")
     print(f"  x (horizontal, tomographically critical):")
     print(f"      raw std {sx:.3f}   max|.| {np.abs(dx_c).max():.3f}")
-    print(f"      rigid 1st-harmonic amp {amp_x:.3f}  |  1st-harm residual "
-          f"std {jit_x:.3f}  |  random (trend-immune) {rnd_x:.3f}")
+    print(f"      rigid 1st-harmonic amp {amp_x:.3f}  |  random (lag-2) "
+          f"{rnd_x:.3f}{_bandtag(band_x, lag1_x, rnd_x)}")
     print(f"  y (along rotation axis):")
     print(f"      raw std {sy_:.3f}   max|.| {np.abs(dy_c).max():.3f}")
-    print(f"      rigid 1st-harmonic amp {amp_y:.3f}  |  1st-harm residual "
-          f"std {jit_y:.3f}  |  random (trend-immune) {rnd_y:.3f}")
-    print("\n  Three layers, from most to least correctable:")
+    print(f"      rigid 1st-harmonic amp {amp_y:.3f}  |  random (lag-2) "
+          f"{rnd_y:.3f}{_bandtag(band_y, lag1_y, rnd_y)}")
+    print("\n  Layers, from most to least correctable:")
     print("   - rigid 1st-harmonic amp : centre-of-rotation / lateral-offset (or "
           "a NUFFT-vs-\n     iradon centre-convention) error; one global "
           "registration removes it.")
-    print("   - 1st-harm residual std  : still contains higher-harmonic coherent "
-          "structure\n     (axis tilt, operator non-ideality) -> OVER-estimates "
-          "the random part.")
-    print("   - random (trend-immune)  : MAD of angle-to-angle differences; "
-          "cancels ALL smooth\n     structure -> the honest number to compare "
-          "with the FSC jitter sweep.")
+    print("   - period-2 band (if any) : two interleaved sub-scans / a parity "
+          "offset; a single\n     per-sub-scan shift removes it. COHERENT -> not "
+          "random jitter.")
+    print("   - random (lag-2)         : white angle-to-angle jitter, immune to "
+          "smooth trend\n     AND the period-2 band -> the honest number to "
+          "compare with the FSC sweep.")
 
     # ---- verdict against the jitter sweep (use the TREND-IMMUNE jitter) ----
     print("\nVerdict (trend-immune random jitter vs the jitter-sweep curve):")
@@ -326,10 +340,12 @@ def main():
               "scatter is small.\n     The random part is NOT the ceiling "
               "(dose / phase-retrieval is); any\n     coherent term is a separate "
               "global re-centre, not a resolution lever.")
-    if rnd_x < 0.4 <= jit_x:
-        print("  (Note: the 1st-harmonic residual looked large, but it was "
-              "coherent\n   structure, not random jitter -- the trend-immune "
-              "estimate is the real one.)")
+    if band_x:
+        print(f"  (Note: a period-2 band inflated the lag-1 estimate "
+              f"({lag1_x:.2f} px) but it is\n   COHERENT structure -- two "
+              f"interleaved sub-scans / a parity offset, correctable\n   by a "
+              f"single per-sub-scan shift, not random jitter. lag-2 = {rnd_x:.2f} "
+              f"px is the\n   real random floor.)")
     print("  (Sweep reference: 0.25 px ~ noise, 0.5 px ~ +14% FSC loss.)")
 
     # ---- plot -------------------------------------------------------------
@@ -353,9 +369,9 @@ def main():
         ax[0].legend(); ax[0].grid(alpha=0.3)
         # right: histogram of the DETRENDED random jitter (sweep-comparable)
         ax[1].hist(res_x, bins=31, color="C1", alpha=0.8,
-                   label=f"dx  1st-harm s={jit_x:.2f}, rand {rnd_x:.2f}")
+                   label=f"dx  lag2 rand {rnd_x:.2f} (lag1 {lag1_x:.2f})")
         ax[1].hist(res_y, bins=31, color="C0", alpha=0.5,
-                   label=f"dy  1st-harm s={jit_y:.2f}, rand {rnd_y:.2f}")
+                   label=f"dy  lag2 rand {rnd_y:.2f} (lag1 {lag1_y:.2f})")
         ax[1].set_xlabel("1st-harmonic residual shift [px]")
         ax[1].set_ylabel("count")
         ax[1].set_title(f"Residual (trend-immune random sigma_x={rnd_x:.2f} px)")
@@ -417,17 +433,23 @@ def selftest():
     ok_sigma = abs(rec_sx - sample_sx) < 0.05      # vs SAMPLE std, not population
     ok_corr = np.median(cc) > 0.9
 
-    # trend-immune estimator: on pure white jitter it must match the sample std
-    rnd = _angle_to_angle_jitter(np.arange(N_ang, dtype=float), dx)
-    ok_rnd = abs(rnd - sample_sx) < 0.12
-    print(f"  trend-immune random sx : {rnd:.3f}  (sample {sample_sx:.3f})")
+    # trend-immune estimator: on pure white jitter both lags match sample std;
+    # inject a period-2 band and check lag-2 stays clean while lag-1 inflates.
+    thg = np.arange(N_ang, dtype=float)
+    rnd2, rnd1 = _angle_to_angle_jitter(thg, dx)
+    ok_rnd = abs(rnd2 - sample_sx) < 0.12
+    band = 3.0 * ((-1.0) ** np.arange(N_ang))           # +/-3 px alternation
+    r2_b, r1_b = _angle_to_angle_jitter(thg, dx + band)
+    ok_band = abs(r2_b - rnd2) < 0.12 and r1_b > 2.0 * r2_b
+    print(f"  lag-2 random sx        : {rnd2:.3f}  (sample {sample_sx:.3f})")
+    print(f"  +period-2 band: lag2 {r2_b:.3f} (stable), lag1 {r1_b:.3f} (inflated)")
 
     print(f"  recovered dx err (std) : {err_x:.4f} px   (<0.08 ok)")
     print(f"  recovered dy err (std) : {err_y:.4f} px   (<0.08 ok)")
     print(f"  recovered sigma_x      : {rec_sx:.3f}  "
           f"(sample {sample_sx:.3f}, population {sigma_true})")
     print(f"  median corr            : {np.median(cc):.3f}")
-    ok = ok_recover and ok_sigma and ok_corr and ok_rnd
+    ok = ok_recover and ok_sigma and ok_corr and ok_rnd and ok_band
     print(f"  -> {'PASS' if ok else 'FAIL'}")
     return ok
 
