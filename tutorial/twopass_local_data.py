@@ -213,13 +213,18 @@ OFFSET_LR         = 0.05   # Adam LR for c_θ [rad/step]
 # The interior problem is unique only up to a smooth additive function
 # (Courdurier/Kudyakov), UNLESS the value is known on some sub-region.  Air /
 # pores give us exactly that: δ_air = 0.  Each iteration we estimate the air
-# floor as a low percentile of the in-FOV δ and subtract it from the whole
-# volume (then re-clamp ≥0).  Because the data term is flat along the DC
-# null-space, the optimiser does not push the offset back, so this is stable
-# and pins the absolute scale.  This is the lever that actually removes the
-# ~+5e-6 uniform bias seen in the difference maps.
+# level as the MODE (peak) of the low-δ population over the solid interior of
+# the circle and subtract it from the whole volume (then re-clamp ≥0).
+#
+# Why the mode and not a low percentile: the void population is a broad hump,
+# not a spike.  A low percentile (e.g. 2 %) lands on the hump's lower TAIL and
+# only removes part of the offset, leaving a residual DC (~+2e-6 in tests).
+# The mode sits at the hump's CENTRE, so pinning it to 0 removes the full
+# void offset and makes the recon void match the ground-truth void peak.
+# Because the data term is flat along the DC null-space, the optimiser does not
+# push the offset back, so this is stable and pins the absolute scale.
 DC_ANCHOR      = True
-AIR_PERCENTILE = 2.0   # percentile of in-FOV positive δ taken as the air floor
+AIR_NBINS      = 100   # histogram bins for the void-mode estimate
 
 # ── Angle subsampling (prototyping) ────────────────────────────────────────
 ANGLE_STEP   = 1
@@ -245,7 +250,7 @@ print(f"  OPTIMIZE_BETA = {OPTIMIZE_BETA}")
 print(f"  PHASE_OFFSET  = {PHASE_OFFSET}"
       + (f"  OFFSET_LR = {OFFSET_LR}" if PHASE_OFFSET else ""))
 print(f"  DC_ANCHOR     = {DC_ANCHOR}"
-      + (f"  AIR_PERCENTILE = {AIR_PERCENTILE}" if DC_ANCHOR else ""))
+      + (f"  AIR_NBINS = {AIR_NBINS} (void-mode)" if DC_ANCHOR else ""))
 print(f"  FBP_METHOD    = {FBP_METHOD}  PADDED_FBP = {PADDED_FBP}")
 print(f"  backend       = {'torch/'+str(DEVICE) if TORCH_AVAILABLE else 'numpy'}")
 print()
@@ -589,21 +594,23 @@ if TORCH_AVAILABLE:
             adam_b.step(beta_tp_t, grad_beta)
             beta_tp_t.clamp_(min=0.0)
 
-        # DC anchor: pin the air floor (low percentile over the SOLID interior
-        # of the circle) to 0.  Using the interior mask avoids the tapered-rim
-        # continuum that previously drove this estimate to ~0.
+        # DC anchor: pin the void MODE (peak of the low-δ population over the
+        # SOLID interior of the circle) to 0.  Exclude exact zeros so the
+        # clamped-void spike does not capture the mode and halt the correction.
         air_dc = 0.0
         if DC_ANCHOR:
-            _roi = delta_tp_t[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
+            _roi  = delta_tp_t[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
             _vals = _roi[_interior_zx_t[:, None, :].expand(_nzc, _nyc, _nxc)]
-            if _vals.numel() > 0:
-                if _vals.numel() > 500_000:           # torch.quantile element cap
-                    _idx = torch.randint(0, _vals.numel(), (500_000,),
-                                         device=DEVICE)
-                    _vals = _vals[_idx]
-                air_dc = float(torch.quantile(_vals, AIR_PERCENTILE / 100.0))
-                if air_dc > 0:
-                    delta_tp_t.sub_(air_dc).clamp_(min=0.0)
+            _vals = _vals[_vals > 0]
+            if _vals.numel() > 1000:
+                _med = float(_vals.median())
+                _low = _vals[_vals < _med]                 # void-dominated half
+                if _low.numel() > 100 and _med > 0:
+                    _hist = torch.histc(_low, bins=AIR_NBINS, min=0.0, max=_med)
+                    _mb   = int(_hist.argmax())
+                    air_dc = (_mb + 0.5) / AIR_NBINS * _med
+                    if air_dc > 0:
+                        delta_tp_t.sub_(air_dc).clamp_(min=0.0)
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
@@ -713,17 +720,24 @@ else:
             adam_b.step(beta_tp, grad_beta)
             np.clip(beta_tp, 0.0, None, out=beta_tp)
 
-        # DC anchor: pin the air floor (low percentile over the SOLID interior
-        # of the circle) to 0.
+        # DC anchor: pin the void MODE (peak of the low-δ population over the
+        # SOLID interior of the circle) to 0.
         air_dc = 0.0
         if DC_ANCHOR:
             _roi  = delta_tp[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
             _vals = _roi[interior_zx[:, None, :].repeat(_nyc, axis=1)]
-            if _vals.size > 0:
-                air_dc = float(np.percentile(_vals, AIR_PERCENTILE))
-                if air_dc > 0:
-                    delta_tp -= air_dc
-                    np.clip(delta_tp, 0.0, None, out=delta_tp)
+            _vals = _vals[_vals > 0]
+            if _vals.size > 1000:
+                _med = float(np.median(_vals))
+                _low = _vals[_vals < _med]
+                if _low.size > 100 and _med > 0:
+                    _hist, _edges = np.histogram(_low, bins=AIR_NBINS,
+                                                 range=(0.0, _med))
+                    _mb = int(np.argmax(_hist))
+                    air_dc = 0.5 * (_edges[_mb] + _edges[_mb + 1])
+                    if air_dc > 0:
+                        delta_tp -= air_dc
+                        np.clip(delta_tp, 0.0, None, out=delta_tp)
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
