@@ -196,18 +196,30 @@ PADDED_FBP  = False
 
 # ── Per-angle phase offset model ───────────────────────────────────────────
 # Each truncated projection is missing the phase contribution from material
-# OUTSIDE the FOV: φ_measured(θ) = φ_true(θ) − φ_exterior(θ).  At zeroth
-# order φ_exterior(θ) is a scalar per angle.  We fit one real scalar c_θ
-# per angle jointly with the volume:
+# OUTSIDE the FOV: φ_measured(θ) = φ_true(θ) − φ_exterior(θ).
 #
-#   predicted(θ) = exp(i·c_θ) · multislice_forward(volume, θ)
-#
-# Optimising c_θ absorbs the missing exterior contribution and breaks the
-# interior null-space degeneracy without any additional data.
-# Set False to disable (reproduces the original behaviour exactly).
-PHASE_OFFSET      = True
-OFFSET_LR         = 0.05   # Adam LR for c_θ [rad/step]; much larger than LR
-                            # because offsets are O(1) rad, not O(1e-5) like δ
+# NEGATIVE RESULT (do not re-enable without changing the basis): fitting one
+# real SCALAR c_θ per angle does NOT fix the interior bias.  A uniform δ-bias
+# Δδ over the circular FOV projects to a CHORD-LENGTH profile 2√(R²−t²) in the
+# detector — peaked at centre, zero at the edges, the same for every angle —
+# NOT a flat offset.  A scalar c_θ is flat across the detector and lives in an
+# orthogonal subspace, so it cannot absorb the bias; moreover a constant added
+# to every projection is killed by the ramp filter (DC→0).  Empirically r went
+# 0.49→0.48 with this on.  Kept for reference; leave OFF.
+PHASE_OFFSET      = False
+OFFSET_LR         = 0.05   # Adam LR for c_θ [rad/step]
+
+# ── DC anchoring via a known-value (air) sub-region ────────────────────────
+# The interior problem is unique only up to a smooth additive function
+# (Courdurier/Kudyakov), UNLESS the value is known on some sub-region.  Air /
+# pores give us exactly that: δ_air = 0.  Each iteration we estimate the air
+# floor as a low percentile of the in-FOV δ and subtract it from the whole
+# volume (then re-clamp ≥0).  Because the data term is flat along the DC
+# null-space, the optimiser does not push the offset back, so this is stable
+# and pins the absolute scale.  This is the lever that actually removes the
+# ~+5e-6 uniform bias seen in the difference maps.
+DC_ANCHOR      = True
+AIR_PERCENTILE = 2.0   # percentile of in-FOV positive δ taken as the air floor
 
 # ── Angle subsampling (prototyping) ────────────────────────────────────────
 ANGLE_STEP   = 1
@@ -232,6 +244,8 @@ print(f"  LAMBDA_TV     = {LAMBDA_TV}  LAMBDA_TV_HALO = {LAMBDA_TV_HALO}")
 print(f"  OPTIMIZE_BETA = {OPTIMIZE_BETA}")
 print(f"  PHASE_OFFSET  = {PHASE_OFFSET}"
       + (f"  OFFSET_LR = {OFFSET_LR}" if PHASE_OFFSET else ""))
+print(f"  DC_ANCHOR     = {DC_ANCHOR}"
+      + (f"  AIR_PERCENTILE = {AIR_PERCENTILE}" if DC_ANCHOR else ""))
 print(f"  FBP_METHOD    = {FBP_METHOD}  PADDED_FBP = {PADDED_FBP}")
 print(f"  backend       = {'torch/'+str(DEVICE) if TORCH_AVAILABLE else 'numpy'}")
 print()
@@ -554,10 +568,26 @@ if TORCH_AVAILABLE:
             adam_b.step(beta_tp_t, grad_beta)
             beta_tp_t.clamp_(min=0.0)
 
+        # DC anchor: pin the air floor (low percentile of in-FOV δ) to 0
+        air_dc = 0.0
+        if DC_ANCHOR:
+            _roi_flat = delta_tp_t[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1,
+                                   FOV_X0:FOV_X1].reshape(-1)
+            _roi_pos = _roi_flat[_roi_flat > 0]
+            if _roi_pos.numel() > 0:
+                if _roi_pos.numel() > 500_000:        # torch.quantile element cap
+                    _idx = torch.randint(0, _roi_pos.numel(), (500_000,),
+                                         device=DEVICE)
+                    _roi_pos = _roi_pos[_idx]
+                air_dc = float(torch.quantile(_roi_pos, AIR_PERCENTILE / 100.0))
+                delta_tp_t.sub_(air_dc).clamp_(min=0.0)
+
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
         off_str = (f"  c∈[{c_offsets.min():.3f},{c_offsets.max():.3f}]rad"
                    if PHASE_OFFSET else "")
+        if DC_ANCHOR:
+            off_str += f"  air_dc={air_dc:.2e}"
         print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}{tv_str}  "
               f"lr={lr_t:.2e}  t={elapsed:.1f}s{off_str}  "
               f"δ_ROI∈[{float(delta_tp_t[FOV_Z0:FOV_Z1,:,FOV_X0:FOV_X1].min()):.2e},"
@@ -660,11 +690,23 @@ else:
             adam_b.step(beta_tp, grad_beta)
             np.clip(beta_tp, 0.0, None, out=beta_tp)
 
+        # DC anchor: pin the air floor (low percentile of in-FOV δ) to 0
+        air_dc = 0.0
+        if DC_ANCHOR:
+            _roi_pos = delta_tp[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
+            _roi_pos = _roi_pos[_roi_pos > 0]
+            if _roi_pos.size > 0:
+                air_dc = float(np.percentile(_roi_pos, AIR_PERCENTILE))
+                delta_tp -= air_dc
+                np.clip(delta_tp, 0.0, None, out=delta_tp)
+
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
         _roi = delta_tp[FOV_Z0:FOV_Z1, :, FOV_X0:FOV_X1]
         off_str = (f"  c∈[{c_offsets.min():.3f},{c_offsets.max():.3f}]rad"
                    if PHASE_OFFSET else "")
+        if DC_ANCHOR:
+            off_str += f"  air_dc={air_dc:.2e}"
         print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}{tv_str}  "
               f"lr={lr_t:.2e}  t={elapsed:.1f}s{off_str}  "
               f"δ_ROI∈[{_roi.min():.2e},{_roi.max():.2e}]", flush=True)
