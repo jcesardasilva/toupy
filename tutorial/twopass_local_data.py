@@ -181,6 +181,16 @@ OPTIMIZE_BETA = False  # beta ~ 1e-3*delta for hard X-rays; saving VRAM
 # ── FBP backend ────────────────────────────────────────────────────────────
 FBP_METHOD  = 'auto'   # 'auto' | 'iradon' | 'gpu'
 
+# ── Zero-padding before FBP ────────────────────────────────────────────────
+# The standard local-tomo trick: before FBP, zero-pad each truncated
+# projection (sinogram row) to the FULL detector width (Nx_full columns).
+# This pushes the truncation cupping artifact outward to the boundary of
+# the inscribed circle, leaving the interior less biased.  The resulting
+# FBP volume covers the full grid (Nz_full, Ny_full, Nx_full) — the same
+# size as the Pass-2 extended grid — giving a much better initial condition.
+# Set False to use the old approach (ROI-only FBP embedded in zeros).
+PADDED_FBP  = True
+
 # ── Angle subsampling (prototyping) ────────────────────────────────────────
 ANGLE_STEP   = 1
 
@@ -207,14 +217,32 @@ print(f"  backend       = {'torch/'+str(DEVICE) if TORCH_AVAILABLE else 'numpy'}
 print()
 
 # ---------------------------------------------------------------------------
-# 3.  FBP on truncated projections  (Pass 1)
+# 3.  FBP  (Pass 1)
 # ---------------------------------------------------------------------------
 
-print("Step 1 — FBP on truncated projections (Pass 1) …", flush=True)
+print("Step 1 — FBP (Pass 1) …", flush=True)
 t0 = time.time()
 
-# FBP gives a ROI volume (nz=nx_trunc, ny_trunc, nx_trunc)
-nz_roi = nx_trunc
+# z always equals x for FBP (square slices)
+FOV_Z0, FOV_Z1 = FOV_X0, FOV_X1
+
+# Build the sinogram that FBP will actually see:
+# PADDED_FBP=True  → zero-pad each projection to the full detector width.
+#   Classic local-tomo trick: the ramp filter then sees zeros outside the FOV
+#   rather than a hard edge, so the cupping bias is pushed to the boundary of
+#   the inscribed circle instead of contaminating the interior.
+#   FBP output: (Nz_full, Ny_full, Nx_full) — same size as the Pass-2 grid.
+# PADDED_FBP=False → run FBP only on the small truncated FOV, then embed.
+if PADDED_FBP:
+    phase_fbp = np.zeros((N_use, Ny_full, Nx_full), dtype=np.float32)
+    phase_fbp[:, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = phase_use
+    Ny_fbp, Nx_fbp = Ny_full, Nx_full
+    print(f"  Zero-padded sinogram: {phase_use.shape} → {phase_fbp.shape}  "
+          f"(FOV at x[{FOV_X0}:{FOV_X1}])")
+else:
+    phase_fbp = phase_use
+    Ny_fbp, Nx_fbp = ny_trunc, nx_trunc
+    print(f"  Unpadded sinogram: {phase_fbp.shape}  (ROI-only FBP)")
 
 _method = FBP_METHOD
 if _method == 'auto':
@@ -223,12 +251,11 @@ if _method == 'auto':
 _fbp_used_gpu = False
 
 if _method == 'gpu' and TORCH_AVAILABLE and DEVICE.type == 'cuda':
-    # Inline GPU FBP (same algorithm as twopass_real_data._fbp_gpu)
     import torch
     import torch.nn.functional as F_nn
 
-    N_ang_f, Ny_f, Nx_f = phase_use.shape
-    sino = torch.as_tensor(phase_use, dtype=torch.float32, device=DEVICE)
+    N_ang_f, Ny_f, Nx_f = phase_fbp.shape
+    sino = torch.as_tensor(phase_fbp, dtype=torch.float32, device=DEVICE)
     sino = sino.permute(1, 0, 2).contiguous()
     n_pad  = max(64, int(2**np.ceil(np.log2(2*Nx_f))))
     freqs  = torch.fft.rfftfreq(n_pad, device=DEVICE).float()
@@ -243,77 +270,78 @@ if _method == 'gpu' and TORCH_AVAILABLE and DEVICE.type == 'cuda':
     sin_t = torch.as_tensor(np.sin(np.deg2rad(theta_use)), dtype=torch.float32, device=DEVICE)
     t_all    = (X[None]*cos_t[:,None,None] + Z[None]*sin_t[:,None,None]) / R
     grid_all = torch.stack([t_all, torch.zeros_like(t_all)], dim=-1)
-    recon_roi = torch.zeros(Ny_f, Nx_f, Nx_f, device=DEVICE)
+    recon_g = torch.zeros(Ny_f, Nx_f, Nx_f, device=DEVICE)
     for iy in range(Ny_f):
         fi      = filt[iy].unsqueeze(1).unsqueeze(1)
         sampled = F_nn.grid_sample(fi, grid_all, mode='bilinear',
                                    padding_mode='zeros', align_corners=True)
-        recon_roi[iy] = sampled.squeeze(1).sum(0)
-    recon_roi *= np.pi / (2*N_ang_f)
-    recon_roi *= (X**2 + Z**2 <= R**2).unsqueeze(0)
-    delta_roi = recon_roi.permute(1, 0, 2).cpu().numpy()
-    delta_roi = np.ascontiguousarray(delta_roi[::-1])  # z-flip GPU FBP convention
+        recon_g[iy] = sampled.squeeze(1).sum(0)
+    recon_g *= np.pi / (2*N_ang_f)
+    recon_g *= (X**2 + Z**2 <= R**2).unsqueeze(0)
+    delta_fbp_out = recon_g.permute(1, 0, 2).cpu().numpy()
+    delta_fbp_out = np.ascontiguousarray(delta_fbp_out[::-1])
     _fbp_used_gpu = True
-    del sino, filt, recon_roi, grid_all
+    del sino, filt, recon_g, grid_all
 
 else:
     _slurm_cpus = os.environ.get('SLURM_CPUS_PER_TASK')
     if _slurm_cpus is not None:
         n_jobs = int(_slurm_cpus)
     elif _JOBLIB:
-        n_jobs = min(ny_trunc, os.cpu_count() or 1)
+        n_jobs = min(Ny_fbp, os.cpu_count() or 1)
     else:
         n_jobs = 1
     print(f"  CPU FBP (n_jobs={n_jobs}) …", flush=True)
 
     def _fbp_slice(iy):
-        return iradon(phase_use[:, iy, :].T, theta=theta_use,
+        return iradon(phase_fbp[:, iy, :].T, theta=theta_use,
                       filter_name="ramp", circle=True)
 
     if _JOBLIB and n_jobs != 1:
-        slices    = Parallel(n_jobs=n_jobs, prefer="threads")(
-                        joblib_delayed(_fbp_slice)(iy) for iy in range(ny_trunc))
-        delta_roi = np.stack(slices, axis=1)
+        slices       = Parallel(n_jobs=n_jobs, prefer="threads")(
+                           joblib_delayed(_fbp_slice)(iy) for iy in range(Ny_fbp))
+        delta_fbp_out = np.stack(slices, axis=1)
     else:
-        delta_roi = np.zeros((nz_roi, ny_trunc, nx_trunc), dtype=np.float64)
-        for iy in range(ny_trunc):
-            delta_roi[:, iy, :] = _fbp_slice(iy)
+        delta_fbp_out = np.zeros((Nx_fbp, Ny_fbp, Nx_fbp), dtype=np.float64)
+        for iy in range(Ny_fbp):
+            delta_fbp_out[:, iy, :] = _fbp_slice(iy)
 
-# Convert phase → δ
-delta_roi = (-delta_roi / (K0 * PIXEL_SIZE)).astype(np.float32)
-delta_roi = delta_roi.clip(0, None)
+# Phase → δ, positivity
+delta_fbp_out = (-delta_fbp_out / (K0 * PIXEL_SIZE)).astype(np.float32)
+delta_fbp_out = delta_fbp_out.clip(0, None)
 
-# Soft circular mask on the ROI FBP (boundary ringing)
-_Zm = np.arange(nz_roi) - nz_roi / 2.0
-_Xm = np.arange(nx_trunc) - nx_trunc / 2.0
+# Soft circular mask (suppress FBP inscribed-circle boundary ringing)
+_Nz_m, _Nx_m = delta_fbp_out.shape[0], delta_fbp_out.shape[2]
+_Zm = np.arange(_Nz_m) - _Nz_m / 2.0
+_Xm = np.arange(_Nx_m) - _Nx_m / 2.0
 _ZZ, _XX = np.meshgrid(_Zm, _Xm, indexing='ij')
-_r_max  = (min(nz_roi, nx_trunc) - 1) / 2.0
+_r_max  = (min(_Nz_m, _Nx_m) - 1) / 2.0
 _r_fade = max(3, int(0.05 * _r_max))
-_mask2d = np.clip((np.sqrt(_ZZ**2 + _XX**2) - _r_max + _r_fade) / _r_fade, 0, 1)
-_mask2d = 1.0 - _mask2d   # taper from 1 at centre to 0 at boundary
-delta_roi *= _mask2d[:, np.newaxis, :]
+_mask2d = np.clip((_r_max - np.sqrt(_ZZ**2 + _XX**2)) / _r_fade, 0.0, 1.0)
+delta_fbp_out *= _mask2d[:, np.newaxis, :]
 del _Zm, _Xm, _ZZ, _XX, _mask2d
 
-print(f"  ROI FBP done in {time.time()-t0:.1f} s  shape={delta_roi.shape}")
-print(f"  δ_ROI range: [{delta_roi.min():.3e}, {delta_roi.max():.3e}]")
+print(f"  FBP done in {time.time()-t0:.1f} s  shape={delta_fbp_out.shape}")
+print(f"  δ_FBP range: [{delta_fbp_out.min():.3e}, {delta_fbp_out.max():.3e}]")
 
 # ---------------------------------------------------------------------------
-# 4.  Embed ROI in extended full grid
+# 4.  Build the full-grid initial volume
 # ---------------------------------------------------------------------------
 
-print("Step 2 — Embedding ROI in extended full-grid volume …", flush=True)
+print("Step 2 — Building full-grid initial volume …", flush=True)
 
-delta_full = np.zeros((Nz_full, Ny_full, Nx_full), dtype=np.float32)
-beta_full  = np.zeros_like(delta_full)
+if PADDED_FBP:
+    # FBP already covers the full grid
+    delta_full = delta_fbp_out
+    print(f"  Padded FBP covers the full grid: {delta_full.shape}")
+else:
+    # Embed ROI-only FBP in a zero-padded full grid
+    delta_full = np.zeros((Nz_full, Ny_full, Nx_full), dtype=np.float32)
+    delta_full[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = delta_fbp_out
+    print(f"  ROI embedded at z[{FOV_Z0}:{FOV_Z1}] y[{FOV_Y0}:{FOV_Y1}] "
+          f"x[{FOV_X0}:{FOV_X1}] in {delta_full.shape}")
 
-# The ROI FBP volume spans (x: FOV_X0..FOV_X1) in the full grid.
-# z shares the same window (square slices from FBP).
-FOV_Z0, FOV_Z1 = FOV_X0, FOV_X1
-delta_full[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = delta_roi
-beta_full[FOV_Z0:FOV_Z1,  FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = delta_roi * 1e-3
-
-print(f"  Full grid: ({Nz_full}, {Ny_full}, {Nx_full})  "
-      f"ROI embedded at z[{FOV_Z0}:{FOV_Z1}] y[{FOV_Y0}:{FOV_Y1}] x[{FOV_X0}:{FOV_X1}]")
+beta_full = delta_full * 1e-3
 
 # ---------------------------------------------------------------------------
 # 5.  Complex measured exit waves  (truncated FOV only)
@@ -735,8 +763,7 @@ print(f"  Results           : {OUT_DIR}/")
 print("=" * 65)
 print()
 print("Ground-truth comparison:")
-print("  Load the FULL reconstruction (twopass_real_data.py output), then:")
-print("  from tutorial.local_tomo_simulator import extract_groundtruth_roi")
-print("  fov_meta = dict(fov_x0=FOV_X0, fov_x1=FOV_X1, fov_y0=FOV_Y0,")
-print("                  fov_y1=FOV_Y1, full_Nx=Nx_full, full_Ny=Ny_full)")
-print("  gt_roi = extract_groundtruth_roi(delta_full_ref, fov_meta)")
+print("  Run the companion script (works standalone, no variable import needed):")
+print(f"    python tutorial/compare_groundtruth.py \\")
+print(f"      --local  {os.path.join(OUT_DIR, 'twopass_local_reconstruction.npz')} \\")
+print(f"      --full   tutorial/twopass_real_figures/twopass_reconstruction.npz")
