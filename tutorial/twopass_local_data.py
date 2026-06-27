@@ -435,6 +435,23 @@ beta_tp  = beta_full.copy()
 loss_history = []
 t_total = time.time()
 
+# ── Interior mask for the DC anchor ────────────────────────────────────────
+# The air-floor estimate must avoid (a) the masked-out corners of the ROI
+# bounding box and (b) the cosine-tapered rim of the FBP circular mask, which
+# both inject a continuum of tiny positive values that poison a low percentile.
+# Restrict the estimate to the SOLID interior of the inscribed circle
+# (radius < ANCHOR_R_FRAC · R) in the z–x plane, broadcast over y.
+ANCHOR_R_FRAC = 0.9
+_nzc, _nyc, _nxc = FOV_Z1 - FOV_Z0, FOV_Y1 - FOV_Y0, FOV_X1 - FOV_X0
+_zc = np.arange(_nzc) - _nzc / 2.0
+_xc = np.arange(_nxc) - _nxc / 2.0
+_ZZc, _XXc = np.meshgrid(_zc, _xc, indexing='ij')           # (nz, nx)
+_Rc = ANCHOR_R_FRAC * (min(_nzc, _nxc) / 2.0)
+interior_zx = (_ZZc**2 + _XXc**2) < _Rc**2                  # (nz, nx) bool
+del _zc, _xc, _ZZc, _XXc
+print(f"  DC-anchor interior mask: {int(interior_zx.sum())} of {interior_zx.size} "
+      f"z-x pixels (r < {ANCHOR_R_FRAC:.2f}·R)")
+
 if TORCH_AVAILABLE:
     # ── PyTorch path ───────────────────────────────────────────────────────
     warmup_device(DEVICE)
@@ -462,6 +479,10 @@ if TORCH_AVAILABLE:
     # Per-angle phase offsets (CPU numpy — tiny, N_use scalars)
     c_offsets   = np.zeros(N_use, dtype=np.float64)
     adam_c      = _Adam((N_use,), lr=OFFSET_LR) if PHASE_OFFSET else None
+
+    # DC-anchor interior mask on device
+    _interior_zx_t = (torch.from_numpy(interior_zx).to(DEVICE)
+                      if DC_ANCHOR else None)
 
     # Halo TV mask: 1.0 inside ROI x-window, LAMBDA_TV_HALO outside
     if LAMBDA_TV_HALO != 1.0 and LAMBDA_TV > 0:
@@ -568,19 +589,21 @@ if TORCH_AVAILABLE:
             adam_b.step(beta_tp_t, grad_beta)
             beta_tp_t.clamp_(min=0.0)
 
-        # DC anchor: pin the air floor (low percentile of in-FOV δ) to 0
+        # DC anchor: pin the air floor (low percentile over the SOLID interior
+        # of the circle) to 0.  Using the interior mask avoids the tapered-rim
+        # continuum that previously drove this estimate to ~0.
         air_dc = 0.0
         if DC_ANCHOR:
-            _roi_flat = delta_tp_t[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1,
-                                   FOV_X0:FOV_X1].reshape(-1)
-            _roi_pos = _roi_flat[_roi_flat > 0]
-            if _roi_pos.numel() > 0:
-                if _roi_pos.numel() > 500_000:        # torch.quantile element cap
-                    _idx = torch.randint(0, _roi_pos.numel(), (500_000,),
+            _roi = delta_tp_t[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
+            _vals = _roi[_interior_zx_t[:, None, :].expand(_nzc, _nyc, _nxc)]
+            if _vals.numel() > 0:
+                if _vals.numel() > 500_000:           # torch.quantile element cap
+                    _idx = torch.randint(0, _vals.numel(), (500_000,),
                                          device=DEVICE)
-                    _roi_pos = _roi_pos[_idx]
-                air_dc = float(torch.quantile(_roi_pos, AIR_PERCENTILE / 100.0))
-                delta_tp_t.sub_(air_dc).clamp_(min=0.0)
+                    _vals = _vals[_idx]
+                air_dc = float(torch.quantile(_vals, AIR_PERCENTILE / 100.0))
+                if air_dc > 0:
+                    delta_tp_t.sub_(air_dc).clamp_(min=0.0)
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
@@ -690,15 +713,17 @@ else:
             adam_b.step(beta_tp, grad_beta)
             np.clip(beta_tp, 0.0, None, out=beta_tp)
 
-        # DC anchor: pin the air floor (low percentile of in-FOV δ) to 0
+        # DC anchor: pin the air floor (low percentile over the SOLID interior
+        # of the circle) to 0.
         air_dc = 0.0
         if DC_ANCHOR:
-            _roi_pos = delta_tp[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
-            _roi_pos = _roi_pos[_roi_pos > 0]
-            if _roi_pos.size > 0:
-                air_dc = float(np.percentile(_roi_pos, AIR_PERCENTILE))
-                delta_tp -= air_dc
-                np.clip(delta_tp, 0.0, None, out=delta_tp)
+            _roi  = delta_tp[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
+            _vals = _roi[interior_zx[:, None, :].repeat(_nyc, axis=1)]
+            if _vals.size > 0:
+                air_dc = float(np.percentile(_vals, AIR_PERCENTILE))
+                if air_dc > 0:
+                    delta_tp -= air_dc
+                    np.clip(delta_tp, 0.0, None, out=delta_tp)
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
