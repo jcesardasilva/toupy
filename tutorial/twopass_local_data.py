@@ -189,7 +189,25 @@ FBP_METHOD  = 'auto'   # 'auto' | 'iradon' | 'gpu'
 # FBP volume covers the full grid (Nz_full, Ny_full, Nx_full) — the same
 # size as the Pass-2 extended grid — giving a much better initial condition.
 # Set False to use the old approach (ROI-only FBP embedded in zeros).
-PADDED_FBP  = True
+# NOTE: padded FBP turned out to be counterproductive — the ramp filter
+# creates a bright ring at the hard FOV boundary that lands inside the ROI
+# and contaminates Pass 2.  Keep False until a smoother taper is implemented.
+PADDED_FBP  = False
+
+# ── Per-angle phase offset model ───────────────────────────────────────────
+# Each truncated projection is missing the phase contribution from material
+# OUTSIDE the FOV: φ_measured(θ) = φ_true(θ) − φ_exterior(θ).  At zeroth
+# order φ_exterior(θ) is a scalar per angle.  We fit one real scalar c_θ
+# per angle jointly with the volume:
+#
+#   predicted(θ) = exp(i·c_θ) · multislice_forward(volume, θ)
+#
+# Optimising c_θ absorbs the missing exterior contribution and breaks the
+# interior null-space degeneracy without any additional data.
+# Set False to disable (reproduces the original behaviour exactly).
+PHASE_OFFSET      = True
+OFFSET_LR         = 0.05   # Adam LR for c_θ [rad/step]; much larger than LR
+                            # because offsets are O(1) rad, not O(1e-5) like δ
 
 # ── Angle subsampling (prototyping) ────────────────────────────────────────
 ANGLE_STEP   = 1
@@ -212,7 +230,9 @@ print(f"  N_SLICES      = {N_SLICES}  (slab Δz = {SLICE_DZ*1e9:.1f} nm)")
 print(f"  N_ITER        = {N_ITER}   LR = {LR}")
 print(f"  LAMBDA_TV     = {LAMBDA_TV}  LAMBDA_TV_HALO = {LAMBDA_TV_HALO}")
 print(f"  OPTIMIZE_BETA = {OPTIMIZE_BETA}")
-print(f"  FBP_METHOD    = {FBP_METHOD}")
+print(f"  PHASE_OFFSET  = {PHASE_OFFSET}"
+      + (f"  OFFSET_LR = {OFFSET_LR}" if PHASE_OFFSET else ""))
+print(f"  FBP_METHOD    = {FBP_METHOD}  PADDED_FBP = {PADDED_FBP}")
 print(f"  backend       = {'torch/'+str(DEVICE) if TORCH_AVAILABLE else 'numpy'}")
 print()
 
@@ -425,6 +445,10 @@ if TORCH_AVAILABLE:
     adam_b = (TorchAdamState(beta_tp_t.shape, lr=LR, device=DEVICE)
               if OPTIMIZE_BETA else None)
 
+    # Per-angle phase offsets (CPU numpy — tiny, N_use scalars)
+    c_offsets   = np.zeros(N_use, dtype=np.float64)
+    adam_c      = _Adam((N_use,), lr=OFFSET_LR) if PHASE_OFFSET else None
+
     # Halo TV mask: 1.0 inside ROI x-window, LAMBDA_TV_HALO outside
     if LAMBDA_TV_HALO != 1.0 and LAMBDA_TV > 0:
         _tv_halo_mask = torch.ones(Nz_full, Ny_full, Nx_full,
@@ -439,8 +463,9 @@ if TORCH_AVAILABLE:
     for it in range(N_ITER):
         t_iter = time.time()
         total_loss = 0.0
-        grad_delta = torch.zeros_like(delta_tp_t)
-        grad_beta  = torch.zeros_like(beta_tp_t) if OPTIMIZE_BETA else None
+        grad_delta  = torch.zeros_like(delta_tp_t)
+        grad_beta   = torch.zeros_like(beta_tp_t) if OPTIMIZE_BETA else None
+        grad_c      = np.zeros(N_use, dtype=np.float64)
 
         # LR schedule (linear warmup + cosine decay)
         if it < WARMUP_ITERS:
@@ -453,7 +478,6 @@ if TORCH_AVAILABLE:
             adam_b.lr = lr_t
 
         for ai, theta in enumerate(theta_use):
-            # Extract slices from full volume, forward propagate
             delta_sl, beta_sl, delta_means = extract_slices_torch(
                 delta_tp_t, beta_tp_t, theta, n_slices=N_SLICES)
 
@@ -462,21 +486,35 @@ if TORCH_AVAILABLE:
                 delta_means=delta_means,
                 store_wavefields=True)
 
-            # Build masked measured wavefield:
-            # set u_meas_full = U_exit everywhere EXCEPT the FOV window,
-            # where it takes the actual measured exit wave.
-            # → residual is zero outside FOV → no gradient there.
             u_meas_ai = torch.from_numpy(u_meas_trunc[ai]).to(DEVICE)
-            u_meas_full_t = U_exit.clone().detach()
-            u_meas_full_t[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = u_meas_ai
 
-            # Loss: only inside the FOV window
-            res_fov  = U_exit[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] - u_meas_ai
-            loss_i   = 0.5 * float(res_fov.abs().pow(2).sum().cpu())
+            if PHASE_OFFSET:
+                # Apply per-angle phase phasor to the synthetic exit wave.
+                # exp(i*c) * U_exit[FOV] ≈ U_exit[FOV] + φ_exterior correction.
+                phasor    = complex(np.cos(c_offsets[ai]), np.sin(c_offsets[ai]))
+                phasor_t  = torch.tensor(phasor, dtype=torch.complex64, device=DEVICE)
+                U_fov     = U_exit[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
+                u_synth_c = phasor_t * U_fov           # phase-shifted synthetic
+                res_fov   = u_synth_c - u_meas_ai
+                # Gradient of loss w.r.t. c_i:
+                # ∂L/∂c = -Im[sum(conj(res) * u_synth_c)]
+                grad_c[ai] = -float(
+                    (res_fov.conj() * u_synth_c).sum().imag.cpu())
+                # For volume backward: residual that flows into engine is
+                # conj(phasor)*res_fov (= U_exit[FOV] - conj(phasor)*u_meas_ai)
+                # → masked measured wavefield trick with phase-rotated u_meas:
+                u_meas_full_t = U_exit.clone().detach()
+                u_meas_full_t[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = (
+                    phasor_t.conj() * u_meas_ai)
+                loss_i = 0.5 * float(res_fov.abs().pow(2).sum().cpu())
+            else:
+                res_fov       = U_exit[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] - u_meas_ai
+                u_meas_full_t = U_exit.clone().detach()
+                u_meas_full_t[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = u_meas_ai
+                loss_i        = 0.5 * float(res_fov.abs().pow(2).sum().cpu())
+
             total_loss += loss_i
 
-            # Backward: pass the masked measured wavefield so gradient
-            # is zero outside the FOV
             gd_i, gb_i, _ = torch_engine.gradient(
                 wf, u_meas_full_t, delta_means=delta_means)
 
@@ -491,6 +529,10 @@ if TORCH_AVAILABLE:
         grad_delta /= N_use
         if OPTIMIZE_BETA:
             grad_beta /= N_use
+
+        # Update per-angle offsets
+        if PHASE_OFFSET:
+            adam_c.step(c_offsets, grad_c / N_use)
 
         tv_str = ""
         if LAMBDA_TV > 0:
@@ -514,8 +556,10 @@ if TORCH_AVAILABLE:
 
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
+        off_str = (f"  c∈[{c_offsets.min():.3f},{c_offsets.max():.3f}]rad"
+                   if PHASE_OFFSET else "")
         print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}{tv_str}  "
-              f"lr={lr_t:.2e}  t={elapsed:.1f}s  "
+              f"lr={lr_t:.2e}  t={elapsed:.1f}s{off_str}  "
               f"δ_ROI∈[{float(delta_tp_t[FOV_Z0:FOV_Z1,:,FOV_X0:FOV_X1].min()):.2e},"
               f"{float(delta_tp_t[FOV_Z0:FOV_Z1,:,FOV_X0:FOV_X1].max()):.2e}]",
               flush=True)
@@ -536,14 +580,17 @@ else:
         slice_thickness = SLICE_DZ,
     )
 
-    adam_d = _Adam(delta_tp.shape, lr=LR)
-    adam_b = _Adam(beta_tp.shape, lr=LR) if OPTIMIZE_BETA else None
+    adam_d  = _Adam(delta_tp.shape, lr=LR)
+    adam_b  = _Adam(beta_tp.shape, lr=LR) if OPTIMIZE_BETA else None
+    c_offsets = np.zeros(N_use, dtype=np.float64)
+    adam_c    = _Adam((N_use,), lr=OFFSET_LR) if PHASE_OFFSET else None
 
     for it in range(N_ITER):
         t_iter = time.time()
         total_loss = 0.0
         grad_delta = np.zeros_like(delta_tp)
         grad_beta  = np.zeros_like(beta_tp) if OPTIMIZE_BETA else None
+        grad_c     = np.zeros(N_use, dtype=np.float64)
 
         if it < WARMUP_ITERS:
             lr_t = LR * (it + 1) / WARMUP_ITERS
@@ -558,20 +605,29 @@ else:
             delta_sl, beta_sl, delta_means = extract_slices_from_volume(
                 delta_tp, beta_tp, theta, n_slices=N_SLICES)
 
-            # Forward pass
             U_exit, wf = engine.forward(
                 delta_sl, beta_sl, probe_full,
                 delta_means=delta_means,
                 store_wavefields=True)
 
-            # Masked measured wavefield (zero residual outside FOV)
-            u_meas_ai    = u_meas_trunc[ai]
-            u_meas_full  = U_exit.copy()
-            u_meas_full[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = u_meas_ai
+            u_meas_ai = u_meas_trunc[ai]
 
-            # Loss (FOV only)
-            res_fov    = U_exit[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] - u_meas_ai
-            loss_i     = 0.5 * float(np.sum(np.abs(res_fov)**2))
+            if PHASE_OFFSET:
+                phasor    = np.exp(1j * c_offsets[ai])
+                U_fov     = U_exit[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
+                u_synth_c = phasor * U_fov
+                res_fov   = u_synth_c - u_meas_ai
+                grad_c[ai] = -float(np.sum(np.conj(res_fov) * u_synth_c).imag)
+                u_meas_full = U_exit.copy()
+                u_meas_full[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = (
+                    np.conj(phasor) * u_meas_ai)
+                loss_i = 0.5 * float(np.sum(np.abs(res_fov)**2))
+            else:
+                res_fov     = U_exit[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] - u_meas_ai
+                u_meas_full = U_exit.copy()
+                u_meas_full[FOV_Y0:FOV_Y1, FOV_X0:FOV_X1] = u_meas_ai
+                loss_i      = 0.5 * float(np.sum(np.abs(res_fov)**2))
+
             total_loss += loss_i
 
             gd_i, gb_i, _ = engine.gradient(wf, u_meas_full, delta_means=delta_means)
@@ -585,6 +641,8 @@ else:
         grad_delta /= N_use
         if OPTIMIZE_BETA:
             grad_beta /= N_use
+        if PHASE_OFFSET:
+            adam_c.step(c_offsets, grad_c / N_use)
 
         tv_str = ""
         if LAMBDA_TV > 0:
@@ -605,8 +663,10 @@ else:
         loss_history.append(total_loss)
         elapsed = time.time() - t_iter
         _roi = delta_tp[FOV_Z0:FOV_Z1, :, FOV_X0:FOV_X1]
+        off_str = (f"  c∈[{c_offsets.min():.3f},{c_offsets.max():.3f}]rad"
+                   if PHASE_OFFSET else "")
         print(f"  Iter {it+1:3d}/{N_ITER}  loss={total_loss:.4e}{tv_str}  "
-              f"lr={lr_t:.2e}  t={elapsed:.1f}s  "
+              f"lr={lr_t:.2e}  t={elapsed:.1f}s{off_str}  "
               f"δ_ROI∈[{_roi.min():.2e},{_roi.max():.2e}]", flush=True)
 
 print(f"\n  Pass 2 done in {time.time()-t_total:.1f} s total.\n")
@@ -627,10 +687,12 @@ np.savez_compressed(
     # ROI sub-volumes (for ground-truth comparison)
     delta_fbp_roi  = delta_fbp_roi.astype(np.float32),
     delta_tp_roi   = delta_tp_roi.astype(np.float32),
+    # Per-angle phase offsets (rad); zeros if PHASE_OFFSET=False
+    c_offsets  = c_offsets,
+    theta      = theta_use,
     # Metadata
     wavelength = WAVELENGTH,
     psize      = PIXEL_SIZE,
-    theta      = theta_use,
     fov_x0=FOV_X0, fov_x1=FOV_X1,
     fov_y0=FOV_Y0, fov_y1=FOV_Y1,
     fov_z0=FOV_Z0, fov_z1=FOV_Z1,
@@ -737,6 +799,25 @@ fig4.suptitle("ROI difference map (two-pass − FBP init)", fontsize=9)
 fig4.savefig(os.path.join(OUT_DIR, "fig4_roi_difference.png"),
              dpi=150, bbox_inches="tight")
 print(f"  Saved: fig4_roi_difference.png")
+
+# ── Figure 5: Per-angle phase offsets ─────────────────────────────────────
+if PHASE_OFFSET and np.any(c_offsets != 0):
+    fig5, ax5 = plt.subplots(figsize=(8, 3.5))
+    ax5.plot(theta_use, np.rad2deg(c_offsets), "o-", ms=2, lw=1.0,
+             color="steelblue")
+    ax5.axhline(0, color="k", lw=0.8, ls="--")
+    ax5.set_xlabel("Projection angle θ [°]")
+    ax5.set_ylabel("Phase offset c_θ [°]")
+    ax5.set_title("Per-angle phase offsets\n"
+                  "(absorbs missing exterior line integral per projection)",
+                  fontsize=9)
+    ax5.grid(True, alpha=0.35)
+    fig5.tight_layout()
+    fig5.savefig(os.path.join(OUT_DIR, "fig5_phase_offsets.png"),
+                 dpi=150, bbox_inches="tight")
+    print(f"  Saved: fig5_phase_offsets.png  "
+          f"(offset range: [{np.rad2deg(c_offsets.min()):.2f}°, "
+          f"{np.rad2deg(c_offsets.max()):.2f}°])")
 
 plt.close("all")
 
