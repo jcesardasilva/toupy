@@ -76,6 +76,16 @@ full = np.load(args.full,  allow_pickle=True)
 # Local-tomo ROI volumes (pre-extracted by twopass_local_data.py)
 delta_tp_roi  = loc["delta_tp_roi"].astype(np.float32)
 delta_fbp_roi = loc["delta_fbp_roi"].astype(np.float32)
+# Pass-2 INITIAL ROI (the halo-estimator / IRR result BEFORE two-pass).
+# Falls back to the FBP ROI for older .npz files that predate this field.
+if "delta_init_roi" in loc.files:
+    delta_init_roi = loc["delta_init_roi"].astype(np.float32)
+    _halo_init = str(loc["halo_init"]) if "halo_init" in loc.files else "irr"
+else:
+    delta_init_roi = delta_fbp_roi
+    _halo_init = "fbp"
+# Show the pre-two-pass column only when it differs from plain FBP.
+HAVE_INIT = (_halo_init == "irr")
 
 # FOV metadata needed to cut the same ROI from the full reconstruction
 fov_x0    = int(loc["fov_x0"])
@@ -136,11 +146,18 @@ def _stats(name, vol, ref):
 
 print("\nQuantitative metrics (vs ground truth):")
 rms_fbp, bias_fbp, nrms_fbp, corr_fbp = _stats("FBP-init ROI",   delta_fbp_roi, delta_gt)
+if HAVE_INIT:
+    rms_in, bias_in, nrms_in, corr_in = _stats("Halo-init ROI",  delta_init_roi, delta_gt)
 rms_tp,  bias_tp,  nrms_tp,  corr_tp  = _stats("Two-pass ROI",   delta_tp_roi,  delta_gt)
 improvement_rms  = (rms_fbp  - rms_tp)  / rms_fbp  * 100
 improvement_corr = (corr_tp  - corr_fbp)
 print(f"\n  Two-pass vs FBP-init:  RMS reduced by {improvement_rms:.1f}%  "
       f"Δcorr = {improvement_corr:+.5f}")
+if HAVE_INIT:
+    _imp_rms_tp  = (rms_in - rms_tp) / rms_in * 100
+    print(f"  Two-pass vs Halo-init: RMS reduced by {_imp_rms_tp:+.1f}%  "
+          f"Δcorr = {corr_tp - corr_in:+.5f}   "
+          f"(isolated contribution of the multislice refinement)")
 print()
 
 # ---------------------------------------------------------------------------
@@ -201,6 +218,8 @@ profile_y = np.arange(delta_gt.shape[1]) * px_nm
 
 axes2[0].plot(profile_x, delta_gt[iz, iy, :]*1e6, 'k-', lw=1.8, label="GT")
 axes2[0].plot(profile_x, delta_tp_roi[iz, iy, :]*1e6, 'b-', lw=1.2, label="two-pass")
+if HAVE_INIT:
+    axes2[0].plot(profile_x, delta_init_roi[iz, iy, :]*1e6, 'g:', lw=1.2, label="halo-init")
 axes2[0].plot(profile_x, delta_fbp_roi[iz, iy, :]*1e6, 'r--', lw=1.0, label="FBP")
 axes2[0].set_xlabel("x [nm]"); axes2[0].set_ylabel("δ ×10⁻⁶")
 axes2[0].set_title(f"x-profile  (z=mid, y=mid)", fontsize=8)
@@ -208,6 +227,8 @@ axes2[0].legend(fontsize=7); axes2[0].grid(True, alpha=0.3)
 
 axes2[1].plot(profile_z, delta_gt[:, iy, ix]*1e6, 'k-', lw=1.8, label="GT")
 axes2[1].plot(profile_z, delta_tp_roi[:, iy, ix]*1e6, 'b-', lw=1.2, label="two-pass")
+if HAVE_INIT:
+    axes2[1].plot(profile_z, delta_init_roi[:, iy, ix]*1e6, 'g:', lw=1.2, label="halo-init")
 axes2[1].plot(profile_z, delta_fbp_roi[:, iy, ix]*1e6, 'r--', lw=1.0, label="FBP")
 axes2[1].set_xlabel("z [nm]"); axes2[1].set_ylabel("δ ×10⁻⁶")
 axes2[1].set_title(f"z-profile  (y=mid, x=mid)", fontsize=8)
@@ -215,6 +236,8 @@ axes2[1].legend(fontsize=7); axes2[1].grid(True, alpha=0.3)
 
 axes2[2].plot(profile_y, delta_gt[iz, :, ix]*1e6, 'k-', lw=1.8, label="GT")
 axes2[2].plot(profile_y, delta_tp_roi[iz, :, ix]*1e6, 'b-', lw=1.2, label="two-pass")
+if HAVE_INIT:
+    axes2[2].plot(profile_y, delta_init_roi[iz, :, ix]*1e6, 'g:', lw=1.2, label="halo-init")
 axes2[2].plot(profile_y, delta_fbp_roi[iz, :, ix]*1e6, 'r--', lw=1.0, label="FBP")
 axes2[2].set_xlabel("y [nm]"); axes2[2].set_ylabel("δ ×10⁻⁶")
 axes2[2].set_title(f"y-profile  (z=mid, x=mid)", fontsize=8)
@@ -236,6 +259,9 @@ ax3.hist(delta_gt.ravel() * 1e6,      bins=bins*1e6, histtype='step',
          color='k', lw=1.8, label=f"Ground truth  (full FOV)")
 ax3.hist(delta_tp_roi.ravel() * 1e6,  bins=bins*1e6, histtype='step',
          color='b', lw=1.2, label=f"Two-pass ROI  (r={corr_tp:.4f})")
+if HAVE_INIT:
+    ax3.hist(delta_init_roi.ravel() * 1e6, bins=bins*1e6, histtype='step',
+             color='g', lw=1.0, ls=':', label=f"Halo-init ROI  (r={corr_in:.4f})")
 ax3.hist(delta_fbp_roi.ravel() * 1e6, bins=bins*1e6, histtype='step',
          color='r', lw=1.0, ls='--', label=f"FBP-init ROI  (r={corr_fbp:.4f})")
 ax3.set_xlabel("δ ×10⁻⁶"); ax3.set_ylabel("Voxel count")
@@ -308,6 +334,46 @@ p5 = os.path.join(OUT_DIR, "fig_gt_difference.png")
 fig5.savefig(p5, dpi=150, bbox_inches="tight")
 print(f"  Saved: {p5}")
 
+# ---------------------------------------------------------------------------
+# Figure 6: Two-pass CONTRIBUTION over the halo-estimator init
+# ---------------------------------------------------------------------------
+# Isolates what the multislice refinement adds ON TOP of the IRR halo init:
+#   top row    — error vs GT BEFORE two-pass (halo-init − GT)
+#   middle row — error vs GT AFTER  two-pass (two-pass − GT)
+#   bottom row — the change two-pass made (two-pass − halo-init)
+if HAVE_INIT:
+    diff_in   = delta_init_roi - delta_gt
+    diff_made = delta_tp_roi   - delta_init_roi
+    elim = np.percentile(np.abs(np.concatenate(
+        [diff_in.ravel(), diff_tp.ravel()])), 99.5)
+    clim = np.percentile(np.abs(diff_made), 99.5)
+
+    fig6, axes6 = plt.subplots(3, 3, figsize=(14, 11),
+                                gridspec_kw={"hspace": 0.42, "wspace": 0.30})
+    spec = [
+        (diff_in,   "Halo-init − GT (before 2pass)", elim),
+        (diff_tp,   "Two-pass − GT (after 2pass)",   elim),
+        (diff_made, "Two-pass − Halo-init (2pass Δ)", clim),
+    ]
+    for row, (dd, rlbl, lim) in enumerate(spec):
+        for col, (img, lbl) in enumerate([
+                (dd[iz],       f"xy (z={iz+fov_z0})"),
+                (dd[:, iy, :], f"xz (y={iy+fov_y0})"),
+                (dd[:, :, ix].T, f"yz (x={ix+fov_x0})")]):
+            im = axes6[row, col].imshow(img, cmap="bwr", vmin=-lim, vmax=lim,
+                                        origin="lower")
+            axes6[row, col].set_title(f"{rlbl}  [{lbl}]", fontsize=7)
+            axes6[row, col].axis("off")
+            plt.colorbar(im, ax=axes6[row, col], fraction=0.04, label="Δδ")
+    fig6.suptitle(
+        "Two-pass contribution over the IRR halo estimator\n"
+        f"NRMS  halo-init={nrms_in:.3f} → two-pass={nrms_tp:.3f}   "
+        f"Pearson r  halo-init={corr_in:.4f} → two-pass={corr_tp:.4f}",
+        fontsize=9)
+    p6 = os.path.join(OUT_DIR, "fig_gt_twopass_contribution.png")
+    fig6.savefig(p6, dpi=150, bbox_inches="tight")
+    print(f"  Saved: {p6}")
+
 plt.close("all")
 
 # ---------------------------------------------------------------------------
@@ -322,15 +388,28 @@ print(f"  ROI shape            : {delta_tp_roi.shape}")
 print(f"  FOV fraction         : {(fov_x1-fov_x0)/full_Nx:.0%} x "
       f"{(fov_y1-fov_y0)/full_Ny:.0%} y")
 print()
-print(f"  {'Metric':<22} {'FBP-init':>12} {'Two-pass':>12}  {'Improvement':>12}")
-print(f"  {'-'*60}")
-print(f"  {'RMS error':<22} {rms_fbp*1e6:>11.4f}  {rms_tp*1e6:>11.4f}  "
-      f"{improvement_rms:>+10.1f}%")
-print(f"  {'Bias (mean Δδ)':<22} {bias_fbp*1e6:>+11.4f}  {bias_tp*1e6:>+11.4f}  "
-      f"{'(×10⁻⁶)':>12}")
-print(f"  {'Norm. RMS (vs 99th %)':<22} {nrms_fbp:>12.4f}  {nrms_tp:>12.4f}")
-print(f"  {'Pearson r':<22} {corr_fbp:>12.5f}  {corr_tp:>12.5f}  "
-      f"{improvement_corr:>+10.5f}")
+if HAVE_INIT:
+    print(f"  {'Metric':<22} {'FBP-init':>12} {'Halo-init':>12} {'Two-pass':>12}")
+    print(f"  {'-'*62}")
+    print(f"  {'RMS error (×10⁻⁶)':<22} {rms_fbp*1e6:>12.4f} {rms_in*1e6:>12.4f} "
+          f"{rms_tp*1e6:>12.4f}")
+    print(f"  {'Bias (×10⁻⁶)':<22} {bias_fbp*1e6:>+12.4f} {bias_in*1e6:>+12.4f} "
+          f"{bias_tp*1e6:>+12.4f}")
+    print(f"  {'Norm. RMS':<22} {nrms_fbp:>12.4f} {nrms_in:>12.4f} {nrms_tp:>12.4f}")
+    print(f"  {'Pearson r':<22} {corr_fbp:>12.5f} {corr_in:>12.5f} {corr_tp:>12.5f}")
+    print()
+    print(f"  Two-pass contribution over halo-init: "
+          f"NRMS {nrms_in:.3f}→{nrms_tp:.3f}, r {corr_in:.4f}→{corr_tp:.4f}")
+else:
+    print(f"  {'Metric':<22} {'FBP-init':>12} {'Two-pass':>12}  {'Improvement':>12}")
+    print(f"  {'-'*60}")
+    print(f"  {'RMS error':<22} {rms_fbp*1e6:>11.4f}  {rms_tp*1e6:>11.4f}  "
+          f"{improvement_rms:>+10.1f}%")
+    print(f"  {'Bias (mean Δδ)':<22} {bias_fbp*1e6:>+11.4f}  {bias_tp*1e6:>+11.4f}  "
+          f"{'(×10⁻⁶)':>12}")
+    print(f"  {'Norm. RMS (vs 99th %)':<22} {nrms_fbp:>12.4f}  {nrms_tp:>12.4f}")
+    print(f"  {'Pearson r':<22} {corr_fbp:>12.5f}  {corr_tp:>12.5f}  "
+          f"{improvement_corr:>+10.5f}")
 print()
 print(f"  Figures saved to : {OUT_DIR}/")
 print("=" * 65)

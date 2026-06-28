@@ -793,17 +793,24 @@ print(f"\n  Pass 2 done in {time.time()-t_total:.1f} s total.\n")
 # ---------------------------------------------------------------------------
 
 # Extract the converged ROI sub-volume
-delta_tp_roi = delta_tp[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
+delta_tp_roi  = delta_tp[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
 delta_fbp_roi = delta_full[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
+# Pass-2 INITIAL ROI (IRR halo estimate if HALO_INIT='irr', else == FBP).
+# This is the "before two-pass" reconstruction: comparing it to delta_tp_roi
+# isolates the actual contribution of the multislice refinement.
+delta_init_roi = delta_init[FOV_Z0:FOV_Z1, FOV_Y0:FOV_Y1, FOV_X0:FOV_X1]
 
 np.savez_compressed(
     os.path.join(OUT_DIR, "twopass_local_reconstruction.npz"),
     # Full extended-grid volumes
-    delta_fbp_full = delta_full.astype(np.float32),
-    delta_tp_full  = delta_tp.astype(np.float32),
+    delta_fbp_full  = delta_full.astype(np.float32),
+    delta_init_full = delta_init.astype(np.float32),
+    delta_tp_full   = delta_tp.astype(np.float32),
     # ROI sub-volumes (for ground-truth comparison)
-    delta_fbp_roi  = delta_fbp_roi.astype(np.float32),
-    delta_tp_roi   = delta_tp_roi.astype(np.float32),
+    delta_fbp_roi   = delta_fbp_roi.astype(np.float32),
+    delta_init_roi  = delta_init_roi.astype(np.float32),
+    delta_tp_roi    = delta_tp_roi.astype(np.float32),
+    halo_init       = HALO_INIT,
     # Per-angle phase offsets (rad); zeros if PHASE_OFFSET=False
     c_offsets  = c_offsets,
     theta      = theta_use,
@@ -834,21 +841,27 @@ iz_mid = delta_tp_roi.shape[0] // 2
 iy_mid = delta_tp_roi.shape[1] // 2
 ix_mid = delta_tp_roi.shape[2] // 2
 
-# ── Figure 1: Three ROI orthogonal cuts — FBP-init vs two-pass ───────────
-fig1, axes = plt.subplots(3, 2, figsize=(10, 11),
+# ── Figure 1: ROI orthogonal cuts — FBP-init vs (halo-init) vs two-pass ──
+# When HALO_INIT='irr' show the IRR halo init as its own column so the
+# two-pass contribution OVER the halo estimator is visible directly.
+_show_init = (HALO_INIT == 'irr')
+_ncol = 3 if _show_init else 2
+fig1, axes = plt.subplots(3, _ncol, figsize=(4.5 * _ncol, 11),
                            gridspec_kw={"hspace": 0.40, "wspace": 0.30})
 cuts = [
-    (delta_fbp_roi[iz_mid],           delta_tp_roi[iz_mid],
-     f"ROI xy (z={iz_mid+FOV_Z0})"),
-    (delta_fbp_roi[:, iy_mid, :],     delta_tp_roi[:, iy_mid, :],
-     f"ROI xz (y={iy_mid+FOV_Y0})"),
-    (delta_fbp_roi[:, :, ix_mid].T,   delta_tp_roi[:, :, ix_mid].T,
-     f"ROI yz (x={ix_mid+FOV_X0})"),
+    (delta_fbp_roi[iz_mid],         delta_init_roi[iz_mid],
+     delta_tp_roi[iz_mid],          f"ROI xy (z={iz_mid+FOV_Z0})"),
+    (delta_fbp_roi[:, iy_mid, :],   delta_init_roi[:, iy_mid, :],
+     delta_tp_roi[:, iy_mid, :],    f"ROI xz (y={iy_mid+FOV_Y0})"),
+    (delta_fbp_roi[:, :, ix_mid].T, delta_init_roi[:, :, ix_mid].T,
+     delta_tp_roi[:, :, ix_mid].T,  f"ROI yz (x={ix_mid+FOV_X0})"),
 ]
-for row, (fbp_cut, tp_cut, label) in enumerate(cuts):
-    for col, (img, ttl) in enumerate([
-            (fbp_cut, f"FBP-init  [{label}]"),
-            (tp_cut,  f"Two-pass  [{label}]")]):
+for row, (fbp_cut, init_cut, tp_cut, label) in enumerate(cuts):
+    panels = [(fbp_cut, f"FBP-init  [{label}]")]
+    if _show_init:
+        panels.append((init_cut, f"Halo-init (IRR, pre-2pass)  [{label}]"))
+    panels.append((tp_cut, f"Two-pass  [{label}]"))
+    for col, (img, ttl) in enumerate(panels):
         im = axes[row, col].imshow(img, cmap=CMAP, vmin=vmin, vmax=vmax,
                                    origin="lower")
         axes[row, col].set_title(ttl, fontsize=8)
