@@ -79,6 +79,11 @@ MultisliceEngine           = ms_mod.MultisliceEngine
 extract_slices_from_volume = ms_mod.extract_slices_from_volume
 scatter_gradient_to_volume = ms_mod.scatter_gradient_to_volume
 
+# Iterative-reprojection halo estimator (exterior initialisation)
+halo_mod = _load_module("halo_estimator",
+                        os.path.join(_HERE, "halo_estimator.py"))
+estimate_halo_volume = halo_mod.estimate_halo_volume
+
 TORCH_AVAILABLE = False
 try:
     import torch
@@ -194,6 +199,18 @@ FBP_METHOD  = 'auto'   # 'auto' | 'iradon' | 'gpu'
 # and contaminates Pass 2.  Keep False until a smoother taper is implemented.
 PADDED_FBP  = False
 
+# ── Halo (exterior) initialisation for Pass 2 ──────────────────────────────
+# How to populate the extended-grid volume that SEEDS the multislice Pass 2:
+#   'irr'  -> iterative reconstruction-reprojection halo estimator
+#             (tutorial/halo_estimator.py): extends the truncated sinogram into
+#             a data-consistent exterior, so the FOV is already debiased BEFORE
+#             two-pass starts.  Recommended.
+#   'fbp'  -> use the naive FBP volume (ROI embedded in zeros / padded) as init.
+# The naive FBP is ALWAYS kept as the 'FBP-init' comparison baseline regardless.
+HALO_INIT     = 'irr'   # 'irr' | 'fbp'
+HALO_N_ITER   = 6       # IRR iterations (per y-slice)
+HALO_RELAX    = 1.0     # exterior update relaxation in [0,1] (1.0 = full)
+
 # ── Per-angle phase offset model ───────────────────────────────────────────
 # Each truncated projection is missing the phase contribution from material
 # OUTSIDE the FOV: φ_measured(θ) = φ_true(θ) − φ_exterior(θ).
@@ -257,6 +274,8 @@ print(f"  PHASE_OFFSET  = {PHASE_OFFSET}"
 print(f"  DC_ANCHOR     = {DC_ANCHOR}"
       + (f"  AIR_PERCENTILE = {AIR_PERCENTILE}" if DC_ANCHOR else ""))
 print(f"  FBP_METHOD    = {FBP_METHOD}  PADDED_FBP = {PADDED_FBP}")
+print(f"  HALO_INIT     = {HALO_INIT}"
+      + (f"  (n_iter={HALO_N_ITER}, relax={HALO_RELAX})" if HALO_INIT == 'irr' else ""))
 print(f"  backend       = {'torch/'+str(DEVICE) if TORCH_AVAILABLE else 'numpy'}")
 print()
 
@@ -385,7 +404,29 @@ else:
     print(f"  ROI embedded at z[{FOV_Z0}:{FOV_Z1}] y[{FOV_Y0}:{FOV_Y1}] "
           f"x[{FOV_X0}:{FOV_X1}] in {delta_full.shape}")
 
-beta_full = delta_full * 1e-3
+# `delta_full` is the NAIVE FBP volume — kept as the 'FBP-init' comparison
+# baseline (delta_fbp_roi, fig2) regardless of HALO_INIT.
+
+# ── Pass-2 initial volume: IRR halo estimate or naive FBP ─────────────────
+if HALO_INIT == 'irr':
+    print("Step 2b — IRR halo estimation (data-consistent exterior) …",
+          flush=True)
+    t_irr = time.time()
+    _n_jobs_irr = int(os.environ.get('SLURM_CPUS_PER_TASK', 0)) or None
+    # IRR reconstructs measured rows -> (Nx_full, ny_trunc, Nx_full); embed
+    # into the full grid at the FOV row window.
+    delta_irr_rows = estimate_halo_volume(
+        phase_use, theta_use, FOV_X0, FOV_X1, Nx_full,
+        K0, PIXEL_SIZE, n_iter=HALO_N_ITER, relax=HALO_RELAX,
+        n_jobs=_n_jobs_irr)
+    delta_init = np.zeros((Nz_full, Ny_full, Nx_full), dtype=np.float32)
+    delta_init[:, FOV_Y0:FOV_Y1, :] = delta_irr_rows
+    print(f"  IRR halo done in {time.time()-t_irr:.1f} s  "
+          f"δ_init range [{delta_init.min():.3e}, {delta_init.max():.3e}]")
+else:
+    delta_init = delta_full
+
+beta_init = delta_init * 1e-3
 
 # ---------------------------------------------------------------------------
 # 5.  Complex measured exit waves  (truncated FOV only)
@@ -440,8 +481,8 @@ _backend = "torch/" + str(DEVICE) if TORCH_AVAILABLE else "numpy"
 print(f"  backend={_backend}  n_iter={N_ITER}  lr={LR}  "
       f"n_slices={N_SLICES}  lambda_tv={LAMBDA_TV:.0e}\n")
 
-delta_tp = delta_full.copy()
-beta_tp  = beta_full.copy()
+delta_tp = delta_init.copy()
+beta_tp  = beta_init.copy()
 loss_history = []
 t_total = time.time()
 
