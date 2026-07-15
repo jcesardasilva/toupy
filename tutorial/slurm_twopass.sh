@@ -99,19 +99,30 @@ PYTHON="/home/esrf/jdasilva/micromamba/envs/myvenv/bin/python"
 # None = full dataset  |  0 = even angles  |  1 = odd angles
 # Submit two jobs (FSC_HALF=0 and FSC_HALF=1) in parallel, then run
 # fsc_analysis.py on the two result files to get the FSC resolution curves.
-FSC_HALF=None
+FSC_HALF="${FSC_HALF:-None}"
 
 # ── Reconstruction parameters (override the defaults in twopass_real_data.py)
-N_SLICES=64      # multislice slabs — A40/A100: 64 fits in 48 GB, ~40 s/iter
-N_ITER=100       # Pass 2 gradient iterations  (50–100 for production quality)
-LR=5e-6          # Adam peak learning rate  (hard X-ray data: δ ~ 1e-5–1e-6)
-LAMBDA_TV=1e-5   # TV regularisation weight  (0 to disable)
-WARMUP_ITERS=5   # linear LR warm-up iterations
-ANGLE_STEP=1     # 1 = all angles;  >1 = subsample for fast prototyping
-ANGLE_WEIGHT=uniform  # per-angle noise weighting: 'uniform' | 'snr'
-FBP_METHOD=auto       # Pass-1 back-projector: 'auto'|'iradon'|'gpu'|'gridding'
-OPTIMIZE_BETA=True    # False = freeze beta (saves ~3 volumes of VRAM; use for
-                      # large volumes that OOM on a 40-48 GB GPU)
+# Every knob honours an environment variable of the same name, so a driver can
+# sweep them without editing this file:  sbatch --export=ALL,LAMBDA_TV=0 ...
+N_SLICES="${N_SLICES:-64}"      # multislice slabs — A40/A100: 64 fits in 48 GB
+N_ITER="${N_ITER:-100}"         # Pass 2 gradient iterations  (50–100 production)
+LR="${LR:-5e-6}"                # Adam peak learning rate  (δ ~ 1e-5–1e-6)
+LAMBDA_TV="${LAMBDA_TV:-1e-5}"  # TV regularisation weight  (0 to disable)
+WARMUP_ITERS="${WARMUP_ITERS:-5}"      # linear LR warm-up iterations
+ANGLE_STEP="${ANGLE_STEP:-1}"          # 1 = all angles;  >1 = subsample
+ANGLE_WEIGHT="${ANGLE_WEIGHT:-uniform}"  # 'uniform' | 'snr'
+FBP_METHOD="${FBP_METHOD:-auto}"       # 'auto'|'iradon'|'gpu'|'gridding'
+OPTIMIZE_BETA="${OPTIMIZE_BETA:-True}" # False = freeze beta (saves ~3 volumes)
+
+# FSC_AUTO_GENTLE=True lets twopass_real_data.py silently replace N_ITER/LR/
+# LAMBDA_TV with gentle values (30 / 2e-6 / 5e-5) on any FSC_HALF run -- so an
+# FSC run does NOT use the LAMBDA_TV set here.  Set False to keep the explicit
+# values (required by slurm_tv_sweep.sh, which varies LAMBDA_TV on purpose).
+FSC_AUTO_GENTLE="${FSC_AUTO_GENTLE:-True}"
+
+# Extra tag appended to OUT_DIR, e.g. RUN_TAG=_tv0.  Without it, runs that
+# differ only in a swept parameter would overwrite each other.
+RUN_TAG="${RUN_TAG:-}"
 
 # ── Projection boundary crop (removes ptychography edge noise) ─────────────
 # Ptychography has insufficient probe overlap near the scan boundaries,
@@ -141,7 +152,7 @@ _WTAG=""
 if [ "${ANGLE_WEIGHT}" != "uniform" ]; then _WTAG="_${ANGLE_WEIGHT}"; fi
 _HTAG=""
 if [ "${FSC_HALF}" != "None" ]; then _HTAG="_half${FSC_HALF}"; fi
-OUT_DIR="${WORK_DIR}/twopass_real_figures${_DTAG}${_FTAG}${_WTAG}${_HTAG}"
+OUT_DIR="${WORK_DIR}/twopass_real_figures${_DTAG}${_FTAG}${_WTAG}${RUN_TAG}${_HTAG}"
 
 # =============================================================================
 # ── Environment setup — uncomment the block matching your cluster ─────────────
@@ -231,12 +242,13 @@ sed -i \
     -e "s|^CROP_X\s*=.*|CROP_X = ${CROP_X}|" \
     -e "s|^CROP_Y\s*=.*|CROP_Y = ${CROP_Y}|" \
     -e "s|^FSC_HALF\s*=.*|FSC_HALF = ${FSC_HALF}|" \
+    -e "s|^FSC_AUTO_GENTLE\s*=.*|FSC_AUTO_GENTLE = ${FSC_AUTO_GENTLE}|" \
     -e "s|^DATA_FILE\s*=.*|DATA_FILE = \"${DATA_FILE}\"|" \
     -e "s|^OUT_DIR\s*=.*|OUT_DIR = \"${OUT_DIR}\"|" \
     "${PATCHED}"
 
 echo "Reconstruction parameters (as patched):"
-grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|ANGLE_WEIGHT|FBP_METHOD|OPTIMIZE_BETA|CROP_X|CROP_Y|FSC_HALF|DATA_FILE|OUT_DIR)" \
+grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|ANGLE_WEIGHT|FBP_METHOD|OPTIMIZE_BETA|CROP_X|CROP_Y|FSC_HALF|FSC_AUTO_GENTLE|DATA_FILE|OUT_DIR)" \
      "${PATCHED}" | sed 's/^/  /'
 echo ""
 

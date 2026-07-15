@@ -283,11 +283,24 @@ ANGLE_STEP   = 1
 # too far from FBP and reduces the FBP–two-pass correlation to ~0.69.
 # The gentler settings below keep corr(FBP, two-pass) > 0.90 so that the
 # FSC comparison between the two halves remains meaningful.
-if FSC_HALF is not None:
+#
+# WARNING: this block SILENTLY overrides N_ITER / LR / LAMBDA_TV set above (or
+# injected by slurm_twopass.sh, whose sed only matches the top-level `^LAMBDA_TV`
+# assignment, not this indented one).  An FSC run therefore never used the
+# LAMBDA_TV printed at the top -- it used 5e-5.  Set FSC_AUTO_GENTLE = False to
+# keep the explicit values, which is REQUIRED for the TV sweep: the whole point
+# there is to vary LAMBDA_TV (including 0) while holding N_ITER/LR fixed at the
+# gentle values, so that TV is the only variable.
+FSC_AUTO_GENTLE = True
+
+if FSC_HALF is not None and FSC_AUTO_GENTLE:
     N_ITER    = 30     # was 100 — stops before overfitting the half-angle set
     LR        = 2e-6   # was 5e-6 — smaller steps
     LAMBDA_TV = 5e-5   # was 1e-5 — stronger TV keeps the solution close to FBP
     print(f"  [FSC half-{FSC_HALF}] Overriding optimiser: "
+          f"N_ITER={N_ITER}, LR={LR:.0e}, LAMBDA_TV={LAMBDA_TV:.0e}")
+elif FSC_HALF is not None:
+    print(f"  [FSC half-{FSC_HALF}] FSC_AUTO_GENTLE=False — keeping explicit "
           f"N_ITER={N_ITER}, LR={LR:.0e}, LAMBDA_TV={LAMBDA_TV:.0e}")
 
 if FSC_HALF is not None:
