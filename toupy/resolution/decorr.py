@@ -3,6 +3,12 @@
 
 """
 Single-image resolution estimation via decorrelation analysis.
+
+This module is a Python re-implementation of the reference MATLAB code
+released by the original authors (github.com/Ades91/ImDecorr,
+``funcs/getDcorr.m``, ``funcs/getCorrcoef.m``, ``funcs/getDcorrLocalMax.m``),
+translated function-for-function rather than reconstructed from a prose
+description of the method. See the module-level references below.
 """
 
 # standard library
@@ -23,14 +29,23 @@ class ImageDecorr:
     """
     Single-image resolution estimation via decorrelation analysis [1]_.
 
-    For each radial spatial frequency *r* the image is correlated with its
-    phase-normalised ring-filtered self.  In the signal-dominated band the
-    phase is coherent and the correlation is high; beyond the resolution
-    limit the Fourier phases are noise-dominated and the correlation drops.
-    The highest spatial frequency at which the normalised correlation
-    exceeds ``threshold`` is taken as the resolution limit.
+    The image's Fourier spectrum is normalised to unit amplitude at every
+    frequency (keeping only its phase), and compared -- via a normalised
+    Fourier-domain cross-correlation coefficient -- against the original,
+    unnormalised spectrum restricted to a series of cumulative low-pass
+    disks of increasing radius. The resulting decorrelation curve rises
+    while the disk still admits mostly true signal and falls once it
+    admits mostly noise. Because low-frequency image structure can create
+    spurious local maxima at low radii, the whole analysis is repeated
+    after applying a sequence of increasingly aggressive Gaussian
+    high-pass pre-filters to the image, and the highest-frequency
+    significant peak found across all repetitions defines the resolution.
 
-    No second image or half-dataset is required — the estimate is obtained
+    No correlation threshold is chosen anywhere in this procedure --
+    "parameter-free" (the title of ref. [1]_) refers specifically to the
+    absence of such a threshold, unlike FSC/FRC- or MTF-based criteria.
+
+    No second image or half-dataset is required -- the estimate is obtained
     from a **single** 2-D image (or from a set of 2-D slices sampled from a
     3-D volume).
 
@@ -46,16 +61,27 @@ class ImageDecorr:
         Used to convert the resolution from pixels to physical units.
         Default ``1.0`` (result in pixels).
     n_r : int, optional
-        Number of radial frequency bins between the lowest non-zero
-        frequency and the Nyquist limit (0.5 cycles/pixel).
-        Default ``100``.
+        Number of radial frequency bins swept between the lowest non-zero
+        frequency and the Nyquist limit (0.5 cycles/pixel), at each
+        refinement stage.  The reference implementation enforces a
+        minimum of 30; values below this are silently raised.
+        Default ``50`` (matches the reference implementation's default).
+    n_g : int, optional
+        Number of high-pass pre-filtering strengths swept per refinement
+        stage (``Ng`` in the reference implementation).  Two refinement
+        stages are always used, as in the reference.  Default ``10``.
     threshold : float, optional
-        Correlation threshold used to define the resolution limit.
-        The default ``0.15`` matches the FSC/FRC half-bit criterion.
+        Deprecated and unused.  Earlier versions of this class defined
+        the resolution as the highest frequency at which the correlation
+        curve crossed a fixed threshold; this does not match the
+        published, threshold-free algorithm and has been removed.  The
+        parameter is still accepted for backward compatibility and
+        triggers a ``DeprecationWarning`` if set to a non-default value.
     apod_width : int, optional
         Width in pixels of the Hanning apodization applied to the image
         edges before computing the FFT.  Set to ``0`` to disable
-        apodization.  Default ``20``.
+        apodization.  Default ``20`` (matches the reference
+        implementation's default).
     axis : int, optional
         Axis along which slices are taken when ``image`` is 3-D.
         Default ``0`` (first axis, i.e. slices are ``image[i, :, :]``).
@@ -74,20 +100,30 @@ class ImageDecorr:
     Attributes
     ----------
     r_values : ndarray
-        Radial spatial frequencies (cycles/pixel) at which the
-        correlation was evaluated.  For 3-D input this is taken from the
-        last slice processed.
+        Radial spatial frequencies (cycles/pixel) at which the base
+        (non-high-pass-filtered) decorrelation curve was evaluated.
+        For 3-D input this is taken from the last slice processed.
     A : ndarray
-        Normalised ring correlation A(r).  For 3-D input: result of the
-        last slice processed.
+        Base decorrelation curve ``A(r)`` (before high-pass refinement).
+        For 3-D input: result of the last slice processed.
     d : ndarray
-        Decorrelation function d(r) = 1 − A(r).  For 3-D input: result
-        of the last slice processed.
+        ``d(r) = 1 - A(r)``.  For 3-D input: result of the last slice
+        processed.
+    kc_candidates : ndarray
+        Peak frequencies (cycles/pixel) found at every refinement stage
+        (base curve plus every high-pass pre-filtering strength tried).
+        The resolution is the maximum of the entries that pass the
+        SNR >= 0.05 quality filter.  For 3-D input: result of the last
+        slice processed.
+    snr_candidates : ndarray
+        Peak amplitudes corresponding to ``kc_candidates``.
     r_res : float
-        Estimated resolution spatial frequency (cycles/pixel).
+        Estimated resolution spatial frequency (cycles/pixel), i.e. the
+        highest-frequency accepted peak across all refinement stages.
         For 3-D input: median over all sampled slices.
     resolution_px : float
-        Estimated resolution in pixels (= 1 / r_res).
+        Estimated resolution in pixels (= 1 / r_res), full-period
+        convention (matching ``d_full = 1 / xi_c``).
         For 3-D input: median over all sampled slices.
     resolution : float
         Estimated resolution in physical units (= pixel_size / r_res).
@@ -108,14 +144,17 @@ class ImageDecorr:
        image resolution estimation based on decorrelation analysis",
        Nature Methods 16, 918-924 (2019).
        https://doi.org/10.1038/s41592-019-0515-7
+    .. [2] Reference MATLAB implementation:
+       https://github.com/Ades91/ImDecorr
     """
 
     def __init__(
         self,
         image,
         pixel_size=1.0,
-        n_r=100,
-        threshold=0.15,
+        n_r=50,
+        n_g=10,
+        threshold=None,
         apod_width=20,
         axis=0,
         n_slices=10,
@@ -125,9 +164,22 @@ class ImageDecorr:
         self.image = np.asarray(image, dtype=np.float64)
         if self.image.ndim not in (2, 3):
             raise ValueError("ImageDecorr requires a 2-D or 3-D array.")
+
+        if threshold is not None:
+            warnings.warn(
+                "ImageDecorr: the 'threshold' parameter is deprecated and "
+                "unused. The published decorrelation-analysis algorithm "
+                "(Descloux et al. 2019) is parameter-free: resolution is "
+                "defined by the highest-frequency peak of the "
+                "decorrelation curve found via repeated high-pass "
+                "pre-filtering, not by a fixed correlation threshold.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         self.pixel_size  = float(pixel_size)
-        self.n_r         = int(n_r)
-        self.threshold   = float(threshold)
+        self.n_r         = max(int(n_r), 30)   # reference enforces >= 30
+        self.n_g         = max(int(n_g), 5)    # reference enforces >= 5
         self.apod_width  = int(apod_width)
         self.axis        = int(axis)
         self.n_slices    = int(n_slices)
@@ -190,7 +242,7 @@ class ImageDecorr:
                 "The decorrelation algorithm was designed for raw 2-D "
                 "microscopy images; applied to reconstructed slices it gives "
                 "unreliable results because correlated noise biases the "
-                "ring-correlation toward low spatial frequencies.  "
+                "correlation curve toward low spatial frequencies.  "
                 "For tomographic resolution estimation use FSC/SSNR or "
                 "LocalFSC instead.",
                 UserWarning,
@@ -202,15 +254,22 @@ class ImageDecorr:
         """Run the analysis on a single 2-D image and store results."""
         self._warn_if_tomo(img2d)
         self.nr, self.nc = img2d.shape
-        print(f"  Image size : {self.nr} × {self.nc} pixels")
+        print(f"  Image size : {self.nr} x {self.nc} pixels")
         print(f"  Pixel size : {self.pixel_size}")
-        print(f"  Threshold  : {self.threshold}")
 
         # Temporarily point self.image at the 2-D slice so _apodize works
         _saved = self.image
         self.image = img2d
-        self.r_values, self.A, self.d = self._compute()
-        self.r_res, self.resolution_px, self.resolution = self._find_resolution()
+        (
+            self.r_values,
+            self.A,
+            self.d,
+            self.kc_candidates,
+            self.snr_candidates,
+            self.r_res,
+            self.resolution_px,
+            self.resolution,
+        ) = self._compute()
         self.image = _saved
 
         print(
@@ -276,7 +335,6 @@ class ImageDecorr:
             f"{range_str}, sampling {len(indices)} slice(s)"
         )
         print(f"  Pixel size   : {self.pixel_size}")
-        print(f"  Threshold    : {self.threshold}")
 
         # Check the full volume for tomographic reconstruction characteristics
         # before the per-slice loop; call _warn_if_tomo on the first slice so
@@ -341,96 +399,239 @@ class ImageDecorr:
         img -= img.mean()
         return img
 
+    @staticmethod
+    def _corrcoef(I1, I2, norm1=None, norm2=None, eps=None):
+        """
+        Normalised cross-correlation coefficient between two Fourier
+        spectra, following ``getCorrcoef.m`` in the reference
+        implementation::
+
+            cc = sum(Re(I1 * conj(I2))) / (norm(I1) * norm(I2))
+
+        ``norm1``/``norm2`` may be supplied pre-computed (e.g. the norm of
+        a spectrum that does not change within an inner loop) to avoid
+        recomputation; otherwise they default to the L2 norm of ``I1``
+        and ``I2`` respectively.
+        """
+        if eps is None:
+            eps = np.finfo(np.float64).tiny
+        if norm1 is None:
+            norm1 = np.sqrt(np.sum(np.abs(I1) ** 2))
+        if norm2 is None:
+            norm2 = np.sqrt(np.sum(np.abs(I2) ** 2))
+        if norm1 < eps or norm2 < eps:
+            return 0.0
+        cc = float(np.sum(np.real(I1 * np.conj(I2))) / (norm1 * norm2))
+        return cc
+
+    @staticmethod
+    def _local_max(curve):
+        """
+        Locate the first genuine local maximum of ``curve``, following
+        ``getDcorrLocalMax.m`` in the reference implementation.
+
+        Starting from the global maximum, the trailing tail of the curve
+        is progressively discarded: if the maximum sits at the very end
+        of the (remaining) array the curve is still rising there and is
+        not yet a real interior peak, so the last point is dropped and
+        the maximum re-evaluated; this repeats until either the maximum
+        falls at the very first point, or its prominence relative to the
+        remaining tail (``amplitude - min(tail)``) reaches at least
+        ``5e-4``, at which point it is accepted as the peak.
+
+        Parameters
+        ----------
+        curve : array_like
+            1-D decorrelation curve.
+
+        Returns
+        -------
+        idx : int
+            Index of the accepted local maximum within the *original*
+            ``curve``.
+        amp : float
+            Value of ``curve`` at ``idx``.
+        """
+        c = list(np.asarray(curve, dtype=np.float64))
+        n0 = len(c)
+        if n0 < 2:
+            return 0, (c[0] if c else 0.0)
+
+        while len(c) > 1:
+            amp = max(c)
+            idx = c.index(amp)
+            if idx == len(c) - 1:
+                c.pop()
+                continue
+            if idx == 0:
+                break
+            if amp - min(c[idx:]) >= 5e-4:
+                break
+            c.pop()
+
+        amp = max(c)
+        idx = c.index(amp)
+        return idx, amp
+
     def _compute(self):
         """
-        Compute the phase-normalised ring correlation A(r).
+        Run the full decorrelation-analysis algorithm (Descloux et al.
+        2019) on ``self.image`` and return all result arrays.
 
-        For each ring at radius *r* (cycles/pixel):
+        This follows ``getDcorr.m`` step by step:
 
-        1. Divide the FFT by its modulus (keep only the phase):
-           ``F_n = F / |F|``
-        2. Apply a ring mask of width ``dr`` centred on *r*.
-        3. Back-transform to real space: ``I_n_r = Re(IFFT(F_n * ring))``.
-        4. Compute the Pearson correlation between the apodized image
-           and ``I_n_r``.
+        1. Fourier-transform the apodized image and build the
+           phase-normalised spectrum ``F_n = F / |F|``, restricted to the
+           unit (Nyquist) disk.
+        2. Sweep a cumulative low-pass radius ``rn`` from just above 0 to
+           1 (Nyquist); at each ``rn``, mask ``F_n`` with the disk
+           ``R < rn`` and compute its normalised cross-correlation
+           coefficient against the full, unmasked spectrum ``F``. This
+           is the base decorrelation curve, ``A(rn)``.
+        3. Locate the first genuine local maximum of ``A`` (not a
+           threshold crossing).
+        4. Repeat steps 2-3 after pre-filtering ``F`` (not ``F_n``) with
+           a sequence of increasingly aggressive Gaussian high-pass
+           filters, to reject spurious low-frequency maxima. Two
+           refinement passes are performed, narrowing the search range
+           around the best peak found after the first pass, exactly as
+           in the reference implementation.
+        5. Discard any candidate peak whose amplitude (a proxy for its
+           SNR) is below 0.05, and take the highest surviving frequency
+           as the resolution-defining peak.
+
+        No fixed correlation threshold is used anywhere in this
+        procedure. Frequencies are expressed internally on the
+        reference implementation's own normalised scale (0 to 1,
+        Nyquist = 1) and converted back to cycles/pixel (Nyquist = 0.5,
+        matching the rest of this module) only for the returned values.
 
         Returns
         -------
         r_values : ndarray
-            Radial frequency axis (cycles/pixel).
+            Radial frequency axis of the base curve (cycles/pixel).
         A : ndarray
-            Normalised ring correlation.
+            Base decorrelation curve (before high-pass refinement).
         d : ndarray
-            Decorrelation function ``d = 1 − A``.
+            ``1 - A``.
+        kc_candidates : ndarray
+            Peak frequencies found at every stage (cycles/pixel).
+        snr_candidates : ndarray
+            Peak amplitudes corresponding to ``kc_candidates``.
+        r_res : float
+            Resolution frequency (cycles/pixel): the highest-frequency
+            accepted peak.
+        resolution_px : float
+            Resolution in pixels (= 1 / r_res), full-period convention.
+        resolution : float
+            Resolution in physical units.
         """
+        eps = np.finfo(np.float64).tiny
         img = self._apodize()
 
-        # Phase-normalised FFT
         F   = fft2(img)
-        eps = np.finfo(np.float64).tiny
         F_n = F / (np.abs(F) + eps)
 
-        # Radial coordinate map (cycles/pixel, FFT-shifted layout)
-        fy = fftfreq(self.nr)   # shape (nr,)
-        fx = fftfreq(self.nc)   # shape (nc,)
+        # Radial frequency: cycles/pixel (Nyquist = 0.5), then normalised
+        # to the reference implementation's own convention (Nyquist = 1).
+        fy = fftfreq(self.nr)
+        fx = fftfreq(self.nc)
         FY, FX = np.meshgrid(fy, fx, indexing="ij")
-        R = np.sqrt(FX ** 2 + FY ** 2)
+        R_cyc = np.sqrt(FX ** 2 + FY ** 2)
+        Rn    = R_cyc / 0.5
 
-        # Frequency axis
-        r_min = 1.0 / min(self.nr, self.nc)
-        r_max = 0.5   # Nyquist
-        r_values = np.linspace(r_min, r_max, self.n_r)
-        dr = r_values[1] - r_values[0]
+        disk0 = Rn < 1.0
+        F_n   = F_n * disk0
+        F0    = F * disk0
 
-        # Precompute image statistics (zero-mean, already done in _apodize)
-        img_flat = img.ravel()
-        img_rms  = np.sqrt(np.mean(img_flat ** 2))
-        if img_rms < eps:
-            return r_values, np.zeros(self.n_r), np.ones(self.n_r)
+        n_r, n_g = self.n_r, self.n_g
+        rn_values = np.linspace(1.0 / max(self.nr, self.nc), 1.0, n_r)
 
-        A = np.zeros(self.n_r)
-        for i, r in enumerate(r_values):
-            ring_mask = (R >= r - 0.5 * dr) & (R < r + 0.5 * dr)
-            if not np.any(ring_mask):
-                continue
-            F_n_r = F_n * ring_mask
-            I_n_r = np.real(ifft2(F_n_r))
-            ring_rms = np.sqrt(np.mean(I_n_r ** 2))
-            if ring_rms < eps:
-                continue
-            A[i] = np.mean(img_flat * I_n_r.ravel()) / (img_rms * ring_rms)
+        c0 = np.sqrt(np.sum(np.abs(F0) ** 2))
+        if c0 < eps:
+            # Blank/constant image: nothing to resolve.
+            r_values = rn_values * 0.5
+            A = np.zeros(n_r)
+            d = np.ones(n_r)
+            return (
+                r_values, A, d,
+                np.zeros(1), np.zeros(1),
+                r_values[-1], 1.0 / r_values[-1],
+                self.pixel_size / r_values[-1],
+            )
 
-        d = 1.0 - A
-        return r_values, A, d
+        # --- base curve d0(rn): no high-pass pre-filtering ---
+        A0 = np.zeros(n_r)
+        for i, rn in enumerate(rn_values):
+            mask = Rn < rn
+            A0[i] = self._corrcoef(F0, F_n * mask, norm1=c0)
+        idx0, snr0 = self._local_max(A0)
+        kc0 = rn_values[idx0]
 
-    def _find_resolution(self):
-        """
-        Find the resolution spatial frequency from the correlation curve.
+        kc_candidates  = [kc0]
+        snr_candidates = [snr0]
 
-        The resolution is the **highest** spatial frequency r for which
-        A(r) ≥ ``self.threshold``.  If the correlation never exceeds
-        the threshold the Nyquist frequency is returned as a conservative
-        (worst-case) estimate.
+        # --- refinement: repeated Gaussian high-pass pre-filtering ---
+        g_max = 2.0 / kc0 if kc0 > 0 else max(self.nr, self.nc) / 2.0
+        g_values = np.concatenate((
+            [max(self.nr, self.nc) / 4.0],
+            np.exp(np.linspace(np.log(g_max), np.log(0.15), n_g)),
+        ))
+        r_lo, r_hi = rn_values[0], rn_values[-1]
 
-        Returns
-        -------
-        r_res : float
-            Resolution frequency (cycles/pixel).
-        resolution_px : float
-            Resolution in pixels (= 1 / r_res).
-        resolution : float
-            Resolution in physical units (= pixel_size * resolution_px).
-        """
-        above = self.A >= self.threshold
-        if not np.any(above):
-            # Correlation never reaches threshold — return Nyquist as limit
-            r_res = self.r_values[-1]
-        else:
-            r_res = self.r_values[above][-1]
+        for stage in range(2):  # two-step refinement, as in getDcorr.m
+            r_sweep = np.linspace(r_lo, r_hi, n_r)
+            stage_kc = []
+            for g in g_values:
+                Ir = F0 * (1.0 - np.exp(-2.0 * g ** 2 * Rn ** 2))
+                c_r = np.sqrt(np.sum(np.abs(Ir) ** 2))
+                d_g = np.zeros(n_r)
+                for i, rn in enumerate(r_sweep):
+                    mask = Rn < rn
+                    d_g[i] = self._corrcoef(Ir, F_n * mask, norm1=c_r)
+                idx, snr = self._local_max(d_g)
+                kc_candidates.append(r_sweep[idx])
+                snr_candidates.append(snr)
+                stage_kc.append(r_sweep[idx])
 
-        resolution_px   = 1.0 / r_res
-        resolution      = resolution_px * self.pixel_size
-        return r_res, resolution_px, resolution
+            if stage == 0:
+                # Narrow the high-pass and radius search ranges around
+                # the best (highest-frequency) peak found in this stage,
+                # matching the "if refin == 1" block of getDcorr.m.
+                best = int(np.argmax(stage_kc))
+                if best == 0:
+                    g1, g2 = max(self.nr, self.nc), g_values[0]
+                else:
+                    g1 = g_values[max(best - 1, 0)]
+                    g2 = g_values[min(best, len(g_values) - 1)]
+                g_values = np.exp(np.linspace(np.log(g1), np.log(g2), n_g))
+                r_lo = max(0.0, stage_kc[best] - (rn_values[1] - rn_values[0]))
+                r_hi = min(1.0, stage_kc[best] + 0.4)
+
+        kc_candidates  = np.array(kc_candidates + [kc0])
+        snr_candidates = np.array(snr_candidates + [snr0])
+
+        valid = snr_candidates >= 0.05
+        if not np.any(valid):
+            valid = np.ones_like(valid, dtype=bool)
+        kc_max = float(np.max(kc_candidates[valid]))
+
+        # Convert back to cycles/pixel (Nyquist = 0.5) for all outputs.
+        r_values = rn_values * 0.5
+        A = A0
+        d = 1.0 - A0
+        kc_candidates_px = kc_candidates * 0.5
+        snr_out = snr_candidates
+
+        r_res = max(kc_max * 0.5, eps)
+        resolution_px = 1.0 / r_res
+        resolution = resolution_px * self.pixel_size
+
+        return (
+            r_values, A, d,
+            kc_candidates_px, snr_out,
+            r_res, resolution_px, resolution,
+        )
 
     # ------------------------------------------------------------------
     # Public interface
@@ -440,9 +641,11 @@ class ImageDecorr:
         """
         Plot the decorrelation analysis result.
 
-        For a **2-D** input (or after 3-D analysis) the decorrelation
-        curve A(r) is shown together with the threshold line and the
-        resolution estimate marker.
+        For a **2-D** input (or after 3-D analysis) the base decorrelation
+        curve A(r) is shown together with the accepted resolution peak
+        (the highest-frequency candidate surviving the SNR >= 0.05
+        filter across all high-pass refinement stages) and, for context,
+        the other candidate peaks found during refinement.
 
         For a **3-D** input a histogram of the per-slice resolution
         estimates is shown in addition to the A(r) curve of the last
@@ -453,9 +656,9 @@ class ImageDecorr:
         r_values : ndarray
             Radial spatial frequencies (cycles/pixel).
         A : ndarray
-            Normalised ring correlation A(r).
+            Base decorrelation curve A(r).
         d : ndarray
-            Decorrelation function d(r) = 1 − A(r).
+            ``1 - A(r)``.
         resolution_px : float
             Estimated resolution in pixels (median for 3-D input).
         """
@@ -498,10 +701,11 @@ class ImageDecorr:
             ax = fig.add_subplot(111)
             title_suffix = ""
 
-        ax.plot(fn, A, "-b", label="A(r)  (ring correlation)")
+        ax.plot(fn, A, "-b", label="A(r)  (base decorrelation curve)")
         ax.plot(fn, d, "-g", label="d(r) = 1 − A(r)")
-        ax.axhline(self.threshold, color="r", linestyle="--",
-                   label=f"Threshold = {self.threshold}")
+        if self.kc_candidates.size:
+            ax.plot(self.kc_candidates / 0.5, self.snr_candidates, "x",
+                    color="0.5", label="Candidate peaks (refinement)")
         ax.axvline(self.r_res / 0.5, color="k", linestyle=":",
                    label=f"Resolution ≈ {self.resolution_px:.1f} px")
         ax.legend()
