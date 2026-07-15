@@ -113,7 +113,8 @@ class ImageDecorr:
         Peak frequencies (cycles/pixel) found at every refinement stage
         (base curve plus every high-pass pre-filtering strength tried).
         The resolution is the maximum of the entries that pass the
-        SNR >= 0.05 quality filter.  For 3-D input: result of the last
+        SNR >= 0.05 quality filter; if none pass, the lowest swept
+        frequency is reported instead.  For 3-D input: result of the last
         slice processed.
     snr_candidates : ndarray
         Peak amplitudes corresponding to ``kc_candidates``.
@@ -377,7 +378,16 @@ class ImageDecorr:
 
     def _apodize(self):
         """
-        Apply a Hanning apodization window and subtract the mean.
+        Subtract the mean, then apply a Hanning apodization window.
+
+        The order matters.  Windowing an image that still carries a DC
+        pedestal imprints the window's own taper onto the spectrum; once the
+        pedestal dominates the contrast that taper *is* the strongest
+        structure present, so the analysis measures the window rather than
+        the image and returns a "resolution" that merely tracks
+        ``apod_width``.  Removing the mean first leaves the window
+        modulating only genuine structure, and lets the blank-image guard in
+        ``_compute`` fire as documented.
 
         Returns
         -------
@@ -385,6 +395,7 @@ class ImageDecorr:
             Zero-mean apodized copy of the image.
         """
         img = self.image.copy()
+        img -= img.mean()
         if self.apod_width > 0:
             # Tukey-like window: cosine taper of width apod_width on each side
             wr = np.ones(self.nr)
@@ -396,7 +407,6 @@ class ImageDecorr:
             wc[:aw] = half_h[:aw]
             wc[-aw:] = half_h[aw:]
             img *= np.outer(wr, wc)
-        img -= img.mean()
         return img
 
     @staticmethod
@@ -498,7 +508,13 @@ class ImageDecorr:
            in the reference implementation.
         5. Discard any candidate peak whose amplitude (a proxy for its
            SNR) is below 0.05, and take the highest surviving frequency
-           as the resolution-defining peak.
+           as the resolution-defining peak.  If no candidate survives,
+           report the lowest swept frequency (worst resolution).
+
+        The image is mean-subtracted *before* apodization (see
+        ``_apodize``): windowing a DC pedestal would otherwise imprint the
+        window taper on the spectrum and make the result track
+        ``apod_width`` rather than the image content.
 
         No fixed correlation threshold is used anywhere in this
         procedure. Frequencies are expressed internally on the
@@ -549,15 +565,18 @@ class ImageDecorr:
 
         c0 = np.sqrt(np.sum(np.abs(F0) ** 2))
         if c0 < eps:
-            # Blank/constant image: nothing to resolve.
+            # Blank/constant image: nothing to resolve.  Report the LOWEST
+            # frequency (worst resolution), as getDcorr.m does when no valid
+            # peak exists -- never the optimistic Nyquist end, which would
+            # claim the best possible resolution for an empty image.
             r_values = rn_values * 0.5
             A = np.zeros(n_r)
             d = np.ones(n_r)
             return (
                 r_values, A, d,
                 np.zeros(1), np.zeros(1),
-                r_values[-1], 1.0 / r_values[-1],
-                self.pixel_size / r_values[-1],
+                r_values[0], 1.0 / r_values[0],
+                self.pixel_size / r_values[0],
             )
 
         # --- base curve d0(rn): no high-pass pre-filtering ---
@@ -608,13 +627,22 @@ class ImageDecorr:
                 r_lo = max(0.0, stage_kc[best] - (rn_values[1] - rn_values[0]))
                 r_hi = min(1.0, stage_kc[best] + 0.4)
 
-        kc_candidates  = np.array(kc_candidates + [kc0])
-        snr_candidates = np.array(snr_candidates + [snr0])
+        # kc0/snr0 are already the first entry, added before the refinement
+        # loop; the reference appends them once, so do not duplicate here.
+        kc_candidates  = np.array(kc_candidates)
+        snr_candidates = np.array(snr_candidates)
 
+        # Discard peaks too weak to be meaningful, then take the
+        # highest-frequency survivor.  If nothing survives there is no
+        # resolvable structure: fall back to the lowest frequency (worst
+        # resolution) as getDcorr.m does, rather than to max() over the
+        # rejected candidates, which would report the most optimistic peak
+        # precisely when none of them is trustworthy.
         valid = snr_candidates >= 0.05
-        if not np.any(valid):
-            valid = np.ones_like(valid, dtype=bool)
-        kc_max = float(np.max(kc_candidates[valid]))
+        if np.any(valid):
+            kc_max = float(np.max(kc_candidates[valid]))
+        else:
+            kc_max = float(rn_values[0])
 
         # Convert back to cycles/pixel (Nyquist = 0.5) for all outputs.
         r_values = rn_values * 0.5
