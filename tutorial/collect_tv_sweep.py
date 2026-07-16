@@ -39,17 +39,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-TV_VALUES = [0.0, 1e-6, 1e-5, 5e-5, 5e-4]
-
-
-def _fmt_tv(tv):
-    """Match the shell's formatting of the TV value in paths (e.g. '0', '1e-6')."""
-    if tv == 0:
-        return "0"
-    s = f"{tv:g}"
-    return s
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=os.getcwd(),
@@ -69,14 +58,31 @@ def main():
             k, v = p.split("=", 1)
             pairs.append((float(k), os.path.abspath(os.path.expanduser(v))))
     else:
-        pairs = [(tv, os.path.join(args.root, f"fsc_tv{_fmt_tv(tv)}",
-                                   "fsc_data_normfreq.npz"))
-                 for tv in TV_VALUES]
+        # Discover whatever fsc_tv*/ folders actually exist and parse the TV
+        # from each folder name.  This is robust to how the shell formatted the
+        # value (fsc_tv1e-6 vs fsc_tv1e-06, fsc_tv5e-4 vs fsc_tv0.0005): float()
+        # accepts all of them, so we never have to predict the exact string.
+        import glob
+        pairs = []
+        for dpath in glob.glob(os.path.join(args.root, "fsc_tv*")):
+            if not os.path.isdir(dpath):
+                continue
+            token = os.path.basename(dpath)[len("fsc_tv"):]
+            try:
+                tv = float(token)
+            except ValueError:
+                print(f"  [skip] {os.path.basename(dpath)}: cannot parse TV")
+                continue
+            pairs.append((tv, os.path.join(dpath, "fsc_data_normfreq.npz")))
+        if not pairs:
+            print(f"  No fsc_tv*/ folders found under {args.root}. "
+                  f"Have the sweep jobs finished? (squeue -u $USER)")
 
     rows = []
-    for tv, path in pairs:
+    for tv, path in sorted(pairs):
         if not os.path.isfile(path):
-            print(f"  [skip] TV={tv:g}: not found -> {path}")
+            print(f"  [skip] TV={tv:g}: folder exists but FSC not written yet "
+                  f"-> {path}")
             continue
         d = np.load(path, allow_pickle=True)
         rows.append((tv, float(d["res_hb_fbp"]), float(d["res_hb_tp"])))
