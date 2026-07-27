@@ -55,5 +55,11 @@ setuptools.setup(
             "sphinx>=5.0",
             "sphinx-rtd-theme>=1.0",
         ],
+        # Optional PyTorch backend for the two-pass multislice and FBaP GPU
+        # paths.  Not required: toupy falls back to the pure NumPy backend when
+        # torch is absent.  Install with:  pip install toupy[torch]
+        "torch": [
+            "torch>=1.10.0",
+        ],
     },
 )
