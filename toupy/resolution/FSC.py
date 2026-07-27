@@ -874,9 +874,28 @@ class LocalFSC:
     step : int or None, optional
         Step size in voxels between adjacent box centres.
         Default ``box_size // 2`` (50 % overlap).
-    threshold : float, optional
-        FSC/FRC threshold used to define the local resolution limit.
-        Default ``0.143`` (half-bit criterion).
+    threshold : float or {'1bit', 'halfbit'}, optional
+        Criterion used to define the local resolution limit.
+
+        float
+            A fixed FSC threshold applied at every shell, e.g. ``0.143``
+            (the Rosenthal & Henderson, 2003, "gold-standard" criterion —
+            *not* the half-bit criterion, despite the common conflation
+            of the two [3]_) or ``0.5`` (the fixed threshold used by
+            Cardone, Heymann & Steven, 2013, in ``blocres`` [1]_, the
+            reference local-FSC implementation this class follows).
+            Default ``0.143``.
+        ``'1bit'`` or ``'halfbit'``
+            The shell-size-corrected one-bit or half-bit threshold of
+            van Heel & Schatz, 2005 [2]_, evaluated per shell from the
+            number of independent Fourier voxels actually present in
+            *this* box, rather than the fixed asymptotic value. Rohou,
+            2020 [4]_, shows that fixed FSC thresholds (0.143 or 0.5
+            alike) are biased toward over-estimating resolution in the
+            sparsely populated low-frequency shells of small
+            sub-volumes — precisely the regime ``LocalFSC`` operates in
+            — so this option is recommended whenever ``box_size`` is
+            small relative to the reconstruction.
 
     Attributes
     ----------
@@ -904,7 +923,33 @@ class LocalFSC:
         Mean half-period local resolution in pixels.
     resolution_std_half : float
         Standard deviation of half-period local resolution in pixels.
+
+    References
+    ----------
+    .. [1] G. Cardone, J. B. Heymann, and A. C. Steven, "One number does
+       not fit all: Mapping local variations in resolution in cryo-EM
+       reconstructions", J. Struct. Biol. 184, 226-236 (2013).
+       https://doi.org/10.1016/j.jsb.2013.08.002
+    .. [2] M. van Heel and M. Schatz, "Fourier shell correlation threshold
+       criteria", J. Struct. Biol. 151, 250-262 (2005).
+       https://doi.org/10.1016/j.jsb.2005.05.009
+    .. [3] P. B. Rosenthal and R. Henderson, "Optimal determination of
+       particle orientation, absolute hand, and contrast loss in
+       single-particle electron cryomicroscopy", J. Mol. Biol. 333,
+       721-745 (2003). https://doi.org/10.1016/j.jmb.2003.07.013
+    .. [4] A. Rohou, "Fourier shell correlation criteria for local
+       resolution estimation", bioRxiv 2020.03.01.972067 (2020).
+       https://doi.org/10.1101/2020.03.01.972067
     """
+
+    _ADAPTIVE_SNR = {
+        "1bit": 0.5,
+        "one-bit": 0.5,
+        "onebit": 0.5,
+        "halfbit": 0.2071,
+        "half-bit": 0.2071,
+        "1/2bit": 0.2071,
+    }
 
     def __init__(self, vol1, vol2, pixel_size=1.0, box_size=32, step=None, threshold=0.143):
         print("Calling the class LocalFSC")
@@ -921,7 +966,24 @@ class LocalFSC:
         self.pixel_size = float(pixel_size)
         self.box_size = int(box_size)
         self.step = int(step) if step is not None else self.box_size // 2
-        self.threshold = float(threshold)
+
+        # threshold: either a fixed FSC value (as before), or a
+        # shell-size-corrected criterion ('1bit' / 'halfbit', van Heel &
+        # Schatz, 2005) evaluated per shell from the number of
+        # independent Fourier voxels n(xi) actually present in that box.
+        # See the class docstring for the rationale (Rohou, 2020).
+        if isinstance(threshold, str):
+            key = threshold.lower()
+            if key not in self._ADAPTIVE_SNR:
+                raise ValueError(
+                    f"LocalFSC: threshold string must be one of "
+                    f"{sorted(set(self._ADAPTIVE_SNR))!r}, got {threshold!r}."
+                )
+            self.threshold = threshold
+            self._adaptive_snr = self._ADAPTIVE_SNR[key]
+        else:
+            self.threshold = float(threshold)
+            self._adaptive_snr = None
 
         self._compute()
 
@@ -956,8 +1018,11 @@ class LocalFSC:
 
         Subtracts the mean, applies *window*, computes the FFT, builds
         radial shells using ``scipy.fft.fftfreq``, and returns the local
-        resolution at the shell where FSC first drops below
-        ``self.threshold``.
+        resolution at the shell where FSC first drops below the chosen
+        threshold — either the fixed value ``self.threshold``, or, when
+        ``self._adaptive_snr`` is set, the van Heel & Schatz (2005)
+        shell-size-corrected threshold evaluated from the actual number
+        of independent Fourier voxels in each shell of *this* box.
 
         Parameters
         ----------
@@ -972,7 +1037,7 @@ class LocalFSC:
         -------
         resolution_px : float
             Local resolution in pixels.  Returns ``box_size * 2.0`` when
-            the FSC never reaches ``self.threshold`` (bad estimate).
+            the FSC never reaches the chosen threshold (bad estimate).
         """
         b = self.box_size
         eps = np.finfo(np.float64).tiny
@@ -993,9 +1058,12 @@ class LocalFSC:
         max_shell = b // 2
 
         fsc_vals = []
+        n_vals = []
         for s in range(max_shell + 1):
             mask = shell_idx == s
-            if not np.any(mask):
+            n_shell = int(np.sum(mask))
+            n_vals.append(n_shell)
+            if n_shell == 0:
                 fsc_vals.append(0.0)
                 continue
             f1 = F1[mask]
@@ -1008,8 +1076,22 @@ class LocalFSC:
 
         fsc_arr = np.array(fsc_vals)
 
-        # Find the highest shell where FSC >= threshold
-        above = np.where(fsc_arr[1:] >= self.threshold)[0] + 1  # skip DC
+        if self._adaptive_snr is not None:
+            # Shell-size-corrected threshold (van Heel & Schatz, 2005),
+            # evaluated per shell from n(xi) actually present in this box:
+            #   T(xi) = [SNR + (2*sqrt(SNR)+1)/sqrt(n)] / [SNR + 1 + 2*sqrt(SNR)/sqrt(n)]
+            n_arr = np.maximum(np.array(n_vals, dtype=np.float64), 1.0)
+            snr = self._adaptive_snr
+            sqrt_snr = np.sqrt(snr)
+            sqrt_n = np.sqrt(n_arr)
+            thr_arr = (snr + (2.0 * sqrt_snr + 1.0) / sqrt_n) / (
+                snr + 1.0 + 2.0 * sqrt_snr / sqrt_n
+            )
+            above = np.where(fsc_arr[1:] >= thr_arr[1:])[0] + 1  # skip DC
+        else:
+            # Find the highest shell where FSC >= fixed threshold
+            above = np.where(fsc_arr[1:] >= self.threshold)[0] + 1  # skip DC
+
         if len(above) == 0:
             return float(b * 2.0)
         r_res_shell = above[-1]
