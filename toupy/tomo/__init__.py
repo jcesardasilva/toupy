@@ -15,3 +15,4 @@ try:
     from .multislice_torch import *
 except ImportError:
     pass   # torch not installed; NumPy multislice backend still available
+from .filtered_backprop import *
