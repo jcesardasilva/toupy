@@ -19,7 +19,6 @@ from ..utils import tqdm
 from .filesrw import *
 from .h5chunk_shape_3D import chunk_shape_3D
 from ..utils import (
-    checkhostname,
     convert_to_delta,
     convert_to_beta,
     padarray_bothsides,
@@ -703,7 +702,6 @@ class LoadProjections(PathName, Variables):
             stack_objs = np.insert(stack_objs, ii, stack_objs[ii - 1], axis=0)
         return stack_objs, theta
 
-    @checkhostname
     def _load_projections(self):
         """
         Load the reconstructed projections from ptyr or cxi files.
@@ -804,7 +802,6 @@ class LoadProjections(PathName, Variables):
         print("All projections loaded\n")
         return stack_objs, stack_angles, pxsize, paramsload
 
-    @checkhostname
     def _load_edfprojections(self):
         """
         Load projections from EDF files.
@@ -1441,7 +1438,6 @@ class LoadData(PathName, Variables):
             masks = fid["masks/stack"][()]
         return masks
 
-    @checkhostname
     def _load_data(self, h5name):
         """
         Load data from h5 file
@@ -1516,7 +1512,6 @@ class LoadData(PathName, Variables):
         print("Time elapsed = {:.03f} s".format(time.time() - it0))
         return stack_projs, theta, shiftstack, datakwargs
 
-    @checkhostname
     def _load_olddata(h5name, **params):
         """
         Load data from the old-format h5 file.
@@ -1885,7 +1880,6 @@ class LoadTomogram(LoadData):
         """
         return cls(**params)._load_tomogram(*args)
 
-    @checkhostname
     def _load_tomogram(self, h5name):
         """
         Load tomographic data from h5 file

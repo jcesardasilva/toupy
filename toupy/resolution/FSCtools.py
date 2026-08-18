@@ -16,7 +16,6 @@ import numpy as np
 
 # local packages
 from ..utils.FFT_utils import fastfftn
-from ..utils.funcutils import checkhostname
 from ..utils import isnotebook
 from ..tomo import tomo_recons
 
