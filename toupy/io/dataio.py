@@ -622,7 +622,7 @@ class LoadProjections(PathName, Variables):
             scanname = os.path.basename(Path(proj).parents[0])
             rawfile = os.path.join(scanname, scanname + suffixfile)
             if not self.legacy:
-                rawscanprefix = re.sub("_subtomo\w+", "", scanname)
+                rawscanprefix = re.sub(r"_subtomo\w+", "", scanname)
                 rawfile = os.path.join(rawscanprefix, scanname + suffixfile)
             rawfilepath = os.path.join(Path(proj).parents[3], rawfile)
             thetas[keys] = read_theta_raw(rawfilepath,detector=self.detector)  # reading theta

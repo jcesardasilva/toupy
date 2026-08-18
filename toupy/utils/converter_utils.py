@@ -17,7 +17,7 @@ __all__ = [
 
 
 def convert_to_mu(input_img, wavelen):
-    """
+    r"""
     Convert image gray-levels from absorption index Beta to linear attenuation coefficient mu.
 
     Parameters
@@ -37,7 +37,7 @@ def convert_to_mu(input_img, wavelen):
 
 
 def convert_to_rhoe(input_img, wavelen):
-    """
+    r"""
     Convert image gray-levels from refractive index decrement delta to electron density.
 
     Parameters
@@ -59,7 +59,7 @@ def convert_to_rhoe(input_img, wavelen):
 
 
 def convert_to_rhom(input_img, wavelen, A, Z):
-    """
+    r"""
     Convert image gray-levels from electron density to mass density.
 
     Parameters
