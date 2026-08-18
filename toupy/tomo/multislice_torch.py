@@ -57,6 +57,8 @@ __all__ = [
     "warmup_device",
     "rotate_volume_torch",
     "TorchFresnelPropagator",
+    "TorchAngularSpectrumPropagator",
+    "get_torch_propagator",
     "TorchMultisliceEngine",
     "extract_slices_torch",
     "scatter_gradient_torch",
@@ -231,12 +233,15 @@ def rotate_volume_torch(vol: torch.Tensor, theta_deg: float) -> torch.Tensor:
 # Fresnel propagator
 # ---------------------------------------------------------------------------
 
-class TorchFresnelPropagator:
+class _TorchPropagatorBase:
     """
-    Paraxial Fresnel propagator in the Fourier domain (PyTorch backend).
+    Base class for Fourier-domain propagators (PyTorch backend).
 
-    Mirrors :class:`~toupy.tomo.multislice.FresnelPropagator` with
-    complex64 arithmetic on the selected device.
+    Mirrors :class:`~toupy.tomo.multislice._PropagatorBase` with complex64
+    arithmetic on the selected device.  Pre-computes the transverse
+    squared-frequency grid ``f² = f_x² + f_y²`` once; subclasses implement
+    :meth:`_kernel` and share :meth:`propagate` / :meth:`propagate_adjoint`.
+    Matter correction rescales the wavelength to ``λ_eff = λ / (1 − δ̄)``.
 
     Parameters
     ----------
@@ -261,11 +266,13 @@ class TorchFresnelPropagator:
         self._f2 = (FX ** 2 + FY ** 2).to(torch.float32)   # (Ny, Nx)
 
     # ------------------------------------------------------------------
+    def _lambda_eff(self, delta_mean: float) -> float:
+        """In-medium wavelength ``λ_eff = λ / (1 − δ̄)``."""
+        return self.wavelength / (1.0 - float(delta_mean))
+
     def _kernel(self, distance: float, delta_mean: float = 0.0) -> torch.Tensor:
-        n_mean  = 1.0 - float(delta_mean)
-        lam_eff = self.wavelength / n_mean
-        phase   = -math.pi * lam_eff * float(distance) * self._f2
-        return torch.exp(1j * phase)                        # complex64
+        """Build the transfer function ``H(f; Δz, δ̄)`` — subclass responsibility."""
+        raise NotImplementedError
 
     def propagate(self, wavefield: torch.Tensor,
                   distance: float, delta_mean: float = 0.0) -> torch.Tensor:
@@ -275,6 +282,85 @@ class TorchFresnelPropagator:
     def propagate_adjoint(self, wavefield: torch.Tensor,
                           distance: float, delta_mean: float = 0.0) -> torch.Tensor:
         return self.propagate(wavefield, -distance, delta_mean)
+
+
+class TorchFresnelPropagator(_TorchPropagatorBase):
+    """
+    Paraxial Fresnel propagator in the Fourier domain (PyTorch backend).
+
+    Mirrors :class:`~toupy.tomo.multislice.FresnelPropagator` with complex64
+    arithmetic:  ``H(f; Δz, δ̄) = exp(−iπ λ_eff Δz f²)``.
+    """
+
+    def _kernel(self, distance: float, delta_mean: float = 0.0) -> torch.Tensor:
+        lam_eff = self._lambda_eff(delta_mean)
+        phase   = -math.pi * lam_eff * float(distance) * self._f2
+        return torch.exp(1j * phase)                        # complex64
+
+
+class TorchAngularSpectrumPropagator(_TorchPropagatorBase):
+    r"""
+    Exact (non-paraxial) angular-spectrum propagator (PyTorch backend).
+
+    Mirrors :class:`~toupy.tomo.multislice.AngularSpectrumPropagator`.  With
+    the on-axis piston removed so ``H(0) = 1``::
+
+        H(f; Δz, δ̄) = exp( i (2π Δz / λ_eff) [ √(1 − (λ_eff f)²) − 1 ] )
+                       on the propagating band (λ_eff f)² ≤ 1, else 0.
+
+    Reduces to the Fresnel kernel in the paraxial limit; evanescent
+    components are masked (kept bounded), so ``propagate_adjoint`` remains
+    the exact adjoint.
+    """
+
+    def _kernel(self, distance: float, delta_mean: float = 0.0) -> torch.Tensor:
+        lam_eff = self._lambda_eff(delta_mean)
+        s = (lam_eff ** 2) * self._f2                       # (λ_eff f)²
+        propagating = s <= 1.0
+        root = torch.sqrt(torch.clamp(1.0 - s, min=0.0))
+        phase = (2.0 * math.pi * float(distance) / lam_eff) * (root - 1.0)
+        H = torch.exp(1j * phase)                           # complex64
+        # mask evanescent band (do not amplify)
+        return torch.where(propagating, H, torch.zeros_like(H))
+
+
+# ---------------------------------------------------------------------------
+# Propagator registry / factory (torch)
+# ---------------------------------------------------------------------------
+
+_TORCH_PROPAGATORS = {
+    "fresnel": TorchFresnelPropagator,
+    "angular_spectrum": TorchAngularSpectrumPropagator,
+    "asm": TorchAngularSpectrumPropagator,   # alias
+}
+
+
+def get_torch_propagator(spec, shape, pixel_size, wavelength, device):
+    """
+    Resolve a propagator specification into a ready-to-use torch instance.
+
+    Accepts the same specifications as
+    :func:`~toupy.tomo.multislice.get_propagator` — a name string
+    (``"fresnel"``, ``"angular_spectrum"``/``"asm"``), a
+    :class:`_TorchPropagatorBase` subclass, or an instance — plus the target
+    ``device``.
+    """
+    if isinstance(spec, _TorchPropagatorBase):
+        return spec
+    if isinstance(spec, type) and issubclass(spec, _TorchPropagatorBase):
+        return spec(shape, pixel_size, wavelength, device)
+    if isinstance(spec, str):
+        key = spec.lower()
+        if key not in _TORCH_PROPAGATORS:
+            raise ValueError(
+                f"Unknown propagator {spec!r}. Available: "
+                f"{sorted(set(_TORCH_PROPAGATORS))!r}."
+            )
+        return _TORCH_PROPAGATORS[key](shape, pixel_size, wavelength, device)
+    raise TypeError(
+        "propagator must be a name string, a _TorchPropagatorBase subclass, "
+        f"or an instance; got {type(spec).__name__}."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -300,12 +386,18 @@ class TorchMultisliceEngine:
         Number of gradient-checkpointing segments (default 1 = no
         checkpointing).  Increase to reduce GPU memory at the cost of one
         extra partial forward pass per segment.
+    propagator : str or propagator instance/class, optional
+        Inter-slice propagator: ``"fresnel"`` (default, paraxial) or
+        ``"angular_spectrum"`` (alias ``"asm"``, exact non-paraxial).  A
+        custom :class:`_TorchPropagatorBase` subclass/instance is also
+        accepted.  See :func:`get_torch_propagator`.
     """
 
     def __init__(self, shape: Tuple[int, int], pixel_size: float,
                  wavelength: float, slice_thickness: float,
                  device: Optional[torch.device] = None,
-                 n_checkpoints: int = 1) -> None:
+                 n_checkpoints: int = 1,
+                 propagator="fresnel") -> None:
         self.shape          = shape
         self.device         = device or select_device()
         self.pixel_size     = float(pixel_size)
@@ -313,8 +405,9 @@ class TorchMultisliceEngine:
         self.slice_thickness = float(slice_thickness)
         self.k0             = 2.0 * math.pi / self.wavelength
         self.n_checkpoints  = max(1, int(n_checkpoints))
-        self._prop          = TorchFresnelPropagator(
-                                  shape, pixel_size, wavelength, self.device)
+        self._prop          = get_torch_propagator(
+                                  propagator, shape, pixel_size, wavelength,
+                                  self.device)
 
     # ------------------------------------------------------------------
     def _to(self, arr) -> torch.Tensor:
