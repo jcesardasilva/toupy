@@ -22,7 +22,6 @@ from ..utils import tqdm
 
 # local packages
 from ..utils.FFT_utils import fastfftn
-from ..utils.funcutils import checkhostname
 from ..utils.plot_utils import (
     show_fsc_images,
     show_fsc_curve,
@@ -80,7 +79,6 @@ class FourierShellCorr:
 
     """
 
-    @checkhostname
     def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20):
         print("Calling the class FourierShellCorr")
         self.img1 = np.array(img1)

@@ -5,18 +5,13 @@
 import functools
 import math
 import os
-import re
 import sys
 import shutil
-import socket
 import urllib
 import urllib.request
 import warnings
 
-# local libraries imports
-from .plot_utils import isnotebook
-
-__all__ = ["switch", "deprecated", "checkhostname", "progress_bar", "tqdm", "downloadURL", "downloadURLfile"]
+__all__ = ["switch", "deprecated", "progress_bar", "tqdm", "downloadURL", "downloadURLfile"]
 
 
 from tqdm import tqdm
@@ -99,35 +94,6 @@ def deprecated(func):
             stacklevel=2,
         )
         warnings.simplefilter("default", DeprecationWarning)  # reset filter
-        return func(*args, **kwargs)
-
-    return new_func
-
-
-def checkhostname(func):
-    """
-    Check if running in OAR, if not, exit.
-    """
-
-    @functools.wraps(func)
-    def new_func(*args, **kwargs):
-        hostname = socket.gethostname()  # os.environ['HOST']
-        # hostname.find('rnice')==0:
-        if isnotebook():
-            print("You are running in a Jupyter Notebook enviroment")
-        elif re.search("hpc", hostname) or re.search("hib", hostname):
-            print("You are working on the OAR machine: {}".format(hostname))
-        elif re.search("rnice", hostname):  # os.system('oarprint host')==0:
-            print("You are working on the RNICE machine: {}".format(hostname))
-            raise SystemExit("You must use OAR machines, not RNICE")
-        elif re.search("gpu", hostname) or re.search("gpid16a", hostname):
-            print("You are working on the GPU: {}".format(hostname))
-        else:
-            print("You running in the machine {}".format(hostname))
-            print(
-                "Warning: unrecognised machine — proceeding, but make sure "
-                "you have enough memory for this computation."
-            )
         return func(*args, **kwargs)
 
     return new_func
