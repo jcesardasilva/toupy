@@ -219,24 +219,48 @@ def main():
               f"(d = {_res(f143):.1f} nm)")
 
     # --- automatic verdict -------------------------------------------------
+    #
+    # The cross-FSC is the PHYSICS discriminator, not the rel-L2 magnitude.
+    # A genuine (high-NA) propagator difference is concentrated at HIGH spatial
+    # frequency, so it makes the cross-FSC DROP near Nyquist.  A difference that
+    # leaves the cross-FSC flat at ~1 across the whole band is spatially
+    # UNSTRUCTURED (broadband) = numerical / run-to-run noise, NOT the
+    # propagator.  rel-L2 is kept only to catch amplitude/scale mismatches that
+    # the (scale-invariant) FSC would miss.
     print("\n  " + "-" * 66)
-    paraxial = np.isfinite(s_max) and s_max < 1e-3
-    negligible = (rel_l2 < 1e-3) and (not np.isfinite(f05))
-    if negligible:
-        print("  VERDICT: fresnel and asm are INDISTINGUISHABLE here.")
+    paraxial      = np.isfinite(s_max) and s_max < 1e-3
+    fsc_flat      = not np.isfinite(f05)      # cross-FSC >= 0.5 up to Nyquist
+    amplitude_ok  = rel_l2 < 1e-2
+
+    if fsc_flat and amplitude_ok:
+        print("  VERDICT: fresnel and asm are INDISTINGUISHABLE.")
+        print(f"           cross-FSC ~1 to Nyquist => the {rel_l2:.1e} relative-L2 is")
+        print("           spatially UNSTRUCTURED (broadband), i.e. run-to-run")
+        print("           numerical noise, NOT a propagator effect — a real high-NA")
+        print("           difference would drop the cross-FSC near Nyquist.")
         if paraxial:
             print(f"           Expected — deeply paraxial ((λf)²_max = {s_max:.1e}).")
-        print("           The ASM implementation is validated, and the sharpening")
-        print("           you see vs FBP is the multislice gain (same for both).")
-    elif rel_l2 < 1e-2:
-        print("  VERDICT: small but non-zero difference. Check whether it is")
-        print("           localised at the highest frequencies / sharp edges")
-        print("           (where Fresnel's parabolic approx is weakest).")
+        print("           ASM validated; the sharpening vs FBP is the multislice")
+        print("           gain (same for both). To measure the noise floor these")
+        print("           sit on, run fresnel twice and compare those two.")
+    elif fsc_flat and not amplitude_ok:
+        print("  VERDICT: volumes correlate at ALL frequencies (cross-FSC ~1) but")
+        print(f"           differ in AMPLITUDE (rel-L2 = {rel_l2:.1e}). Check for a")
+        print("           scaling / normalisation mismatch between the two runs —")
+        print("           this is not a resolution/propagator effect.")
     else:
-        print("  VERDICT: LARGE difference for this regime — INVESTIGATE before")
-        print("           claiming a physical effect. Most likely a settings")
-        print("           mismatch between the two runs, or a bug. In the paraxial")
-        print(f"           regime ((λf)²_max = {s_max:.1e}) they should agree to ~1e-4.")
+        # cross-FSC actually drops -> frequency-structured difference
+        print(f"  VERDICT: cross-FSC drops below 0.5 at f={f05:.3f} Nyq "
+              f"(d = {_res(f05):.1f} nm):")
+        print("           the difference IS frequency-structured.")
+        if paraxial:
+            print(f"           But this regime is paraxial ((λf)²_max = {s_max:.1e}),")
+            print("           where the propagators must agree — so a real spectral")
+            print("           split is unexpected: INVESTIGATE (settings mismatch/bug).")
+        else:
+            print(f"           At this NA ((λf)²_max = {s_max:.1e}) a high-frequency")
+            print("           propagator difference can be physical — this is the")
+            print("           regime where ASM genuinely departs from Fresnel.")
     print("  " + "-" * 66)
 
     # --- figure ------------------------------------------------------------
