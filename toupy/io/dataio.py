@@ -421,20 +421,16 @@ class LoadProjections(PathName, Variables):
 
         # Select the reader for this file's extension from the registry
         # (toupy.io.readers).  A new format is added by registering a reader
-        # there, not by extending this dispatch.
+        # there, not by extending this dispatch.  The reader returns a
+        # ReconFrame, which the loaders below consume directly.
         try:
-            self._frame_reader = get_reader(self.fileext)
+            self.read_reconfile = get_reader(self.fileext)
         except IOError:
             raise IOError(
                 "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
                     self.filename
                 )
             )
-        # Backward-compatible shim: the loaders below still unpack the legacy
-        # tuples.  They will consume ReconFrame directly in a later step.
-        self.read_reconfile = lambda pathfilename: self._frame_reader(
-            pathfilename
-        ).to_legacy_tuple()
 
         # create_paramsh5(**params)
 
@@ -741,7 +737,8 @@ class LoadProjections(PathName, Variables):
         import matplotlib.pyplot as plt; plt.close("all")
 
         # Read the first projection to check size and reconstruction parameters
-        objs0, probe0, pxsize, energy = self.read_reconfile(self.pathfilename)
+        frame0 = self.read_reconfile(self.pathfilename)
+        objs0, pxsize, energy = frame0.obj, frame0.pixelsize, frame0.energy
         # add the information of pixelsize and energy to params
         paramsload = dict()
         paramsload.update(self.params)
@@ -772,7 +769,9 @@ class LoadProjections(PathName, Variables):
         for idxp, proj in enumerate(self.proj_files):
             print("\nProjection: {}".format(idxp))
             print("Reading: {}".format(proj))
-            objs, probes, pxsize, energy = self.read_reconfile(proj)  # reading file
+            frame = self.read_reconfile(proj)  # reading file
+            objs, probes = frame.obj, frame.probe
+            pxsize, energy = frame.pixelsize, frame.energy
             # crop image if requested
             if self.border_crop_x is not None:
                 if self.border_crop_y is not None:
@@ -850,7 +849,13 @@ class LoadProjections(PathName, Variables):
         import matplotlib.pyplot as plt; plt.close("all")
 
         # Read the first projection to check size and reconstruction parameters
-        objs0, pxsize, energy, nvue = self.read_reconfile(self.pathfilename)
+        frame0 = self.read_reconfile(self.pathfilename)
+        objs0, pxsize, energy, nvue = (
+            frame0.obj,
+            frame0.pixelsize,
+            frame0.energy,
+            frame0.num_projections,
+        )
         if nvue != num_projections:
             raise ValueError("The number of projections is different from nvue in file")
         nr, nc = objs0.shape
@@ -880,7 +885,7 @@ class LoadProjections(PathName, Variables):
         for idxp, proj in enumerate(self.proj_files):
             print("\nProjection: {}".format(idxp))
             print("Reading: {}".format(proj))
-            objs, _, _, _ = self.read_reconfile(proj)  # reading file
+            objs = self.read_reconfile(proj).obj  # reading file
             # update stack_objs
             stack_objs[idxp] = objs
             if self.showrecons:

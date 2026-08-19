@@ -22,11 +22,12 @@ layer changes *how* readers are selected without changing *what* they read.
 
 Notes
 -----
-``.ptyr`` (PtyPy) and ``.cxi`` (PyNX) files each hold a single reconstructed
-projection (object + probe).  ``.edf`` files instead hold the entire
-projection stack in one container and carry no probe; that difference is
-represented explicitly by :attr:`ReconFrame.nframes` rather than hidden in
-the return signature.
+All three built-in formats are read one projection at a time: each file
+yields a single 2D object.  ``.ptyr`` (PtyPy) and ``.cxi`` (PyNX) objects
+are complex and come with a probe; ``.edf`` objects are real and carry no
+probe, but the EDF header additionally records how many projections the
+whole scan contains (``nvue``), surfaced as
+:attr:`ReconFrame.num_projections`.
 """
 
 # Standard library imports
@@ -54,14 +55,13 @@ __all__ = [
 @dataclass
 class ReconFrame:
     """
-    Normalised result of reading one reconstruction file.
+    Normalised result of reading one reconstructed projection.
 
     Attributes
     ----------
     obj : ndarray
-        Reconstructed object.  A single 2D projection for per-projection
-        formats (ptyr, cxi); a 3D stack for container formats that hold the
-        whole dataset in one file (edf).
+        The reconstructed object for a single projection (2D).  Complex for
+        ptyr/cxi, real for edf.
     pixelsize : ndarray or float
         Pixel size(s) in metres.  Per-projection readers return a
         ``(vertical, horizontal)`` array; the edf reader returns a scalar.
@@ -70,37 +70,17 @@ class ReconFrame:
     probe : ndarray or None, optional
         Reconstructed probe, when the format provides one.  ``None`` for
         formats that do not (edf).  Default ``None``.
-    nframes : int, optional
-        Number of projections carried by :attr:`obj`.  ``1`` when ``obj`` is a
-        single projection; ``> 1`` when ``obj`` is a pre-stacked cube.
-        Default ``1``.
+    num_projections : int or None, optional
+        Total number of projections in the scan, when the file records it in
+        its header (edf ``nvue``).  ``None`` for formats that do not carry it
+        (ptyr, cxi).  Default ``None``.
     """
 
     obj: np.ndarray
     pixelsize: object
     energy: float
     probe: Optional[np.ndarray] = None
-    nframes: int = 1
-
-    @property
-    def is_stack(self) -> bool:
-        """bool: ``True`` when :attr:`obj` already holds the whole stack."""
-        return self.nframes > 1
-
-    def to_legacy_tuple(self) -> Tuple:
-        """
-        Return the tuple shape the pre-registry readers returned.
-
-        Transitional helper so existing consumers can keep unpacking the old
-        4-tuples while the loaders are migrated to consume :class:`ReconFrame`
-        directly.  The shape matches the historical reader for the format:
-
-        * per-projection (ptyr, cxi): ``(obj, probe, pixelsize, energy)``
-        * stack container (edf): ``(obj, pixelsize, energy, nframes)``
-        """
-        if self.is_stack:
-            return self.obj, self.pixelsize, self.energy, self.nframes
-        return self.obj, self.probe, self.pixelsize, self.energy
+    num_projections: Optional[int] = None
 
 
 @runtime_checkable
@@ -231,9 +211,10 @@ class _EdfReader:
     """
     Adapter around :func:`toupy.io.filesrw.read_edf`.
 
-    EDF containers hold the entire projection stack in one file, so there is
-    no probe and ``correct_orientation`` does not apply; the number of
-    projections is reported through :attr:`ReconFrame.nframes`.
+    Each EDF file holds one projection and carries no probe, so
+    ``correct_orientation`` does not apply; the scan's total projection count
+    from the header (``nvue``) is surfaced as
+    :attr:`ReconFrame.num_projections`.
     """
 
     extensions = (".edf",)
@@ -241,9 +222,13 @@ class _EdfReader:
     def __call__(
         self, pathfilename: str, correct_orientation: bool = True
     ) -> ReconFrame:
-        stack, pixelsize, energy, nvue = read_edf(pathfilename)
+        projection, pixelsize, energy, nvue = read_edf(pathfilename)
         return ReconFrame(
-            obj=stack, pixelsize=pixelsize, energy=energy, probe=None, nframes=nvue
+            obj=projection,
+            pixelsize=pixelsize,
+            energy=energy,
+            probe=None,
+            num_projections=nvue,
         )
 
 
