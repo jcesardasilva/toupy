@@ -890,7 +890,8 @@ class LoadProjections(PathName, Variables):
             stack_objs[idxp] = objs
             if self.showrecons:
                 print("Showing projection {}".format(idxp + 1))
-                self.SP.show_projections(objs, probes, idxp)
+                # EDF projections are real-valued and have no probe
+                self.SP.show_projection_real(objs, idxp)
 
         nprojs, nr, nc = stack_objs.shape
         print("\nNumber of projections loaded: {}".format(nprojs))
