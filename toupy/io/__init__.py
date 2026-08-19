@@ -3,5 +3,6 @@
 
 # local packages
 from .filesrw import *
+from .readers import *
 from .dataio import *
 from .h5chunk_shape_3D import *

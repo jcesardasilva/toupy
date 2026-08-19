@@ -17,6 +17,7 @@ from ..utils import tqdm
 
 # local packages
 from .filesrw import *
+from .readers import get_reader
 from .h5chunk_shape_3D import chunk_shape_3D
 from ..utils import (
     check_memory_requirement,
@@ -418,18 +419,22 @@ class LoadProjections(PathName, Variables):
         if self.showrecons:
             self.SP = ShowProjections()
 
-        if self.fileext == ".ptyr":  # Ptypy
-            self.read_reconfile = read_ptyr
-        elif self.fileext == ".cxi":  # PyNX
-            self.read_reconfile = read_cxi
-        elif self.fileext == ".edf":  # edf projections
-            self.read_reconfile = read_edf
-        else:
+        # Select the reader for this file's extension from the registry
+        # (toupy.io.readers).  A new format is added by registering a reader
+        # there, not by extending this dispatch.
+        try:
+            self._frame_reader = get_reader(self.fileext)
+        except IOError:
             raise IOError(
                 "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
                     self.filename
                 )
             )
+        # Backward-compatible shim: the loaders below still unpack the legacy
+        # tuples.  They will consume ReconFrame directly in a later step.
+        self.read_reconfile = lambda pathfilename: self._frame_reader(
+            pathfilename
+        ).to_legacy_tuple()
 
         # create_paramsh5(**params)
 
