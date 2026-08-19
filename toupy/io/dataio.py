@@ -19,6 +19,7 @@ from ..utils import tqdm
 from .filesrw import *
 from .h5chunk_shape_3D import chunk_shape_3D
 from ..utils import (
+    check_memory_requirement,
     convert_to_delta,
     convert_to_beta,
     padarray_bothsides,
@@ -751,6 +752,13 @@ class LoadProjections(PathName, Variables):
             "the pixelsize of the first projection is {:.2f} nm".format(pxsize[0] * 1e9)
         )
 
+        # warn if the projection stack is unlikely to fit in available RAM
+        check_memory_requirement(
+            (num_projections, nr, nc),
+            dtype=np.complex64,
+            operation="Loading the projection stack",
+        )
+
         # initialize the array for the stack objects
         stack_objs = np.empty((num_projections, nr, nc), dtype=np.complex64)
         stack_angles = np.empty(num_projections, dtype=np.float32)
@@ -847,6 +855,13 @@ class LoadProjections(PathName, Variables):
         paramsload["pixelsize"] = pxsize
         paramsload["energy"] = energy
         print("the pixelsize of the first projection is {:.2f} nm".format(pxsize * 1e9))
+
+        # warn if the projection stack is unlikely to fit in available RAM
+        check_memory_requirement(
+            (num_projections, nr, nc),
+            dtype=np.float32,
+            operation="Loading the EDF projection stack",
+        )
 
         # initialize the array for the stack objects
         stack_objs = np.empty((num_projections, nr, nc), dtype=np.float32)
@@ -1476,6 +1491,11 @@ class LoadData(PathName, Variables):
             if self.loadroi:
                 roi = self.roi
                 nprojs, nr, nc = [roi[ii + 1] - roi[ii] for ii in range(0, len(roi), 2)]
+                check_memory_requirement(
+                    (nprojs, nr, nc),
+                    dtype=dset.dtype,
+                    operation="Loading the projection data",
+                )
                 print("\rInitializing array...", end="")
                 stack_projs = np.empty((nprojs, nr, nc), dtype=dset.dtype)
                 print("\b\b Done")
@@ -1486,6 +1506,11 @@ class LoadData(PathName, Variables):
                     ]
             else:
                 nprojs = dset.shape[0]
+                check_memory_requirement(
+                    dset.shape,
+                    dtype=dset.dtype,
+                    operation="Loading the projection data",
+                )
                 print("\rInitializing array...", end="")
                 stack_projs = np.empty(dset.shape, dtype=dset.dtype)
                 print("\b\b Done")
@@ -1554,7 +1579,12 @@ class LoadData(PathName, Variables):
             nr, nc = dset0.shape
             key_list = list(fid["aligned_projections_proj"].keys())
             nprojs = len(key_list)
-            stack_projs = np.empty((nprojs, nr, nc), dtype=dset.dtype)
+            check_memory_requirement(
+                (nprojs, nr, nc),
+                dtype=dset0.dtype,
+                operation="Loading the projection data",
+            )
+            stack_projs = np.empty((nprojs, nr, nc), dtype=dset0.dtype)
             print("Loading projections. This takes time, please wait...")
             for ii in tqdm(range(nprojs), desc="Loading projections"):
                 dset = fid["aligned_projections_proj/{}".format(key_list[ii])]
@@ -1916,6 +1946,11 @@ class LoadTomogram(LoadData):
             print("Loading tomogram. This takes time, please wait...")
             dset = fid["tomogram/slices"]
             nslices = dset.shape[0]
+            check_memory_requirement(
+                dset.shape,
+                dtype=dset.dtype,
+                operation="Loading the tomogram",
+            )
             tomogram = np.empty(dset.shape, dtype=dset.dtype)
             # ~ tomogram = fid[u'tomogram/slices'][()]
             for ii in tqdm(range(nslices), desc="Loading slices"):

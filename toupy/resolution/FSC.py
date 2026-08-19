@@ -22,6 +22,7 @@ from ..utils import tqdm
 
 # local packages
 from ..utils.FFT_utils import fastfftn
+from ..utils.resutils import check_memory_requirement
 from ..utils.plot_utils import (
     show_fsc_images,
     show_fsc_curve,
@@ -88,6 +89,14 @@ class FourierShellCorr:
         # get dimensions and indices of the images
         self.n = self.img1.shape
         self.ndim = self.img1.ndim
+        # warn if the FSC computation is unlikely to fit in available RAM.
+        # Both input volumes plus the Fourier-domain temporaries are held
+        # simultaneously, hence the two shapes and the default safety factor.
+        check_memory_requirement(
+            [self.n, self.n],
+            dtype=self.img1.dtype,
+            operation="Fourier shell correlation",
+        )
         if self.ndim == 2:
             self.nr, self.nc = self.n
         elif self.img1.ndim == 3:

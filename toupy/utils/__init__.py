@@ -8,3 +8,4 @@ from .FFT_utils import *
 from .plot_utils import *
 from .array_utils import *
 from .converter_utils import *
+from .resutils import *

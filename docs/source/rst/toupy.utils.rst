@@ -56,3 +56,11 @@ toupy.utils.plot\_utils module
    :members:
    :undoc-members:
    :show-inheritance:
+
+toupy.utils.resutils module
+---------------------------
+
+.. automodule:: toupy.utils.resutils
+   :members:
+   :undoc-members:
+   :show-inheritance:
