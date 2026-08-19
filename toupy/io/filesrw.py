@@ -64,8 +64,8 @@ def read_recon(filename, correct_orientation=False):
     -------
     data1 : array_like, complex
         Object image
-    probe1 : array_like, complex
-        Probe images
+    probe1 : array_like, complex or None
+        Probe image, or ``None`` for formats that do not carry one (edf)
     pixelsize : list of floats
         List with pixelsizes in vertical and horizontal directions
     energy : float
@@ -76,20 +76,20 @@ def read_recon(filename, correct_orientation=False):
     >>> imgpath = 'filename.ptyr'
     >>> objdata, probedata, pixel, energy = read_recon(imgpath)
     """
-    fileprefix, fileext = os.path.splitext(filename)
-    if fileext == ".ptyr":  # Ptypy
-        read_reconfile = read_ptyr
-    elif fileext == ".cxi":  # PyNX
-        read_reconfile = read_cxi
-    elif fileext == ".edf":  # edf projections
-        read_reconfile = read_edf
-    else:
+    # Imported lazily to avoid a circular import: toupy.io.readers imports the
+    # reader functions defined in this module.
+    from .readers import get_reader
+
+    try:
+        reader = get_reader(filename)
+    except IOError:
         raise IOError(
             "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
                 filename
             )
         )
-    return read_reconfile(filename, correct_orientation)
+    frame = reader(filename, correct_orientation)
+    return frame.obj, frame.probe, frame.pixelsize, frame.energy
 
 
 def read_volfile(filename):
