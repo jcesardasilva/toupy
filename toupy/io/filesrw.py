@@ -21,6 +21,9 @@ import h5py
 import numpy as np
 from skimage import io
 
+# local packages
+from .readers import ReconFrame, get_reader, register_reader
+
 __all__ = [
     "convert8bitstiff",
     "convert16bitstiff",
@@ -76,10 +79,6 @@ def read_recon(filename, correct_orientation=False):
     >>> imgpath = 'filename.ptyr'
     >>> objdata, probedata, pixel, energy = read_recon(imgpath)
     """
-    # Imported lazily to avoid a circular import: toupy.io.readers imports the
-    # reader functions defined in this module.
-    from .readers import get_reader
-
     try:
         reader = get_reader(filename)
     except IOError:
@@ -931,3 +930,61 @@ def convert8bitstiff(tiffimage, low_cutoff, high_cutoff):
     tiffimage += low_cutoff
 
     return tiffimage
+
+
+# ---------------------------------------------------------------------------
+# Frame-reader adapters
+#
+# Wrap the read functions above as FrameReader implementations and register
+# them with the format-agnostic registry in toupy.io.readers.  A new format is
+# added the same way: write an adapter and register it here (or in your own
+# package) -- no change to toupy.io.readers or to the core loaders.
+# ---------------------------------------------------------------------------
+
+
+class _PtyrReader:
+    """Adapter around :func:`read_ptyr` (PtyPy)."""
+
+    extensions = (".ptyr",)
+
+    def __call__(self, pathfilename, correct_orientation=True):
+        obj, probe, pixelsize, energy = read_ptyr(pathfilename, correct_orientation)
+        return ReconFrame(obj=obj, pixelsize=pixelsize, energy=energy, probe=probe)
+
+
+class _CxiReader:
+    """Adapter around :func:`read_cxi` (PyNX)."""
+
+    extensions = (".cxi",)
+
+    def __call__(self, pathfilename, correct_orientation=True):
+        obj, probe, pixelsize, energy = read_cxi(pathfilename, correct_orientation)
+        return ReconFrame(obj=obj, pixelsize=pixelsize, energy=energy, probe=probe)
+
+
+class _EdfReader:
+    """
+    Adapter around :func:`read_edf`.
+
+    Each EDF file holds one projection and carries no probe, so
+    ``correct_orientation`` does not apply; the scan's total projection count
+    from the header (``nvue``) is surfaced as
+    :attr:`toupy.io.readers.ReconFrame.num_projections`.
+    """
+
+    extensions = (".edf",)
+
+    def __call__(self, pathfilename, correct_orientation=True):
+        projection, pixelsize, energy, nvue = read_edf(pathfilename)
+        return ReconFrame(
+            obj=projection,
+            pixelsize=pixelsize,
+            energy=energy,
+            probe=None,
+            num_projections=nvue,
+        )
+
+
+register_reader(_PtyrReader())
+register_reader(_CxiReader())
+register_reader(_EdfReader())

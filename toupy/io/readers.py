@@ -2,32 +2,22 @@
 # -*- coding: utf-8 -*-
 
 """
-Pluggable frame-reader layer for reconstructed projections.
+Pluggable frame-reader registry for reconstructed projections.
 
-This module decouples Toupy's core loading logic from the concrete file
-formats it reads.  Each supported format is described by a small object that
+This module is the *mechanism* that decouples Toupy's core loading logic from
+the concrete file formats it reads.  It defines
 
-* declares which filename extensions it handles (``extensions``), and
-* knows how to turn one file into a normalised :class:`ReconFrame`.
+* :class:`ReconFrame` -- the normalised result of reading one projection,
+* :class:`FrameReader` -- the structural interface a reader must satisfy, and
+* a process-wide registry (:func:`register_reader`, :func:`get_reader`,
+  :func:`available_extensions`) keyed by filename extension.
 
-Readers register themselves in a process-wide registry keyed by extension.
-Callers ask the registry for the reader that matches a path
-(:func:`get_reader`) instead of hard-coding an ``if fileext == ".ptyr"``
-chain.  Adding support for a new facility's format then means writing one
-:class:`FrameReader` and registering it -- no changes to the core loaders.
-
-The three formats Toupy has always supported are provided here as thin
-adapters around the existing functions in :mod:`toupy.io.filesrw`, so this
-layer changes *how* readers are selected without changing *what* they read.
-
-Notes
------
-All three built-in formats are read one projection at a time: each file
-yields a single 2D object.  ``.ptyr`` (PtyPy) and ``.cxi`` (PyNX) objects
-are complex and come with a probe; ``.edf`` objects are real and carry no
-probe, but the EDF header additionally records how many projections the
-whole scan contains (``nvue``), surfaced as
-:attr:`ReconFrame.num_projections`.
+It deliberately knows nothing about any concrete format.  Each format is
+implemented and registered where its read functions live (the built-in
+ptyr/cxi/edf adapters register themselves in :mod:`toupy.io.filesrw`), and a
+new facility's format is added the same way -- write a :class:`FrameReader`
+and call :func:`register_reader` -- with no change to this module or to the
+core loaders, which only ever ask :func:`get_reader` for a match.
 """
 
 # Standard library imports
@@ -39,9 +29,6 @@ from typing import Dict, Optional, Protocol, Tuple, runtime_checkable
 
 # third party packages
 import numpy as np
-
-# local packages
-from .filesrw import read_cxi, read_edf, read_ptyr
 
 __all__ = [
     "ReconFrame",
@@ -177,61 +164,3 @@ def get_reader(path_or_ext: str) -> "FrameReader":
 def available_extensions() -> Tuple[str, ...]:
     """Return the sorted tuple of registered extensions."""
     return tuple(sorted(_REGISTRY))
-
-
-class _PtyrReader:
-    """Adapter around :func:`toupy.io.filesrw.read_ptyr` (PtyPy)."""
-
-    extensions = (".ptyr",)
-
-    def __call__(
-        self, pathfilename: str, correct_orientation: bool = True
-    ) -> ReconFrame:
-        obj, probe, pixelsize, energy = read_ptyr(pathfilename, correct_orientation)
-        return ReconFrame(
-            obj=obj, pixelsize=pixelsize, energy=energy, probe=probe
-        )
-
-
-class _CxiReader:
-    """Adapter around :func:`toupy.io.filesrw.read_cxi` (PyNX)."""
-
-    extensions = (".cxi",)
-
-    def __call__(
-        self, pathfilename: str, correct_orientation: bool = True
-    ) -> ReconFrame:
-        obj, probe, pixelsize, energy = read_cxi(pathfilename, correct_orientation)
-        return ReconFrame(
-            obj=obj, pixelsize=pixelsize, energy=energy, probe=probe
-        )
-
-
-class _EdfReader:
-    """
-    Adapter around :func:`toupy.io.filesrw.read_edf`.
-
-    Each EDF file holds one projection and carries no probe, so
-    ``correct_orientation`` does not apply; the scan's total projection count
-    from the header (``nvue``) is surfaced as
-    :attr:`ReconFrame.num_projections`.
-    """
-
-    extensions = (".edf",)
-
-    def __call__(
-        self, pathfilename: str, correct_orientation: bool = True
-    ) -> ReconFrame:
-        projection, pixelsize, energy, nvue = read_edf(pathfilename)
-        return ReconFrame(
-            obj=projection,
-            pixelsize=pixelsize,
-            energy=energy,
-            probe=None,
-            num_projections=nvue,
-        )
-
-
-register_reader(_PtyrReader())
-register_reader(_CxiReader())
-register_reader(_EdfReader())
