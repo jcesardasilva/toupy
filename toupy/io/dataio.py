@@ -17,6 +17,7 @@ from ..utils import tqdm
 
 # local packages
 from .filesrw import *
+from .readers import get_reader
 from .h5chunk_shape_3D import chunk_shape_3D
 from ..utils import (
     check_memory_requirement,
@@ -418,13 +419,13 @@ class LoadProjections(PathName, Variables):
         if self.showrecons:
             self.SP = ShowProjections()
 
-        if self.fileext == ".ptyr":  # Ptypy
-            self.read_reconfile = read_ptyr
-        elif self.fileext == ".cxi":  # PyNX
-            self.read_reconfile = read_cxi
-        elif self.fileext == ".edf":  # edf projections
-            self.read_reconfile = read_edf
-        else:
+        # Select the reader for this file's extension from the registry
+        # (toupy.io.readers).  A new format is added by registering a reader
+        # there, not by extending this dispatch.  The reader returns a
+        # ReconFrame, which the loaders below consume directly.
+        try:
+            self.read_reconfile = get_reader(self.fileext)
+        except IOError:
             raise IOError(
                 "File {} is not a .ptyr, nor a .cxi, nor a .edf file. Please, load a compatible file.".format(
                     self.filename
@@ -622,7 +623,7 @@ class LoadProjections(PathName, Variables):
             scanname = os.path.basename(Path(proj).parents[0])
             rawfile = os.path.join(scanname, scanname + suffixfile)
             if not self.legacy:
-                rawscanprefix = re.sub("_subtomo\w+", "", scanname)
+                rawscanprefix = re.sub(r"_subtomo\w+", "", scanname)
                 rawfile = os.path.join(rawscanprefix, scanname + suffixfile)
             rawfilepath = os.path.join(Path(proj).parents[3], rawfile)
             thetas[keys] = read_theta_raw(rawfilepath,detector=self.detector)  # reading theta
@@ -736,7 +737,8 @@ class LoadProjections(PathName, Variables):
         import matplotlib.pyplot as plt; plt.close("all")
 
         # Read the first projection to check size and reconstruction parameters
-        objs0, probe0, pxsize, energy = self.read_reconfile(self.pathfilename)
+        frame0 = self.read_reconfile(self.pathfilename)
+        objs0, pxsize, energy = frame0.obj, frame0.pixelsize, frame0.energy
         # add the information of pixelsize and energy to params
         paramsload = dict()
         paramsload.update(self.params)
@@ -767,7 +769,9 @@ class LoadProjections(PathName, Variables):
         for idxp, proj in enumerate(self.proj_files):
             print("\nProjection: {}".format(idxp))
             print("Reading: {}".format(proj))
-            objs, probes, pxsize, energy = self.read_reconfile(proj)  # reading file
+            frame = self.read_reconfile(proj)  # reading file
+            objs, probes = frame.obj, frame.probe
+            pxsize, energy = frame.pixelsize, frame.energy
             # crop image if requested
             if self.border_crop_x is not None:
                 if self.border_crop_y is not None:
@@ -845,7 +849,13 @@ class LoadProjections(PathName, Variables):
         import matplotlib.pyplot as plt; plt.close("all")
 
         # Read the first projection to check size and reconstruction parameters
-        objs0, pxsize, energy, nvue = self.read_reconfile(self.pathfilename)
+        frame0 = self.read_reconfile(self.pathfilename)
+        objs0, pxsize, energy, nvue = (
+            frame0.obj,
+            frame0.pixelsize,
+            frame0.energy,
+            frame0.num_projections,
+        )
         if nvue != num_projections:
             raise ValueError("The number of projections is different from nvue in file")
         nr, nc = objs0.shape
@@ -875,12 +885,13 @@ class LoadProjections(PathName, Variables):
         for idxp, proj in enumerate(self.proj_files):
             print("\nProjection: {}".format(idxp))
             print("Reading: {}".format(proj))
-            objs, _, _, _ = self.read_reconfile(proj)  # reading file
+            objs = self.read_reconfile(proj).obj  # reading file
             # update stack_objs
             stack_objs[idxp] = objs
             if self.showrecons:
                 print("Showing projection {}".format(idxp + 1))
-                self.SP.show_projections(objs, probes, idxp)
+                # EDF projections are real-valued and have no probe
+                self.SP.show_projection_real(objs, idxp)
 
         nprojs, nr, nc = stack_objs.shape
         print("\nNumber of projections loaded: {}".format(nprojs))
