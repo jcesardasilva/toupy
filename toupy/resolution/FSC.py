@@ -870,6 +870,30 @@ class RandomFSC(FourierShellCorr):
     that the two half-maps share information beyond *f*_cutoff via a
     common external model used during iterative reconstruction.
 
+    The correction above is only meaningful where phases were actually
+    randomized, so it is not applied over the whole frequency range:
+
+    * At and below ``cutoff_shell`` no phase was touched, so FSC_rand
+      reproduces FSC_obs, the formula degenerates to ``0 / 0`` and returns
+      noise around zero.  Following the convention of Chen *et al.* (and of
+      RELION's ``postprocessing``), ``FSC_corr`` is set to ``FSC_obs`` there
+      — the correction is a no-op, not an undefined quantity.  Note that the
+      cutoff shell itself is *partially* randomized (the radial grid is
+      continuous while shells are integer-indexed) and is therefore included
+      in the no-correction region.
+    * Immediately above the cutoff, FSC_rand is still falling through the
+      randomization transition and the ratio is unreliable.  Those shells are
+      set to ``np.nan``.  The width of the transition is determined from the
+      data rather than fixed: the mask extends to the last shell with
+      ``FSC_rand > T`` (the same half-bit or one-bit threshold curve used for
+      the resolution criterion) within a bounded search window, since FSC_rand
+      is ragged as it decays and can dip below *T* for a single shell before
+      coming back.  See ``max_transition_shells`` for the bound.
+
+    ``FSC_corr`` is *not* clipped at zero.  Negative values mean
+    ``FSC_rand > FSC_obs``, which is itself diagnostic of model bias, and
+    they cannot perturb the resolution criterion since ``T > 0`` always.
+
     Parameters
     ----------
     img1 : ndarray
@@ -889,6 +913,14 @@ class RandomFSC(FourierShellCorr):
     random_seed : int or None, optional
         Seed for the random phase generator (for reproducibility).
         Default ``None`` (non-reproducible).
+    max_transition_shells : int or None, optional
+        Safety cap on the number of shells masked above ``cutoff_shell``
+        while ``FSC_rand > T``.  Without a cap, data in which FSC_rand never
+        falls back to the threshold — severe overfitting, or a badly placed
+        cutoff — would blank the entire curve.  Reaching the cap raises a
+        ``UserWarning``, since it means the randomized correlation stays
+        significant to Nyquist.  Default ``None``, i.e.
+        ``max(5, round(0.05 * n_shells))``.
 
     Attributes
     ----------
@@ -897,7 +929,9 @@ class RandomFSC(FourierShellCorr):
     FSC_rand : ndarray
         FSC of the phase-randomized half-volumes.
     FSC_corr : ndarray
-        Phase-randomization corrected FSC.
+        Phase-randomization corrected FSC: ``FSC_obs`` at and below
+        ``cutoff_shell``, ``np.nan`` across the randomization transition,
+        and the Chen correction above it.  May be negative.
     T : ndarray
         Threshold curve (same as standard FSC).
     f : ndarray
@@ -906,6 +940,8 @@ class RandomFSC(FourierShellCorr):
         Nyquist frequency in pixels.
     cutoff_shell : int
         Shell index used as the phase-randomization boundary.
+    transition_shells : int
+        Number of shells above ``cutoff_shell`` masked as ``np.nan``.
 
     References
     ----------
@@ -926,12 +962,14 @@ class RandomFSC(FourierShellCorr):
         fsc_cutoff=0.8,
         random_seed=None,
         pixel_size=1.0,
+        max_transition_shells=None,
     ):
         print("Calling the class RandomFSC")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
         self.fsc_cutoff  = float(fsc_cutoff)
         self.random_seed = random_seed
         self.pixel_size  = float(pixel_size)
+        self.max_transition_shells = max_transition_shells
 
         # Compute observed FSC and threshold
         self.FSC_obs, self.T = FourierShellCorr.fouriercorr(self)
@@ -941,15 +979,29 @@ class RandomFSC(FourierShellCorr):
         self.cutoff_shell = self._find_cutoff_shell()
         self._compute_randomized()
 
-        # Resolution at the FSC_corr × T crossing (last shell where FSC_corr > T)
+        # Resolution at the FSC_corr × T crossing (last shell where FSC_corr > T).
+        # Shells masked across the randomization transition are np.nan and are
+        # excluded explicitly; negative FSC_corr can never exceed T (T > 0).
         fsc_corr = np.asarray(self.FSC_corr).real
-        above    = fsc_corr > np.asarray(self.T)
+        valid    = np.isfinite(fsc_corr)
+        above    = valid & (np.where(valid, fsc_corr, -np.inf) > np.asarray(self.T))
         if np.any(above):
             idx = int(np.where(above)[0][-1])
             self.fn_res          = float(self.f[idx] / self.fnyquist)
             self.fn_res_cpx      = self.fn_res * 0.5
             self.resolution_full = self.pixel_size / self.fn_res_cpx
             self.resolution_half = self.resolution_full / 2.0
+            if idx <= self.cutoff_shell:
+                warnings.warn(
+                    f"RandomFSC: the FSC_corr crossing falls at shell {idx}, at or "
+                    f"below the randomization cutoff ({self.cutoff_shell}), where "
+                    f"FSC_corr is by construction equal to FSC_obs. The reported "
+                    f"resolution therefore carries no phase-randomization "
+                    f"correction; lower fsc_cutoff to place the cutoff further "
+                    f"below the resolution limit.",
+                    UserWarning,
+                    stacklevel=2,
+                )
         else:
             self.fn_res          = None
             self.fn_res_cpx      = None
@@ -959,6 +1011,12 @@ class RandomFSC(FourierShellCorr):
         print(f"  Phase-randomization cutoff shell : {self.cutoff_shell}")
         print(f"  f_cutoff (cycles/pixel)          : "
               f"{self.cutoff_shell / self.fnyquist * 0.5:.4f}")
+        if self.transition_shells > 0:
+            print(f"  Transition shells masked (NaN)   : {self.transition_shells} "
+                  f"(shells {self.cutoff_shell + 1}"
+                  f"-{self.cutoff_shell + self.transition_shells})")
+        else:
+            print("  Transition shells masked (NaN)   : 0")
         if self.fn_res_cpx is not None:
             print(f"  Resolution FSC_corr (full period): {self.resolution_full:.6g} "
                   f"[in units of pixel_size]")
@@ -1011,12 +1069,48 @@ class RandomFSC(FourierShellCorr):
         grids = np.meshgrid(*freqs, indexing='ij')
         return np.sqrt(sum(g ** 2 for g in grids))
 
+    @staticmethod
+    def _negate_frequency(a):
+        """
+        Return the array resampled at ``-k``, i.e. ``a[(-k) mod N]`` on every
+        axis, for an array laid out in standard FFT frequency order.
+
+        Parameters
+        ----------
+        a : ndarray
+            Array in FFT frequency layout (2-D or 3-D).
+
+        Returns
+        -------
+        a_neg : ndarray
+            Same array indexed at the conjugate frequency.
+        """
+        for ax in range(a.ndim):
+            a = np.roll(np.flip(a, axis=ax), 1, axis=ax)
+        return a
+
     def _randomize_phases_above(self, vol, f_cutoff_cpx, rng):
         """
         Randomize Fourier phases above *f_cutoff_cpx* cycles/pixel.
 
-        The amplitude spectrum is preserved; only the phase is replaced by
-        uniform random values in ``[-π, π]``.
+        The amplitude spectrum is preserved exactly; only the phase is
+        replaced by uniform random values in ``[-π, π]``.
+
+        The random phase is made Hermitian-symmetric before it is applied.
+        Drawing independent phases at ``+k`` and ``-k`` and then taking the
+        real part of the inverse transform — the obvious implementation —
+        symmetrizes the spectrum after the fact and *destroys* the amplitudes
+        it is supposed to preserve (measured ratio 0.64 ± 0.31 of the original
+        amplitude).  Because that perturbation is drawn independently for the
+        two half-volumes, it acts as uncorrelated multiplicative noise and
+        biases FSC_rand low, i.e. towards under-reporting overfitting.
+
+        Instead, the phase ``ψ(k) = φ(k) - φ(-k)`` (wrapped to ``[-π, π]``) is
+        antisymmetric modulo 2π by construction, so ``|F| · exp(iψ)`` is
+        Hermitian, the inverse transform is real to machine precision, and the
+        amplitudes survive untouched.  The circular difference of two
+        independent uniform phases is itself uniform, so this costs nothing in
+        randomness.
 
         Parameters
         ----------
@@ -1035,10 +1129,13 @@ class RandomFSC(FourierShellCorr):
         """
         F = _fftn(vol)
         R = self._build_radial_grid(vol.shape)
+        # R is built from fftfreq and is symmetric under k -> -k, so the mask
+        # is too and the Hermitian symmetry below survives the np.where
         mask = R > f_cutoff_cpx
         amp = np.abs(F)
         phase_orig = np.angle(F)
-        rand_phase = rng.uniform(-np.pi, np.pi, size=F.shape)
+        phi = rng.uniform(-np.pi, np.pi, size=F.shape)
+        rand_phase = np.angle(np.exp(1j * (phi - self._negate_frequency(phi))))
         new_phase = np.where(mask, rand_phase, phase_orig)
         F_rand = amp * np.exp(1j * new_phase)
         return np.real(_ifftn(F_rand))
@@ -1103,14 +1200,74 @@ class RandomFSC(FourierShellCorr):
         FSC = C / np.sqrt(C1 * C2 + eps)
         return FSC
 
+    def _find_transition_shells(self):
+        """
+        Width of the randomization transition immediately above the cutoff.
+
+        The mask extends to the *last* shell that still has ``FSC_rand > T``
+        within a capped search window above the cutoff.  Keying it to *T* — the
+        same half-bit or one-bit threshold curve used for the resolution
+        criterion — rather than to a fixed constant lets it scale with shell
+        sampling, ring thickness and apodization width.
+
+        The last shell above *T* is used rather than the first contiguous run,
+        because FSC_rand is ragged as it decays: it can dip below *T* for one
+        shell and come back above it, and stopping at the first dip would leave
+        a still-contaminated shell in the corrected curve.  The cap bounds how
+        far a single noise excursion can extend the mask.
+
+        Returns
+        -------
+        n_shells : int
+            Number of shells above ``cutoff_shell`` to mask as ``np.nan``.
+
+        Warns
+        -----
+        UserWarning
+            If the cap is reached while FSC_rand is still above *T*, meaning
+            the randomized correlation never decays — severe overfitting or a
+            badly placed cutoff.
+        """
+        nshells  = len(self.f)
+        start    = self.cutoff_shell + 1
+        fsc_rand = np.asarray(self.FSC_rand, dtype=np.float64).real
+        T        = np.asarray(self.T, dtype=np.float64)
+
+        cap = self.max_transition_shells
+        if cap is None:
+            cap = max(5, int(round(0.05 * nshells)))
+        cap = int(min(cap, max(0, nshells - start)))
+
+        window = slice(start, start + cap)
+        above = fsc_rand[window] > T[window]
+        n = int(np.flatnonzero(above)[-1]) + 1 if np.any(above) else 0
+
+        if n == cap and cap > 0:
+            warnings.warn(
+                f"RandomFSC: FSC_rand is still above the threshold {cap} shells "
+                f"past the cutoff (shell {self.cutoff_shell}); the transition mask "
+                f"was capped there. The randomized half-volumes stay correlated "
+                f"well beyond the randomization boundary, so FSC_corr should be "
+                f"read as a lower bound and the resolution estimate treated with "
+                f"caution.",
+                UserWarning,
+                stacklevel=3,
+            )
+        return n
+
     def _compute_randomized(self):
         """
         Randomize phases above ``cutoff_shell`` and compute FSC_rand and FSC_corr.
+
+        The Chen correction is applied only where it is defined; see the class
+        docstring for the conventions used at and below the cutoff and across
+        the randomization transition.
 
         Stores
         ------
         FSC_rand : ndarray
         FSC_corr : ndarray
+        transition_shells : int
         """
         f_cutoff_cpx = self.cutoff_shell / self.fnyquist * 0.5
         rng = np.random.default_rng(self.random_seed)
@@ -1121,10 +1278,24 @@ class RandomFSC(FourierShellCorr):
         self.FSC_rand = self._fsc_from_arrays(rand1, rand2)
 
         eps = np.finfo(np.float64).eps
-        fsc_obs = np.asarray(self.FSC_obs, dtype=np.float64)
-        fsc_rand = np.asarray(self.FSC_rand, dtype=np.float64)
+        fsc_obs = np.asarray(self.FSC_obs, dtype=np.float64).real
+        fsc_rand = np.asarray(self.FSC_rand, dtype=np.float64).real
         fsc_corr = (fsc_obs - fsc_rand) / np.maximum(1.0 - fsc_rand, eps)
-        self.FSC_corr = np.clip(fsc_corr, -1.0, 1.0)
+        fsc_corr = np.clip(fsc_corr, -1.0, 1.0)
+
+        # At and below the cutoff no phase was randomized, so no correction
+        # applies; the cutoff shell itself is only partially randomized and is
+        # included here. Negative values above the cutoff are kept as they are.
+        stop = self.cutoff_shell + 1
+        fsc_corr[:stop] = fsc_obs[:stop]
+
+        # Mask the shells where FSC_rand has not yet decayed through the
+        # randomization transition and the ratio is not yet meaningful
+        self.transition_shells = self._find_transition_shells()
+        if self.transition_shells > 0:
+            fsc_corr[stop:stop + self.transition_shells] = np.nan
+
+        self.FSC_corr = fsc_corr
 
     def plot(self):
         """

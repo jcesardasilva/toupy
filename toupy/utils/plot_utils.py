@@ -301,7 +301,9 @@ def show_random_fsc_curve(fn, fsc_obs, fsc_rand, fsc_corr, T, cutoff_fn, ndim):
         Phase-randomized FSC curve (noise floor).
     fsc_corr : ndarray
         Corrected FSC, defined as
-        ``(FSC_obs - FSC_rand) / (1 - FSC_rand)``.
+        ``(FSC_obs - FSC_rand) / (1 - FSC_rand)`` above the randomization
+        transition, ``FSC_obs`` at and below the cutoff, and ``np.nan``
+        across the transition itself (plotted as a gap).  May be negative.
     T : ndarray
         Threshold curve.
     cutoff_fn : float
@@ -328,7 +330,10 @@ def show_random_fsc_curve(fn, fsc_obs, fsc_rand, fsc_corr, T, cutoff_fn, ndim):
         label=f"Cutoff fn = {cutoff_fn:.3f}",
     )
     ax1.set_xlim(0, 1)
-    ax1.set_ylim(-0.1, 1.1)
+    # FSC_corr is not clipped at zero: negative shells (FSC_rand > FSC_obs) are
+    # diagnostic of model bias, so extend the axis rather than hiding them
+    ymin = np.nanmin(np.asarray(fsc_corr, dtype=float), initial=-0.1)
+    ax1.set_ylim(min(-0.1, ymin - 0.05), 1.1)
     ax1.set_xlabel("Spatial frequency / Nyquist")
     ax1.set_ylabel("FSC")
     ax1.set_title("Phase-Randomization FSC Test")
