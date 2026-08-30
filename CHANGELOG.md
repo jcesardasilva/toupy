@@ -2,6 +2,35 @@
 
 All notable changes to **toupy** are documented in this file.
 
+## Unreleased
+
+### Fixed — resolution (`toupy.resolution`)
+
+- **`RandomFSC`** — the Chen phase-randomization correction was applied over
+  the whole frequency range. At and below the randomization cutoff no phase is
+  touched, so `FSC_rand` reproduces `FSC_obs`, the ratio degenerates to `0/0`
+  and the corrected curve was noise around zero across the entire
+  low-frequency half. `FSC_corr` now equals `FSC_obs` there (Chen /
+  RELION convention), is `np.nan` across the randomization transition, and
+  carries the correction only above it. The transition width is keyed to the
+  threshold curve `T` and bounded by the new `max_transition_shells`, which
+  warns when reached. `FSC_corr` is deliberately not clipped at zero.
+  New attribute `transition_shells`; `plot()` still returns its 5-tuple.
+- **`RandomFSC`** — the random phase field is now Hermitian by construction,
+  so the amplitude spectrum is preserved exactly (was rescaled by a random
+  factor of 0.64 ± 0.31, leaving `FSC_rand` wrong by a data-dependent amount).
+  The effect is negligible where `FSC_rand` is small — a well-apodized PXCT
+  reconstruction gives the same resolution before and after — but grows large
+  when the noise floor is elevated, e.g. with the apodization window switched
+  off, where it inflated `FSC_rand` by 1.7×.
+- **`RandomFSC`** — warns when the `FSC_corr` × `T` crossing falls at or below
+  the cutoff, where the reported resolution carries no correction.
+
+### Added
+
+- `test/test_random_fsc.py` — regression tests for the above, with real-data
+  fixtures in `test/data/`. Run with `pytest test/`.
+
 ## 0.4.0 — 2026-05-31 — phase retrieval, ring correction, TV reconstruction
 
 New methods for propagation-based / holotomographic X-ray nanotomography.
