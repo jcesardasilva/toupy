@@ -1009,8 +1009,11 @@ class RandomFSC(FourierShellCorr):
             self.resolution_half = None
 
         print(f"  Phase-randomization cutoff shell : {self.cutoff_shell}")
+        # both units, since plot() marks the cutoff on a "/ Nyquist" axis while
+        # this printed cycles/pixel: Nyquist is 0.5 cycles/pixel, so they differ by 2
         print(f"  f_cutoff (cycles/pixel)          : "
-              f"{self.cutoff_shell / self.fnyquist * 0.5:.4f}")
+              f"{self.cutoff_shell / self.fnyquist * 0.5:.4f}"
+              f"  ({self.cutoff_shell / self.fnyquist:.4f} x Nyquist)")
         if self.transition_shells > 0:
             print(f"  Transition shells masked (NaN)   : {self.transition_shells} "
                   f"(shells {self.cutoff_shell + 1}"
