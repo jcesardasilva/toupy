@@ -13,6 +13,8 @@ Run with::
     pytest test/test_random_fsc.py
 """
 
+import warnings
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -148,7 +150,8 @@ def test_no_warning_when_rand_decays_normally():
     rand = np.full(nshells, 0.01)
     rand[81:83] = 0.9                          # two-shell transition
     obj.FSC_rand = rand
-    with warnings_as_errors():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
         assert obj._find_transition_shells() == 2
 
 
@@ -168,20 +171,6 @@ def test_ragged_transition_masks_through_last_excursion():
     assert obj._find_transition_shells() == 3
 
 
-class warnings_as_errors:
-    """Context manager turning warnings into errors (no pytest.warns inverse)."""
-
-    def __enter__(self):
-        import warnings
-        self._ctx = warnings.catch_warnings()
-        self._ctx.__enter__()
-        warnings.simplefilter("error", UserWarning)
-        return self
-
-    def __exit__(self, *exc):
-        return self._ctx.__exit__(*exc)
-
-
 # ---------------------------------------------------------------------------
 # Hermitian symmetry of the random phase field
 # ---------------------------------------------------------------------------
@@ -192,7 +181,8 @@ def test_randomization_preserves_amplitude_spectrum(shape):
     The amplitude spectrum must survive randomization exactly.
 
     Independent phases at +k and -k followed by np.real() would rescale it by
-    a random factor (~0.64 +- 0.31), biasing FSC_rand low.
+    a random factor (~0.64 +- 0.31), leaving FSC_rand wrong by an amount whose
+    sign depends on the data.
     """
     rng = np.random.default_rng(5)
     vol = gaussian_filter(rng.normal(size=shape), 2.0)

@@ -1101,9 +1101,13 @@ class RandomFSC(FourierShellCorr):
         real part of the inverse transform — the obvious implementation —
         symmetrizes the spectrum after the fact and *destroys* the amplitudes
         it is supposed to preserve (measured ratio 0.64 ± 0.31 of the original
-        amplitude).  Because that perturbation is drawn independently for the
-        two half-volumes, it acts as uncorrelated multiplicative noise and
-        biases FSC_rand low, i.e. towards under-reporting overfitting.
+        amplitude).  FSC_rand is then not the quantity Chen defines, and the
+        error does not have a fixed sign: on a smooth synthetic pair it ran
+        ~10% low, while on an un-apodized PXCT reconstruction it ran 1.7×
+        high, enough to turn an FSC_rand that decays through the threshold
+        into one that never does.  The size of the discrepancy tracks how
+        large FSC_rand is: with proper apodization, where FSC_rand ~ 0.01,
+        both constructions agree and the reported resolution is identical.
 
         Instead, the phase ``ψ(k) = φ(k) - φ(-k)`` (wrapped to ``[-π, π]``) is
         antisymmetric modulo 2π by construction, so ``|F| · exp(iψ)`` is
@@ -1249,7 +1253,9 @@ class RandomFSC(FourierShellCorr):
                 f"was capped there. The randomized half-volumes stay correlated "
                 f"well beyond the randomization boundary, so FSC_corr should be "
                 f"read as a lower bound and the resolution estimate treated with "
-                f"caution.",
+                f"caution. Check apod_width before concluding overfitting: too "
+                f"narrow a window leaks the shared, unrandomized low-frequency "
+                f"content across every shell and is the more common cause.",
                 UserWarning,
                 stacklevel=3,
             )
