@@ -27,6 +27,8 @@ from scipy.ndimage import (
     binary_fill_holes,
     binary_erosion,
     generate_binary_structure,
+    minimum_filter,
+    distance_transform_edt,
 )
 from scipy.stats import norm as _norm
 from scipy.fft import fftn as _fftn, fftfreq as _fftfreq
@@ -763,11 +765,65 @@ class LocalFSC:
             — so this option is recommended whenever ``box_size`` is
             small relative to the reconstruction.
 
+    mask : ndarray of bool or None, optional
+        Support of the specimen, same shape as *vol1*.  The mask is
+        eroded internally so that a box is evaluated only where it fits
+        inside the support; everything outside the eroded support is
+        ``NaN`` in the output map.  See *mask_eroded* for the erosion
+        convention.  This mirrors the ``-Mask`` option of ``blocres``
+        [1]_, the reference implementation this class follows.
+
+        The mask is **never derived automatically**.  For a porous or
+        hollow specimen the correct support is the outer envelope of the
+        object and not the thresholded material — a judgement that
+        depends on what the user means to measure, so it is left to the
+        user.  With ``None`` (default) no masking is applied and every
+        box on the grid is evaluated, background included.
+
+    mask_eroded : {'auto', 'cube', 'ball'}, float or None, optional
+        The structuring element used to erode *mask*.  Whichever is
+        chosen is recorded in :attr:`erosion` and
+        :attr:`erosion_radius`, so a saved run says which convention
+        produced its map.
+
+        ``'auto'`` / ``'cube'`` *(default)*
+            Erosion by the ``(box_size,) * ndim`` cube the analysis box
+            occupies — the exact reading of "the box fits entirely inside
+            the support".  Note that a round support does **not** erode
+            to a round one: the cube needs ``box_size/2 * sqrt(ndim)`` of
+            clearance towards its corners and ``box_size/2`` along the
+            axes, so a disc comes back with a four-fold scalloped
+            boundary.  That is correct, not an artefact.
+        ``'ball'``
+            Erosion by a ball at the box circumradius,
+            ``box_size/2 * sqrt(ndim)``.  The ball contains the cube, so
+            containment still holds and the eroded boundary is round; the
+            price is eroding the axial directions harder than the box
+            requires.
+        float
+            Erosion by a ball of this radius, in voxels.  Use it when the
+            geometry constrains fewer than *ndim* axes — for a
+            cylindrical specimen in a 3-D volume, with *z* unconstrained,
+            the in-plane circumradius ``box_size / sqrt(2)`` is the right
+            figure.  Radii below ``box_size/2 * sqrt(ndim)`` are
+            permissive: they admit centres whose box corners reach
+            outside the support.
+        ``None``
+            No erosion — use *mask* verbatim as the region to evaluate.
+            Pass this when the mask already carries whatever margin is
+            wanted, for instance a support you eroded yourself, or a
+            region of interest whose exact boundary is the point.  Boxes
+            near the edge then reach outside the support and their FSC
+            includes whatever lies there; that is the caller's call.
+
+        Ignored, with a warning, when no *mask* is given.
+
     Attributes
     ----------
     resolution_map : ndarray
         Local full-period resolution in pixels (van Heel convention),
-        same shape as *vol1*.
+        same shape as *vol1*.  ``NaN`` wherever no resolution could be
+        estimated (see Notes).
     resolution_map_phys : ndarray
         Local full-period resolution in physical units
         (``resolution_map * pixel_size``).
@@ -778,17 +834,104 @@ class LocalFSC:
         Local half-period resolution in physical units:
         ``resolution_map_phys / 2``.
     resolution_median : float
-        Median full-period local resolution in pixels.
+        Median full-period local resolution in pixels, ignoring ``NaN``.
     resolution_mean : float
-        Mean full-period local resolution in pixels.
+        Mean full-period local resolution in pixels, ignoring ``NaN``.
     resolution_std : float
-        Standard deviation of full-period local resolution in pixels.
+        Standard deviation of full-period local resolution in pixels,
+        ignoring ``NaN``.
     resolution_median_half : float
         Median half-period local resolution in pixels.
     resolution_mean_half : float
         Mean half-period local resolution in pixels.
     resolution_std_half : float
         Standard deviation of half-period local resolution in pixels.
+    mask : ndarray of bool or None
+        The support supplied by the user, unmodified (``None`` if none
+        was given).
+    mask_eroded : ndarray of bool or None
+        The region actually evaluated: *mask* eroded by the chosen
+        structuring element, or *mask* itself when the constructor was
+        given ``mask_eroded=None``.
+    erosion : {'cube', 'ball'} or None
+        Which structuring element was used, or ``None`` when the mask was
+        taken verbatim (or no mask was given).
+    erosion_radius : float or None
+        For ``'ball'``, the ball radius in voxels; for ``'cube'``, half
+        the side of the cube.  ``None`` when no erosion was applied.
+    coarse_map : ndarray
+        Per-box resolution estimates in pixels on the coarse grid
+        (``NaN`` where the box was skipped or the FSC did not cross the
+        threshold), before interpolation to the input shape.
+    grid_axes : list of ndarray
+        Box-centre coordinates along each axis, i.e. the sample points of
+        ``coarse_map``.
+    n_boxes : int
+        Total number of analysis boxes on the coarse grid.
+    n_valid : int
+        Number of boxes that produced a finite resolution estimate — how
+        many local FSC measurements the summary statistics rest on.
+        Boxes outside the eroded support and boxes whose FSC never
+        crossed the threshold are excluded.
+
+    Notes
+    -----
+    Voxels are ``NaN`` in ``resolution_map`` wherever the local
+    resolution is genuinely unknown, rather than being filled with a
+    stand-in value:
+
+    * outside the eroded support, when a *mask* is supplied;
+    * where the FSC of the surrounding boxes reached the threshold in no
+      shell at all, which is what a region without reproducible signal
+      looks like.  The map is interpolated
+      bi/tri-linearly from the box centres, so one such box makes the
+      grid cells touching it ``NaN`` too — a background box therefore
+      blanks a ``2 * step`` square around itself.
+
+    The resolution of a box is read off at the **highest** shell at or
+    above the threshold, matching
+    :class:`~toupy.resolution.FSC.FSCplot`.  Against a known band limit
+    this recovers the true shell in 100 % of trials at SNR 1.0 and 85 %
+    at SNR 0.5 for a 64-voxel box (``test/rule_test.py``).  Anchoring the
+    run at DC instead — stopping at the first shell to fall below the
+    threshold — was tried and reverted: the shell-size-corrected
+    threshold is at its highest exactly where such a run begins
+    (``T = 0.462`` at shell 1 for ``L = 64``), so the run terminates in
+    the first few shells whatever the signal above them, scoring 59 % and
+    0 % on the same trials.
+
+    **Where this rule is weak.**  Taking the highest qualifying shell
+    means one noise-driven excursion can set the answer, and how often
+    that happens depends on how many Fourier voxels a shell holds.  On
+    pure noise with ``box_size=32`` and no signal at all:
+
+    ===========  =================  ===========================
+    input        ``threshold``      estimates finer than 3 px
+    ===========  =================  ===========================
+    3-D (FSC)    ``0.143``          0 %
+    3-D (FSC)    ``'halfbit'``      0 %
+    2-D (FRC)    ``0.143``          86 %
+    2-D (FRC)    ``'halfbit'``      20 %
+    ===========  =================  ===========================
+
+    A 3-D shell holds :math:`O(4\\pi s^2)` voxels against
+    :math:`O(2\\pi s)` for a 2-D ring, so the FRC noise floor of a small
+    box sits well above a fixed threshold of 0.143 and spurious
+    near-Nyquist estimates follow.  For 2-D maps, and for small boxes
+    generally, use ``threshold='halfbit'`` and the largest *box_size* the
+    spatial sampling allows.
+
+    Inside the eroded support the map is continuous: boxes skipped
+    because they overhang the support are not measurements that failed,
+    and they take the nearest measured estimate rather than punching a
+    hole through the interpolation.  ``coarse_map`` and ``n_valid``
+    expose where the actual measurements are.
+
+    Earlier versions substituted ``2 * box_size`` for a non-crossing FSC
+    and let the interpolator extrapolate past the outermost box centres,
+    which produced meaningless — and occasionally negative — entries in
+    the border band.  A resolution is a length: this implementation never
+    returns a value ``<= 0``.
 
     References
     ----------
@@ -817,7 +960,8 @@ class LocalFSC:
         "1/2bit": 0.2071,
     }
 
-    def __init__(self, vol1, vol2, pixel_size=1.0, box_size=32, step=None, threshold=0.143):
+    def __init__(self, vol1, vol2, pixel_size=1.0, box_size=32, step=None,
+                 threshold=0.143, mask=None, mask_eroded="auto"):
         print("Calling the class LocalFSC")
         vol1 = np.asarray(vol1, dtype=np.float64)
         vol2 = np.asarray(vol2, dtype=np.float64)
@@ -851,6 +995,85 @@ class LocalFSC:
             self.threshold = float(threshold)
             self._adaptive_snr = None
 
+        # Erosion convention.  Recorded on the instance so that a saved run
+        # says which one produced its map.
+        self.erosion = None
+        self.erosion_radius = None
+        if mask_eroded is None:
+            pass
+        elif isinstance(mask_eroded, str):
+            key = mask_eroded.lower()
+            if key in ("auto", "cube"):
+                self.erosion = "cube"
+                self.erosion_radius = self.box_size / 2.0
+            elif key == "ball":
+                self.erosion = "ball"
+                # Circumradius of the box: the smallest ball that contains it,
+                # hence the smallest one that still guarantees containment.
+                self.erosion_radius = (
+                    self.box_size * np.sqrt(self.ndim) / 2.0
+                )
+            else:
+                raise ValueError(
+                    f"LocalFSC: mask_eroded must be 'auto'/'cube', 'ball', a "
+                    f"positive ball radius in voxels, or None; "
+                    f"got {mask_eroded!r}."
+                )
+        elif np.isscalar(mask_eroded) and not isinstance(mask_eroded, bool):
+            radius = float(mask_eroded)
+            if not radius > 0:
+                raise ValueError(
+                    f"LocalFSC: a numeric mask_eroded is a ball radius in "
+                    f"voxels and must be positive, got {radius}."
+                )
+            self.erosion = "ball"
+            self.erosion_radius = radius
+        else:
+            raise ValueError(
+                "LocalFSC: mask_eroded must be 'auto'/'cube', 'ball', a "
+                "positive ball radius in voxels, or None (use mask exactly "
+                "as given).  To supply your own eroded support, pass it as "
+                "mask=... together with mask_eroded=None."
+            )
+        self._erode = self.erosion is not None
+
+        if mask is None and not self._erode:
+            warnings.warn(
+                "LocalFSC: mask_eroded=None has no effect without a mask — "
+                "there is nothing to erode.  Pass the support as mask=...",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        # Support mask.  Taken as given, never guessed: see the class
+        # docstring for why deriving it here would be wrong.
+        self.mask = None
+        self.mask_eroded = None
+        if mask is not None:
+            mask = np.asarray(mask, dtype=bool)
+            if mask.shape != self.shape:
+                raise ValueError(
+                    f"LocalFSC: mask shape {mask.shape} does not match the "
+                    f"volume shape {self.shape}."
+                )
+            if not mask.any():
+                raise ValueError("LocalFSC: mask has no True entries.")
+            self.mask = mask
+            if self._erode:
+                self.mask_eroded = self._erode_mask(mask)
+                if not self.mask_eroded.any():
+                    raise ValueError(
+                        f"LocalFSC: the support vanishes when eroded by half "
+                        f"the analysis box (box_size={self.box_size}); no box "
+                        "fits inside it.  Use a smaller box_size, a wider "
+                        "mask, or mask_eroded=None to use the mask as given."
+                    )
+            else:
+                # Used verbatim: the caller has taken responsibility for the
+                # margin, so boxes centred near the edge of the support may
+                # reach outside it.
+                self.mask_eroded = mask
+
         self._compute()
 
         ps = self.pixel_size
@@ -862,6 +1085,74 @@ class LocalFSC:
               f"({self.resolution_median_half * ps:.4g} physical units)")
         print(f"  LocalFSC mean   resolution (full period) : "
               f"{self.resolution_mean:.2f} ± {self.resolution_std:.2f} px")
+        print(f"  LocalFSC valid box estimates             : "
+              f"{self.n_valid} of {self.n_boxes}")
+
+    def _erode_mask(self, mask):
+        """
+        Erode *mask* by half the analysis box.
+
+        The eroded support marks the box centres for which the analysis
+        box stays clear of the background.  Which structuring element is
+        used is set by ``mask_eroded`` and recorded in ``self.erosion``:
+
+        ``'cube'``
+            Erosion by the flat ``(box_size,) * ndim`` cube the box
+            actually occupies.  This is the exact reading of "the box
+            fits entirely inside the support": the set of centres
+            :math:`p` with :math:`p + C \\subseteq S`.  A round support
+            does **not** erode to a round one — the cube needs
+            ``box_size/2 * sqrt(ndim)`` of clearance towards its corners
+            against ``box_size/2`` along the axes, so a disc comes back
+            with a four-fold scalloped boundary.  That is geometry, not
+            an artefact.
+        ``'ball'``
+            Erosion by a ball of ``self.erosion_radius``.  At the box
+            circumradius ``box_size/2 * sqrt(ndim)`` it contains the cube,
+            so containment is still guaranteed and the boundary is round,
+            at the cost of eroding the axial directions harder than
+            necessary.  A smaller radius is permissive: a ball of
+            ``box_size/2`` does not contain the cube, and admits centres
+            whose box corners reach outside the support.
+
+        Voxels within half a box of any face of the volume are dropped in
+        both cases: such a box hangs outside the reconstruction.
+
+        Parameters
+        ----------
+        mask : ndarray of bool
+            User-supplied support, same shape as the input volumes.
+
+        Returns
+        -------
+        eroded : ndarray of bool
+            The eroded support.
+        """
+        if self.erosion == "cube":
+            # Separable minimum filter: an erosion by a flat cube, but
+            # without materialising a (box_size,) * ndim element.  Voxels
+            # beyond the volume border count as background (cval=0), so
+            # boxes hanging over an edge are excluded here as well.
+            return minimum_filter(
+                mask.astype(np.uint8),
+                size=self.box_size,
+                mode="constant",
+                cval=0,
+            ).astype(bool)
+
+        eroded = distance_transform_edt(mask) >= self.erosion_radius
+
+        # The distance transform sees only the array, so the volume faces
+        # have to be cleared explicitly.
+        h = int(np.ceil(self.box_size / 2.0))
+        for d in range(self.ndim):
+            idx = [slice(None)] * self.ndim
+            idx[d] = slice(0, h)
+            eroded[tuple(idx)] = False
+            idx[d] = slice(-h, None)
+            eroded[tuple(idx)] = False
+
+        return eroded
 
     def _make_window(self):
         """
@@ -884,11 +1175,15 @@ class LocalFSC:
 
         Subtracts the mean, applies *window*, computes the FFT, builds
         radial shells using ``scipy.fft.fftfreq``, and returns the local
-        resolution at the shell where FSC first drops below the chosen
-        threshold — either the fixed value ``self.threshold``, or, when
+        resolution at the highest shell at or above the chosen threshold
+        — either the fixed value ``self.threshold``, or, when
         ``self._adaptive_snr`` is set, the van Heel & Schatz (2005)
         shell-size-corrected threshold evaluated from the actual number
         of independent Fourier voxels in each shell of *this* box.
+
+        Shells are binned over ``0 .. box_size // 2`` only; the sparse
+        corner region beyond the Nyquist radius, which is sampled
+        anisotropically, takes no part.
 
         Parameters
         ----------
@@ -902,8 +1197,12 @@ class LocalFSC:
         Returns
         -------
         resolution_px : float
-            Local resolution in pixels.  Returns ``box_size * 2.0`` when
-            the FSC never reaches the chosen threshold (bad estimate).
+            Local resolution in pixels, or ``NaN`` when no shell above DC
+            reaches the threshold.  That is the signature of a box
+            holding no reproducible signal, and it carries no
+            resolution: reporting ``NaN`` keeps it out of the map and out
+            of the statistics instead of standing in a fabricated coarse
+            value.
         """
         b = self.box_size
         eps = np.finfo(np.float64).tiny
@@ -941,30 +1240,46 @@ class LocalFSC:
             fsc_vals.append(float(cross / denom) if denom > eps else 0.0)
 
         fsc_arr = np.array(fsc_vals)
+        n_int   = np.array(n_vals, dtype=np.int64)
 
         if self._adaptive_snr is not None:
             # Shell-size-corrected threshold (van Heel & Schatz, 2005),
             # evaluated per shell from n(xi) actually present in this box:
             #   T(xi) = [SNR + (2*sqrt(SNR)+1)/sqrt(n)] / [SNR + 1 + 2*sqrt(SNR)/sqrt(n)]
-            n_arr = np.maximum(np.array(n_vals, dtype=np.float64), 1.0)
+            n_arr = np.maximum(n_int.astype(np.float64), 1.0)
             snr = self._adaptive_snr
             sqrt_snr = np.sqrt(snr)
             sqrt_n = np.sqrt(n_arr)
             thr_arr = (snr + (2.0 * sqrt_snr + 1.0) / sqrt_n) / (
                 snr + 1.0 + 2.0 * sqrt_snr / sqrt_n
             )
-            above = np.where(fsc_arr[1:] >= thr_arr[1:])[0] + 1  # skip DC
         else:
-            # Find the highest shell where FSC >= fixed threshold
-            above = np.where(fsc_arr[1:] >= self.threshold)[0] + 1  # skip DC
+            thr_arr = np.full(fsc_arr.shape, self.threshold, dtype=np.float64)
+
+        # Highest shell at or above the threshold (skipping DC).
+        #
+        # The alternative — ending the run at the *first* shell that drops
+        # below the threshold — was tried and reverted.  It fails because
+        # the shell-size-corrected threshold is at its highest exactly
+        # where the run starts: for a 64-voxel box T = 0.462 at shell 1
+        # and 0.340 at shell 2, so a run anchored at DC terminates around
+        # shells 0-4 no matter how much signal sits above.  Against a
+        # known band limit (150 trials, half-bit, band-limited object plus
+        # independent noise per half) this rule recovers the true shell in
+        # 100 % of trials at SNR 1.0 and 85 % at SNR 0.5 for L = 64, where
+        # the run-from-DC rule scores 59 % and 0 %; on a real PXCT dataset
+        # it moved the median from 41 nm to 232 nm.  See
+        # ``test/rule_test.py``.
+        above = np.where(fsc_arr[1:] >= thr_arr[1:])[0] + 1
 
         if len(above) == 0:
-            return float(b * 2.0)
+            return float("nan")
         r_res_shell = above[-1]
+
         # Convert shell index to resolution in pixels: shell s = s/b cycles/pixel
         r_cpx = r_res_shell / float(b)
         if r_cpx < eps:
-            return float(b * 2.0)
+            return float("nan")
         return 1.0 / r_cpx
 
     def _compute(self):
@@ -972,10 +1287,22 @@ class LocalFSC:
         Iterate over the coarse grid, compute local FSC per box, and
         interpolate the result to the full volume shape.
 
+        Boxes whose FSC never crossed the threshold stay ``NaN`` on the
+        coarse grid and propagate through the linear interpolation, so
+        the map is ``NaN`` wherever the local resolution is unknown.
+        Query points are clamped to the extent of the box centres: the
+        border band the grid does not cover takes the value of the
+        nearest estimate instead of an extrapolation, which is what used
+        to turn into negative resolutions there.
+
         Stores
         ------
         resolution_map : ndarray
         resolution_map_phys : ndarray
+        coarse_map : ndarray
+        grid_axes : list of ndarray
+        n_boxes : int
+        n_valid : int
         resolution_median : float
         resolution_mean : float
         resolution_std : float
@@ -1003,11 +1330,18 @@ class LocalFSC:
                 )
 
         coarse_shape = tuple(len(ax) for ax in axes)
-        coarse_map = np.empty(coarse_shape, dtype=np.float64)
+        coarse_map = np.full(coarse_shape, np.nan, dtype=np.float64)
+        measured   = np.zeros(coarse_shape, dtype=bool)
 
         idx_ranges = [range(len(ax)) for ax in axes]
         for grid_idx in itertools.product(*idx_ranges):
             centres = tuple(int(axes[d][grid_idx[d]]) for d in range(ndim))
+
+            # Skip boxes that do not fit inside the support; they stay NaN.
+            if self.mask_eroded is not None and not self.mask_eroded[centres]:
+                continue
+            measured[grid_idx] = True
+
             slices = tuple(
                 slice(max(0, centres[d] - half), min(shape[d], centres[d] + half))
                 for d in range(ndim)
@@ -1023,10 +1357,48 @@ class LocalFSC:
 
             coarse_map[grid_idx] = self._fsc_box(box1, box2, window)
 
+        self.coarse_map = coarse_map
+        self.grid_axes  = axes
+        self.n_boxes    = int(coarse_map.size)
+        self.n_valid    = int(np.count_nonzero(np.isfinite(coarse_map)))
+
+        if self.n_valid == 0:
+            warnings.warn(
+                "LocalFSC: no analysis box produced a resolution estimate — "
+                "the FSC never crossed the threshold anywhere inside the "
+                "support.  The resolution map is entirely NaN.  Check that "
+                "vol1 and vol2 are genuinely correlated half-reconstructions, "
+                "and consider a larger box_size or a lower threshold.",
+                UserWarning,
+                stacklevel=3,
+            )
+
+        # Two kinds of missing box carry different meanings, so they are
+        # treated differently before interpolation:
+        #
+        #   * a box skipped because it does not fit inside the support was
+        #     never measured, and the map is masked back to the eroded
+        #     support at the end anyway.  Leaving it NaN would poison every
+        #     grid cell that touches it — linear interpolation needs all
+        #     corners — and hollow out the support from the inside.  It
+        #     takes the nearest measured estimate instead, the same edge
+        #     hold applied at the volume border below;
+        #   * a box that *was* measured and whose FSC never crossed the
+        #     threshold stays NaN, and that NaN propagates: there the local
+        #     resolution is genuinely unknown.
+        coarse_interp = coarse_map.copy()
+        finite = np.isfinite(coarse_map)
+        skipped = ~measured
+        if np.any(skipped) and np.any(finite):
+            _, nearest = distance_transform_edt(
+                ~finite, return_distances=True, return_indices=True
+            )
+            coarse_interp[skipped] = coarse_map[tuple(nearest)][skipped]
+
         # Interpolate to full volume using RegularGridInterpolator
         interp = RegularGridInterpolator(
             axes,
-            coarse_map,
+            coarse_interp,
             method='linear',
             bounds_error=False,
             fill_value=None,
@@ -1035,17 +1407,44 @@ class LocalFSC:
         # Build full meshgrid of integer coordinates
         full_grids = np.mgrid[tuple(slice(0, shape[d]) for d in range(ndim))]
         # full_grids shape: (ndim, *shape)
-        pts = np.stack([full_grids[d].ravel() for d in range(ndim)], axis=-1)
+        pts = np.stack(
+            [full_grids[d].ravel() for d in range(ndim)], axis=-1
+        ).astype(np.float64)
+
+        # Clamp to the extent of the box centres.  The coarse grid stops
+        # half a box short of every border, and extrapolating a linear fit
+        # into that band is meaningless — it used to hand back negative
+        # resolutions.  Holding the edge value keeps every entry inside the
+        # range actually measured.
+        for d in range(ndim):
+            np.clip(pts[:, d], axes[d][0], axes[d][-1], out=pts[:, d])
+
         res_full = interp(pts).reshape(shape)
+
+        # A resolution is a length: nothing <= 0 is an estimate.  Linear
+        # interpolation between positive estimates cannot produce one, so
+        # this is a guard rather than a correction.
+        res_full[res_full <= 0.0] = np.nan
+
+        # Outside the eroded support nothing was measured.
+        if self.mask_eroded is not None:
+            res_full[~self.mask_eroded] = np.nan
 
         self.resolution_map       = res_full
         self.resolution_map_phys  = res_full * self.pixel_size
         self.resolution_map_half  = res_full / 2.0
         self.resolution_map_phys_half = self.resolution_map_phys / 2.0
 
-        self.resolution_median      = float(np.median(res_full))
-        self.resolution_mean        = float(np.mean(res_full))
-        self.resolution_std         = float(np.std(res_full))
+        # NaN-aware statistics; np.nan* would warn on an all-NaN map.
+        if np.any(np.isfinite(res_full)):
+            self.resolution_median  = float(np.nanmedian(res_full))
+            self.resolution_mean    = float(np.nanmean(res_full))
+            self.resolution_std     = float(np.nanstd(res_full))
+        else:
+            self.resolution_median  = float("nan")
+            self.resolution_mean    = float("nan")
+            self.resolution_std     = float("nan")
+
         self.resolution_median_half = self.resolution_median / 2.0
         self.resolution_mean_half   = self.resolution_mean   / 2.0
         self.resolution_std_half    = self.resolution_std    / 2.0
@@ -1056,6 +1455,8 @@ class LocalFSC:
 
         For 3-D volumes the central slice (or the slice specified by
         *slice_idx*) along *axis* is shown.  The colour bar is in pixels.
+        Voxels with no resolution estimate are ``NaN`` and are left blank
+        by the colourmap.
 
         Parameters
         ----------
