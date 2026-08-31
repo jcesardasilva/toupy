@@ -1566,6 +1566,51 @@ class ShowProjections:
         self.fig.canvas.draw_idle()
         plt.pause(0.001)
 
+    @interativesession
+    def show_projection_real(self, obj, idxp):
+        """
+        Show a single real-valued projection (e.g. from EDF files).
+
+        Unlike :meth:`show_projections`, which expects a complex object plus a
+        probe, this draws a single panel for a real 2-D projection and takes
+        no probe.
+
+        Parameters
+        ----------
+        obj : ndarray
+            Real-valued projection image to show.
+        idxp : int
+            Projection number.
+        """
+        self.projreal = np.real(obj)
+        self.idxp = idxp
+        # robust contrast that works for both absorption and phase projections
+        cmin, cmax = np.percentile(self.projreal, [1, 99])
+        if cmin == cmax:
+            cmin, cmax = self.projreal.min(), self.projreal.max()
+        if idxp == 0:
+            # display first image
+            plt.close("all")
+            self.figreal, self.axreal = plt.subplots(num=1, figsize=(8, 6))
+            self.imreal = self.axreal.imshow(
+                self.projreal,
+                interpolation="none",
+                cmap="gray",
+                vmin=cmin,
+                vmax=cmax,
+            )
+            self.axreal.set_title("Projection {}".format(self.idxp + 1))
+            self.axreal.axis("image")
+            self.figreal.canvas.draw_idle()
+            plt.pause(0.001)
+        else:
+            self.imreal.set_data(self.projreal)
+            self.imreal.set_clim((cmin, cmax))
+            self.imreal.set_interpolation(u"none")
+            self.axreal.set_title("Projection {}".format(self.idxp + 1))
+            self.figreal.canvas.draw_idle()
+            plt.pause(0.001)
+
     @staticmethod
     def probe2HSV(probe):
         """

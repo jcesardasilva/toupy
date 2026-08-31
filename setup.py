@@ -47,6 +47,9 @@ setuptools.setup(
         "tqdm>=4.61.2",
     ],
     extras_require={
+        "resource": [
+            "psutil>=5.8.0",
+        ],
         "notebook": [
             "ipympl>=0.9.0",
             "jupyterlab>=3.0",

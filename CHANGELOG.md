@@ -4,6 +4,27 @@ All notable changes to **toupy** are documented in this file.
 
 ## Unreleased
 
+### Added — resource-aware memory check (`toupy.utils`)
+
+- **`check_memory_requirement`** — portable, hostname-free safeguard that
+  estimates the peak memory an array operation needs (from shape + dtype, with
+  a configurable `safety_factor` for the temporary copies FSC and
+  reconstruction hold simultaneously) and compares it against the available
+  RAM. Warns by default (never blocks a legitimate run); `strict=True` raises
+  `MemoryError`. Reads available memory via **`psutil`**, now an optional extra
+  (`pip install toupy[resource]`); degrades gracefully (a warning, or
+  `RuntimeError` under `strict`) when `psutil` is absent.
+- Helpers **`estimate_peak_bytes`**, **`available_memory`**,
+  **`psutil_available`**, and **`humanize_bytes`**.
+
+### Changed
+
+- The memory-heavy entry points that previously carried the ESRF-specific
+  `@checkhostname` guard — `FourierShellCorr.__init__` and the `_load_*`
+  methods in `toupy.io.dataio` — now call `check_memory_requirement` at the
+  point the target array size is known, replacing the hostname heuristic with
+  a measurement of the resource that actually matters.
+
 ### Fixed — resolution (`toupy.resolution`)
 
 - **`RandomFSC`** — the Chen phase-randomization correction was applied over
@@ -28,8 +49,8 @@ All notable changes to **toupy** are documented in this file.
 
 ### Added
 
-- `test/test_random_fsc.py` — regression tests for the above, with real-data
-  fixtures in `test/data/`. Run with `pytest test/`.
+- `test/test_random_fsc.py` — regression tests for the above. Run with
+  `pytest test/`.
 
 ## 0.4.0 — 2026-05-31 — phase retrieval, ring correction, TV reconstruction
 
