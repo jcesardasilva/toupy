@@ -124,6 +124,7 @@ __all__ = ["TwoPassReconstructor"]
 # TV regularisation helper
 # ---------------------------------------------------------------------------
 
+
 def _tv_gradient_3d(vol, eps=1e-8):
     """
     Gradient of the smooth isotropic 3-D total-variation functional.
@@ -162,7 +163,7 @@ def _tv_gradient_3d(vol, eps=1e-8):
     """
     # --- forward differences with zero-Neumann BC (last diff = 0) ----------
     gz = np.zeros_like(vol)
-    gz[:-1]      = vol[1:]      - vol[:-1]
+    gz[:-1] = vol[1:] - vol[:-1]
 
     gy = np.zeros_like(vol)
     gy[:, :-1, :] = vol[:, 1:, :] - vol[:, :-1, :]
@@ -171,7 +172,7 @@ def _tv_gradient_3d(vol, eps=1e-8):
     gx[:, :, :-1] = vol[:, :, 1:] - vol[:, :, :-1]
 
     # --- smoothed local norm + TV value (free, same loop) ------------------
-    norm = np.sqrt(gz ** 2 + gy ** 2 + gx ** 2 + eps)
+    norm = np.sqrt(gz**2 + gy**2 + gx**2 + eps)
     tv_val = float(np.sum(norm))
 
     # --- normalise in-place to save memory ---------------------------------
@@ -184,16 +185,16 @@ def _tv_gradient_3d(vol, eps=1e-8):
     #
     # z-axis contribution
     grad = np.empty_like(vol)
-    grad[0,  :, :]  = -gz[0,  :, :]
-    grad[1:, :, :]  =  gz[:-1, :, :] - gz[1:, :, :]
+    grad[0, :, :] = -gz[0, :, :]
+    grad[1:, :, :] = gz[:-1, :, :] - gz[1:, :, :]
 
     # y-axis contribution (add in-place)
-    grad[:,  0, :]  -= gy[:,  0, :]
-    grad[:, 1:, :]  += gy[:, :-1, :] - gy[:, 1:, :]
+    grad[:, 0, :] -= gy[:, 0, :]
+    grad[:, 1:, :] += gy[:, :-1, :] - gy[:, 1:, :]
 
     # x-axis contribution (add in-place)
-    grad[:, :,  0]  -= gx[:, :,  0]
-    grad[:, :, 1:]  += gx[:, :, :-1] - gx[:, :, 1:]
+    grad[:, :, 0] -= gx[:, :, 0]
+    grad[:, :, 1:] += gx[:, :, :-1] - gx[:, :, 1:]
 
     return grad, tv_val
 
@@ -202,17 +203,18 @@ def _tv_gradient_3d(vol, eps=1e-8):
 # Adam optimiser (minimal, dependency-free implementation)
 # ---------------------------------------------------------------------------
 
+
 class _AdamState:
     """Per-variable Adam momentum state."""
 
     def __init__(self, shape, lr=1e-3, beta1=0.9, beta2=0.999, eps=1e-8):
-        self.lr    = lr
+        self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
-        self.eps   = eps
-        self.m     = np.zeros(shape, dtype=np.float64)   # first moment
-        self.v     = np.zeros(shape, dtype=np.float64)   # second moment
-        self.t     = 0                                    # step counter
+        self.eps = eps
+        self.m = np.zeros(shape, dtype=np.float64)  # first moment
+        self.v = np.zeros(shape, dtype=np.float64)  # second moment
+        self.t = 0  # step counter
 
     def step(self, param, grad):
         """
@@ -224,9 +226,9 @@ class _AdamState:
         """
         self.t += 1
         self.m = self.beta1 * self.m + (1.0 - self.beta1) * grad
-        self.v = self.beta2 * self.v + (1.0 - self.beta2) * grad ** 2
-        m_hat  = self.m / (1.0 - self.beta1 ** self.t)
-        v_hat  = self.v / (1.0 - self.beta2 ** self.t)
+        self.v = self.beta2 * self.v + (1.0 - self.beta2) * grad**2
+        m_hat = self.m / (1.0 - self.beta1**self.t)
+        v_hat = self.v / (1.0 - self.beta2**self.t)
         param -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
         return param
 
@@ -234,6 +236,7 @@ class _AdamState:
 # ---------------------------------------------------------------------------
 # Two-pass reconstructor
 # ---------------------------------------------------------------------------
+
 
 class TwoPassReconstructor:
     """
@@ -253,10 +256,10 @@ class TwoPassReconstructor:
     """
 
     def __init__(self, wavelength, pixel_size, n_slices=20, verbose=True):
-        self.wavelength  = float(wavelength)
-        self.pixel_size  = float(pixel_size)
-        self.n_slices    = int(n_slices)
-        self.verbose     = bool(verbose)
+        self.wavelength = float(wavelength)
+        self.pixel_size = float(pixel_size)
+        self.n_slices = int(n_slices)
+        self.verbose = bool(verbose)
 
     # ==================================================================
     # Pass 1: FBP reconstruction
@@ -304,14 +307,14 @@ class TwoPassReconstructor:
 
         # Default FBP parameters compatible with Toupy conventions
         default_params = dict(
-            algorithm       = "FBP",
-            filtertype      = "ram-lak",
-            freqcutoff      = 1.0,
-            circle          = True,
-            derivatives     = False,
-            calc_derivatives= False,
-            weight_angles   = False,
-            opencl          = False,
+            algorithm="FBP",
+            filtertype="ram-lak",
+            freqcutoff=1.0,
+            circle=True,
+            derivatives=False,
+            calc_derivatives=False,
+            weight_angles=False,
+            opencl=False,
         )
         default_params.update(fbp_params)
 
@@ -336,15 +339,14 @@ class TwoPassReconstructor:
 
         # Convert from projected phase to δ: φ_FBP = −k₀ · δ_FBP · pixel_size
         # ⟹  δ = −φ_FBP / (k₀ · pixel_size)
-        k0  = 2.0 * np.pi / self.wavelength
+        k0 = 2.0 * np.pi / self.wavelength
         delta_vol = (-delta_vol / (k0 * self.pixel_size)).astype(np.float64)
-        np.clip(delta_vol, 0.0, None, out=delta_vol)   # physical constraint δ ≥ 0
+        np.clip(delta_vol, 0.0, None, out=delta_vol)  # physical constraint δ ≥ 0
 
         # Reconstruct β if amplitude projections are given
         beta_vol = np.zeros_like(delta_vol)
         if beta_stack is not None:
-            for iy in tqdm(range(Ny), desc="Pass 1 FBP (β)",
-                           disable=not self.verbose):
+            for iy in tqdm(range(Ny), desc="Pass 1 FBP (β)", disable=not self.verbose):
                 sino = np.transpose(beta_stack[:, iy, :])
                 beta_vol[iy] = tomo_recons(sino, theta, **default_params)
             beta_vol = (-beta_vol / (k0 * self.pixel_size)).astype(np.float64)
@@ -354,11 +356,13 @@ class TwoPassReconstructor:
         # The multislice engine expects (Nz, Ny, Nx) — depth · height · transverse.
         # Transpose to the canonical convention used throughout Pass 2.
         delta_vol = np.ascontiguousarray(np.transpose(delta_vol, (1, 0, 2)))
-        beta_vol  = np.ascontiguousarray(np.transpose(beta_vol,  (1, 0, 2)))
+        beta_vol = np.ascontiguousarray(np.transpose(beta_vol, (1, 0, 2)))
 
         if self.verbose:
-            print(f"  Pass 1 done in {time.time()-t0:.1f} s.  "
-                  f"δ: [{delta_vol.min():.3e}, {delta_vol.max():.3e}]")
+            print(
+                f"  Pass 1 done in {time.time()-t0:.1f} s.  "
+                f"δ: [{delta_vol.min():.3e}, {delta_vol.max():.3e}]"
+            )
 
         return delta_vol, beta_vol
 
@@ -372,15 +376,15 @@ class TwoPassReconstructor:
         theta,
         delta_vol,
         beta_vol,
-        probe             = None,
-        n_iter            = 30,
-        lr                = 1e-3,
-        matter_correction = True,
-        propagator        = "fresnel",
-        regularisation    = "positivity",
-        tv_weight         = 1e-3,
-        batch_size        = None,
-        callback          = None,
+        probe=None,
+        n_iter=30,
+        lr=1e-3,
+        matter_correction=True,
+        propagator="fresnel",
+        regularisation="positivity",
+        tv_weight=1e-3,
+        batch_size=None,
+        callback=None,
     ):
         """
         Pass 2: iterative multislice wave-propagation refinement.
@@ -469,7 +473,7 @@ class TwoPassReconstructor:
             iterations at lr = 1e-3 typically suffice to remove the
             residual model-mismatch artefacts.
         """
-        theta   = np.asarray(theta, dtype=np.float64)
+        theta = np.asarray(theta, dtype=np.float64)
         n_angles, Ny, Nx = u_measured_stack.shape
         Nz = delta_vol.shape[0]
 
@@ -482,16 +486,16 @@ class TwoPassReconstructor:
         # Multislice engine
         slice_thickness = Nz * self.pixel_size / self.n_slices
         engine = MultisliceEngine(
-            shape          = (Ny, Nx),
-            pixel_size     = self.pixel_size,
-            wavelength     = self.wavelength,
-            slice_thickness= slice_thickness,
-            propagator     = propagator,
+            shape=(Ny, Nx),
+            pixel_size=self.pixel_size,
+            wavelength=self.wavelength,
+            slice_thickness=slice_thickness,
+            propagator=propagator,
         )
 
         # Adam optimiser states for δ and β
         adam_delta = _AdamState(delta_vol.shape, lr=lr)
-        adam_beta  = _AdamState(beta_vol.shape,  lr=lr)
+        adam_beta = _AdamState(beta_vol.shape, lr=lr)
 
         # Batch configuration
         angle_indices = np.arange(n_angles)
@@ -504,11 +508,13 @@ class TwoPassReconstructor:
 
         if self.verbose:
             print(f"\nPass 2 — Multislice refinement")
-            print(f"  n_iter={n_iter}, lr={lr}, n_slices={self.n_slices}, "
-                  f"matter_correction={matter_correction}, "
-                  f"propagator={propagator!r}, "
-                  f"regularisation={regularisation!r}, "
-                  f"batch_size={batch_size}")
+            print(
+                f"  n_iter={n_iter}, lr={lr}, n_slices={self.n_slices}, "
+                f"matter_correction={matter_correction}, "
+                f"propagator={propagator!r}, "
+                f"regularisation={regularisation!r}, "
+                f"batch_size={batch_size}"
+            )
             if regularisation == "tv":
                 print(f"  tv_weight={tv_weight:.2e}")
             print(f"  slice_thickness = {slice_thickness*1e9:.2f} nm")
@@ -522,29 +528,33 @@ class TwoPassReconstructor:
             # (updated once per outer iteration — cheap and sufficient)
             # delta_means_per_angle is computed inside _angle_gradient
 
-            total_loss  = 0.0
-            grad_delta  = np.zeros_like(delta_vol)
-            grad_beta   = np.zeros_like(beta_vol)
+            total_loss = 0.0
+            grad_delta = np.zeros_like(delta_vol)
+            grad_beta = np.zeros_like(beta_vol)
 
             # Shuffle angles for stochastic gradient
             batch_idx = np.random.choice(angle_indices, size=batch_size, replace=False)
 
             for ai in batch_idx:
-                theta_i   = theta[ai]
-                u_meas_i  = u_measured_stack[ai]
+                theta_i = theta[ai]
+                u_meas_i = u_measured_stack[ai]
 
                 loss_i, gd_i, gb_i = self._angle_gradient(
-                    delta_vol, beta_vol, theta_i,
-                    probe, u_meas_i, engine,
+                    delta_vol,
+                    beta_vol,
+                    theta_i,
+                    probe,
+                    u_meas_i,
+                    engine,
                     matter_correction=matter_correction,
                 )
                 total_loss += loss_i
                 grad_delta += gd_i
-                grad_beta  += gb_i
+                grad_beta += gb_i
 
             # Normalise data gradient by batch size
             grad_delta /= batch_size
-            grad_beta  /= batch_size
+            grad_beta /= batch_size
 
             # TV regularisation: add μ_TV · ∇R_TV to data gradient
             # before the Adam step so Adam's adaptive rates scale the
@@ -553,30 +563,35 @@ class TwoPassReconstructor:
                 tv_grad_d, tv_val_d = _tv_gradient_3d(delta_vol)
                 tv_grad_b, tv_val_b = _tv_gradient_3d(beta_vol)
                 grad_delta += tv_weight * tv_grad_d
-                grad_beta  += tv_weight * tv_grad_b
-                del tv_grad_d, tv_grad_b   # free memory promptly
+                grad_beta += tv_weight * tv_grad_b
+                del tv_grad_d, tv_grad_b  # free memory promptly
                 history["tv_loss"].append(tv_weight * (tv_val_d + tv_val_b))
 
             # Adam update
             adam_delta.step(delta_vol, grad_delta)
-            adam_beta.step( beta_vol,  grad_beta)
+            adam_beta.step(beta_vol, grad_beta)
 
             # Positivity projection: δ, β ≥ 0 (physical constraint).
             # Applied for both "positivity" and "tv" modes.
             if regularisation in ("positivity", "tv"):
                 np.clip(delta_vol, 0.0, None, out=delta_vol)
-                np.clip(beta_vol,  0.0, None, out=beta_vol)
+                np.clip(beta_vol, 0.0, None, out=beta_vol)
 
             elapsed = time.time() - t_iter
             history["loss"].append(total_loss)
             history["time"].append(elapsed)
 
             if self.verbose:
-                tv_str = (f"  tv={history['tv_loss'][-1]:.3e}"
-                          if regularisation == "tv" else "")
-                print(f"  Iter {it+1:3d}/{n_iter}  loss={total_loss:.4e}"
-                      f"{tv_str}  t={elapsed:.1f}s  "
-                      f"δ∈[{delta_vol.min():.2e},{delta_vol.max():.2e}]")
+                tv_str = (
+                    f"  tv={history['tv_loss'][-1]:.3e}"
+                    if regularisation == "tv"
+                    else ""
+                )
+                print(
+                    f"  Iter {it+1:3d}/{n_iter}  loss={total_loss:.4e}"
+                    f"{tv_str}  t={elapsed:.1f}s  "
+                    f"δ∈[{delta_vol.min():.2e},{delta_vol.max():.2e}]"
+                )
 
             if callback is not None:
                 callback(it + 1, total_loss, delta_vol, beta_vol)
@@ -590,8 +605,16 @@ class TwoPassReconstructor:
     # Internal helpers
     # ==================================================================
 
-    def _angle_gradient(self, delta_vol, beta_vol, theta_deg,
-                        probe, u_measured, engine, matter_correction=True):
+    def _angle_gradient(
+        self,
+        delta_vol,
+        beta_vol,
+        theta_deg,
+        probe,
+        u_measured,
+        engine,
+        matter_correction=True,
+    ):
         """
         Forward + adjoint pass for a single projection angle.
 
@@ -630,8 +653,11 @@ class TwoPassReconstructor:
 
         # 4. Back-rotate slice gradients → 3-D volume gradients
         grad_delta_vol, grad_beta_vol = scatter_gradient_to_volume(
-            grad_delta_slices, grad_beta_slices,
-            theta_deg, delta_vol.shape, n_slices=self.n_slices,
+            grad_delta_slices,
+            grad_beta_slices,
+            theta_deg,
+            delta_vol.shape,
+            n_slices=self.n_slices,
         )
 
         return loss, grad_delta_vol, grad_beta_vol
@@ -640,9 +666,15 @@ class TwoPassReconstructor:
     # Diagnostics / utilities
     # ==================================================================
 
-    def simulate_exit_wave(self, delta_vol, beta_vol, theta_deg,
-                           probe=None, matter_correction=True,
-                           propagator="fresnel"):
+    def simulate_exit_wave(
+        self,
+        delta_vol,
+        beta_vol,
+        theta_deg,
+        probe=None,
+        matter_correction=True,
+        propagator="fresnel",
+    ):
         """
         Simulate the exit wave at a given projection angle.
 
@@ -671,11 +703,11 @@ class TwoPassReconstructor:
 
         slice_thickness = Nz * self.pixel_size / self.n_slices
         engine = MultisliceEngine(
-            shape          = (Ny, Nx),
-            pixel_size     = self.pixel_size,
-            wavelength     = self.wavelength,
-            slice_thickness= slice_thickness,
-            propagator     = propagator,
+            shape=(Ny, Nx),
+            pixel_size=self.pixel_size,
+            wavelength=self.wavelength,
+            slice_thickness=slice_thickness,
+            propagator=propagator,
         )
 
         delta_slices, beta_slices, delta_means = extract_slices_from_volume(
@@ -685,9 +717,15 @@ class TwoPassReconstructor:
         u_sim = engine.forward(delta_slices, beta_slices, probe, delta_means=d_means)
         return u_sim
 
-    def projection_residuals(self, u_measured_stack, theta,
-                             delta_vol, beta_vol, probe=None,
-                             matter_correction=True):
+    def projection_residuals(
+        self,
+        u_measured_stack,
+        theta,
+        delta_vol,
+        beta_vol,
+        probe=None,
+        matter_correction=True,
+    ):
         """
         Compute per-angle residual norms ‖U_sim(θ) − U_meas(θ)‖.
 
@@ -710,10 +748,15 @@ class TwoPassReconstructor:
             probe = np.ones((Ny, Nx), dtype=complex)
 
         residuals = np.empty(n_angles)
-        for ai, th in enumerate(tqdm(theta, desc="Computing residuals",
-                                     disable=not self.verbose)):
-            u_sim = self.simulate_exit_wave(delta_vol, beta_vol, th,
-                                            probe=probe,
-                                            matter_correction=matter_correction)
+        for ai, th in enumerate(
+            tqdm(theta, desc="Computing residuals", disable=not self.verbose)
+        ):
+            u_sim = self.simulate_exit_wave(
+                delta_vol,
+                beta_vol,
+                th,
+                probe=probe,
+                matter_correction=matter_correction,
+            )
             residuals[ai] = np.linalg.norm(u_sim - u_measured_stack[ai])
         return residuals

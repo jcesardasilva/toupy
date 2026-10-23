@@ -212,12 +212,8 @@ class ConeBeamGeometry:
                 )
             )
         if self.n_u <= 0:
-            raise ValueError(
-                "n_u must be a positive integer, got {}.".format(self.n_u)
-            )
+            raise ValueError("n_u must be a positive integer, got {}.".format(self.n_u))
         if self.n_v <= 0:
-            raise ValueError(
-                "n_v must be a positive integer, got {}.".format(self.n_v)
-            )
+            raise ValueError("n_v must be a positive integer, got {}.".format(self.n_v))
         if len(self.angles) == 0:
             raise ValueError("angles must contain at least one projection angle.")

@@ -49,17 +49,23 @@ from scipy.fft import fft2, ifft2, fftfreq
 # ---------------------------------------------------------------------------
 try:
     import cupy as cp
+
     CUDA_AVAILABLE = True
 except ImportError:
     CUDA_AVAILABLE = False
 
-__all__ = ["tie_hom", "ctf_retrieve", "iterative_phase_retrieval",
-           "suggest_holo_distances"]
+__all__ = [
+    "tie_hom",
+    "ctf_retrieve",
+    "iterative_phase_retrieval",
+    "suggest_holo_distances",
+]
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_xp(cuda):
     """Return cupy if cuda is requested and available, else numpy."""
@@ -84,6 +90,7 @@ def _freq_grid(ny, nx, pixel_size, xp):
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def tie_hom(
     intensity,
@@ -292,7 +299,8 @@ def ctf_retrieve(
             raise ValueError(
                 "Multi-distance CTF expects intensity of shape "
                 "(D, M, N) with D = len(distance) = {}, got {}.".format(
-                    distances.size, intensity.shape)
+                    distances.size, intensity.shape
+                )
             )
         batch = False
     else:
@@ -343,6 +351,7 @@ def ctf_retrieve(
 # ---------------------------------------------------------------------------
 # Nonlinear iterative phase retrieval (full Fresnel forward model)
 # ---------------------------------------------------------------------------
+
 
 def iterative_phase_retrieval(
     intensity,
@@ -471,7 +480,9 @@ def iterative_phase_retrieval(
             raise ValueError(
                 "Multi-distance retrieval expects intensity of shape "
                 "(D, M, N) with D = len(distance) = {}, got {}.".format(
-                    distances.size, intensity.shape))
+                    distances.size, intensity.shape
+                )
+            )
         stack = intensity
     else:
         stack = intensity[np.newaxis] if intensity.ndim == 2 else intensity
@@ -486,8 +497,14 @@ def iterative_phase_retrieval(
 
     # Warm start: TIE-Hom at the first distance.
     if init is None:
-        init = tie_hom(stack[0], float(distances[0]), wavelength, pixel_size,
-                       delta_beta=delta_beta, cuda=cuda)
+        init = tie_hom(
+            stack[0],
+            float(distances[0]),
+            wavelength,
+            pixel_size,
+            delta_beta=delta_beta,
+            cuda=cuda,
+        )
     phi = xp.asarray(np.asarray(init, dtype=float))
 
     sqI = [xp.asarray(np.sqrt(stack[d])) for d in range(distances.size)]
@@ -503,11 +520,11 @@ def iterative_phase_retrieval(
 
     def _embed(a):
         b = xp.zeros((my, mx), dtype=a.dtype)
-        b[oy:oy + ny, ox:ox + nx] = a
+        b[oy : oy + ny, ox : ox + nx] = a
         return b
 
     def _crop(a):
-        return a[oy:oy + ny, ox:ox + nx]
+        return a[oy : oy + ny, ox : ox + nx]
 
     def _cost_grad(phi):
         psi = xp.exp(c * _embed(phi))
@@ -515,20 +532,24 @@ def iterative_phase_retrieval(
         J = 0.0
         grad = xp.zeros((ny, nx))
         for H, s in zip(Hs, sqI):
-            psz = xp.fft.ifft2(psi_f * H)            # propagate
+            psz = xp.fft.ifft2(psi_f * H)  # propagate
             amp = xp.abs(psz)
-            res = _crop(amp) - s                     # amplitude residual
+            res = _crop(amp) - s  # amplitude residual
             J = J + 0.5 * float(xp.sum(res * res))
             gz = _embed(res * _crop(psz) / (_crop(amp) + 1e-30))
-            gobj = xp.fft.ifft2(xp.fft.fft2(gz) * xp.conj(H))   # back-propagate
+            gobj = xp.fft.ifft2(xp.fft.fft2(gz) * xp.conj(H))  # back-propagate
             grad = grad + _crop(xp.real(c_conj * xp.conj(psi) * gobj))
         if reg_smooth > 0:
             dphi0 = phi - xp.roll(phi, 1, axis=0)
             dphi1 = phi - xp.roll(phi, 1, axis=1)
             J = J + 0.5 * reg_smooth * float(xp.sum(dphi0**2 + dphi1**2))
-            lap = (-4.0 * phi
-                   + xp.roll(phi, 1, 0) + xp.roll(phi, -1, 0)
-                   + xp.roll(phi, 1, 1) + xp.roll(phi, -1, 1))
+            lap = (
+                -4.0 * phi
+                + xp.roll(phi, 1, 0)
+                + xp.roll(phi, -1, 0)
+                + xp.roll(phi, 1, 1)
+                + xp.roll(phi, -1, 1)
+            )
             grad = grad - reg_smooth * lap
         if reg_tv > 0:
             # Isotropic ε-smoothed TV: Σ sqrt(|∇φ|² + ε²); edge-preserving.
@@ -547,7 +568,7 @@ def iterative_phase_retrieval(
     t = 1.0
     for it in range(int(n_iter)):
         gd = float(xp.sum(g * d))
-        if gd >= 0:                       # not a descent direction → restart
+        if gd >= 0:  # not a descent direction → restart
             d = -g
             gd = float(xp.sum(g * d))
         t = min(t * 2.0, 1e3)
@@ -574,6 +595,7 @@ def iterative_phase_retrieval(
 # ---------------------------------------------------------------------------
 # Helper: choose a gap-free multi-distance (holotomography) series
 # ---------------------------------------------------------------------------
+
 
 def suggest_holo_distances(
     pixel_size,
@@ -658,9 +680,10 @@ def suggest_holo_distances(
     """
     n = int(n)
     if nf_long >= nf_short:
-        raise ValueError("nf_long ({}) must be < nf_short ({}) — the longest "
-                         "distance has the smaller Fresnel number."
-                         .format(nf_long, nf_short))
+        raise ValueError(
+            "nf_long ({}) must be < nf_short ({}) — the longest "
+            "distance has the smaller Fresnel number.".format(nf_long, nf_short)
+        )
     eps = 0.0 if delta_beta is None else 1.0 / float(delta_beta)
     u_nyq = 1.0 / (2.0 * pixel_size)
     z_short = pixel_size**2 / (wavelength * nf_short)

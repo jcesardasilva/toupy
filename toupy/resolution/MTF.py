@@ -88,7 +88,7 @@ class MTFEstimator:
         self,
         image,
         pixel_size=1.0,
-        method='edge',
+        method="edge",
         roi=None,
         center=None,
         roi_size=16,
@@ -98,7 +98,7 @@ class MTFEstimator:
         image = np.asarray(image, dtype=np.float64)
         if image.ndim != 2:
             raise ValueError("MTFEstimator requires a 2-D image.")
-        if method not in ('edge', 'point'):
+        if method not in ("edge", "point"):
             raise ValueError("method must be 'edge' or 'point'.")
 
         self.image = image
@@ -109,7 +109,7 @@ class MTFEstimator:
         self.roi_size = int(roi_size)
         self.oversample = int(oversample)
 
-        if method == 'edge':
+        if method == "edge":
             self._from_edge()
         else:
             self._from_point()
@@ -117,10 +117,14 @@ class MTFEstimator:
         self._find_resolution_frequencies()
 
         print(f"  MTF method      : {self.method}")
-        print(f"  f50 (MTF=0.5)   : {self.f50:.4f} cycles/pixel  "
-              f"→ resolution {self.resolution_50:.4g} physical units")
-        print(f"  f10 (MTF=0.1)   : {self.f10:.4f} cycles/pixel  "
-              f"→ resolution {self.resolution_10:.4g} physical units")
+        print(
+            f"  f50 (MTF=0.5)   : {self.f50:.4f} cycles/pixel  "
+            f"→ resolution {self.resolution_50:.4g} physical units"
+        )
+        print(
+            f"  f10 (MTF=0.1)   : {self.f10:.4f} cycles/pixel  "
+            f"→ resolution {self.resolution_10:.4g} physical units"
+        )
 
     # ------------------------------------------------------------------
     # Helpers
@@ -167,7 +171,7 @@ class MTFEstimator:
         # Gradient via Sobel
         gx = sobel(img, axis=1).astype(np.float64)
         gy = sobel(img, axis=0).astype(np.float64)
-        gmag = np.sqrt(gx ** 2 + gy ** 2)
+        gmag = np.sqrt(gx**2 + gy**2)
 
         # Top 5 % edge pixels
         thresh = np.percentile(gmag, 95)
@@ -192,7 +196,7 @@ class MTFEstimator:
         # line: slope*col - row + intercept = 0
         # normal direction: (slope, -1) / sqrt(slope^2 + 1)
         all_rows, all_cols = np.indices(img.shape)
-        norm_factor = np.sqrt(slope ** 2 + 1.0)
+        norm_factor = np.sqrt(slope**2 + 1.0)
         dist = (slope * all_cols - all_rows + intercept) / norm_factor
         # dist is in pixels along the edge-normal direction
 
@@ -204,9 +208,9 @@ class MTFEstimator:
 
         esf = np.zeros(n_bins)
         counts = np.zeros(n_bins, dtype=np.int64)
-        bin_idx = np.searchsorted(bin_edges[1:], dist.ravel(), side='left')
+        bin_idx = np.searchsorted(bin_edges[1:], dist.ravel(), side="left")
         bin_idx = np.clip(bin_idx, 0, n_bins - 1)
-        np.add.at(esf,    bin_idx, img.ravel())
+        np.add.at(esf, bin_idx, img.ravel())
         np.add.at(counts, bin_idx, 1)
         valid = counts > 0
         esf[valid] /= counts[valid]
@@ -303,10 +307,10 @@ class MTFEstimator:
         psf_profile = np.zeros(n_bins)
         counts = np.zeros(n_bins, dtype=np.int64)
 
-        bin_idx = np.searchsorted(bin_edges[1:], radii.ravel(), side='left')
+        bin_idx = np.searchsorted(bin_edges[1:], radii.ravel(), side="left")
         bin_idx = np.clip(bin_idx, 0, n_bins - 1)
         np.add.at(psf_profile, bin_idx, box.ravel())
-        np.add.at(counts,      bin_idx, 1)
+        np.add.at(counts, bin_idx, 1)
         valid = counts > 0
         psf_profile[valid] /= counts[valid]
 
@@ -412,13 +416,14 @@ class MTFEstimator:
             from ..utils.plot_utils import plt, isnotebook
         except Exception:
             plt = _plt
+
             def isnotebook():
                 return False
 
         fig, ax = _plt.subplots(figsize=(8, 5))
         ax.plot(self.freq, self.MTF, "-b", label="MTF")
         ax.axhline(0.5, color="gray", linestyle="--", linewidth=0.8)
-        ax.axhline(0.1, color="gray", linestyle=":",  linewidth=0.8)
+        ax.axhline(0.1, color="gray", linestyle=":", linewidth=0.8)
 
         ax.axvline(
             self.f50,
@@ -444,7 +449,9 @@ class MTFEstimator:
         if self.pixel_size != 1.0:
             ax2 = ax.twiny()
             ax2.set_xlim(0, 0.5 / self.pixel_size)
-            ax2.set_xlabel(f"Spatial frequency (cycles / physical unit, px={self.pixel_size})")
+            ax2.set_xlabel(
+                f"Spatial frequency (cycles / physical unit, px={self.pixel_size})"
+            )
 
         fig.tight_layout()
         fname = f"MTF_{self.method}.png"
@@ -453,6 +460,7 @@ class MTFEstimator:
         try:
             if isnotebook():
                 from IPython import display as _disp
+
                 _disp.display(fig)
                 _plt.close(fig)
             else:

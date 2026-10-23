@@ -13,8 +13,8 @@ from ..utils import tqdm
 from ..utils import display_slice
 from .iradon import backprojector, reconsSART
 from ..restoration import derivatives_sino
-from .fdk import fdk_reconstruct          # cone-beam FDK
-from .geometry import ConeBeamGeometry    # cone-beam geometry descriptor
+from .fdk import fdk_reconstruct  # cone-beam FDK
+from .geometry import ConeBeamGeometry  # cone-beam geometry descriptor
 
 __all__ = ["full_tomo_recons", "tomo_recons", "fdk_tomo_recons"]
 
@@ -181,6 +181,7 @@ def full_tomo_recons(input_stack, theta, **params):
 # Cone-beam high-level wrapper
 # ---------------------------------------------------------------------------
 
+
 def fdk_tomo_recons(
     projections,
     geometry: ConeBeamGeometry,
@@ -247,15 +248,15 @@ def fdk_tomo_recons(
     """
     from ..utils import create_circle
 
-    filtertype  = params.get("filtertype",  "ram-lak")
-    freqcutoff  = params.get("freqcutoff",  1.0)
+    filtertype = params.get("filtertype", "ram-lak")
+    freqcutoff = params.get("freqcutoff", 1.0)
     output_size = params.get("output_size", None)
-    cuda        = params.get("cuda",        False)
-    circle      = params.get("circle",      False)
-    showrecons  = params.get("showrecons",  False)
-    colormap    = params.get("colormap",    "bone")
-    vmin_plot   = params.get("vmin_plot",   None)
-    vmax_plot   = params.get("vmax_plot",   None)
+    cuda = params.get("cuda", False)
+    circle = params.get("circle", False)
+    showrecons = params.get("showrecons", False)
+    colormap = params.get("colormap", "bone")
+    vmin_plot = params.get("vmin_plot", None)
+    vmax_plot = params.get("vmax_plot", None)
 
     geometry.validate()
 
@@ -267,7 +268,8 @@ def fdk_tomo_recons(
         )
 
     volume = fdk_reconstruct(
-        projections, geometry,
+        projections,
+        geometry,
         filter_type=filtertype,
         freqcutoff=freqcutoff,
         output_size=output_size,

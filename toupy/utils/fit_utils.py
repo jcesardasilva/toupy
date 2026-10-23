@@ -14,7 +14,7 @@ def model_erf(t, *coeffs):
     Model for the erf fitting
 
     P0 + P1*t + (P2/2)*(1-erf(sqrt(2)*(x-P3)/(P4)))
-    
+
     Parameters
     ----------
     t : ndarray
@@ -47,7 +47,7 @@ def model_tanh(t, *coeffs):
     Model for the erf fitting
 
     P0 + P1*t + (P2/2)*(1-tanh(sqrt(2)*(x-P3)/P4))
-    
+
     Parameters
     ----------
     t : ndarray
@@ -100,7 +100,7 @@ def residuals_tanh(coeffs, y, t):
     """
     Residuals for the least-squares optimization
     coeffs as the ones of the model tanh function
-    
+
     Parameters
     ----------
     y : ndarray

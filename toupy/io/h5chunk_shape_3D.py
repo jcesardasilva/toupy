@@ -113,16 +113,16 @@ def chunk_shape_3D(varShape, valSize=4, chunkSize=4096):
     numChunks = (
         varShape[0] * varShape[1] * varShape[2] / chunkVals
     )  # ideal number of chunks
-    axisChunks = numChunks ** 0.25  # ideal number of chunks along each 2D axis
+    axisChunks = numChunks**0.25  # ideal number of chunks along each 2D axis
     cFloor = []  # will be first estimate of good chunk shape
     # cFloor  = [varShape[0] // axisChunks**2, varShape[1] // axisChunks, varShape[2] // axisChunks]
     # except that each chunk shape dimension must be at least 1
     # chunkDim = max(1.0, varShape[0] // axisChunks**2)
-    if varShape[0] / axisChunks ** 2 < 1.0:
+    if varShape[0] / axisChunks**2 < 1.0:
         chunkDim = 1.0
-        axisChunks = axisChunks / math.sqrt(varShape[0] / axisChunks ** 2)
+        axisChunks = axisChunks / math.sqrt(varShape[0] / axisChunks**2)
     else:
-        chunkDim = varShape[0] // axisChunks ** 2
+        chunkDim = varShape[0] // axisChunks**2
     cFloor.append(chunkDim)
     prod = 1.0  # factor to increase other dims if some must be increased to 1.0
     for ii in range(1, rank):

@@ -28,13 +28,15 @@ Run with:
 import time
 import numpy as np
 import matplotlib
-matplotlib.use("Agg")      # headless; change to 'TkAgg' for interactive
+
+matplotlib.use("Agg")  # headless; change to 'TkAgg' for interactive
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from skimage.transform import radon, iradon
 
 # toupy imports
 import sys, os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # ---------------------------------------------------------------------------
@@ -43,6 +45,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # ---------------------------------------------------------------------------
 try:
     import cupy as cp
+
     GPU_AVAILABLE = True
     print("CuPy detected — GPU path enabled.")
 except ImportError:
@@ -77,26 +80,26 @@ from toupy.tomo import tv_reconstruction, mod_iradon
 # negative low-frequency halo of single-distance retrieval).
 # ---------------------------------------------------------------------------
 
-N          = 256                # phantom / detector size [pixels]
-PIXEL_SIZE = 50e-9              # effective pixel size at sample [m]  (50 nm)
-ENERGY_keV = 17.0               # X-ray energy [keV]
-DELTA_BETA = 50.0               # delta/beta ratio — moderate-Z material at 17 keV
-                                # (lower δ/β ⇒ stronger relative absorption ⇒
-                                #  more faithful single-distance TIE-Hom)
-N_ANGLES   = 180                # number of projection angles
-THETA      = np.linspace(0, 180, N_ANGLES, endpoint=False)  # [degrees]
+N = 256  # phantom / detector size [pixels]
+PIXEL_SIZE = 50e-9  # effective pixel size at sample [m]  (50 nm)
+ENERGY_keV = 17.0  # X-ray energy [keV]
+DELTA_BETA = 50.0  # delta/beta ratio — moderate-Z material at 17 keV
+# (lower δ/β ⇒ stronger relative absorption ⇒
+#  more faithful single-distance TIE-Hom)
+N_ANGLES = 180  # number of projection angles
+THETA = np.linspace(0, 180, N_ANGLES, endpoint=False)  # [degrees]
 
-Z_TIE = 40e-6                   # effective propagation distance for TIE-Hom [m]
-Z_CTF = 30e-6                   # effective propagation distance for CTF [m]
+Z_TIE = 40e-6  # effective propagation distance for TIE-Hom [m]
+Z_CTF = 30e-6  # effective propagation distance for CTF [m]
 
 # Multi-distance / holotomographic CTF: several propagation distances whose
 # CTF zeros interleave.  All stay below the single-FFT Fresnel-sampling limit
 # z_crit = N·pixel²/λ ≈ 8.8 mm so the simulated propagation is alias-free.
-Z_HOLO = [30e-6, 150e-6, 600e-6, 2.4e-3]   # [m]
+Z_HOLO = [30e-6, 150e-6, 600e-6, 2.4e-3]  # [m]
 
 # Derived
-hc_eV_m    = 1.23984193e-6      # hc [eV·m]
-WAVELENGTH = hc_eV_m / (ENERGY_keV * 1e3)   # [m]
+hc_eV_m = 1.23984193e-6  # hc [eV·m]
+WAVELENGTH = hc_eV_m / (ENERGY_keV * 1e3)  # [m]
 
 print("Wavelength        : {:.4e} m".format(WAVELENGTH))
 print("Fresnel NF (TIE)  : {:.3f}".format(PIXEL_SIZE**2 / (WAVELENGTH * Z_TIE)))
@@ -116,8 +119,10 @@ print("Fresnel NF (CTF)  : {:.3f}".format(PIXEL_SIZE**2 / (WAVELENGTH * Z_CTF)))
 #    We therefore demonstrate CTF with a separate, scaled-down phantom.
 # ---------------------------------------------------------------------------
 
-phase_true    = phantom(N, phantom_type="Modified Shepp-Logan") * 5.0  # [rad]
-phase_true_wk = phantom(N, phantom_type="Modified Shepp-Logan") * 0.3  # weak-phase for CTF
+phase_true = phantom(N, phantom_type="Modified Shepp-Logan") * 5.0  # [rad]
+phase_true_wk = (
+    phantom(N, phantom_type="Modified Shepp-Logan") * 0.3
+)  # weak-phase for CTF
 
 fig, ax = plt.subplots(1, 1, figsize=(4, 4))
 im = ax.imshow(phase_true, cmap="gray")
@@ -158,8 +163,8 @@ def propagate_angular_spectrum(psi_in, distance, wavelength, pixel_size, pad=1):
     if pad > 1:
         my, mx = ny * pad, nx * pad
         oy, ox = (my - ny) // 2, (mx - nx) // 2
-        field = np.ones((my, mx), dtype=complex)   # vacuum = 1
-        field[oy:oy + ny, ox:ox + nx] = psi_in
+        field = np.ones((my, mx), dtype=complex)  # vacuum = 1
+        field[oy : oy + ny, ox : ox + nx] = psi_in
     else:
         my, mx, oy, ox, field = ny, nx, 0, 0, psi_in
     fy = np.fft.fftfreq(my, d=pixel_size)
@@ -168,15 +173,15 @@ def propagate_angular_spectrum(psi_in, distance, wavelength, pixel_size, pad=1):
     # Fresnel (paraxial) propagator
     H = np.exp(1j * np.pi * wavelength * distance * (FY**2 + FX**2))
     psi_prop = np.fft.ifft2(np.fft.fft2(field) * H)
-    intensity = np.abs(psi_prop)**2
-    return intensity[oy:oy + ny, ox:ox + nx] if pad > 1 else intensity
+    intensity = np.abs(psi_prop) ** 2
+    return intensity[oy : oy + ny, ox : ox + nx] if pad > 1 else intensity
 
 
 # --- TIE-Hom simulation: mixed object obeying Paganin's assumption ---
 # Absorption is linked to phase by the homogeneity condition:
 #   mu*T = 2 * phi / (delta/beta)
 # Both contribute to the transmitted wave:  psi = exp(-mu_T/2 + i*phi)
-mu_T    = 2.0 * phase_true / DELTA_BETA
+mu_T = 2.0 * phase_true / DELTA_BETA
 psi_mix = np.exp(-mu_T / 2.0 + 1j * phase_true)
 I_tiehom = propagate_angular_spectrum(psi_mix, Z_TIE, WAVELENGTH, PIXEL_SIZE)
 rng_ph = np.random.default_rng(7)
@@ -186,8 +191,8 @@ I_tiehom_noisy = np.maximum(I_tiehom_noisy, 0)
 # --- CTF simulation: pure weak-phase object (|phi| << 1 rad) ---
 # CTF is the linearised approximation  I ≈ 1 + 2*CTF*phi, valid only for
 # |phi| << 1 rad.  We use a separate scaled phantom (max 0.3 rad).
-psi_wk  = np.exp(1j * phase_true_wk)
-I_ctf   = propagate_angular_spectrum(psi_wk, Z_CTF, WAVELENGTH, PIXEL_SIZE)
+psi_wk = np.exp(1j * phase_true_wk)
+I_ctf = propagate_angular_spectrum(psi_wk, Z_CTF, WAVELENGTH, PIXEL_SIZE)
 I_ctf_noisy = I_ctf + rng_ph.normal(0, 0.002 * I_ctf.mean(), I_ctf.shape)
 I_ctf_noisy = np.maximum(I_ctf_noisy, 0)
 
@@ -195,21 +200,29 @@ I_ctf_noisy = np.maximum(I_ctf_noisy, 0)
 # A HOMOGENEOUS weak object (same δ/β coupling as TIE-Hom) imaged at several
 # distances.  The absorption term lets the multi-distance CTF recover the low
 # frequencies / DC that single-distance CTF cannot.
-mu_T_wk    = 2.0 * phase_true_wk / DELTA_BETA
+mu_T_wk = 2.0 * phase_true_wk / DELTA_BETA
 psi_wk_mix = np.exp(-mu_T_wk / 2.0 + 1j * phase_true_wk)
-I_holo = np.array([
-    propagate_angular_spectrum(psi_wk_mix, z, WAVELENGTH, PIXEL_SIZE, pad=2)
-    for z in Z_HOLO
-])
+I_holo = np.array(
+    [
+        propagate_angular_spectrum(psi_wk_mix, z, WAVELENGTH, PIXEL_SIZE, pad=2)
+        for z in Z_HOLO
+    ]
+)
 I_holo_noisy = np.maximum(
-    I_holo + rng_ph.normal(0, 0.002 * I_holo.mean(), I_holo.shape), 0)
+    I_holo + rng_ph.normal(0, 0.002 * I_holo.mean(), I_holo.shape), 0
+)
 
-print("  TIE-Hom intensity range : [{:.4f}, {:.4f}]".format(
-    I_tiehom_noisy.min(), I_tiehom_noisy.max()))
-print("  CTF     intensity range : [{:.4f}, {:.4f}]".format(
-    I_ctf_noisy.min(), I_ctf_noisy.max()))
-print("  Holo    distances [µm]  : {}".format(
-    [round(z * 1e6, 1) for z in Z_HOLO]))
+print(
+    "  TIE-Hom intensity range : [{:.4f}, {:.4f}]".format(
+        I_tiehom_noisy.min(), I_tiehom_noisy.max()
+    )
+)
+print(
+    "  CTF     intensity range : [{:.4f}, {:.4f}]".format(
+        I_ctf_noisy.min(), I_ctf_noisy.max()
+    )
+)
+print("  Holo    distances [µm]  : {}".format([round(z * 1e6, 1) for z in Z_HOLO]))
 
 # ---------------------------------------------------------------------------
 # 3. Phase retrieval — single projection
@@ -262,8 +275,8 @@ phase_ctf = ctf_retrieve(
 #
 # We set the vacuum background (phase_true_wk ≈ 0) to zero in the CTF output
 # so the phase RELATIVE to vacuum is displayed correctly.
-bg_mask        = (phase_true_wk < 0.01 * phase_true_wk.max())  # vacuum pixels
-phase_ctf     -= phase_ctf[bg_mask].mean()
+bg_mask = phase_true_wk < 0.01 * phase_true_wk.max()  # vacuum pixels
+phase_ctf -= phase_ctf[bg_mask].mean()
 
 # --- Holotomographic (multi-distance, homogeneous) CTF retrieval ---
 # Passing a list of distances + delta_beta switches ctf_retrieve into the
@@ -278,19 +291,28 @@ phase_holo = ctf_retrieve(
     delta_beta=DELTA_BETA,
 )
 
-print("  TIE-Hom phase range  : [{:.3f}, {:.3f}] rad".format(
-    phase_tiehom.min(), phase_tiehom.max()))
-print("  CTF     phase range  : [{:.4f}, {:.4f}] rad".format(
-    phase_ctf.min(), phase_ctf.max()))
-print("  Holo-CTF phase range : [{:.4f}, {:.4f}] rad  (truth 0–0.3)".format(
-    phase_holo.min(), phase_holo.max()))
+print(
+    "  TIE-Hom phase range  : [{:.3f}, {:.3f}] rad".format(
+        phase_tiehom.min(), phase_tiehom.max()
+    )
+)
+print(
+    "  CTF     phase range  : [{:.4f}, {:.4f}] rad".format(
+        phase_ctf.min(), phase_ctf.max()
+    )
+)
+print(
+    "  Holo-CTF phase range : [{:.4f}, {:.4f}] rad  (truth 0–0.3)".format(
+        phase_holo.min(), phase_holo.max()
+    )
+)
 
 fig, axes = plt.subplots(1, 4, figsize=(17, 4))
 display_data = [
-    (phase_true,    "Ground truth\n(phase, 0–5 rad)"),
-    (phase_tiehom,  "TIE-Hom retrieved\n(mixed object)"),
-    (phase_ctf,     "Single-distance CTF\n(weak phase, band-pass)"),
-    (phase_holo,    "Holotomographic CTF\n(4 distances + δ/β)"),
+    (phase_true, "Ground truth\n(phase, 0–5 rad)"),
+    (phase_tiehom, "TIE-Hom retrieved\n(mixed object)"),
+    (phase_ctf, "Single-distance CTF\n(weak phase, band-pass)"),
+    (phase_holo, "Holotomographic CTF\n(4 distances + δ/β)"),
 ]
 for ax, (img, title) in zip(axes, display_data):
     im = ax.imshow(img, cmap="gray")
@@ -325,11 +347,10 @@ ring_amplitudes = rng.uniform(-0.3, 0.3, size=n_rings) * sino_clean.std()
 sino_rings = sino_clean.copy()
 for pos, amp in zip(ring_positions, ring_amplitudes):
     width = rng.integers(1, 4)
-    sino_rings[max(0, pos - width): pos + width, :] += amp
+    sino_rings[max(0, pos - width) : pos + width, :] += amp
 
 # Add Poisson-like noise (simulating photon statistics)
-sino_noisy = sino_rings + rng.normal(0, 0.02 * sino_clean.std(),
-                                      sino_clean.shape)
+sino_noisy = sino_rings + rng.normal(0, 0.02 * sino_clean.std(), sino_clean.shape)
 
 fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 for ax, sino, title in zip(
@@ -351,7 +372,7 @@ print("Saved sinogram_comparison.png")
 
 print("\n--- Ring artifact correction ---")
 
-sino_wavelet   = remove_rings_wavelet_fft(sino_noisy, level=3, sigma=3)
+sino_wavelet = remove_rings_wavelet_fft(sino_noisy, level=3, sigma=3)
 sino_titarenko = remove_rings_titarenko(sino_noisy, size=51)
 
 fig, axes = plt.subplots(1, 3, figsize=(14, 4))
@@ -375,16 +396,15 @@ print("Saved ring_correction_comparison.png")
 print("\n--- Tomographic reconstruction ---")
 
 # FBP from clean sinogram (reference)
-recons_fbp_clean = iradon(sino_clean, theta=THETA, filter_name="ramp",
-                           circle=False)
+recons_fbp_clean = iradon(sino_clean, theta=THETA, filter_name="ramp", circle=False)
 
 # FBP from ring-corrupted sinogram
-recons_fbp_rings = iradon(sino_noisy, theta=THETA, filter_name="ramp",
-                           circle=False)
+recons_fbp_rings = iradon(sino_noisy, theta=THETA, filter_name="ramp", circle=False)
 
 # FBP after wavelet-FFT ring correction
-recons_fbp_corrected = iradon(sino_wavelet, theta=THETA, filter_name="ramp",
-                               circle=False)
+recons_fbp_corrected = iradon(
+    sino_wavelet, theta=THETA, filter_name="ramp", circle=False
+)
 
 # TV reconstruction from ring-corrected sinogram
 print("  Running TV reconstruction (100 iterations)...")
@@ -410,14 +430,14 @@ fig = plt.figure(figsize=(16, 8))
 gs = GridSpec(2, 4, figure=fig, hspace=0.3, wspace=0.3)
 
 panels = [
-    (phase_true,           "Ground truth"),
-    (recons_fbp_clean,     "FBP — clean sino"),
-    (recons_fbp_rings,     "FBP — with rings"),
+    (phase_true, "Ground truth"),
+    (recons_fbp_clean, "FBP — clean sino"),
+    (recons_fbp_rings, "FBP — with rings"),
     (recons_fbp_corrected, "FBP — ring corrected"),
-    (phase_tiehom,         "TIE-Hom phase"),
-    (phase_ctf,            "Single-distance CTF"),
-    (phase_holo,           "Holotomographic CTF"),
-    (recons_tv,            "TV — ring corrected\n(λ=0.01, 100 iter)"),
+    (phase_tiehom, "TIE-Hom phase"),
+    (phase_ctf, "Single-distance CTF"),
+    (phase_holo, "Holotomographic CTF"),
+    (recons_tv, "TV — ring corrected\n(λ=0.01, 100 iter)"),
 ]
 
 for idx, (img, title) in enumerate(panels):
@@ -442,6 +462,7 @@ print("Saved full_pipeline_comparison.png")
 # 9. Quantitative metrics
 # ---------------------------------------------------------------------------
 
+
 def rmse(a, b):
     return np.sqrt(np.mean((a - b) ** 2))
 
@@ -454,10 +475,10 @@ def normalise(img):
 ref = normalise(phase_true)
 print("\n--- RMSE (normalised) ---")
 for label, img in [
-    ("FBP clean",      recons_fbp_clean),
-    ("FBP rings",      recons_fbp_rings),
-    ("FBP corrected",  recons_fbp_corrected),
-    ("TV  corrected",  recons_tv),
+    ("FBP clean", recons_fbp_clean),
+    ("FBP rings", recons_fbp_rings),
+    ("FBP corrected", recons_fbp_corrected),
+    ("TV  corrected", recons_tv),
 ]:
     print("  {:20s}  RMSE = {:.5f}".format(label, rmse(ref, normalise(img))))
 
@@ -468,8 +489,11 @@ for label, img in [
     ("Holotomographic CTF", phase_holo),
 ]:
     r = np.corrcoef(img.ravel(), phase_true_wk.ravel())[0, 1]
-    print("  {:22s}  RMSE = {:.5f}   corr = {:+.3f}".format(
-        label, rmse(normalise(phase_true_wk), normalise(img)), r))
+    print(
+        "  {:22s}  RMSE = {:.5f}   corr = {:+.3f}".format(
+            label, rmse(normalise(phase_true_wk), normalise(img)), r
+        )
+    )
 
 print("\nAll figures saved. Done.")
 
@@ -484,40 +508,47 @@ if GPU_AVAILABLE:
     print("=" * 60)
 
     # Build a larger stack to make the GPU advantage visible
-    N_GPU     = 512
+    N_GPU = 512
     N_ANG_GPU = 360
     theta_gpu = np.linspace(0, 180, N_ANG_GPU, endpoint=False)
 
-    rng2     = np.random.default_rng(7)
+    rng2 = np.random.default_rng(7)
     ph_stack = phantom(N_GPU)[np.newaxis] * np.ones((10, N_GPU, N_GPU)) * 8.0
     ph_stack += rng2.normal(0, 0.01, ph_stack.shape)
 
     # Simulate propagation for the stack (mixed object, Paganin assumption)
     mu_T_gpu = 2.0 * ph_stack / DELTA_BETA
-    psi_gpu  = np.exp(-mu_T_gpu / 2.0 + 1j * ph_stack)
-    I_stack  = np.array([
-        propagate_angular_spectrum(psi_gpu[k], Z_TIE, WAVELENGTH, PIXEL_SIZE)
-        for k in range(ph_stack.shape[0])
-    ])
+    psi_gpu = np.exp(-mu_T_gpu / 2.0 + 1j * ph_stack)
+    I_stack = np.array(
+        [
+            propagate_angular_spectrum(psi_gpu[k], Z_TIE, WAVELENGTH, PIXEL_SIZE)
+            for k in range(ph_stack.shape[0])
+        ]
+    )
 
     print("\n  Phase retrieval — stack of 10 × {}×{} images".format(N_GPU, N_GPU))
 
     t0 = time.perf_counter()
-    _ = tie_hom(I_stack, Z_TIE, WAVELENGTH, PIXEL_SIZE,
-                delta_beta=DELTA_BETA, cuda=False)
+    _ = tie_hom(
+        I_stack, Z_TIE, WAVELENGTH, PIXEL_SIZE, delta_beta=DELTA_BETA, cuda=False
+    )
     t_cpu = time.perf_counter() - t0
     print("    CPU  TIE-Hom  : {:.3f} s".format(t_cpu))
 
     t0 = time.perf_counter()
-    _ = tie_hom(I_stack, Z_TIE, WAVELENGTH, PIXEL_SIZE,
-                delta_beta=DELTA_BETA, cuda=True)
+    _ = tie_hom(
+        I_stack, Z_TIE, WAVELENGTH, PIXEL_SIZE, delta_beta=DELTA_BETA, cuda=True
+    )
     t_gpu = time.perf_counter() - t0
-    print("    GPU  TIE-Hom  : {:.3f} s  (speedup {:.1f}×)".format(
-        t_gpu, t_cpu / max(t_gpu, 1e-6)))
+    print(
+        "    GPU  TIE-Hom  : {:.3f} s  (speedup {:.1f}×)".format(
+            t_gpu, t_cpu / max(t_gpu, 1e-6)
+        )
+    )
 
     # Ring correction timing on the larger sinogram
     sino_gpu_test = radon(phantom(N_GPU), theta=theta_gpu, circle=False)
-    rings_test    = sino_gpu_test + rng2.normal(0, 0.05, sino_gpu_test.shape)
+    rings_test = sino_gpu_test + rng2.normal(0, 0.05, sino_gpu_test.shape)
     rings_test[N_GPU // 3, :] += 0.5  # inject one strong ring
 
     print("\n  Ring correction — sinogram {}×{}".format(*rings_test.shape))
@@ -530,26 +561,37 @@ if GPU_AVAILABLE:
     t0 = time.perf_counter()
     _ = remove_rings_wavelet_fft(rings_test, level=3, sigma=2.5, cuda=True)
     t_gpu = time.perf_counter() - t0
-    print("    GPU  wavelet-FFT : {:.3f} s  (speedup {:.1f}×)".format(
-        t_gpu, t_cpu / max(t_gpu, 1e-6)))
+    print(
+        "    GPU  wavelet-FFT : {:.3f} s  (speedup {:.1f}×)".format(
+            t_gpu, t_cpu / max(t_gpu, 1e-6)
+        )
+    )
 
     # TV reconstruction timing
     sino_tv_gpu = radon(phantom(N_GPU), theta=theta_gpu, circle=False)
-    print("\n  TV reconstruction — {}×{} image, {} angles, 30 iter".format(
-        N_GPU, N_GPU, N_ANG_GPU))
+    print(
+        "\n  TV reconstruction — {}×{} image, {} angles, 30 iter".format(
+            N_GPU, N_GPU, N_ANG_GPU
+        )
+    )
 
     t0 = time.perf_counter()
-    _ = tv_reconstruction(sino_tv_gpu, theta_gpu, lam=0.01, n_iter=30,
-                          output_size=N_GPU, cuda=False)
+    _ = tv_reconstruction(
+        sino_tv_gpu, theta_gpu, lam=0.01, n_iter=30, output_size=N_GPU, cuda=False
+    )
     t_cpu = time.perf_counter() - t0
     print("    CPU  TV : {:.3f} s".format(t_cpu))
 
     t0 = time.perf_counter()
-    _ = tv_reconstruction(sino_tv_gpu, theta_gpu, lam=0.01, n_iter=30,
-                          output_size=N_GPU, cuda=True)
+    _ = tv_reconstruction(
+        sino_tv_gpu, theta_gpu, lam=0.01, n_iter=30, output_size=N_GPU, cuda=True
+    )
     t_gpu = time.perf_counter() - t0
-    print("    GPU  TV : {:.3f} s  (speedup {:.1f}×)".format(
-        t_gpu, t_cpu / max(t_gpu, 1e-6)))
+    print(
+        "    GPU  TV : {:.3f} s  (speedup {:.1f}×)".format(
+            t_gpu, t_cpu / max(t_gpu, 1e-6)
+        )
+    )
 
 else:
     print("\nSkipping GPU demo (CuPy not available).")

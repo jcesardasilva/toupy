@@ -63,6 +63,7 @@ __all__ = ["tv_reconstruction", "chambolle_pock_tv"]
 # NumPy and CuPy arrays.
 # ---------------------------------------------------------------------------
 
+
 def _get_xp(arr):
     """Return cupy if arr is a CuPy array, else numpy."""
     if CUDA_AVAILABLE:
@@ -76,9 +77,9 @@ def _grad2d(u):
     gy = xp.empty_like(u)
     gx = xp.empty_like(u)
     gy[:-1, :] = u[1:, :] - u[:-1, :]
-    gy[-1, :]  = 0.0
+    gy[-1, :] = 0.0
     gx[:, :-1] = u[:, 1:] - u[:, :-1]
-    gx[:, -1]  = 0.0
+    gx[:, -1] = 0.0
     return gy, gx
 
 
@@ -86,13 +87,13 @@ def _div2d(gy, gx):
     """Negative divergence (adjoint of _grad2d), Neumann BC."""
     xp = _get_xp(gy)
     dy = xp.empty_like(gy)
-    dy[0, :]    =  gy[0, :]
-    dy[1:-1, :] =  gy[1:-1, :] - gy[:-2, :]
-    dy[-1, :]   = -gy[-2, :]
+    dy[0, :] = gy[0, :]
+    dy[1:-1, :] = gy[1:-1, :] - gy[:-2, :]
+    dy[-1, :] = -gy[-2, :]
     dx = xp.empty_like(gx)
-    dx[:, 0]    =  gx[:, 0]
-    dx[:, 1:-1] =  gx[:, 1:-1] - gx[:, :-2]
-    dx[:, -1]   = -gx[:, -2]
+    dx[:, 0] = gx[:, 0]
+    dx[:, 1:-1] = gx[:, 1:-1] - gx[:, :-2]
+    dx[:, -1] = -gx[:, -2]
     return dy + dx
 
 
@@ -100,14 +101,15 @@ def _div2d(gy, gx):
 # TV proximal operators (array-library agnostic)
 # ---------------------------------------------------------------------------
 
+
 def _prox_tv_dual(py, px, lam):
     """Project TV dual onto the isotropic l-inf ball of radius lam.
 
     prox_{sigma * (lam*||·||_{2,1})*}(z) = z / max(1, |z| / lam)
     The step-size sigma is already folded into z before calling.
     """
-    xp    = _get_xp(py)
-    norm  = xp.sqrt(py**2 + px**2)
+    xp = _get_xp(py)
+    norm = xp.sqrt(py**2 + px**2)
     scale = xp.maximum(1.0, norm / lam)
     return py / scale, px / scale
 
@@ -124,6 +126,7 @@ def _prox_l2_data_dual(z, b, sigma):
 # CPU Radon / back-projection wrappers (skimage)
 # ---------------------------------------------------------------------------
 
+
 def _forward_cpu(x, theta):
     return radon(x, theta=theta, circle=False)
 
@@ -139,6 +142,7 @@ def _backward_cpu(sino, theta, n):
 #   nbins = ceil(sqrt(2) * n)
 # All GPU arrays are float32.
 # ---------------------------------------------------------------------------
+
 
 def _make_trig_gpu(theta_deg):
     """Precompute float32 cos/sin tables on the GPU."""
@@ -160,17 +164,25 @@ def _forward_gpu(x_gpu, cos_th, sin_th, nbins, nsteps):
     -------
     sino_gpu : cupy.ndarray, shape (nbins, nangles), float32
     """
-    N       = x_gpu.shape[0]
+    N = x_gpu.shape[0]
     nangles = cos_th.shape[0]
     sino_flat = cp.zeros(nbins * nangles, dtype=cp.float32)
 
     block = (16, 16, 1)
-    grid  = (int(np.ceil(nbins   / 16)),
-             int(np.ceil(nangles / 16)), 1)
+    grid = (int(np.ceil(nbins / 16)), int(np.ceil(nangles / 16)), 1)
     _radon_kernel(
-        grid, block,
-        (x_gpu.ravel(), sino_flat, cos_th, sin_th,
-         np.int32(N), np.int32(nbins), np.int32(nangles), np.int32(nsteps)),
+        grid,
+        block,
+        (
+            x_gpu.ravel(),
+            sino_flat,
+            cos_th,
+            sin_th,
+            np.int32(N),
+            np.int32(nbins),
+            np.int32(nangles),
+            np.int32(nsteps),
+        ),
     )
     cp.cuda.stream.get_current_stream().synchronize()
     # Kernel stores (nangles * nbins) in angle-major order → transpose to (nbins, nangles)
@@ -192,17 +204,26 @@ def _backward_gpu(sino_gpu, n, cos_th, sin_th):
     """
     nbins, nangles = sino_gpu.shape
     mid_index = nbins // 2
-    img_flat  = cp.zeros(n * n, dtype=cp.float32)
+    img_flat = cp.zeros(n * n, dtype=cp.float32)
 
     # Kernel expects sinogram in (nangles * nbins,) angle-major column-major order
     sino_cm = cp.ascontiguousarray(sino_gpu.T).ravel()
 
     block = (16, 16, 1)
-    grid  = (int(np.ceil(n / 16)), int(np.ceil(n / 16)), 1)
+    grid = (int(np.ceil(n / 16)), int(np.ceil(n / 16)), 1)
     _fbp_kernel(
-        grid, block,
-        (sino_cm, cos_th, sin_th, img_flat,
-         np.int32(n), np.int32(nbins), np.int32(nangles), np.int32(mid_index)),
+        grid,
+        block,
+        (
+            sino_cm,
+            cos_th,
+            sin_th,
+            img_flat,
+            np.int32(n),
+            np.int32(nbins),
+            np.int32(nangles),
+            np.int32(mid_index),
+        ),
     )
     cp.cuda.stream.get_current_stream().synchronize()
     return img_flat.reshape(n, n)
@@ -212,12 +233,13 @@ def _backward_gpu(sino_gpu, n, cos_th, sin_th):
 # Step-size estimation via power iteration
 # ---------------------------------------------------------------------------
 
+
 def _estimate_norm_K2_cpu(n, theta, n_iter=5):
     """Estimate ||K||^2 = ||A||^2 + 8 on CPU via power iteration."""
     rng = np.random.default_rng(0)
     v = rng.standard_normal((n, n))
     for _ in range(n_iter):
-        Av   = _forward_cpu(v, theta)
+        Av = _forward_cpu(v, theta)
         ATAv = _backward_cpu(Av, theta, n)
         norm2 = np.sqrt(np.sum(ATAv**2) / (np.sum(v**2) + 1e-30))
         v = ATAv / (np.linalg.norm(ATAv) + 1e-30)
@@ -228,7 +250,7 @@ def _estimate_norm_K2_gpu(n, cos_th, sin_th, nbins, nsteps, n_iter=5):
     """Estimate ||K||^2 on GPU via power iteration (all ops stay on device)."""
     v = cp.random.default_rng(0).standard_normal((n, n)).astype(cp.float32)
     for _ in range(n_iter):
-        Av   = _forward_gpu(v, cos_th, sin_th, nbins, nsteps)
+        Av = _forward_gpu(v, cos_th, sin_th, nbins, nsteps)
         ATAv = _backward_gpu(Av, n, cos_th, sin_th)
         norm2 = float(cp.sqrt(cp.sum(ATAv**2) / (cp.sum(v**2) + 1e-30)))
         ATAv_norm = float(cp.linalg.norm(ATAv))
@@ -239,6 +261,7 @@ def _estimate_norm_K2_gpu(n, cos_th, sin_th, nbins, nsteps, n_iter=5):
 # ---------------------------------------------------------------------------
 # Core Chambolle-Pock solver
 # ---------------------------------------------------------------------------
+
 
 def chambolle_pock_tv(
     sinogram,
@@ -303,7 +326,7 @@ def chambolle_pock_tv(
         )
         cuda = False
 
-    theta    = np.asarray(theta, dtype=float)
+    theta = np.asarray(theta, dtype=float)
     sinogram = np.asarray(sinogram, dtype=float)
     n_pix, n_ang = sinogram.shape
 
@@ -316,23 +339,23 @@ def chambolle_pock_tv(
     # GPU path
     # ------------------------------------------------------------------
     if cuda:
-        nbins  = int(np.ceil(np.sqrt(2) * n))
+        nbins = int(np.ceil(np.sqrt(2) * n))
         nsteps = int(np.ceil(n * np.sqrt(2)))
         cos_th, sin_th = _make_trig_gpu(theta)
 
         norm_K2 = _estimate_norm_K2_gpu(n, cos_th, sin_th, nbins, nsteps)
-        tau     = np.float32(0.9 / np.sqrt(norm_K2))
-        sigma   = np.float32(0.9 / np.sqrt(norm_K2))
+        tau = np.float32(0.9 / np.sqrt(norm_K2))
+        sigma = np.float32(0.9 / np.sqrt(norm_K2))
 
         # Allocate all variables on GPU as float32
-        x     = cp.zeros((n, n),        dtype=cp.float32)
-        x_bar = cp.zeros((n, n),        dtype=cp.float32)
-        py    = cp.zeros((n, n),        dtype=cp.float32)
-        px    = cp.zeros((n, n),        dtype=cp.float32)
+        x = cp.zeros((n, n), dtype=cp.float32)
+        x_bar = cp.zeros((n, n), dtype=cp.float32)
+        py = cp.zeros((n, n), dtype=cp.float32)
+        px = cp.zeros((n, n), dtype=cp.float32)
 
         # Sinogram dual variable — shape matches forward projection output
-        q     = cp.zeros((nbins, n_ang), dtype=cp.float32)
-        b_gpu = cp.asarray(sinogram,     dtype=cp.float32)
+        q = cp.zeros((nbins, n_ang), dtype=cp.float32)
+        b_gpu = cp.asarray(sinogram, dtype=cp.float32)
 
         # The measured sinogram may have a different detector size than nbins
         # (e.g. generated with skimage circle=False giving ceil(sqrt(2)*orig_n)).
@@ -340,28 +363,31 @@ def chambolle_pock_tv(
         if b_gpu.shape[0] != nbins:
             # Interpolate sinogram to match GPU forward operator output size
             from cupyx.scipy.ndimage import zoom as cp_zoom
+
             scale = nbins / b_gpu.shape[0]
             b_gpu = cp_zoom(b_gpu, (scale, 1.0), order=1)
 
         for it in range(n_iter):
             Ax_bar = _forward_gpu(x_bar, cos_th, sin_th, nbins, nsteps)
-            q      = _prox_l2_data_dual(q + sigma * Ax_bar, b_gpu, sigma)
+            q = _prox_l2_data_dual(q + sigma * Ax_bar, b_gpu, sigma)
 
             gy, gx = _grad2d(x_bar)
             py, px = _prox_tv_dual(py + sigma * gy, px + sigma * gx, lam)
 
-            AT_q  = _backward_gpu(q, n, cos_th, sin_th)
+            AT_q = _backward_gpu(q, n, cos_th, sin_th)
             div_p = _div2d(py, px)
             x_new = cp.maximum(x - tau * (AT_q + div_p), 0.0)
 
             x_bar = 2.0 * x_new - x
-            x     = x_new
+            x = x_new
 
             if verbose and (it % 10 == 0):
                 gy_x, gx_x = _grad2d(x)
-                cost = (0.5 * float(cp.sum((_forward_gpu(
-                            x, cos_th, sin_th, nbins, nsteps) - b_gpu)**2))
-                        + lam * float(cp.sum(cp.sqrt(gy_x**2 + gx_x**2))))
+                cost = 0.5 * float(
+                    cp.sum(
+                        (_forward_gpu(x, cos_th, sin_th, nbins, nsteps) - b_gpu) ** 2
+                    )
+                ) + lam * float(cp.sum(cp.sqrt(gy_x**2 + gx_x**2)))
                 print("  iter {:4d}  cost = {:.6e}".format(it, cost))
 
         return cp.asnumpy(x)
@@ -372,37 +398,38 @@ def chambolle_pock_tv(
     rng = np.random.default_rng(0)
     v = rng.standard_normal((n, n))
     for _ in range(5):
-        Av   = _forward_cpu(v, theta)
+        Av = _forward_cpu(v, theta)
         ATAv = _backward_cpu(Av, theta, n)
         norm2 = np.sqrt(np.sum(ATAv**2) / (np.sum(v**2) + 1e-30))
         v = ATAv / (np.linalg.norm(ATAv) + 1e-30)
-    tau   = 0.9 / np.sqrt(float(norm2) + 8.0)
+    tau = 0.9 / np.sqrt(float(norm2) + 8.0)
     sigma = tau
 
-    x     = np.zeros((n, n))
+    x = np.zeros((n, n))
     x_bar = x.copy()
-    py    = np.zeros_like(x)
-    px    = np.zeros_like(x)
-    q     = np.zeros_like(sinogram)
+    py = np.zeros_like(x)
+    px = np.zeros_like(x)
+    q = np.zeros_like(sinogram)
 
     for it in range(n_iter):
         Ax_bar = _forward_cpu(x_bar, theta)
-        q      = _prox_l2_data_dual(q + sigma * Ax_bar, sinogram, sigma)
+        q = _prox_l2_data_dual(q + sigma * Ax_bar, sinogram, sigma)
 
         gy, gx = _grad2d(x_bar)
         py, px = _prox_tv_dual(py + sigma * gy, px + sigma * gx, lam)
 
-        AT_q  = _backward_cpu(q, theta, n)
+        AT_q = _backward_cpu(q, theta, n)
         div_p = _div2d(py, px)
         x_new = np.maximum(x - tau * (AT_q + div_p), 0.0)
 
         x_bar = 2.0 * x_new - x
-        x     = x_new
+        x = x_new
 
         if verbose and (it % 10 == 0):
             gy_x, gx_x = _grad2d(x)
-            cost = (0.5 * np.sum((_forward_cpu(x, theta) - sinogram)**2)
-                    + lam * np.sum(np.sqrt(gy_x**2 + gx_x**2)))
+            cost = 0.5 * np.sum(
+                (_forward_cpu(x, theta) - sinogram) ** 2
+            ) + lam * np.sum(np.sqrt(gy_x**2 + gx_x**2))
             print("  iter {:4d}  cost = {:.6e}".format(it, cost))
 
     return x
@@ -411,6 +438,7 @@ def chambolle_pock_tv(
 # ---------------------------------------------------------------------------
 # High-level wrapper
 # ---------------------------------------------------------------------------
+
 
 def tv_reconstruction(
     sinogram,
@@ -473,11 +501,12 @@ def tv_reconstruction(
     >>> sino = radon(img, theta=theta, circle=False)
     >>> recons = tv_reconstruction(sino, theta, lam=0.01, n_iter=50)
     """
-    theta    = np.asarray(theta, dtype=float)
+    theta = np.asarray(theta, dtype=float)
     sinogram = np.asarray(sinogram, dtype=float)
 
     return chambolle_pock_tv(
-        sinogram, theta,
+        sinogram,
+        theta,
         lam=lam,
         n_iter=n_iter,
         output_size=output_size,

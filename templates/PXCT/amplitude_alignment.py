@@ -81,7 +81,7 @@ if __name__ == "__main__":
         aligned_amp_projections,
         theta,
         shiftstack,
-        **params
+        **params,
     )
     # next step
     print('You should run "tomographic_reconstruction_amp.py" now')

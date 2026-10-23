@@ -6,7 +6,6 @@ import numpy as np
 
 import scipy.constants as consts
 
-
 __all__ = [
     "convert_to_beta",
     "convert_to_delta",
@@ -55,7 +54,7 @@ def convert_to_rhoe(input_img, wavelen):
     """
     # classical electron radius
     r0 = consts.physical_constants["classical electron radius"][0]
-    return (2 * np.pi / (r0 * wavelen ** 2)) * input_img
+    return (2 * np.pi / (r0 * wavelen**2)) * input_img
 
 
 def convert_to_rhom(input_img, wavelen, A, Z):
@@ -112,7 +111,7 @@ def _converter_factor(input_img, energy, voxelsize):
         if len(voxelsize) >= 1:
             voxelsize = voxelsize[0]
     elif isinstance(voxelsize, np.ndarray):
-        if voxelsize.ndim !=0:
+        if voxelsize.ndim != 0:
             voxelsize = voxelsize[0]
 
     wavelen = (12.4 / energy) * 1e-10  # in meters

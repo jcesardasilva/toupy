@@ -25,10 +25,10 @@ from scipy.ndimage import gaussian_filter
 
 from toupy.resolution.FSC import RandomFSC
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def make_halves(seed=0, n=64, ndim=2, noise=0.6, smooth=3.0):
     """Two half-reconstructions sharing a smooth object plus independent noise."""
@@ -44,13 +44,15 @@ def make_halves(seed=0, n=64, ndim=2, noise=0.6, smooth=3.0):
 @pytest.fixture(scope="module")
 def rfsc():
     img1, img2 = make_halves()
-    return RandomFSC(img1, img2, ring_thick=1, apod_width=10,
-                     fsc_cutoff=0.8, random_seed=1)
+    return RandomFSC(
+        img1, img2, ring_thick=1, apod_width=10, fsc_cutoff=0.8, random_seed=1
+    )
 
 
 # ---------------------------------------------------------------------------
 # corrected-curve conventions
 # ---------------------------------------------------------------------------
+
 
 def test_no_correction_at_or_below_cutoff(rfsc):
     """Nothing was randomized there, so FSC_corr is FSC_obs, not 0/0 noise."""
@@ -65,8 +67,9 @@ def test_transition_band_is_nan_and_contiguous(rfsc):
     nan_idx = np.flatnonzero(np.isnan(rfsc.FSC_corr))
     assert len(nan_idx) == rfsc.transition_shells
     if rfsc.transition_shells > 0:
-        expected = np.arange(rfsc.cutoff_shell + 1,
-                             rfsc.cutoff_shell + 1 + rfsc.transition_shells)
+        expected = np.arange(
+            rfsc.cutoff_shell + 1, rfsc.cutoff_shell + 1 + rfsc.transition_shells
+        )
         assert np.array_equal(nan_idx, expected)
 
 
@@ -105,6 +108,7 @@ def test_resolution_ignores_masked_shells(rfsc):
 # transition-mask cap
 # ---------------------------------------------------------------------------
 
+
 def test_cap_bounds_mask_and_warns_when_rand_never_decays(rfsc):
     """
     Pathological case: FSC_rand stays above T all the way to Nyquist.
@@ -118,14 +122,14 @@ def test_cap_bounds_mask_and_warns_when_rand_never_decays(rfsc):
     obj.cutoff_shell = 80
     obj.max_transition_shells = None
     obj.T = np.full(nshells, 0.2)
-    obj.FSC_rand = np.full(nshells, 0.9)      # never falls back to T
+    obj.FSC_rand = np.full(nshells, 0.9)  # never falls back to T
 
     with pytest.warns(UserWarning, match="still above the threshold"):
         n = obj._find_transition_shells()
 
     cap = max(5, int(round(0.05 * nshells)))
     assert n == cap
-    assert n < nshells - obj.cutoff_shell - 1   # curve is not blanked
+    assert n < nshells - obj.cutoff_shell - 1  # curve is not blanked
 
 
 def test_cap_is_configurable():
@@ -148,7 +152,7 @@ def test_no_warning_when_rand_decays_normally():
     obj.max_transition_shells = None
     obj.T = np.full(nshells, 0.2)
     rand = np.full(nshells, 0.01)
-    rand[81:83] = 0.9                          # two-shell transition
+    rand[81:83] = 0.9  # two-shell transition
     obj.FSC_rand = rand
     with warnings.catch_warnings():
         warnings.simplefilter("error", UserWarning)
@@ -165,8 +169,8 @@ def test_ragged_transition_masks_through_last_excursion():
     obj.T = np.full(nshells, 0.3)
     rand = np.full(nshells, 0.01)
     rand[81] = 0.5
-    rand[82] = 0.1                             # dip
-    rand[83] = 0.4                             # back above T
+    rand[82] = 0.1  # dip
+    rand[83] = 0.4  # back above T
     obj.FSC_rand = rand
     assert obj._find_transition_shells() == 3
 
@@ -174,6 +178,7 @@ def test_ragged_transition_masks_through_last_excursion():
 # ---------------------------------------------------------------------------
 # Hermitian symmetry of the random phase field
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("shape", [(32, 32), (31, 32), (16, 16, 16)])
 def test_randomization_preserves_amplitude_spectrum(shape):
@@ -192,7 +197,7 @@ def test_randomization_preserves_amplitude_spectrum(shape):
 
     F, G = np.fft.fftn(vol), np.fft.fftn(out)
     freqs = np.meshgrid(*[np.fft.fftfreq(n) for n in shape], indexing="ij")
-    mask = np.sqrt(sum(g ** 2 for g in freqs)) > 0.15
+    mask = np.sqrt(sum(g**2 for g in freqs)) > 0.15
 
     ratio = np.abs(G)[mask] / np.maximum(np.abs(F)[mask], 1e-30)
     assert np.allclose(ratio, 1.0, atol=1e-8)
@@ -208,7 +213,7 @@ def test_randomization_leaves_low_frequencies_untouched(shape):
 
     F, G = np.fft.fftn(vol), np.fft.fftn(out)
     freqs = np.meshgrid(*[np.fft.fftfreq(n) for n in shape], indexing="ij")
-    keep = np.sqrt(sum(g ** 2 for g in freqs)) <= 0.15
+    keep = np.sqrt(sum(g**2 for g in freqs)) <= 0.15
 
     assert np.allclose(np.angle(F)[keep], np.angle(G)[keep], atol=1e-8)
 
@@ -224,6 +229,7 @@ def test_negate_frequency_is_an_involution():
 # ---------------------------------------------------------------------------
 # public API
 # ---------------------------------------------------------------------------
+
 
 def test_plot_returns_five_tuple(rfsc):
     """tutorial/PXCT_pipeline_extra.ipynb unpacks exactly five values."""
@@ -243,5 +249,6 @@ def test_warns_when_crossing_lands_below_cutoff():
     """
     img1, img2 = make_halves(seed=2, n=64, noise=1.4, smooth=6.0)
     with pytest.warns(UserWarning, match="carries no phase-randomization"):
-        RandomFSC(img1, img2, ring_thick=1, apod_width=10,
-                  fsc_cutoff=0.3, random_seed=1)
+        RandomFSC(
+            img1, img2, ring_thick=1, apod_width=10, fsc_cutoff=0.3, random_seed=1
+        )

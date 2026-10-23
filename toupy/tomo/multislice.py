@@ -80,6 +80,7 @@ __all__ = [
 # Fresnel propagator
 # ---------------------------------------------------------------------------
 
+
 class _PropagatorBase:
     """
     Base class for Fourier-domain (angular-spectrum-type) propagators.
@@ -112,11 +113,11 @@ class _PropagatorBase:
         self.wavelength = float(wavelength)
 
         Ny, Nx = shape
-        fx = fftfreq(Nx, d=self.pixel_size)   # cycles m⁻¹
+        fx = fftfreq(Nx, d=self.pixel_size)  # cycles m⁻¹
         fy = fftfreq(Ny, d=self.pixel_size)
         FX, FY = np.meshgrid(fx, fy, indexing="xy")
         # f² grid stored for reuse; shape (Ny, Nx)
-        self._f2 = (FX ** 2 + FY ** 2).astype(np.float64)
+        self._f2 = (FX**2 + FY**2).astype(np.float64)
 
     # ------------------------------------------------------------------
     def _lambda_eff(self, delta_mean):
@@ -240,7 +241,7 @@ class AngularSpectrumPropagator(_PropagatorBase):
     def _kernel(self, distance, delta_mean=0.0):
         lam_eff = self._lambda_eff(delta_mean)
         # (λ_eff f)²  — dimensionless direction-cosine squared
-        s = (lam_eff ** 2) * self._f2
+        s = (lam_eff**2) * self._f2
         propagating = s <= 1.0
         root = np.sqrt(np.where(propagating, 1.0 - s, 0.0))
         phase = (2.0 * np.pi * float(distance) / lam_eff) * (root - 1.0)
@@ -256,7 +257,7 @@ class AngularSpectrumPropagator(_PropagatorBase):
 _PROPAGATORS = {
     "fresnel": FresnelPropagator,
     "angular_spectrum": AngularSpectrumPropagator,
-    "asm": AngularSpectrumPropagator,   # alias
+    "asm": AngularSpectrumPropagator,  # alias
 }
 
 
@@ -302,6 +303,7 @@ def get_propagator(spec, shape, pixel_size, wavelength):
 # Multislice engine
 # ---------------------------------------------------------------------------
 
+
 class MultisliceEngine:
     """
     Forward and adjoint multislice wave-propagation engine.
@@ -336,8 +338,9 @@ class MultisliceEngine:
         See :func:`get_propagator`.
     """
 
-    def __init__(self, shape, pixel_size, wavelength, slice_thickness,
-                 propagator="fresnel"):
+    def __init__(
+        self, shape, pixel_size, wavelength, slice_thickness, propagator="fresnel"
+    ):
         self.shape = shape
         self.pixel_size = float(pixel_size)
         self.wavelength = float(wavelength)
@@ -365,8 +368,9 @@ class MultisliceEngine:
         return np.exp(-self.k0 * dz * (beta_slice + 1j * delta_slice))
 
     # ------------------------------------------------------------------
-    def forward(self, delta_slices, beta_slices, probe,
-                delta_means=None, store_wavefields=False):
+    def forward(
+        self, delta_slices, beta_slices, probe, delta_means=None, store_wavefields=False
+    ):
         """
         Forward multislice propagation.
 
@@ -404,18 +408,18 @@ class MultisliceEngine:
         U = probe.astype(complex, copy=True)
 
         if store_wavefields:
-            W_list = []   # after transmission, before propagation
-            T_list = []   # transmission functions
+            W_list = []  # after transmission, before propagation
+            T_list = []  # transmission functions
             U_list = [U.copy()]  # U_list[0] = probe entering slice 0
 
         for j in range(n_slices):
             T_j = self.transmission(delta_slices[j], beta_slices[j])
-            W_j = T_j * U              # apply transmission
-            U   = self._prop.propagate(W_j, dz, delta_mean=delta_means[j])
+            W_j = T_j * U  # apply transmission
+            U = self._prop.propagate(W_j, dz, delta_mean=delta_means[j])
             if store_wavefields:
                 T_list.append(T_j)
                 W_list.append(W_j)
-                U_list.append(U.copy())   # U_list[j+1] = after propagation j
+                U_list.append(U.copy())  # U_list[j+1] = after propagation j
 
         if store_wavefields:
             return U, {"W": W_list, "T": T_list, "U": U_list}
@@ -449,7 +453,7 @@ class MultisliceEngine:
         """
         W_list = wavefields["W"]
         T_list = wavefields["T"]
-        U_list = wavefields["U"]    # length n_slices + 1
+        U_list = wavefields["U"]  # length n_slices + 1
 
         n_slices = len(W_list)
         if delta_means is None:
@@ -457,15 +461,15 @@ class MultisliceEngine:
 
         dz = self.slice_thickness
         k0 = self.k0
-        scale = k0 * dz   # common factor in gradient formulas
+        scale = k0 * dz  # common factor in gradient formulas
 
         # Residual at exit plane
-        U_exit = U_list[n_slices]    # = U_list[-1]
+        U_exit = U_list[n_slices]  # = U_list[-1]
         residual = U_exit - u_measured
         loss = 0.5 * float(np.sum(np.abs(residual) ** 2))
 
         grad_delta = np.zeros((n_slices,) + self.shape, dtype=np.float64)
-        grad_beta  = np.zeros((n_slices,) + self.shape, dtype=np.float64)
+        grad_beta = np.zeros((n_slices,) + self.shape, dtype=np.float64)
 
         # Initialise adjoint state r_N = residual
         r = residual.astype(complex, copy=True)
@@ -478,8 +482,8 @@ class MultisliceEngine:
             # ∂L/∂δ_j = +2k₀Δz · Im[W_j · conj(s_j)]
             # ∂L/∂β_j = −2k₀Δz · Re[W_j · conj(s_j)]
             cross = W_list[j] * np.conj(s_j)
-            grad_delta[j] =  scale * np.imag(cross)
-            grad_beta[j]  = -scale * np.real(cross)
+            grad_delta[j] = scale * np.imag(cross)
+            grad_beta[j] = -scale * np.real(cross)
 
             # Adjoint of transmission: r_{j-1} = conj(T_j) ⊙ s_j
             r = np.conj(T_list[j]) * s_j
@@ -487,8 +491,9 @@ class MultisliceEngine:
         return grad_delta, grad_beta, loss
 
     # ------------------------------------------------------------------
-    def loss_and_gradient(self, delta_slices, beta_slices, probe,
-                          u_measured, delta_means=None):
+    def loss_and_gradient(
+        self, delta_slices, beta_slices, probe, u_measured, delta_means=None
+    ):
         """
         Convenience: forward + backward in one call.
 
@@ -500,9 +505,13 @@ class MultisliceEngine:
         u_exit : ndarray, complex  (Ny, Nx)
             Simulated exit wave (useful for monitoring convergence).
         """
-        u_exit, wf = self.forward(delta_slices, beta_slices, probe,
-                                  delta_means=delta_means,
-                                  store_wavefields=True)
+        u_exit, wf = self.forward(
+            delta_slices,
+            beta_slices,
+            probe,
+            delta_means=delta_means,
+            store_wavefields=True,
+        )
         gd, gb, loss = self.gradient(wf, u_measured, delta_means=delta_means)
         return loss, gd, gb, u_exit
 
@@ -510,6 +519,7 @@ class MultisliceEngine:
 # ---------------------------------------------------------------------------
 # Volume ↔ slice utilities
 # ---------------------------------------------------------------------------
+
 
 def extract_slices_from_volume(delta_vol, beta_vol, theta_deg, n_slices=None):
     """
@@ -546,11 +556,11 @@ def extract_slices_from_volume(delta_vol, beta_vol, theta_deg, n_slices=None):
     # order=1 (trilinear) is fast and sufficient; use order=3 for higher accuracy.
     kwargs = dict(axes=(2, 0), reshape=False, order=1, mode="constant", cval=0.0)
     delta_rot = ndimage_rotate(delta_vol.astype(np.float64), theta_deg, **kwargs)
-    beta_rot  = ndimage_rotate(beta_vol.astype(np.float64),  theta_deg, **kwargs)
+    beta_rot = ndimage_rotate(beta_vol.astype(np.float64), theta_deg, **kwargs)
 
     if n_slices is None or n_slices == Nz:
         delta_slices = delta_rot
-        beta_slices  = beta_rot
+        beta_slices = beta_rot
     else:
         # Group consecutive z-layers by averaging
         k = Nz // n_slices
@@ -561,14 +571,15 @@ def extract_slices_from_volume(delta_vol, beta_vol, theta_deg, n_slices=None):
             )
         n_use = k * n_slices
         delta_slices = delta_rot[:n_use].reshape(n_slices, k, Ny, Nx).mean(axis=1)
-        beta_slices  = beta_rot[:n_use].reshape(n_slices, k, Ny, Nx).mean(axis=1)
+        beta_slices = beta_rot[:n_use].reshape(n_slices, k, Ny, Nx).mean(axis=1)
 
-    delta_means = delta_slices.mean(axis=(1, 2))   # shape (n_slices,)
+    delta_means = delta_slices.mean(axis=(1, 2))  # shape (n_slices,)
     return delta_slices, beta_slices, delta_means
 
 
-def scatter_gradient_to_volume(grad_delta_slices, grad_beta_slices,
-                               theta_deg, volume_shape, n_slices=None):
+def scatter_gradient_to_volume(
+    grad_delta_slices, grad_beta_slices, theta_deg, volume_shape, n_slices=None
+):
     """
     Accumulate 2D slice gradients back into the 3D volume gradient.
 
@@ -597,7 +608,7 @@ def scatter_gradient_to_volume(grad_delta_slices, grad_beta_slices,
         n_use = k * n_slices
         # Expand: each slice gradient distributes equally over k z-layers
         gd_full = np.repeat(grad_delta_slices, k, axis=0) / k
-        gb_full = np.repeat(grad_beta_slices,  k, axis=0) / k
+        gb_full = np.repeat(grad_beta_slices, k, axis=0) / k
         # Pad remaining layers (if Nz not divisible by n_slices) with zeros
         if n_use < Nz:
             pad = np.zeros((Nz - n_use, Ny, Nx))
@@ -610,7 +621,7 @@ def scatter_gradient_to_volume(grad_delta_slices, grad_beta_slices,
     # Back-rotate by −theta (adjoint of the forward rotation)
     kwargs = dict(axes=(2, 0), reshape=False, order=1, mode="constant", cval=0.0)
     grad_delta_vol = ndimage_rotate(gd_full, -theta_deg, **kwargs)
-    grad_beta_vol  = ndimage_rotate(gb_full, -theta_deg, **kwargs)
+    grad_beta_vol = ndimage_rotate(gb_full, -theta_deg, **kwargs)
 
     return grad_delta_vol, grad_beta_vol
 

@@ -27,13 +27,15 @@ import time
 import numpy as np
 from numpy.fft import fft2, ifft2, fftfreq
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 try:
-    import cupy as cp          # noqa: F401
+    import cupy as cp  # noqa: F401
+
     GPU = True
     print("CuPy detected — pass cuda=True for the GPU path.")
 except ImportError:
@@ -41,8 +43,13 @@ except ImportError:
     print("CuPy not found — running on CPU.")
 
 from toupy.simulation import phantom3d
-from toupy.tomo import (ConeBeamGeometry, cone_project, fdk_reconstruct,
-                        cone_phase_retrieval_fdk, effective_fresnel_distance)
+from toupy.tomo import (
+    ConeBeamGeometry,
+    cone_project,
+    fdk_reconstruct,
+    cone_phase_retrieval_fdk,
+    effective_fresnel_distance,
+)
 from toupy.restoration import tie_hom
 
 # ---------------------------------------------------------------------------
@@ -51,12 +58,12 @@ from toupy.restoration import tie_hom
 ENERGY_keV = 17.0
 WAVELENGTH = 1.23984193e-6 / (ENERGY_keV * 1e3)
 DELTA_BETA = 50.0
-N        = 96            # transaxial detector columns / recon grid
-N_V      = 32            # detector rows (axial)
-N_ANG    = 300          # full 360 deg orbit; FDK streaks shrink with angle count
-MARGIN   = 14           # transaxial vacuum margin (captures fringes)
-Z_MARGIN = 5            # axial vacuum margin
-MAX_PHASE = 1.0         # peak projected phase [rad] (avoid wrapping)
+N = 96  # transaxial detector columns / recon grid
+N_V = 32  # detector rows (axial)
+N_ANG = 300  # full 360 deg orbit; FDK streaks shrink with angle count
+MARGIN = 14  # transaxial vacuum margin (captures fringes)
+Z_MARGIN = 5  # axial vacuum margin
+MAX_PHASE = 1.0  # peak projected phase [rad] (avoid wrapping)
 # Apodised ramp filter: a plain 'ram-lak' amplifies high-frequency streaking
 # off the sharp high-contrast shell; 'hann' roughly halves the reconstruction
 # RMSE at a small resolution cost.  (This is an FDK setting, independent of the
@@ -64,8 +71,11 @@ MAX_PHASE = 1.0         # peak projected phase [rad] (avoid wrapping)
 FDK_FILTER = "hann"
 
 geom = ConeBeamGeometry(
-    SOD=0.15, SDD=0.30, det_pixel_size=2e-6,    # M = 2, eff. pixel = 1 um
-    n_u=N, n_v=N_V,
+    SOD=0.15,
+    SDD=0.30,
+    det_pixel_size=2e-6,  # M = 2, eff. pixel = 1 um
+    n_u=N,
+    n_v=N_V,
     angles=np.linspace(0, 360, N_ANG, endpoint=False),
 )
 Z_EFF = effective_fresnel_distance(geom)
@@ -83,18 +93,21 @@ core_z = N_V - 2 * Z_MARGIN
 vol_core = phantom3d(N=core, n_v=core_z, phantom_type="Modified Shepp-Logan")
 volume = np.zeros((N_V, N, N))
 zo, o = (N_V - core_z) // 2, (N - core) // 2
-volume[zo:zo + core_z, o:o + core, o:o + core] = vol_core
+volume[zo : zo + core_z, o : o + core, o : o + core] = vol_core
 
 # ---------------------------------------------------------------------------
 # 2. Forward model: cone projection -> projected phase -> Fresnel intensity
 # ---------------------------------------------------------------------------
 print("\nForward projecting (cone beam)...")
-proj_phase = cone_project(volume, geom)              # (N_ANG, N_V, N)
-proj_phase *= MAX_PHASE / proj_phase.max()           # scale peak phase
-print("  projected phase: shape {}, peak {:.2f} rad".format(
-    proj_phase.shape, proj_phase.max()))
+proj_phase = cone_project(volume, geom)  # (N_ANG, N_V, N)
+proj_phase *= MAX_PHASE / proj_phase.max()  # scale peak phase
+print(
+    "  projected phase: shape {}, peak {:.2f} rad".format(
+        proj_phase.shape, proj_phase.max()
+    )
+)
 
-c = (-1.0 / DELTA_BETA + 1j)
+c = -1.0 / DELTA_BETA + 1j
 
 
 def fresnel_intensity(phi, z, px, pad=2):
@@ -106,15 +119,18 @@ def fresnel_intensity(phi, z, px, pad=2):
     FY, FX = np.meshgrid(fy, fx, indexing="ij")
     H = np.exp(1j * np.pi * WAVELENGTH * z * (FY**2 + FX**2))
     field = np.ones((my, mx), dtype=complex)
-    field[oy:oy + nv, ox:ox + nu] = np.exp(c * phi)
-    return (np.abs(ifft2(fft2(field) * H))**2)[oy:oy + nv, ox:ox + nu]
+    field[oy : oy + nv, ox : ox + nu] = np.exp(c * phi)
+    return (np.abs(ifft2(fft2(field) * H)) ** 2)[oy : oy + nv, ox : ox + nu]
 
 
 rng = np.random.default_rng(0)
-intensity = np.array([fresnel_intensity(proj_phase[k], Z_EFF, PX_EFF)
-                      for k in range(N_ANG)])
-intensity = np.maximum(intensity + rng.normal(0, 0.005 * intensity.mean(),
-                                              intensity.shape), 0)
+intensity = np.array(
+    [fresnel_intensity(proj_phase[k], Z_EFF, PX_EFF) for k in range(N_ANG)]
+)
+intensity = np.maximum(
+    intensity + rng.normal(0, 0.005 * intensity.mean(), intensity.shape), 0
+)
+
 
 # ---------------------------------------------------------------------------
 # 3. Reconstructions
@@ -128,18 +144,29 @@ rec_clean = fdk(proj_phase)
 
 print("TIE-Hom retrieval + FDK...")
 t = time.perf_counter()
-tie_stack = np.array([
-    tie_hom(intensity[k], Z_EFF, WAVELENGTH, PX_EFF, delta_beta=DELTA_BETA)
-    for k in range(N_ANG)])
+tie_stack = np.array(
+    [
+        tie_hom(intensity[k], Z_EFF, WAVELENGTH, PX_EFF, delta_beta=DELTA_BETA)
+        for k in range(N_ANG)
+    ]
+)
 rec_tie = fdk(tie_stack)
 print("  done in {:.1f} s".format(time.perf_counter() - t))
 
 print("Iterative retrieval + FDK (cone_phase_retrieval_fdk)...")
 t = time.perf_counter()
 rec_iter = cone_phase_retrieval_fdk(
-    intensity, geom, WAVELENGTH, DELTA_BETA,
-    n_iter=80, reg_tv=2e-3, filter_type=FDK_FILTER, verbose=True)
+    intensity,
+    geom,
+    WAVELENGTH,
+    DELTA_BETA,
+    n_iter=80,
+    reg_tv=2e-3,
+    filter_type=FDK_FILTER,
+    verbose=True,
+)
 print("  done in {:.1f} s".format(time.perf_counter() - t))
+
 
 # ---------------------------------------------------------------------------
 # 4. Metrics + figure (central axial slice)
@@ -149,7 +176,7 @@ def nrm(x):
 
 
 def rmse(a):
-    return np.sqrt(np.mean((nrm(a) - nrm(volume))**2))
+    return np.sqrt(np.mean((nrm(a) - nrm(volume)) ** 2))
 
 
 print("\n--- Volume RMSE (normalised, vs ground-truth phantom) ---")
@@ -162,9 +189,9 @@ zc = N_V // 2
 # panel is normalised to [0, 1] for a fair visual comparison (this matches how
 # the RMSE above is computed).
 panels = [
-    (volume[zc],    "Ground-truth slice"),
-    (rec_tie[zc],   "FDK  •  TIE-Hom"),
-    (rec_iter[zc],  "FDK  •  iterative (+TV)"),
+    (volume[zc], "Ground-truth slice"),
+    (rec_tie[zc], "FDK  •  TIE-Hom"),
+    (rec_iter[zc], "FDK  •  iterative (+TV)"),
     (rec_clean[zc], "FDK  •  clean phase\n(reference)"),
 ]
 fig, axes = plt.subplots(1, 4, figsize=(17, 4.5))
@@ -176,9 +203,9 @@ for ax, (img, title) in zip(axes, panels):
 plt.suptitle(
     "Cone-beam phase-contrast tomography (retrieval + FDK)  "
     "({:.0f} keV, M={:.1f}, eff.\\ pixel {:.0f} nm, z_eff={:.0f} mm, "
-    "NF={:.3f})".format(ENERGY_keV, geom.magnification, PX_EFF * 1e9,
-                        Z_EFF * 1e3, NF),
-    fontsize=11)
+    "NF={:.3f})".format(ENERGY_keV, geom.magnification, PX_EFF * 1e9, Z_EFF * 1e3, NF),
+    fontsize=11,
+)
 plt.tight_layout(rect=[0, 0, 1, 0.92])
 plt.savefig("cone_phase_fdk.png", dpi=150, bbox_inches="tight")
 print("\nSaved cone_phase_fdk.png")

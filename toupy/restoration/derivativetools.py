@@ -19,10 +19,10 @@ from ..utils import isnotebook
 
 __all__ = [
     "calculate_derivatives",
-    "calculate_derivatives_fft",   # deprecated alias — use calculate_derivatives
+    "calculate_derivatives_fft",  # deprecated alias — use calculate_derivatives
     "chooseregiontoderivatives",
     "derivatives",
-    "derivatives_fft",             # deprecated alias — use derivatives
+    "derivatives_fft",  # deprecated alias — use derivatives
     "derivatives_sino",
     "gradient_axis",
 ]
@@ -93,9 +93,9 @@ class _DerivROIPicker:
 
     def __init__(self, stack_array, deltax_init, limsy_init):
         nr, nc = stack_array[0].shape
-        self._nc   = nc
+        self._nc = nc
         self._step = 0
-        self._tl   = None   # top-left (x, y) click
+        self._tl = None  # top-left (x, y) click
         self._done = False
 
         # public results — pre-populated with the params defaults
@@ -106,7 +106,7 @@ class _DerivROIPicker:
         plt.close("all")
         fig, ax = plt.subplots(figsize=(9, 7))
         self.fig = fig
-        self.ax  = ax
+        self.ax = ax
 
         ax.imshow(stack_array[0], cmap="bone", aspect="auto")
         # draw the initial ROI
@@ -120,20 +120,30 @@ class _DerivROIPicker:
         )
 
         self._status_txt = fig.text(
-            0.5, 0.975, self._STEPS[0],
-            ha="center", va="top", fontsize=10,
-            color="steelblue", fontweight="bold",
+            0.5,
+            0.975,
+            self._STEPS[0],
+            ha="center",
+            va="top",
+            fontsize=10,
+            color="steelblue",
+            fontweight="bold",
         )
         self._info_txt = fig.text(
-            0.5, 0.935, "Current: deltax={}, y=[{}, {}]".format(
+            0.5,
+            0.935,
+            "Current: deltax={}, y=[{}, {}]".format(
                 deltax_init, limsy_init[0], limsy_init[1]
             ),
-            ha="center", va="top", fontsize=9, color="0.35",
+            ha="center",
+            va="top",
+            fontsize=9,
+            color="0.35",
         )
 
-        ax_reset   = fig.add_axes([0.25, 0.01, 0.2,  0.055])
-        ax_confirm = fig.add_axes([0.55, 0.01, 0.2,  0.055])
-        self._btn_reset   = Button(ax_reset,   "Reset")
+        ax_reset = fig.add_axes([0.25, 0.01, 0.2, 0.055])
+        ax_confirm = fig.add_axes([0.55, 0.01, 0.2, 0.055])
+        self._btn_reset = Button(ax_reset, "Reset")
         self._btn_confirm = Button(ax_confirm, "Confirm")
         self._btn_confirm.ax.set_facecolor("0.85")
         self._btn_reset.on_clicked(self._on_reset)
@@ -146,16 +156,22 @@ class _DerivROIPicker:
 
     def _clear_rect(self):
         for ln in self._rect_lines:
-            try: ln.remove()
-            except Exception: pass
+            try:
+                ln.remove()
+            except Exception:
+                pass
         self._rect_lines = []
 
     def _draw_rect(self, x0, y0, x1, y1):
         self._clear_rect()
         kw = dict(color="r", linewidth=1.5, linestyle="-")
-        for xs, ys in [([x0, x1], [y0, y0]), ([x0, x1], [y1, y1]),
-                       ([x0, x0], [y0, y1]), ([x1, x1], [y0, y1])]:
-            ln, = self.ax.plot(xs, ys, **kw)
+        for xs, ys in [
+            ([x0, x1], [y0, y0]),
+            ([x0, x1], [y1, y1]),
+            ([x0, x0], [y0, y1]),
+            ([x1, x1], [y0, y1]),
+        ]:
+            (ln,) = self.ax.plot(xs, ys, **kw)
             self._rect_lines.append(ln)
 
     def _set_info(self, msg):
@@ -177,7 +193,7 @@ class _DerivROIPicker:
         if self._step == 0:
             self._tl = (x, y)
             deltax = max(0, int(round(x)))
-            dot, = self.ax.plot(x, y, "bs", markersize=7)
+            (dot,) = self.ax.plot(x, y, "bs", markersize=7)
             self._rect_lines.append(dot)
             self.fig.canvas.draw_idle()
             self._step = 1
@@ -185,18 +201,21 @@ class _DerivROIPicker:
             self._set_info(
                 "Top-left: ({:.0f}, {:.0f})  →  deltax={}".format(x, y, deltax)
             )
-            print("  Top-left: ({:.0f}, {:.0f})  deltax={}".format(x, y, deltax),
-                  flush=True)
+            print(
+                "  Top-left: ({:.0f}, {:.0f})  deltax={}".format(x, y, deltax),
+                flush=True,
+            )
             print(self._STEPS[1], flush=True)
 
         elif self._step == 1:
             x0, y0 = self._tl
             x1, y1 = x, y
             # enforce ordering
-            if y1 < y0: y0, y1 = y1, y0
-            deltax  = max(0, int(round(min(x0, x1))))
-            y_top   = int(round(y0))
-            y_bot   = int(round(y1))
+            if y1 < y0:
+                y0, y1 = y1, y0
+            deltax = max(0, int(round(min(x0, x1))))
+            y_top = int(round(y0))
+            y_bot = int(round(y1))
             self.roix = range(deltax, self._nc - deltax)
             self.roiy = range(y_top, y_bot)
             self._draw_rect(deltax, y_top, self._nc - deltax, y_bot)
@@ -210,14 +229,15 @@ class _DerivROIPicker:
             )
             self._set_info(info)
             print("  " + info, flush=True)
-            print("All set — click  Confirm  to accept, or  Reset  to redo.",
-                  flush=True)
+            print(
+                "All set — click  Confirm  to accept, or  Reset  to redo.", flush=True
+            )
 
     def _on_reset(self, event):
         self._step = 0
-        self._tl   = None
-        self.roix  = None
-        self.roiy  = None
+        self._tl = None
+        self.roix = None
+        self.roiy = None
         self._btn_confirm.ax.set_facecolor("0.85")
         self._status_txt.set_text(self._STEPS[0])
         self._set_info("")
@@ -228,8 +248,10 @@ class _DerivROIPicker:
             print("Not ready yet — complete both clicks first.", flush=True)
             return
         self._done = True
-        try: self.fig.canvas.mpl_disconnect(self._cid)
-        except Exception: pass
+        try:
+            self.fig.canvas.mpl_disconnect(self._cid)
+        except Exception:
+            pass
         print(
             "Confirmed — roix=[{}, {}]  roiy=[{}, {}]".format(
                 self.roix[0], self.roix[-1], self.roiy[0], self.roiy[-1]
@@ -268,13 +290,14 @@ def chooseregiontoderivatives(stack_array, **params):
         ``picker.roiy`` in the **next** cell after clicking Confirm.
     """
     deltax_init = params["deltax"]
-    limsy_init  = params["limsy"]
+    limsy_init = params["limsy"]
 
     picker = _DerivROIPicker(stack_array, deltax_init, limsy_init)
 
     if isnotebook():
         try:
             import matplotlib as _mpl
+
             _interactive = "inline" not in _mpl.get_backend().lower()
         except Exception:
             _interactive = False
@@ -289,6 +312,7 @@ def chooseregiontoderivatives(stack_array, **params):
             )
         else:
             from IPython import display as _ipy_display
+
             _ipy_display.display(picker.fig)
         return picker
     else:
@@ -340,12 +364,10 @@ def derivatives(input_array, shift_method="fourier", symmetric=True, n_cpus=-1):
             rshift, lshift = 0.5, 0.5
         else:
             rshift, lshift = 1.0, 0.0
-        kernel = (
-            np.exp( 1j * 2.0 * np.pi * freqs * rshift)
-            - np.exp(-1j * 2.0 * np.pi * freqs * lshift)
+        kernel = np.exp(1j * 2.0 * np.pi * freqs * rshift) - np.exp(
+            -1j * 2.0 * np.pi * freqs * lshift
         )
-        return ifft(kernel * fft(input_array, workers=n_cpus),
-                    workers=n_cpus).real
+        return ifft(kernel * fft(input_array, workers=n_cpus), workers=n_cpus).real
 
     # Non-fourier methods use ShiftFunc (C extensions, GIL released)
     S = ShiftFunc(shiftmeth=shift_method)
@@ -362,12 +384,14 @@ def derivatives_fft(input_img, symmetric=True, n_cpus=-1):
         DeprecationWarning,
         stacklevel=2,
     )
-    return derivatives(input_img, shift_method="fourier",
-                       symmetric=symmetric, n_cpus=n_cpus)
+    return derivatives(
+        input_img, shift_method="fourier", symmetric=symmetric, n_cpus=n_cpus
+    )
 
 
-def calculate_derivatives(stack_array, roiy, roix,
-                           shift_method="fourier", symmetric=True, n_cpus=-1):
+def calculate_derivatives(
+    stack_array, roiy, roix, shift_method="fourier", symmetric=True, n_cpus=-1
+):
     """
     Compute projection derivatives over a stack of images.
 
@@ -398,7 +422,7 @@ def calculate_derivatives(stack_array, roiy, roix,
     aligned_diff : ndarray, shape (nprojs, roi_nr, roi_nc)
         Stack of derivative images.
     """
-    roi_stack = stack_array[:, roiy[0]:roiy[-1], roix[0]:roix[-1]]
+    roi_stack = stack_array[:, roiy[0] : roiy[-1], roix[0] : roix[-1]]
 
     if shift_method == "fourier":
         # Vectorise over the entire (nprojs, roi_rows, nc) array in one
@@ -411,12 +435,11 @@ def calculate_derivatives(stack_array, roiy, roix,
             rshift, lshift = 0.5, 0.5
         else:
             rshift, lshift = 1.0, 0.0
-        kernel = (
-            np.exp( 1j * 2.0 * np.pi * freqs * rshift)
-            - np.exp(-1j * 2.0 * np.pi * freqs * lshift)
-        )                                              # shape (nc_roi,)
-        fft_all = fft(roi_stack, workers=n_cpus)       # axis=-1 by default
-        fft_all *= kernel                              # broadcast over leading axes
+        kernel = np.exp(1j * 2.0 * np.pi * freqs * rshift) - np.exp(
+            -1j * 2.0 * np.pi * freqs * lshift
+        )  # shape (nc_roi,)
+        fft_all = fft(roi_stack, workers=n_cpus)  # axis=-1 by default
+        fft_all *= kernel  # broadcast over leading axes
         return ifft(fft_all, workers=n_cpus).real.astype(roi_stack.dtype)
 
     # Non-fourier: sequential loop; C extensions handle their own threading
@@ -437,8 +460,9 @@ def calculate_derivatives_fft(stack_array, roiy, roix, n_cpus=-1):
         DeprecationWarning,
         stacklevel=2,
     )
-    return calculate_derivatives(stack_array, roiy, roix,
-                                 shift_method="fourier", n_cpus=n_cpus)
+    return calculate_derivatives(
+        stack_array, roiy, roix, shift_method="fourier", n_cpus=n_cpus
+    )
 
 
 def derivatives_sino(input_sino, shift_method="fourier"):
