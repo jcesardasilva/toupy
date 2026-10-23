@@ -67,6 +67,8 @@ from scipy.ndimage import rotate as ndimage_rotate
 
 __all__ = [
     "FresnelPropagator",
+    "AngularSpectrumPropagator",
+    "get_propagator",
     "MultisliceEngine",
     "extract_slices_from_volume",
     "scatter_gradient_to_volume",
@@ -78,13 +80,21 @@ __all__ = [
 # Fresnel propagator
 # ---------------------------------------------------------------------------
 
-class FresnelPropagator:
+class _PropagatorBase:
     """
-    Paraxial Fresnel propagator in the Fourier domain.
+    Base class for Fourier-domain (angular-spectrum-type) propagators.
 
-    Pre-computes the squared-frequency grid at construction time so that
-    repeated propagation calls (same grid, different distance or n_mean)
-    avoid rebuilding it.
+    Pre-computes the transverse squared-frequency grid ``f² = f_x² + f_y²``
+    at construction time (shape ``(Ny, Nx)``) so that repeated propagation
+    calls (same grid, different distance or δ̄) only rebuild the cheap kernel.
+    Concrete subclasses implement :meth:`_kernel`; the shared
+    :meth:`propagate` / :meth:`propagate_adjoint` apply it in the Fourier
+    domain.
+
+    Matter (refractive-index) correction is handled uniformly for every
+    subclass: a non-zero ``delta_mean`` δ̄ rescales the wavelength to the
+    in-medium value ``λ_eff = λ / (1 − δ̄)``.  δ̄ = 0 recovers the vacuum
+    propagator.
 
     Parameters
     ----------
@@ -109,9 +119,14 @@ class FresnelPropagator:
         self._f2 = (FX ** 2 + FY ** 2).astype(np.float64)
 
     # ------------------------------------------------------------------
+    def _lambda_eff(self, delta_mean):
+        """In-medium wavelength ``λ_eff = λ / (1 − δ̄)`` (δ̄ = ``delta_mean``)."""
+        return self.wavelength / (1.0 - float(delta_mean))
+
+    # ------------------------------------------------------------------
     def _kernel(self, distance, delta_mean=0.0):
         """
-        Build the Fresnel kernel H(f; Δz, δ̄).
+        Build the transfer function ``H(f; Δz, δ̄)`` — subclass responsibility.
 
         Parameters
         ----------
@@ -119,19 +134,14 @@ class FresnelPropagator:
             Propagation distance [m].  Positive → forward, negative → backward.
         delta_mean : float, optional
             Mean refractive-index decrement of the traversed layer.
-            δ̄ = 0 gives the standard vacuum propagator.
-            Provide the layer-averaged value from the step-1 volume to
-            obtain the matter-corrected propagator.
+            δ̄ = 0 gives the vacuum propagator; the layer-averaged value from
+            the step-1 volume gives the matter-corrected propagator.
 
         Returns
         -------
         H : ndarray, complex128, shape (Ny, Nx)
         """
-        n_mean = 1.0 - float(delta_mean)
-        # effective wavelength in medium: λ_eff ≈ λ/n_mean ≈ λ(1 + δ̄)
-        lam_eff = self.wavelength / n_mean
-        phase = -np.pi * lam_eff * distance * self._f2
-        return np.exp(1j * phase)
+        raise NotImplementedError
 
     # ------------------------------------------------------------------
     def propagate(self, wavefield, distance, delta_mean=0.0):
@@ -155,10 +165,13 @@ class FresnelPropagator:
 
     def propagate_adjoint(self, wavefield, distance, delta_mean=0.0):
         """
-        Adjoint propagation: backward Fresnel propagation by ``distance``.
+        Adjoint propagation: backward propagation by ``distance``.
 
         For a lossless medium the adjoint equals forward propagation by
-        ``−distance`` (phase conjugation / time reversal).
+        ``−distance`` (phase conjugation / time reversal).  For the
+        band-masked angular-spectrum propagator the evanescent mask is a
+        real projection, so propagation by ``−Δz`` remains the exact adjoint
+        of the masked forward operator.
 
         Parameters
         ----------
@@ -171,6 +184,118 @@ class FresnelPropagator:
         ndarray, complex, shape (Ny, Nx)
         """
         return self.propagate(wavefield, -distance, delta_mean=delta_mean)
+
+
+class FresnelPropagator(_PropagatorBase):
+    """
+    Paraxial Fresnel propagator in the Fourier domain.
+
+    Transfer function::
+
+        H(f; Δz, δ̄) = exp(−iπ λ_eff Δz f²),   λ_eff = λ / (1 − δ̄)
+
+    This is the paraxial (small-angle) limit of the exact
+    :class:`AngularSpectrumPropagator`.  With δ̄ = 0 it is the standard
+    vacuum multislice propagator; with δ̄ set to the layer-mean
+    refractive-index decrement it is the matter-corrected propagator.
+    """
+
+    def _kernel(self, distance, delta_mean=0.0):
+        lam_eff = self._lambda_eff(delta_mean)
+        phase = -np.pi * lam_eff * float(distance) * self._f2
+        return np.exp(1j * phase)
+
+
+class AngularSpectrumPropagator(_PropagatorBase):
+    r"""
+    Exact (non-paraxial) angular-spectrum propagator in the Fourier domain.
+
+    Transfer function, with the on-axis piston removed so that ``H(0) = 1``
+    (matching the Fresnel convention)::
+
+        H(f; Δz, δ̄) = exp( i (2π Δz / λ_eff) [ √(1 − (λ_eff f)²) − 1 ] ),
+                       for (λ_eff f)² ≤ 1     (propagating waves)
+                     = 0,                      otherwise  (evanescent, masked)
+
+    with ``λ_eff = λ / (1 − δ̄)``.  Expanding the square root to first order,
+    ``√(1 − (λ_eff f)²) − 1 ≈ −½ (λ_eff f)²``, reproduces the Fresnel kernel
+    ``exp(−iπ λ_eff Δz f²)`` exactly; the two therefore agree for
+    ``λ_eff f ≪ 1`` and diverge only at high spatial frequencies / large
+    numerical aperture, where Fresnel's parabolic approximation to the true
+    spherical dispersion breaks down.
+
+    The global piston ``exp(i 2π Δz / λ_eff)`` is dropped so that this class
+    is a drop-in alternative to :class:`FresnelPropagator` (both satisfy
+    ``H(0) = 1`` and differ only in the higher-order angular terms).
+    Evanescent components are set to zero rather than amplified, which keeps
+    the operator bounded and makes :meth:`propagate_adjoint` (propagation by
+    ``−Δz``) the exact adjoint of the masked forward operator.
+
+    For hard X-rays (λ ~ 0.1 nm, sub-µrad scattering angles) the paraxial
+    approximation is normally excellent, so this propagator is primarily a
+    physically exact reference against which to validate the default Fresnel
+    engine; it becomes necessary only at very small pixel sizes / high NA.
+    """
+
+    def _kernel(self, distance, delta_mean=0.0):
+        lam_eff = self._lambda_eff(delta_mean)
+        # (λ_eff f)²  — dimensionless direction-cosine squared
+        s = (lam_eff ** 2) * self._f2
+        propagating = s <= 1.0
+        root = np.sqrt(np.where(propagating, 1.0 - s, 0.0))
+        phase = (2.0 * np.pi * float(distance) / lam_eff) * (root - 1.0)
+        H = np.exp(1j * phase)
+        # mask evanescent band (do not amplify)
+        return np.where(propagating, H, 0.0).astype(np.complex128)
+
+
+# ---------------------------------------------------------------------------
+# Propagator registry / factory
+# ---------------------------------------------------------------------------
+
+_PROPAGATORS = {
+    "fresnel": FresnelPropagator,
+    "angular_spectrum": AngularSpectrumPropagator,
+    "asm": AngularSpectrumPropagator,   # alias
+}
+
+
+def get_propagator(spec, shape, pixel_size, wavelength):
+    """
+    Resolve a propagator specification into a ready-to-use instance.
+
+    Parameters
+    ----------
+    spec : str, or a :class:`_PropagatorBase` subclass, or an instance
+        * ``str`` — one of ``"fresnel"``, ``"angular_spectrum"`` (alias
+          ``"asm"``); case-insensitive.
+        * a propagator **class** — instantiated with the grid parameters.
+        * a propagator **instance** — returned unchanged (its grid must
+          already match ``shape``/``pixel_size``/``wavelength``).
+    shape : tuple (Ny, Nx)
+    pixel_size : float   [m]
+    wavelength : float   [m]
+
+    Returns
+    -------
+    _PropagatorBase
+    """
+    if isinstance(spec, _PropagatorBase):
+        return spec
+    if isinstance(spec, type) and issubclass(spec, _PropagatorBase):
+        return spec(shape, pixel_size, wavelength)
+    if isinstance(spec, str):
+        key = spec.lower()
+        if key not in _PROPAGATORS:
+            raise ValueError(
+                f"Unknown propagator {spec!r}. Available: "
+                f"{sorted(set(_PROPAGATORS))!r}."
+            )
+        return _PROPAGATORS[key](shape, pixel_size, wavelength)
+    raise TypeError(
+        "propagator must be a name string, a _PropagatorBase subclass, or "
+        f"an instance; got {type(spec).__name__}."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -203,15 +328,22 @@ class MultisliceEngine:
     slice_thickness : float
         Thickness of each slice [m].  For isotropic voxels set this equal
         to ``pixel_size``.
+    propagator : str or propagator instance/class, optional
+        Which inter-slice propagator to use.  ``"fresnel"`` (default) is the
+        paraxial Fresnel propagator; ``"angular_spectrum"`` (alias ``"asm"``)
+        is the exact non-paraxial angular-spectrum propagator.  A custom
+        :class:`_PropagatorBase` subclass or instance may also be passed.
+        See :func:`get_propagator`.
     """
 
-    def __init__(self, shape, pixel_size, wavelength, slice_thickness):
+    def __init__(self, shape, pixel_size, wavelength, slice_thickness,
+                 propagator="fresnel"):
         self.shape = shape
         self.pixel_size = float(pixel_size)
         self.wavelength = float(wavelength)
         self.slice_thickness = float(slice_thickness)
         self.k0 = 2.0 * np.pi / self.wavelength
-        self._prop = FresnelPropagator(shape, pixel_size, wavelength)
+        self._prop = get_propagator(propagator, shape, pixel_size, wavelength)
 
     # ------------------------------------------------------------------
     def transmission(self, delta_slice, beta_slice):

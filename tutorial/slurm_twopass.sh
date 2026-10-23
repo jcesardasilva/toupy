@@ -113,6 +113,9 @@ ANGLE_STEP="${ANGLE_STEP:-1}"          # 1 = all angles;  >1 = subsample
 ANGLE_WEIGHT="${ANGLE_WEIGHT:-uniform}"  # 'uniform' | 'snr'
 FBP_METHOD="${FBP_METHOD:-auto}"       # 'auto'|'iradon'|'gpu'|'gridding'
 OPTIMIZE_BETA="${OPTIMIZE_BETA:-True}" # False = freeze beta (saves ~3 volumes)
+PROPAGATOR="${PROPAGATOR:-fresnel}"    # 'fresnel'|'angular_spectrum'|'asm'
+                                       # inter-slice propagator (asm = exact
+                                       # non-paraxial; fresnel = paraxial default)
 
 # FSC_AUTO_GENTLE=True lets twopass_real_data.py silently replace N_ITER/LR/
 # LAMBDA_TV with gentle values (30 / 2e-6 / 5e-5) on any FSC_HALF run -- so an
@@ -239,6 +242,7 @@ sed -i \
     -e "s|^ANGLE_WEIGHT\s*=.*|ANGLE_WEIGHT = '${ANGLE_WEIGHT}'|" \
     -e "s|^FBP_METHOD\s*=.*|FBP_METHOD  = '${FBP_METHOD}'|" \
     -e "s|^OPTIMIZE_BETA\s*=.*|OPTIMIZE_BETA = ${OPTIMIZE_BETA}|" \
+    -e "s|^PROPAGATOR\s*=.*|PROPAGATOR  = '${PROPAGATOR}'|" \
     -e "s|^CROP_X\s*=.*|CROP_X = ${CROP_X}|" \
     -e "s|^CROP_Y\s*=.*|CROP_Y = ${CROP_Y}|" \
     -e "s|^FSC_HALF\s*=.*|FSC_HALF = ${FSC_HALF}|" \
@@ -248,7 +252,7 @@ sed -i \
     "${PATCHED}"
 
 echo "Reconstruction parameters (as patched):"
-grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|ANGLE_WEIGHT|FBP_METHOD|OPTIMIZE_BETA|CROP_X|CROP_Y|FSC_HALF|FSC_AUTO_GENTLE|DATA_FILE|OUT_DIR)" \
+grep -E "^(N_SLICES|N_ITER|LR|LAMBDA_TV|WARMUP_ITERS|ANGLE_STEP|ANGLE_WEIGHT|FBP_METHOD|OPTIMIZE_BETA|PROPAGATOR|CROP_X|CROP_Y|FSC_HALF|FSC_AUTO_GENTLE|DATA_FILE|OUT_DIR)" \
      "${PATCHED}" | sed 's/^/  /'
 echo ""
 

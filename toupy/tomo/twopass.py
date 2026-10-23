@@ -376,6 +376,7 @@ class TwoPassReconstructor:
         n_iter            = 30,
         lr                = 1e-3,
         matter_correction = True,
+        propagator        = "fresnel",
         regularisation    = "positivity",
         tv_weight         = 1e-3,
         batch_size        = None,
@@ -408,7 +409,16 @@ class TwoPassReconstructor:
         lr : float, optional
             Adam learning rate.  Default 1e-3.
         matter_correction : bool, optional
-            Use the matter-corrected Fresnel propagator.  Default True.
+            Use the matter-corrected propagator (feed the layer-mean δ̄ into
+            the kernel) rather than the vacuum propagator (δ̄ = 0).
+            Orthogonal to ``propagator``.  Default True.
+        propagator : str or propagator instance/class, optional
+            Inter-slice propagator family.  ``"fresnel"`` (default) is the
+            paraxial Fresnel propagator; ``"angular_spectrum"`` (alias
+            ``"asm"``) is the exact non-paraxial angular-spectrum propagator,
+            of which Fresnel is the small-angle limit.  For hard X-rays the
+            two agree closely; ``"asm"`` is the physically exact reference.
+            See :func:`~toupy.tomo.multislice.get_propagator`.
         regularisation : str, optional
             ``"none"``       — no regularisation.
             ``"positivity"`` — clip δ, β to [0, +∞) after each step.
@@ -476,6 +486,7 @@ class TwoPassReconstructor:
             pixel_size     = self.pixel_size,
             wavelength     = self.wavelength,
             slice_thickness= slice_thickness,
+            propagator     = propagator,
         )
 
         # Adam optimiser states for δ and β
@@ -495,6 +506,7 @@ class TwoPassReconstructor:
             print(f"\nPass 2 — Multislice refinement")
             print(f"  n_iter={n_iter}, lr={lr}, n_slices={self.n_slices}, "
                   f"matter_correction={matter_correction}, "
+                  f"propagator={propagator!r}, "
                   f"regularisation={regularisation!r}, "
                   f"batch_size={batch_size}")
             if regularisation == "tv":
@@ -629,7 +641,8 @@ class TwoPassReconstructor:
     # ==================================================================
 
     def simulate_exit_wave(self, delta_vol, beta_vol, theta_deg,
-                           probe=None, matter_correction=True):
+                           probe=None, matter_correction=True,
+                           propagator="fresnel"):
         """
         Simulate the exit wave at a given projection angle.
 
@@ -643,6 +656,9 @@ class TwoPassReconstructor:
         theta_deg : float
         probe : ndarray, complex (Ny, Nx), optional
         matter_correction : bool, optional
+        propagator : str or propagator instance/class, optional
+            ``"fresnel"`` (default) or ``"angular_spectrum"`` (``"asm"``).
+            See :meth:`pass2`.
 
         Returns
         -------
@@ -659,6 +675,7 @@ class TwoPassReconstructor:
             pixel_size     = self.pixel_size,
             wavelength     = self.wavelength,
             slice_thickness= slice_thickness,
+            propagator     = propagator,
         )
 
         delta_slices, beta_slices, delta_means = extract_slices_from_volume(

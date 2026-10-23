@@ -227,6 +227,17 @@ FSC_HALF = None   # None | 0 | 1
 N_SLICES    = 64
 SLICE_DZ    = Nz * PIXEL_SIZE / N_SLICES          # [m] slab thickness
 
+# ── Inter-slice propagator ──────────────────────────────────────────────────
+# Which Fourier-domain propagator the multislice engine uses between slabs:
+#   'fresnel'          -> paraxial Fresnel  exp(-iπ λ_eff Δz f²)   (default)
+#   'angular_spectrum' -> exact non-paraxial angular spectrum
+#                         exp(i(2πΔz/λ_eff)[√(1-(λ_eff f)²)-1]); alias 'asm'.
+# For hard X-rays (λ ~ 0.1 nm, tiny scattering angles) the two agree to ~1e-5,
+# so 'fresnel' is the fast default and 'asm' is the physically-exact reference
+# for validating the paraxial approximation.  The matter (refractive-index)
+# correction is applied on top of whichever kernel is chosen.
+PROPAGATOR  = 'fresnel'   # 'fresnel' | 'angular_spectrum' | 'asm'
+
 # ── Pass-1 (FBP) back-projector ─────────────────────────────────────────────
 # 'auto'     -> _fbp_gpu on CUDA, else skimage.iradon  (default, unchanged)
 # 'iradon'   -> force skimage.iradon (CPU)
@@ -345,6 +356,7 @@ print(f"  N_SLICES   = {N_SLICES}  (slab Δz = {SLICE_DZ*1e9:.1f} nm = "
 print(f"  N_ITER     = {N_ITER}")
 print(f"  LR         = {LR}")
 print(f"  LAMBDA_TV  = {LAMBDA_TV}")
+print(f"  PROPAGATOR = {PROPAGATOR}")
 print(f"  OPTIMIZE_BETA = {OPTIMIZE_BETA}")
 print(f"  ANGLE_WEIGHT = {ANGLE_WEIGHT}")
 print(f"  FBP_METHOD = {FBP_METHOD}")
@@ -711,6 +723,7 @@ if TORCH_AVAILABLE:
         wavelength      = WAVELENGTH,
         slice_thickness = SLICE_DZ,
         device          = DEVICE,
+        propagator      = PROPAGATOR,
     )
 
     delta_tp_t = torch.from_numpy(delta_tp.astype(np.float32)).to(DEVICE)
@@ -810,6 +823,7 @@ else:
         pixel_size      = PIXEL_SIZE,
         wavelength      = WAVELENGTH,
         slice_thickness = SLICE_DZ,
+        propagator      = PROPAGATOR,
     )
 
     adam_d = _Adam(delta_tp.shape, lr=LR)

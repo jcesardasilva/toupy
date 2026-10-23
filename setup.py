@@ -10,7 +10,7 @@ with open("README.md", "r", encoding="utf-8") as fid:
 
 setuptools.setup(
     name="toupy",
-    version="0.3.0",
+    version="0.4.0",
     author="Julio Cesar da Silva",
     author_email="julio-cesar.da-silva@neel.cnrs.fr",
     description="Tomographic Utilities for Python",
@@ -47,6 +47,9 @@ setuptools.setup(
         "tqdm>=4.61.2",
     ],
     extras_require={
+        "resource": [
+            "psutil>=5.8.0",
+        ],
         "notebook": [
             "ipympl>=0.9.0",
             "jupyterlab>=3.0",
@@ -54,6 +57,12 @@ setuptools.setup(
         "docs": [
             "sphinx>=5.0",
             "sphinx-rtd-theme>=1.0",
+        ],
+        # Optional PyTorch backend for the two-pass multislice and FBaP GPU
+        # paths.  Not required: toupy falls back to the pure NumPy backend when
+        # torch is absent.  Install with:  pip install toupy[torch]
+        "torch": [
+            "torch>=1.10.0",
         ],
     },
 )
