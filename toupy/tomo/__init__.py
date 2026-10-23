@@ -9,6 +9,7 @@ from .geometry import *
 from .fdk import *
 from .cone_projector import *
 from .tv_recons import *
+from .cone_phase import *
 from .multislice import *
 from .twopass import *
 try:
