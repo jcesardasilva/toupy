@@ -10,3 +10,10 @@ from .fdk import *
 from .cone_projector import *
 from .tv_recons import *
 from .cone_phase import *
+from .multislice import *
+from .twopass import *
+try:
+    from .multislice_torch import *
+except ImportError:
+    pass   # torch not installed; NumPy multislice backend still available
+from .filtered_backprop import *

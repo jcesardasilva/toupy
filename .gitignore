@@ -24,6 +24,10 @@ iterative_phase_tomography.png
 iterative_phase_tomography_profile.png
 ctf_frequency_coverage.png
 cone_phase_fdk.png
+holo_ctf_id16a.png
+
+# Local LaTeX reports and their figure scripts
+reports/
 
 # Local Claude Code worktrees / session data
 .claude/

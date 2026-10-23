@@ -33,6 +33,10 @@ from the folder containing `setup.py`. To also install optional Jupyter notebook
 
     pip install -e ".[notebook]"
 
+To also install the optional available-memory check (see below):
+
+    pip install -e ".[resource]"
+
 To upgrade an existing installation:
 
     pip install -U toupy
@@ -61,6 +65,14 @@ Optional (for Jupyter notebook interactive plotting):
 Optional (for GPU acceleration of the phase-retrieval and reconstruction methods):
 
 * cupy  (e.g. `pip install cupy-cuda12x` — matched to your CUDA version)
+
+Optional (to enable the available-memory check in the memory-heavy loaders and
+in `FourierShellCorr`):
+
+* psutil >= 5.8  (`pip install toupy[resource]`)
+
+Without `psutil` the check degrades gracefully: it is skipped with a warning
+rather than raising, so nothing breaks if it is not installed.
 
 Get started
 -----------

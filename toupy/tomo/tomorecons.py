@@ -20,7 +20,7 @@ __all__ = ["full_tomo_recons", "tomo_recons", "fdk_tomo_recons"]
 
 
 def tomo_recons(sinogram, theta, **params):
-    """
+    r"""
     Wrapper to select tomographic algorithm
 
     Parameters
