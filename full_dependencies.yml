@@ -22,3 +22,6 @@ dependencies:
         # Optional: documentation
         # - sphinx>=5.0
         # - sphinx-rtd-theme>=1.0
+        # Optional: development (code formatting)
+        # - black>=26.10
+        # - pre-commit
