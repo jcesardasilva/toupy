@@ -147,11 +147,10 @@ if __name__ == "__main__":
     )
     axsag.add_patch(rectsag)
     axsag.set_axis_off()
-    
-    
+
     # create an axes on the right side of ax. The width of cax will be 5%
     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
-    divider_sag= make_axes_locatable(axsag)
+    divider_sag = make_axes_locatable(axsag)
     # cax = divider.append_axes("right", size="5%", pad=0.05)
     cax_sag = divider_sag.append_axes("right", size="5%", pad=0.05)
     # adding the correspoding colorbar
@@ -162,7 +161,7 @@ if __name__ == "__main__":
         format=ticker.FormatStrFormatter("%.02f"),
     )
     figsag.colorbar(imsag, orientation="vertical", cax=cax_sag)
-    
+
     if params["save_figures"]:
         plt.savefig(
             "screenshots/sagital_{}.png".format(params["tomo_type"]),
@@ -197,10 +196,10 @@ if __name__ == "__main__":
     )
     axcor.add_patch(rectcor)
     axcor.set_axis_off()
-    
+
     # create an axes on the right side of ax. The width of cax will be 5%
     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
-    divider_cor= make_axes_locatable(axcor)
+    divider_cor = make_axes_locatable(axcor)
     # cax = divider.append_axes("right", size="5%", pad=0.05)
     cax_cor = divider_cor.append_axes("right", size="5%", pad=0.05)
     # adding the correspoding colorbar
@@ -211,7 +210,7 @@ if __name__ == "__main__":
         format=ticker.FormatStrFormatter("%.02f"),
     )
     figcor.colorbar(imsag, orientation="vertical", cax=cax_cor)
-    
+
     plt.tight_layout()
     if params["save_figures"]:
         plt.savefig(
@@ -247,10 +246,10 @@ if __name__ == "__main__":
     )
     axaxial.add_patch(rectaxial)
     axaxial.set_axis_off()
-    
+
     # create an axes on the right side of ax. The width of cax will be 5%
     # of ax and the padding between cax and ax will be fixed at 0.05 inch.
-    divider_axial= make_axes_locatable(axaxial)
+    divider_axial = make_axes_locatable(axaxial)
     # cax = divider.append_axes("right", size="5%", pad=0.05)
     cax_axial = divider_axial.append_axes("right", size="5%", pad=0.05)
     # adding the correspoding colorbar

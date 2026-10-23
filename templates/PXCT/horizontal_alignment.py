@@ -7,7 +7,7 @@ tomographic consistency conditions.
 
 You will first align for one slice and we repeat the alignment at
 multiple slices and average the shift function. If the average is
-satisfactory, you can proceed and save the data. 
+satisfactory, you can proceed and save the data.
 """
 
 # standard libraries imports

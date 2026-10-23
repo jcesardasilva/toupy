@@ -112,7 +112,7 @@ if __name__ == "__main__":
     ax2.set_axis_off()
     ax2.set_title("Image 2")
     # View the output of a cross-correlation
-    # TODO: consider to use pyfftw instead: 
+    # TODO: consider to use pyfftw instead:
     image_product = fft2(image1) * fft2(image2).conj()
     cc_image = fftshift(ifft2(image_product))
     ax3.imshow(cc_image.real)

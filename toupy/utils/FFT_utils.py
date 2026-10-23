@@ -169,12 +169,15 @@ def metafftw(func):
         Wrapped function that automatically receives the pyFFTW
         configuration as keyword arguments.
     """
+
     @functools.wraps(func)
     def wrapper(input_array):
         # checking number of cores available
         kwargs = dict()
-        try: kwargs["ncores"] = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
-        except: kwargs["ncores"] = multiprocessing.cpu_count()
+        try:
+            kwargs["ncores"] = int(os.environ["SLURM_JOB_CPUS_PER_NODE"])
+        except:
+            kwargs["ncores"] = multiprocessing.cpu_count()
         # stating the precision.
         # np.complex64: single precision; and np.complex128: double precision
         kwargs["cprecision"] = np.complex64
@@ -209,9 +212,9 @@ def fastfftn(input_array, **kwargs):
     # align array
     fftw_array = pyfftw.byte_align(input_array, dtype=cprecision, n=16)
     # will need to plan once
-    #fftw_array = pyfftw.interfaces.numpy_fft.fftn(
+    # fftw_array = pyfftw.interfaces.numpy_fft.fftn(
     #    fftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
-    #)
+    # )
     fftw_array = pyfftw.interfaces.scipy_fft.fftn(
         fftw_array, overwrite_x=True, planner_effort=planner_type, workers=ncores
     )
@@ -243,9 +246,9 @@ def fastifftn(input_array, **kwargs):
     planner_type = kwargs["planner_type"]  # 'FFTW_MEASURE'
     # align array
     ifftw_array = pyfftw.byte_align(input_array, dtype=cprecision, n=16)
-    #ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(
+    # ifftw_array = pyfftw.interfaces.numpy_fft.ifftn(
     #    ifftw_array, overwrite_input=True, planner_effort=planner_type, threads=ncores
-    #)
+    # )
     ifftw_array = pyfftw.interfaces.scipy_fft.ifftn(
         ifftw_array, overwrite_x=True, planner_effort=planner_type, workers=ncores
     )
@@ -263,7 +266,7 @@ def padfft(input_array, pad_mode="reflect"):
     input_array : array_like
         Array to be padded
     mode : str
-        Padding mode to treat the array borders. See :py:mod:`numpy.pad` 
+        Padding mode to treat the array borders. See :py:mod:`numpy.pad`
         for modes. The default value is `reflect`.
 
     Returns

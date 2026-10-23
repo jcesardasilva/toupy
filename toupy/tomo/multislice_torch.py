@@ -71,6 +71,7 @@ __all__ = [
 # Device management
 # ---------------------------------------------------------------------------
 
+
 def select_device(prefer: Optional[str] = None) -> torch.device:
     """
     Return the best available torch device.
@@ -105,8 +106,8 @@ def device_info(device: torch.device) -> str:
     """Return a human-readable one-line description of the device."""
     name = str(device)
     if name.startswith("cuda"):
-        gpu   = torch.cuda.get_device_name(device)
-        mem   = torch.cuda.get_device_properties(device).total_memory / 1e9
+        gpu = torch.cuda.get_device_name(device)
+        mem = torch.cuda.get_device_properties(device).total_memory / 1e9
         return f"CUDA  — {gpu}  ({mem:.0f} GB VRAM)"
     if name == "mps":
         return "MPS   — Apple Silicon GPU (Metal Performance Shaders)"
@@ -130,6 +131,7 @@ def warmup_device(device: torch.device, size: int = 64) -> None:
 # ---------------------------------------------------------------------------
 # Volume rotation  (MPS-compatible via batched 2-D grid_sample)
 # ---------------------------------------------------------------------------
+
 
 def rotate_volume_torch(vol: torch.Tensor, theta_deg: float) -> torch.Tensor:
     """
@@ -201,37 +203,38 @@ def rotate_volume_torch(vol: torch.Tensor, theta_deg: float) -> torch.Tensor:
     # elements flipped ([[c,-s*az],[+s*ax,c]]), which caused the GPU rotation to
     # go in the OPPOSITE direction from scipy.  This produced a mirror-image
     # reconstruction on GPU vs CPU and has now been corrected.
-    az = (Nz - 1) / (Nx - 1) if Nx != 1 else 1.0   # aspect ratio z/x
-    ax = (Nx - 1) / (Nz - 1) if Nz != 1 else 1.0   # aspect ratio x/z
-    R = torch.tensor([[c,     s * az, 0.0],
-                      [-s * ax,  c,  0.0]], dtype=torch.float32, device=device)
+    az = (Nz - 1) / (Nx - 1) if Nx != 1 else 1.0  # aspect ratio z/x
+    ax = (Nx - 1) / (Nz - 1) if Nz != 1 else 1.0  # aspect ratio x/z
+    R = torch.tensor(
+        [[c, s * az, 0.0], [-s * ax, c, 0.0]], dtype=torch.float32, device=device
+    )
 
     # Compute the sampling grid for a SINGLE y-slice (the Nz×Nx plane).
     # All y-slices share the same xz-rotation, so we only need shape (1,1,Nz,Nx).
     # This allocates ~2 MB instead of the ~766 MB that would result from passing
     # a full (Ny, 2, 3) R_batch to affine_grid.
-    R_1     = R.unsqueeze(0)                                          # 1,2,3
-    grid_1  = F.affine_grid(R_1, (1, 1, Nz, Nx), align_corners=True) # 1,Nz,Nx,2
+    R_1 = R.unsqueeze(0)  # 1,2,3
+    grid_1 = F.affine_grid(R_1, (1, 1, Nz, Nx), align_corners=True)  # 1,Nz,Nx,2
 
     # Reshape volume to batch of 2-D images: (Ny, 1, Nz, Nx)
     vol_batch = vol.to(torch.float32).permute(1, 0, 2).unsqueeze(1)  # Ny,1,Nz,Nx
 
     # Expand grid to (Ny, Nz, Nx, 2) — zero-copy view; grid_sample accepts
     # non-contiguous grids on CUDA, CPU, and MPS (PyTorch ≥ 2.0).
-    grid    = grid_1.expand(Ny, -1, -1, -1)                          # Ny,Nz,Nx,2
+    grid = grid_1.expand(Ny, -1, -1, -1)  # Ny,Nz,Nx,2
 
-    rotated = F.grid_sample(vol_batch, grid,
-                            mode="bilinear",
-                            padding_mode="zeros",
-                            align_corners=True)                       # Ny,1,Nz,Nx
+    rotated = F.grid_sample(
+        vol_batch, grid, mode="bilinear", padding_mode="zeros", align_corners=True
+    )  # Ny,1,Nz,Nx
 
-    out = rotated.squeeze(1).permute(1, 0, 2)                        # Nz,Ny,Nx
+    out = rotated.squeeze(1).permute(1, 0, 2)  # Nz,Ny,Nx
     return out.to(dtype_in)
 
 
 # ---------------------------------------------------------------------------
 # Fresnel propagator
 # ---------------------------------------------------------------------------
+
 
 class _TorchPropagatorBase:
     """
@@ -251,19 +254,24 @@ class _TorchPropagatorBase:
     device : torch.device
     """
 
-    def __init__(self, shape: Tuple[int, int], pixel_size: float,
-                 wavelength: float, device: torch.device) -> None:
-        self.shape      = shape
+    def __init__(
+        self,
+        shape: Tuple[int, int],
+        pixel_size: float,
+        wavelength: float,
+        device: torch.device,
+    ) -> None:
+        self.shape = shape
         self.pixel_size = float(pixel_size)
         self.wavelength = float(wavelength)
-        self.device     = device
+        self.device = device
 
         Ny, Nx = shape
         fx = torch.fft.fftfreq(Nx, d=self.pixel_size, device=device)
         fy = torch.fft.fftfreq(Ny, d=self.pixel_size, device=device)
         # indexing='xy': first index = x (cols), second = y (rows)
         FX, FY = torch.meshgrid(fx, fy, indexing="xy")
-        self._f2 = (FX ** 2 + FY ** 2).to(torch.float32)   # (Ny, Nx)
+        self._f2 = (FX**2 + FY**2).to(torch.float32)  # (Ny, Nx)
 
     # ------------------------------------------------------------------
     def _lambda_eff(self, delta_mean: float) -> float:
@@ -274,13 +282,15 @@ class _TorchPropagatorBase:
         """Build the transfer function ``H(f; Δz, δ̄)`` — subclass responsibility."""
         raise NotImplementedError
 
-    def propagate(self, wavefield: torch.Tensor,
-                  distance: float, delta_mean: float = 0.0) -> torch.Tensor:
+    def propagate(
+        self, wavefield: torch.Tensor, distance: float, delta_mean: float = 0.0
+    ) -> torch.Tensor:
         H = self._kernel(distance, delta_mean)
         return torch.fft.ifft2(torch.fft.fft2(wavefield) * H)
 
-    def propagate_adjoint(self, wavefield: torch.Tensor,
-                          distance: float, delta_mean: float = 0.0) -> torch.Tensor:
+    def propagate_adjoint(
+        self, wavefield: torch.Tensor, distance: float, delta_mean: float = 0.0
+    ) -> torch.Tensor:
         return self.propagate(wavefield, -distance, delta_mean)
 
 
@@ -294,8 +304,8 @@ class TorchFresnelPropagator(_TorchPropagatorBase):
 
     def _kernel(self, distance: float, delta_mean: float = 0.0) -> torch.Tensor:
         lam_eff = self._lambda_eff(delta_mean)
-        phase   = -math.pi * lam_eff * float(distance) * self._f2
-        return torch.exp(1j * phase)                        # complex64
+        phase = -math.pi * lam_eff * float(distance) * self._f2
+        return torch.exp(1j * phase)  # complex64
 
 
 class TorchAngularSpectrumPropagator(_TorchPropagatorBase):
@@ -315,11 +325,11 @@ class TorchAngularSpectrumPropagator(_TorchPropagatorBase):
 
     def _kernel(self, distance: float, delta_mean: float = 0.0) -> torch.Tensor:
         lam_eff = self._lambda_eff(delta_mean)
-        s = (lam_eff ** 2) * self._f2                       # (λ_eff f)²
+        s = (lam_eff**2) * self._f2  # (λ_eff f)²
         propagating = s <= 1.0
         root = torch.sqrt(torch.clamp(1.0 - s, min=0.0))
         phase = (2.0 * math.pi * float(distance) / lam_eff) * (root - 1.0)
-        H = torch.exp(1j * phase)                           # complex64
+        H = torch.exp(1j * phase)  # complex64
         # mask evanescent band (do not amplify)
         return torch.where(propagating, H, torch.zeros_like(H))
 
@@ -331,7 +341,7 @@ class TorchAngularSpectrumPropagator(_TorchPropagatorBase):
 _TORCH_PROPAGATORS = {
     "fresnel": TorchFresnelPropagator,
     "angular_spectrum": TorchAngularSpectrumPropagator,
-    "asm": TorchAngularSpectrumPropagator,   # alias
+    "asm": TorchAngularSpectrumPropagator,  # alias
 }
 
 
@@ -367,6 +377,7 @@ def get_torch_propagator(spec, shape, pixel_size, wavelength, device):
 # Multislice engine
 # ---------------------------------------------------------------------------
 
+
 class TorchMultisliceEngine:
     """
     Forward and adjoint multislice engine (PyTorch backend).
@@ -393,21 +404,26 @@ class TorchMultisliceEngine:
         accepted.  See :func:`get_torch_propagator`.
     """
 
-    def __init__(self, shape: Tuple[int, int], pixel_size: float,
-                 wavelength: float, slice_thickness: float,
-                 device: Optional[torch.device] = None,
-                 n_checkpoints: int = 1,
-                 propagator="fresnel") -> None:
-        self.shape          = shape
-        self.device         = device or select_device()
-        self.pixel_size     = float(pixel_size)
-        self.wavelength     = float(wavelength)
+    def __init__(
+        self,
+        shape: Tuple[int, int],
+        pixel_size: float,
+        wavelength: float,
+        slice_thickness: float,
+        device: Optional[torch.device] = None,
+        n_checkpoints: int = 1,
+        propagator="fresnel",
+    ) -> None:
+        self.shape = shape
+        self.device = device or select_device()
+        self.pixel_size = float(pixel_size)
+        self.wavelength = float(wavelength)
         self.slice_thickness = float(slice_thickness)
-        self.k0             = 2.0 * math.pi / self.wavelength
-        self.n_checkpoints  = max(1, int(n_checkpoints))
-        self._prop          = get_torch_propagator(
-                                  propagator, shape, pixel_size, wavelength,
-                                  self.device)
+        self.k0 = 2.0 * math.pi / self.wavelength
+        self.n_checkpoints = max(1, int(n_checkpoints))
+        self._prop = get_torch_propagator(
+            propagator, shape, pixel_size, wavelength, self.device
+        )
 
     # ------------------------------------------------------------------
     def _to(self, arr) -> torch.Tensor:
@@ -423,19 +439,26 @@ class TorchMultisliceEngine:
         return arr.to(device=self.device, dtype=torch.float32)
 
     # ------------------------------------------------------------------
-    def transmission(self, delta_slice: torch.Tensor,
-                     beta_slice: torch.Tensor) -> torch.Tensor:
+    def transmission(
+        self, delta_slice: torch.Tensor, beta_slice: torch.Tensor
+    ) -> torch.Tensor:
         """
         T(x,y) = exp(−k₀ (β + iδ) Δz)
         """
         dz = self.slice_thickness
-        d  = self._to_real(delta_slice)
-        b  = self._to_real(beta_slice)
-        return torch.exp(-self.k0 * dz * (b + 1j * d))     # complex64
+        d = self._to_real(delta_slice)
+        b = self._to_real(beta_slice)
+        return torch.exp(-self.k0 * dz * (b + 1j * d))  # complex64
 
     # ------------------------------------------------------------------
-    def forward(self, delta_slices, beta_slices, probe,
-                delta_means=None, store_wavefields: bool = False):
+    def forward(
+        self,
+        delta_slices,
+        beta_slices,
+        probe,
+        delta_means=None,
+        store_wavefields: bool = False,
+    ):
         """
         Forward multislice propagation.
 
@@ -469,7 +492,7 @@ class TorchMultisliceEngine:
         # or a cudaDeviceSynchronize equivalent on CUDA).  With n_slices=16 and
         # 450 angles that is 14 400 stalls per iteration — the dominant runtime
         # cost on both MPS and CUDA.  One .cpu().tolist() costs a single sync.
-        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != 'cpu':
+        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != "cpu":
             _dm = delta_means.detach().cpu().tolist()
         elif isinstance(delta_means, torch.Tensor):
             _dm = delta_means.tolist()
@@ -477,7 +500,7 @@ class TorchMultisliceEngine:
             _dm = [float(x) for x in delta_means]
 
         dz = self.slice_thickness
-        U  = self._to(probe).clone()
+        U = self._to(probe).clone()
 
         if store_wavefields:
             W_list, T_list, U_list = [], [], [U.clone()]
@@ -485,7 +508,7 @@ class TorchMultisliceEngine:
         for j in range(n_slices):
             T_j = self.transmission(delta_slices[j], beta_slices[j])
             W_j = T_j * U
-            U   = self._prop.propagate(W_j, dz, delta_mean=_dm[j])
+            U = self._prop.propagate(W_j, dz, delta_mean=_dm[j])
             if store_wavefields:
                 T_list.append(T_j)
                 W_list.append(W_j)
@@ -496,8 +519,9 @@ class TorchMultisliceEngine:
         return U
 
     # ------------------------------------------------------------------
-    def gradient(self, wavefields: Dict, u_measured,
-                 delta_means=None) -> Tuple[torch.Tensor, torch.Tensor, float]:
+    def gradient(
+        self, wavefields: Dict, u_measured, delta_means=None
+    ) -> Tuple[torch.Tensor, torch.Tensor, float]:
         """
         Adjoint (backward) pass — same formula as the NumPy version.
 
@@ -507,9 +531,9 @@ class TorchMultisliceEngine:
         grad_beta  : float32, shape (n_slices, Ny, Nx)
         loss       : float
         """
-        W_list   = wavefields["W"]
-        T_list   = wavefields["T"]
-        U_list   = wavefields["U"]
+        W_list = wavefields["W"]
+        T_list = wavefields["T"]
+        U_list = wavefields["U"]
         n_slices = len(W_list)
 
         if delta_means is None:
@@ -517,52 +541,64 @@ class TorchMultisliceEngine:
         elif isinstance(delta_means, np.ndarray):
             delta_means = torch.from_numpy(delta_means)
 
-        dz    = self.slice_thickness
+        dz = self.slice_thickness
         scale = self.k0 * dz
 
-        U_exit   = U_list[n_slices]
+        U_exit = U_list[n_slices]
         u_meas_t = self._to(u_measured)
         residual = U_exit - u_meas_t
-        loss     = 0.5 * float(residual.abs().pow(2).sum().cpu())
+        loss = 0.5 * float(residual.abs().pow(2).sum().cpu())
 
         # One sync to get all delta_means on CPU (avoids per-slab sync in loop)
-        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != 'cpu':
+        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != "cpu":
             _dm = delta_means.detach().cpu().tolist()
         elif isinstance(delta_means, torch.Tensor):
             _dm = delta_means.tolist()
         else:
             _dm = [float(x) for x in delta_means]
 
-        grad_delta = torch.zeros((n_slices,) + self.shape,
-                                 dtype=torch.float32, device=self.device)
-        grad_beta  = torch.zeros((n_slices,) + self.shape,
-                                 dtype=torch.float32, device=self.device)
+        grad_delta = torch.zeros(
+            (n_slices,) + self.shape, dtype=torch.float32, device=self.device
+        )
+        grad_beta = torch.zeros(
+            (n_slices,) + self.shape, dtype=torch.float32, device=self.device
+        )
         r = residual.clone()
 
         for j in range(n_slices - 1, -1, -1):
             s_j = self._prop.propagate_adjoint(r, dz, delta_mean=_dm[j])
-            cross           = W_list[j] * s_j.conj()
-            grad_delta[j]   =  scale * cross.imag
-            grad_beta[j]    = -scale * cross.real
+            cross = W_list[j] * s_j.conj()
+            grad_delta[j] = scale * cross.imag
+            grad_beta[j] = -scale * cross.real
             r = T_list[j].conj() * s_j
 
         return grad_delta, grad_beta, loss
 
     # ------------------------------------------------------------------
-    def loss_and_gradient(self, delta_slices, beta_slices, probe,
-                          u_measured, delta_means=None):
+    def loss_and_gradient(
+        self, delta_slices, beta_slices, probe, u_measured, delta_means=None
+    ):
         """Forward + backward in one call (no checkpointing)."""
-        u_exit, wf = self.forward(delta_slices, beta_slices, probe,
-                                  delta_means=delta_means,
-                                  store_wavefields=True)
+        u_exit, wf = self.forward(
+            delta_slices,
+            beta_slices,
+            probe,
+            delta_means=delta_means,
+            store_wavefields=True,
+        )
         gd, gb, loss = self.gradient(wf, u_measured, delta_means=delta_means)
         return loss, gd, gb, u_exit
 
     # ------------------------------------------------------------------
-    def loss_and_gradient_checkpointed(self, delta_slices, beta_slices,
-                                       probe, u_measured,
-                                       delta_means=None,
-                                       n_checkpoints: Optional[int] = None):
+    def loss_and_gradient_checkpointed(
+        self,
+        delta_slices,
+        beta_slices,
+        probe,
+        u_measured,
+        delta_means=None,
+        n_checkpoints: Optional[int] = None,
+    ):
         """
         Memory-efficient forward + backward via gradient checkpointing.
 
@@ -590,15 +626,15 @@ class TorchMultisliceEngine:
         elif isinstance(delta_means, np.ndarray):
             delta_means = torch.from_numpy(delta_means)
 
-        ncp   = n_checkpoints if n_checkpoints is not None else self.n_checkpoints
-        seg   = max(1, n_slices // ncp)               # slices per segment
+        ncp = n_checkpoints if n_checkpoints is not None else self.n_checkpoints
+        seg = max(1, n_slices // ncp)  # slices per segment
         n_seg = math.ceil(n_slices / seg)
 
-        dz    = self.slice_thickness
+        dz = self.slice_thickness
         scale = self.k0 * dz
 
         # One sync to get all delta_means on CPU (avoids per-slab sync in loop)
-        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != 'cpu':
+        if isinstance(delta_means, torch.Tensor) and delta_means.device.type != "cpu":
             _dm = delta_means.detach().cpu().tolist()
         elif isinstance(delta_means, torch.Tensor):
             _dm = delta_means.tolist()
@@ -615,16 +651,18 @@ class TorchMultisliceEngine:
             j1 = min((s + 1) * seg, n_slices)
             for j in range(j0, j1):
                 T_j = self.transmission(delta_slices[j], beta_slices[j])
-                U   = self._prop.propagate(T_j * U, dz, delta_mean=_dm[j])
+                U = self._prop.propagate(T_j * U, dz, delta_mean=_dm[j])
 
         u_meas_t = self._to(u_measured)
         residual = U - u_meas_t
-        loss     = 0.5 * float(residual.abs().pow(2).sum().cpu())
+        loss = 0.5 * float(residual.abs().pow(2).sum().cpu())
 
-        grad_delta = torch.zeros((n_slices,) + self.shape,
-                                 dtype=torch.float32, device=self.device)
-        grad_beta  = torch.zeros((n_slices,) + self.shape,
-                                 dtype=torch.float32, device=self.device)
+        grad_delta = torch.zeros(
+            (n_slices,) + self.shape, dtype=torch.float32, device=self.device
+        )
+        grad_beta = torch.zeros(
+            (n_slices,) + self.shape, dtype=torch.float32, device=self.device
+        )
         r = residual.clone()
 
         # ── Backward pass: recompute each segment on the fly ───────────
@@ -645,11 +683,11 @@ class TorchMultisliceEngine:
 
             # Backward through segment
             for j in range(j1 - 1, j0 - 1, -1):
-                jj  = j - j0
+                jj = j - j0
                 s_j = self._prop.propagate_adjoint(r, dz, delta_mean=_dm[j])
-                cross         = W_seg[jj] * s_j.conj()
-                grad_delta[j] =  scale * cross.imag
-                grad_beta[j]  = -scale * cross.real
+                cross = W_seg[jj] * s_j.conj()
+                grad_delta[j] = scale * cross.imag
+                grad_beta[j] = -scale * cross.real
                 r = T_seg[jj].conj() * s_j
 
         return loss, grad_delta, grad_beta
@@ -659,11 +697,12 @@ class TorchMultisliceEngine:
 # Volume ↔ slice utilities  (torch versions of the numpy helpers)
 # ---------------------------------------------------------------------------
 
+
 def extract_slices_torch(
     delta_vol: torch.Tensor,
-    beta_vol:  torch.Tensor,
+    beta_vol: torch.Tensor,
     theta_deg: float,
-    n_slices:  Optional[int] = None,
+    n_slices: Optional[int] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Torch version of ``extract_slices_from_volume``.
@@ -687,31 +726,32 @@ def extract_slices_torch(
     Nz, Ny, Nx = delta_vol.shape
 
     delta_rot = rotate_volume_torch(delta_vol, theta_deg)
-    beta_rot  = rotate_volume_torch(beta_vol,  theta_deg)
+    beta_rot = rotate_volume_torch(beta_vol, theta_deg)
 
     if n_slices is None or n_slices == Nz:
         delta_slices = delta_rot
-        beta_slices  = beta_rot
+        beta_slices = beta_rot
     else:
         k = Nz // n_slices
         if k == 0:
             raise ValueError(
-                f"n_slices={n_slices} > Nz={Nz}: cannot have more slices than z-pixels.")
+                f"n_slices={n_slices} > Nz={Nz}: cannot have more slices than z-pixels."
+            )
         n_use = k * n_slices
         delta_slices = delta_rot[:n_use].reshape(n_slices, k, Ny, Nx).mean(dim=1)
-        beta_slices  = beta_rot[:n_use].reshape(n_slices, k, Ny, Nx).mean(dim=1)
+        beta_slices = beta_rot[:n_use].reshape(n_slices, k, Ny, Nx).mean(dim=1)
 
-    delta_means = delta_slices.mean(dim=(1, 2))   # (n_slices,)
+    delta_means = delta_slices.mean(dim=(1, 2))  # (n_slices,)
     return delta_slices, beta_slices, delta_means
 
 
 def scatter_gradient_torch(
     grad_delta_slices: torch.Tensor,
-    grad_beta_slices:  torch.Tensor,
-    theta_deg:         float,
-    volume_shape:      Tuple[int, int, int],
-    n_slices:          Optional[int] = None,
-    compute_beta:      bool = True,
+    grad_beta_slices: torch.Tensor,
+    theta_deg: float,
+    volume_shape: Tuple[int, int, int],
+    n_slices: Optional[int] = None,
+    compute_beta: bool = True,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
     """
     Torch version of ``scatter_gradient_to_volume``.
@@ -742,12 +782,11 @@ def scatter_gradient_torch(
 
     def _to_full(slices):
         if n_slices is not None and n_slices < Nz:
-            k     = Nz // n_slices
+            k = Nz // n_slices
             n_use = k * n_slices
-            full = slices.repeat_interleave(k, dim=0) / k   # spread over k layers
+            full = slices.repeat_interleave(k, dim=0) / k  # spread over k layers
             if n_use < Nz:
-                pad = torch.zeros(Nz - n_use, Ny, Nx,
-                                  dtype=full.dtype, device=device)
+                pad = torch.zeros(Nz - n_use, Ny, Nx, dtype=full.dtype, device=device)
                 full = torch.cat([full, pad], dim=0)
             return full
         return slices
@@ -763,6 +802,7 @@ def scatter_gradient_torch(
 # ---------------------------------------------------------------------------
 # TV regulariser
 # ---------------------------------------------------------------------------
+
 
 def tv_grad_torch(vol: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     """
@@ -793,12 +833,15 @@ def tv_grad_torch(vol: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     torch.Tensor, same shape, dtype, and device as ``vol``
     """
     # --- forward differences with zero-Neumann BC (last diff = 0) ----------
-    gz = torch.zeros_like(vol); gz[:-1]       = vol[1:]       - vol[:-1]
-    gy = torch.zeros_like(vol); gy[:, :-1, :] = vol[:, 1:, :] - vol[:, :-1, :]
-    gx = torch.zeros_like(vol); gx[:, :, :-1] = vol[:, :, 1:] - vol[:, :, :-1]
+    gz = torch.zeros_like(vol)
+    gz[:-1] = vol[1:] - vol[:-1]
+    gy = torch.zeros_like(vol)
+    gy[:, :-1, :] = vol[:, 1:, :] - vol[:, :-1, :]
+    gx = torch.zeros_like(vol)
+    gx[:, :, :-1] = vol[:, :, 1:] - vol[:, :, :-1]
 
     # --- smoothed local norm + TV value (free: just sum the norm tensor) ---
-    norm = torch.sqrt(gz ** 2 + gy ** 2 + gx ** 2 + eps)
+    norm = torch.sqrt(gz**2 + gy**2 + gx**2 + eps)
     tv_val = float(norm.sum())
     gz = gz / norm
     gy = gy / norm
@@ -809,14 +852,14 @@ def tv_grad_torch(vol: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
     #
     # z-axis
     grad = torch.empty_like(vol)
-    grad[0,  :, :]  = -gz[0,  :, :]
-    grad[1:, :, :]  =  gz[:-1, :, :] - gz[1:, :, :]
+    grad[0, :, :] = -gz[0, :, :]
+    grad[1:, :, :] = gz[:-1, :, :] - gz[1:, :, :]
     # y-axis (add in-place)
-    grad[:,  0, :]  = grad[:,  0, :]  - gy[:,  0, :]
-    grad[:, 1:, :]  = grad[:, 1:, :] + gy[:, :-1, :] - gy[:, 1:, :]
+    grad[:, 0, :] = grad[:, 0, :] - gy[:, 0, :]
+    grad[:, 1:, :] = grad[:, 1:, :] + gy[:, :-1, :] - gy[:, 1:, :]
     # x-axis (add in-place)
-    grad[:, :,  0]  = grad[:, :,  0]  - gx[:, :,  0]
-    grad[:, :, 1:]  = grad[:, :, 1:]  + gx[:, :, :-1] - gx[:, :, 1:]
+    grad[:, :, 0] = grad[:, :, 0] - gx[:, :, 0]
+    grad[:, :, 1:] = grad[:, :, 1:] + gx[:, :, :-1] - gx[:, :, 1:]
 
     return grad, tv_val
 
@@ -824,6 +867,7 @@ def tv_grad_torch(vol: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
 # ---------------------------------------------------------------------------
 # Minimal Adam optimiser
 # ---------------------------------------------------------------------------
+
 
 class TorchAdamState:
     """
@@ -842,14 +886,20 @@ class TorchAdamState:
     device : torch.device
     """
 
-    def __init__(self, shape: tuple, lr: float = 1e-3,
-                 b1: float = 0.9, b2: float = 0.999, eps: float = 1e-8,
-                 device: Optional[torch.device] = None) -> None:
-        self.lr  = lr
-        self.b1  = b1
-        self.b2  = b2
+    def __init__(
+        self,
+        shape: tuple,
+        lr: float = 1e-3,
+        b1: float = 0.9,
+        b2: float = 0.999,
+        eps: float = 1e-8,
+        device: Optional[torch.device] = None,
+    ) -> None:
+        self.lr = lr
+        self.b1 = b1
+        self.b2 = b2
         self.eps = eps
-        self.t   = 0
+        self.t = 0
         kw = {"dtype": torch.float32, "device": device}
         self.m = torch.zeros(shape, **kw)
         self.v = torch.zeros(shape, **kw)
@@ -858,8 +908,8 @@ class TorchAdamState:
         """In-place Adam update of ``param``.  Returns ``param``."""
         self.t += 1
         self.m = self.b1 * self.m + (1.0 - self.b1) * grad
-        self.v = self.b2 * self.v + (1.0 - self.b2) * grad ** 2
-        m_hat  = self.m / (1.0 - self.b1 ** self.t)
-        v_hat  = self.v / (1.0 - self.b2 ** self.t)
+        self.v = self.b2 * self.v + (1.0 - self.b2) * grad**2
+        m_hat = self.m / (1.0 - self.b1**self.t)
+        v_hat = self.v / (1.0 - self.b2**self.t)
         param -= self.lr * m_hat / (torch.sqrt(v_hat) + self.eps)
         return param

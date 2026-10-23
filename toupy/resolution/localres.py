@@ -259,14 +259,14 @@ class LocalResolution:
                 f"got {noise_method!r}."
             )
 
-        self.vol              = vol
-        self.pixel_size       = float(pixel_size)
-        self.significance     = float(significance)
-        self.n_freq           = int(n_freq)
-        self.window_sigma     = float(window_sigma)
-        self.corner_fraction  = float(corner_fraction)
+        self.vol = vol
+        self.pixel_size = float(pixel_size)
+        self.significance = float(significance)
+        self.n_freq = int(n_freq)
+        self.window_sigma = float(window_sigma)
+        self.corner_fraction = float(corner_fraction)
         self.highfreq_fraction = float(highfreq_fraction)
-        self.noise_method     = noise_method
+        self.noise_method = noise_method
 
         # Validate user-supplied sample mask
         if mask is not None:
@@ -294,12 +294,12 @@ class LocalResolution:
             # User-supplied directly — skip all estimation
             sigma_noise = float(sigma_noise)
             if sigma_noise <= 0:
-                raise ValueError(
-                    f"sigma_noise must be positive, got {sigma_noise}."
-                )
+                raise ValueError(f"sigma_noise must be positive, got {sigma_noise}.")
             self.sigma_noise = sigma_noise
-            self.var_noise   = sigma_noise ** 2
-            print(f"[LocalResolution] Using supplied sigma_noise = {self.sigma_noise:.6g}")
+            self.var_noise = sigma_noise**2
+            print(
+                f"[LocalResolution] Using supplied sigma_noise = {self.sigma_noise:.6g}"
+            )
             self._corner_vals = None
         else:
             self._estimate_noise()
@@ -341,21 +341,21 @@ class LocalResolution:
             ny, nx = vol.shape
             corners = [
                 vol[:cs, :cs],
-                vol[:cs, nx - cs:],
-                vol[ny - cs:, :cs],
-                vol[ny - cs:, nx - cs:],
+                vol[:cs, nx - cs :],
+                vol[ny - cs :, :cs],
+                vol[ny - cs :, nx - cs :],
             ]
         else:  # ndim == 3
             nz, ny, nx = vol.shape
             corners = [
                 vol[:cs, :cs, :cs],
-                vol[:cs, :cs, nx - cs:],
-                vol[:cs, ny - cs:, :cs],
-                vol[:cs, ny - cs:, nx - cs:],
-                vol[nz - cs:, :cs, :cs],
-                vol[nz - cs:, :cs, nx - cs:],
-                vol[nz - cs:, ny - cs:, :cs],
-                vol[nz - cs:, ny - cs:, nx - cs:],
+                vol[:cs, :cs, nx - cs :],
+                vol[:cs, ny - cs :, :cs],
+                vol[:cs, ny - cs :, nx - cs :],
+                vol[nz - cs :, :cs, :cs],
+                vol[nz - cs :, :cs, nx - cs :],
+                vol[nz - cs :, ny - cs :, :cs],
+                vol[nz - cs :, ny - cs :, nx - cs :],
             ]
 
         return np.concatenate([c.ravel() for c in corners])
@@ -401,7 +401,7 @@ class LocalResolution:
         corner_vals = self._extract_corners()
         self._corner_vals = corner_vals  # cache for _make_mask
         sigma = float(np.std(corner_vals))
-        var   = sigma ** 2
+        var = sigma**2
 
         if var == 0.0:
             raise ValueError(
@@ -426,7 +426,7 @@ class LocalResolution:
             )
 
         self.sigma_noise = sigma
-        self.var_noise   = var
+        self.var_noise = var
         print(
             f"[LocalResolution] Noise estimated from corners: "
             f"sigma = {self.sigma_noise:.6g}"
@@ -452,9 +452,9 @@ class LocalResolution:
         This method is suitable for **local tomography** because it does
         not require empty corners.
         """
-        R    = self._build_radial_grid()
-        F    = fftn(self.vol)
-        N    = self.vol.size
+        R = self._build_radial_grid()
+        F = fftn(self.vol)
+        N = self.vol.size
         f_thr = 0.5 * (1.0 - self.highfreq_fraction)
         hf_mask = R > f_thr
 
@@ -466,7 +466,7 @@ class LocalResolution:
             )
 
         mean_power = float(np.mean(np.abs(F[hf_mask]) ** 2))
-        var   = mean_power / N
+        var = mean_power / N
         sigma = float(np.sqrt(var))
 
         if var == 0.0:
@@ -476,8 +476,8 @@ class LocalResolution:
             )
 
         self._corner_vals = None  # not available for auto-mask fallback
-        self.sigma_noise  = sigma
-        self.var_noise    = var
+        self.sigma_noise = sigma
+        self.var_noise = var
         print(
             f"[LocalResolution] Noise estimated from high frequencies "
             f"(R > {f_thr:.3f} cycles/px, {n_hf} bins): "
@@ -498,8 +498,7 @@ class LocalResolution:
         """
         if self._noise_mask is None:
             raise ValueError(
-                "noise_method='mask' requires a noise_mask array to be "
-                "supplied."
+                "noise_method='mask' requires a noise_mask array to be " "supplied."
             )
         vals = self.vol[self._noise_mask]
         if vals.size == 0:
@@ -508,7 +507,7 @@ class LocalResolution:
                 "noise from."
             )
         sigma = float(np.std(vals))
-        var   = sigma ** 2
+        var = sigma**2
 
         if var == 0.0:
             raise ValueError(
@@ -518,8 +517,8 @@ class LocalResolution:
             )
 
         self._corner_vals = vals  # reuse for auto-mask threshold
-        self.sigma_noise  = sigma
-        self.var_noise    = var
+        self.sigma_noise = sigma
+        self.var_noise = var
         print(
             f"[LocalResolution] Noise estimated from noise_mask "
             f"({vals.size} voxels): sigma = {self.sigma_noise:.6g}"
@@ -527,7 +526,7 @@ class LocalResolution:
 
     def _make_mask(self):
         """Auto-generate a binary sample mask from the volume; set ``self.mask``."""
-        vol         = self.vol
+        vol = self.vol
         sigma_noise = self.sigma_noise
 
         # Smooth |vol| then threshold
@@ -630,10 +629,10 @@ class LocalResolution:
             vol_f = np.real(ifftn(VOL_F * H_f))
 
             # Expected noise power fraction captured by this band
-            bp_energy = float(np.mean(H_f ** 2))
+            bp_energy = float(np.mean(H_f**2))
 
             # Local mean-squared signal via Gaussian smoothing
-            E_f = gaussian_filter(vol_f ** 2, sigma=self.window_sigma)
+            E_f = gaussian_filter(vol_f**2, sigma=self.window_sigma)
 
             # Null-hypothesis statistics
             mu0 = self.var_noise * bp_energy
@@ -648,26 +647,26 @@ class LocalResolution:
             # Overwrite resolution map where test passes (resolution = 1/f_i px)
             resolution_map[decision] = 1.0 / f_i
 
-        self.resolution_map           = resolution_map
-        self.resolution_map_phys      = resolution_map * self.pixel_size
-        self.resolution_map_half      = resolution_map / 2.0
+        self.resolution_map = resolution_map
+        self.resolution_map_phys = resolution_map * self.pixel_size
+        self.resolution_map_half = resolution_map / 2.0
         self.resolution_map_phys_half = self.resolution_map_phys / 2.0
 
         # Summary statistics (masked voxels only, ignoring NaN)
         valid = resolution_map[self.mask]
         valid = valid[~np.isnan(valid)]
         if valid.size > 0:
-            self.resolution_median      = float(np.median(valid))
-            self.resolution_mean        = float(np.mean(valid))
-            self.resolution_std         = float(np.std(valid))
+            self.resolution_median = float(np.median(valid))
+            self.resolution_mean = float(np.mean(valid))
+            self.resolution_std = float(np.std(valid))
         else:
-            self.resolution_median      = float("nan")
-            self.resolution_mean        = float("nan")
-            self.resolution_std         = float("nan")
+            self.resolution_median = float("nan")
+            self.resolution_mean = float("nan")
+            self.resolution_std = float("nan")
 
         self.resolution_median_half = self.resolution_median / 2.0
-        self.resolution_mean_half   = self.resolution_mean   / 2.0
-        self.resolution_std_half    = self.resolution_std    / 2.0
+        self.resolution_mean_half = self.resolution_mean / 2.0
+        self.resolution_std_half = self.resolution_std / 2.0
 
     # ------------------------------------------------------------------
     # Public interface
@@ -718,6 +717,7 @@ class LocalResolution:
 # LocalFSC  (block-wise FSC/FRC; moved here from FSC.py so both local
 # resolution-map estimators live together)
 # ---------------------------------------------------------------------------
+
 
 class LocalFSC:
     """
@@ -960,8 +960,17 @@ class LocalFSC:
         "1/2bit": 0.2071,
     }
 
-    def __init__(self, vol1, vol2, pixel_size=1.0, box_size=32, step=None,
-                 threshold=0.143, mask=None, mask_eroded="auto"):
+    def __init__(
+        self,
+        vol1,
+        vol2,
+        pixel_size=1.0,
+        box_size=32,
+        step=None,
+        threshold=0.143,
+        mask=None,
+        mask_eroded="auto",
+    ):
         print("Calling the class LocalFSC")
         vol1 = np.asarray(vol1, dtype=np.float64)
         vol2 = np.asarray(vol2, dtype=np.float64)
@@ -1010,9 +1019,7 @@ class LocalFSC:
                 self.erosion = "ball"
                 # Circumradius of the box: the smallest ball that contains it,
                 # hence the smallest one that still guarantees containment.
-                self.erosion_radius = (
-                    self.box_size * np.sqrt(self.ndim) / 2.0
-                )
+                self.erosion_radius = self.box_size * np.sqrt(self.ndim) / 2.0
             else:
                 raise ValueError(
                     f"LocalFSC: mask_eroded must be 'auto'/'cube', 'ball', a "
@@ -1077,16 +1084,24 @@ class LocalFSC:
         self._compute()
 
         ps = self.pixel_size
-        print(f"  LocalFSC median resolution (full period) : "
-              f"{self.resolution_median:.2f} px "
-              f"({self.resolution_median * ps:.4g} physical units)")
-        print(f"  LocalFSC median resolution (half period) : "
-              f"{self.resolution_median_half:.2f} px "
-              f"({self.resolution_median_half * ps:.4g} physical units)")
-        print(f"  LocalFSC mean   resolution (full period) : "
-              f"{self.resolution_mean:.2f} ± {self.resolution_std:.2f} px")
-        print(f"  LocalFSC valid box estimates             : "
-              f"{self.n_valid} of {self.n_boxes}")
+        print(
+            f"  LocalFSC median resolution (full period) : "
+            f"{self.resolution_median:.2f} px "
+            f"({self.resolution_median * ps:.4g} physical units)"
+        )
+        print(
+            f"  LocalFSC median resolution (half period) : "
+            f"{self.resolution_median_half:.2f} px "
+            f"({self.resolution_median_half * ps:.4g} physical units)"
+        )
+        print(
+            f"  LocalFSC mean   resolution (full period) : "
+            f"{self.resolution_mean:.2f} ± {self.resolution_std:.2f} px"
+        )
+        print(
+            f"  LocalFSC valid box estimates             : "
+            f"{self.n_valid} of {self.n_boxes}"
+        )
 
     def _erode_mask(self, mask):
         """
@@ -1215,8 +1230,8 @@ class LocalFSC:
 
         # Build radial coordinate grid in cycles/pixel (FFT layout)
         freqs = [_fftfreq(b) for _ in range(self.ndim)]
-        grids = np.meshgrid(*freqs, indexing='ij')
-        R = np.sqrt(sum(g ** 2 for g in grids))
+        grids = np.meshgrid(*freqs, indexing="ij")
+        R = np.sqrt(sum(g**2 for g in grids))
 
         # Radial shells: integer bins in units of 1/box_size
         shell_idx = np.round(R * b).astype(np.int32)
@@ -1240,7 +1255,7 @@ class LocalFSC:
             fsc_vals.append(float(cross / denom) if denom > eps else 0.0)
 
         fsc_arr = np.array(fsc_vals)
-        n_int   = np.array(n_vals, dtype=np.int64)
+        n_int = np.array(n_vals, dtype=np.int64)
 
         if self._adaptive_snr is not None:
             # Shell-size-corrected threshold (van Heel & Schatz, 2005),
@@ -1331,7 +1346,7 @@ class LocalFSC:
 
         coarse_shape = tuple(len(ax) for ax in axes)
         coarse_map = np.full(coarse_shape, np.nan, dtype=np.float64)
-        measured   = np.zeros(coarse_shape, dtype=bool)
+        measured = np.zeros(coarse_shape, dtype=bool)
 
         idx_ranges = [range(len(ax)) for ax in axes]
         for grid_idx in itertools.product(*idx_ranges):
@@ -1358,9 +1373,9 @@ class LocalFSC:
             coarse_map[grid_idx] = self._fsc_box(box1, box2, window)
 
         self.coarse_map = coarse_map
-        self.grid_axes  = axes
-        self.n_boxes    = int(coarse_map.size)
-        self.n_valid    = int(np.count_nonzero(np.isfinite(coarse_map)))
+        self.grid_axes = axes
+        self.n_boxes = int(coarse_map.size)
+        self.n_valid = int(np.count_nonzero(np.isfinite(coarse_map)))
 
         if self.n_valid == 0:
             warnings.warn(
@@ -1399,7 +1414,7 @@ class LocalFSC:
         interp = RegularGridInterpolator(
             axes,
             coarse_interp,
-            method='linear',
+            method="linear",
             bounds_error=False,
             fill_value=None,
         )
@@ -1407,9 +1422,9 @@ class LocalFSC:
         # Build full meshgrid of integer coordinates
         full_grids = np.mgrid[tuple(slice(0, shape[d]) for d in range(ndim))]
         # full_grids shape: (ndim, *shape)
-        pts = np.stack(
-            [full_grids[d].ravel() for d in range(ndim)], axis=-1
-        ).astype(np.float64)
+        pts = np.stack([full_grids[d].ravel() for d in range(ndim)], axis=-1).astype(
+            np.float64
+        )
 
         # Clamp to the extent of the box centres.  The coarse grid stops
         # half a box short of every border, and extrapolating a linear fit
@@ -1430,26 +1445,26 @@ class LocalFSC:
         if self.mask_eroded is not None:
             res_full[~self.mask_eroded] = np.nan
 
-        self.resolution_map       = res_full
-        self.resolution_map_phys  = res_full * self.pixel_size
-        self.resolution_map_half  = res_full / 2.0
+        self.resolution_map = res_full
+        self.resolution_map_phys = res_full * self.pixel_size
+        self.resolution_map_half = res_full / 2.0
         self.resolution_map_phys_half = self.resolution_map_phys / 2.0
 
         # NaN-aware statistics; np.nan* would warn on an all-NaN map.
         if np.any(np.isfinite(res_full)):
-            self.resolution_median  = float(np.nanmedian(res_full))
-            self.resolution_mean    = float(np.nanmean(res_full))
-            self.resolution_std     = float(np.nanstd(res_full))
+            self.resolution_median = float(np.nanmedian(res_full))
+            self.resolution_mean = float(np.nanmean(res_full))
+            self.resolution_std = float(np.nanstd(res_full))
         else:
-            self.resolution_median  = float("nan")
-            self.resolution_mean    = float("nan")
-            self.resolution_std     = float("nan")
+            self.resolution_median = float("nan")
+            self.resolution_mean = float("nan")
+            self.resolution_std = float("nan")
 
         self.resolution_median_half = self.resolution_median / 2.0
-        self.resolution_mean_half   = self.resolution_mean   / 2.0
-        self.resolution_std_half    = self.resolution_std    / 2.0
+        self.resolution_mean_half = self.resolution_mean / 2.0
+        self.resolution_std_half = self.resolution_std / 2.0
 
-    def plot(self, slice_idx=None, axis=0, cmap='viridis_r', vmin=None, vmax=None):
+    def plot(self, slice_idx=None, axis=0, cmap="viridis_r", vmin=None, vmax=None):
         """
         Display the local resolution map and save it to ``LocalFSC_resmap.png``.
 

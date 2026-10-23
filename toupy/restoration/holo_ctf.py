@@ -47,14 +47,16 @@ from .phase_retrieval import ctf_retrieve
 
 try:
     import cupy as _cp
+
     _CUDA_AVAILABLE = True
 except ImportError:
     _CUDA_AVAILABLE = False
 
 try:
     from skimage.registration import phase_cross_correlation as _pcc
+
     _HAVE_SKIMAGE = True
-except ImportError:                                    # pragma: no cover
+except ImportError:  # pragma: no cover
     _HAVE_SKIMAGE = False
 
 __all__ = [
@@ -117,12 +119,12 @@ def flat_field_correct(sample, reference, dark, eps=1e-6):
 
 
 def _total_variation(img):
-    return float(np.abs(np.diff(img, axis=0)).sum()
-                 + np.abs(np.diff(img, axis=1)).sum())
+    return float(
+        np.abs(np.diff(img, axis=0)).sum() + np.abs(np.diff(img, axis=1)).sum()
+    )
 
 
-def eigenflat_correct(samples, references, dark, n_components=4,
-                      maxiter=60, eps=1e-6):
+def eigenflat_correct(samples, references, dark, n_components=4, maxiter=60, eps=1e-6):
     r"""
     Dynamic flat-field correction with **eigen flat fields** (PCA of the flats).
 
@@ -177,7 +179,7 @@ def eigenflat_correct(samples, references, dark, n_components=4,
 
     out = np.empty_like(S)
     for d in range(D):
-        flats = refs[d] - dark                       # (K, M, N)
+        flats = refs[d] - dark  # (K, M, N)
         K = flats.shape[0]
         mean_flat = flats.mean(axis=0)
         if K < 2:
@@ -188,7 +190,7 @@ def eigenflat_correct(samples, references, dark, n_components=4,
         A = (flats - mean_flat).reshape(K, -1)
         _, _, Vt = np.linalg.svd(A, full_matrices=False)
         nc = min(n_components, Vt.shape[0])
-        eig = Vt[:nc].reshape(nc, *mean_flat.shape)   # eigen-flats
+        eig = Vt[:nc].reshape(nc, *mean_flat.shape)  # eigen-flats
 
         s_d = S[d] - dark
 
@@ -197,8 +199,12 @@ def eigenflat_correct(samples, references, dark, n_components=4,
             flat = np.where(np.abs(flat) < eps, eps, flat)
             return _total_variation(s_d / flat)
 
-        res = minimize(_cost, np.zeros(nc), method="Powell",
-                       options={"maxiter": maxiter, "xtol": 1e-3, "ftol": 1e-3})
+        res = minimize(
+            _cost,
+            np.zeros(nc),
+            method="Powell",
+            options={"maxiter": maxiter, "xtol": 1e-3, "ftol": 1e-3},
+        )
         flat = mean_flat + np.tensordot(res.x, eig, axes=(0, 0))
         flat = np.where(np.abs(flat) < eps, eps, flat)
         out[d] = s_d / flat
@@ -209,8 +215,7 @@ def eigenflat_correct(samples, references, dark, n_components=4,
 # ---------------------------------------------------------------------------
 # 2. Geometry (Fresnel scaling theorem)
 # ---------------------------------------------------------------------------
-def holo_geometry(sample_focus_distances, focus_detector_distance,
-                  detector_pixel_size):
+def holo_geometry(sample_focus_distances, focus_detector_distance, detector_pixel_size):
     r"""
     Effective magnification, propagation distance and pixel size per position.
 
@@ -287,12 +292,18 @@ def rescale_to_common_pixel(images, pixel_sizes, target_pixel=None, order=3):
     no_y, no_x = out_shape
     out = np.empty((images.shape[0],) + out_shape, dtype=float)
     for i, img in enumerate(images):
-        s = target_pixel / pixel_sizes[i]             # <= 1 (finer steps)
+        s = target_pixel / pixel_sizes[i]  # <= 1 (finer steps)
         ni_y, ni_x = img.shape
         off_y = (ni_y - 1) / 2.0 - s * (no_y - 1) / 2.0
         off_x = (ni_x - 1) / 2.0 - s * (no_x - 1) / 2.0
-        out[i] = _affine(img, [s, s], offset=[off_y, off_x],
-                         output_shape=out_shape, order=order, mode="nearest")
+        out[i] = _affine(
+            img,
+            [s, s],
+            offset=[off_y, off_x],
+            output_shape=out_shape,
+            order=order,
+            mode="nearest",
+        )
     return out, target_pixel
 
 
@@ -305,8 +316,9 @@ def _subpixel_shift(img, shift):
     return np.real(np.fft.ifftn(shifted))
 
 
-def align_holograms(images, reference_index=0, upsample=20, blur=2.0,
-                    return_shifts=False):
+def align_holograms(
+    images, reference_index=0, upsample=20, blur=2.0, return_shifts=False
+):
     r"""
     Sub-pixel align a stack of holograms to one reference image.
 
@@ -344,8 +356,10 @@ def align_holograms(images, reference_index=0, upsample=20, blur=2.0,
         Applied ``(dy, dx)`` shift of each image (zero for the reference).
     """
     if not _HAVE_SKIMAGE:
-        raise ImportError("align_holograms requires scikit-image "
-                          "(skimage.registration.phase_cross_correlation).")
+        raise ImportError(
+            "align_holograms requires scikit-image "
+            "(skimage.registration.phase_cross_correlation)."
+        )
     images = np.asarray(images, dtype=float)
 
     def _lp(a):
@@ -363,9 +377,10 @@ def align_holograms(images, reference_index=0, upsample=20, blur=2.0,
         # fringes (their cross-power-spectrum phase is dominated by the
         # fringe mismatch).  Fall back gracefully on older scikit-image.
         try:
-            shift = _pcc(ref_lp, _lp(img), upsample_factor=upsample,
-                         normalization=None)[0]
-        except TypeError:                              # pragma: no cover
+            shift = _pcc(
+                ref_lp, _lp(img), upsample_factor=upsample, normalization=None
+            )[0]
+        except TypeError:  # pragma: no cover
             shift = _pcc(ref_lp, _lp(img), upsample_factor=upsample)[0]
         shifts[i] = shift
         aligned[i] = _subpixel_shift(img, shift)
@@ -377,7 +392,7 @@ def align_holograms(images, reference_index=0, upsample=20, blur=2.0,
 # ---------------------------------------------------------------------------
 # Native-resolution joint multi-distance non-linear solver
 # ---------------------------------------------------------------------------
-_BAND_TAPER = 0.4          # raised-cosine apodisation of the spectral window
+_BAND_TAPER = 0.4  # raised-cosine apodisation of the spectral window
 _band_win_cache = {}
 
 
@@ -407,7 +422,7 @@ def _fourier_down(x, n_out, xp=np):
         return x
     X = xp.fft.fftshift(xp.fft.fft2(x, norm="ortho"))
     s = (n - n_out) // 2
-    Xc = X[s:s + n_out, s:s + n_out] * _band_window(n_out, xp)
+    Xc = X[s : s + n_out, s : s + n_out] * _band_window(n_out, xp)
     return xp.real(xp.fft.ifft2(xp.fft.ifftshift(Xc), norm="ortho"))
 
 
@@ -419,14 +434,26 @@ def _fourier_up(x, n_out, xp=np):
     X = xp.fft.fftshift(xp.fft.fft2(x, norm="ortho")) * _band_window(n, xp)
     s = (n_out - n) // 2
     G = xp.zeros((n_out, n_out), dtype=complex)
-    G[s:s + n, s:s + n] = X
+    G[s : s + n, s : s + n] = X
     return xp.real(xp.fft.ifft2(xp.fft.ifftshift(G), norm="ortho"))
 
 
-def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
-                                wavelength, delta_beta, init, n_iter=200,
-                                reg_tv=1e-3, tv_eps=1e-3, pad=2,
-                                support=None, support_weight=1.0, cuda=False):
+def _native_multidistance_solve(
+    stack,
+    distances,
+    pixel_sizes,
+    common_pixel,
+    wavelength,
+    delta_beta,
+    init,
+    n_iter=200,
+    reg_tv=1e-3,
+    tv_eps=1e-3,
+    pad=2,
+    support=None,
+    support_weight=1.0,
+    cuda=False,
+):
     r"""
     Joint non-linear multi-distance retrieval fitting each distance at its
     **native** resolution.
@@ -444,12 +471,16 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
     CPU array.
     """
     if delta_beta is None:
-        raise ValueError("method='nonlinear' requires delta_beta (homogeneous "
-                         "object); pass the delta/beta ratio.")
+        raise ValueError(
+            "method='nonlinear' requires delta_beta (homogeneous "
+            "object); pass the delta/beta ratio."
+        )
     use_gpu = bool(cuda) and _CUDA_AVAILABLE
     if cuda and not _CUDA_AVAILABLE:
-        warnings.warn("CuPy not available — running the non-linear solver on "
-                      "the CPU.", stacklevel=3)
+        warnings.warn(
+            "CuPy not available — running the non-linear solver on " "the CPU.",
+            stacklevel=3,
+        )
     xp = _cp if use_gpu else np
 
     n = stack.shape[-1]
@@ -465,8 +496,10 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
     FY, FX = xp.meshgrid(f, f, indexing="ij")
     freq2 = FY**2 + FX**2
     Hs = [xp.exp(1j * np.pi * wavelength * float(z) * freq2) for z in distances]
-    adata = [_fourier_down(xp.sqrt(xp.maximum(stack[d], 1e-6)), nout[d], xp)
-             for d in range(D)]
+    adata = [
+        _fourier_down(xp.sqrt(xp.maximum(stack[d], 1e-6)), nout[d], xp)
+        for d in range(D)
+    ]
     # optional support: penalise phase outside the (known/estimated) object,
     # pinning the background to zero and removing the low-frequency air halo.
     air = None
@@ -475,11 +508,11 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
 
     def emb(a):
         b = xp.zeros((m, m), dtype=complex)
-        b[o:o + n, o:o + n] = a
+        b[o : o + n, o : o + n] = a
         return b
 
     def crop(a):
-        return a[o:o + n, o:o + n]
+        return a[o : o + n, o : o + n]
 
     def cost_grad(phi):
         psi = xp.exp(c * emb(phi))
@@ -502,7 +535,7 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
             px, py = dx / mag, dy / mag
             g -= reg_tv * ((px - xp.roll(px, 1, 1)) + (py - xp.roll(py, 1, 0)))
         if air is not None:
-            J += 0.5 * support_weight * float(xp.sum((phi * air)**2))
+            J += 0.5 * support_weight * float(xp.sum((phi * air) ** 2))
             g += support_weight * phi * air
         return J, g
 
@@ -529,8 +562,9 @@ def _native_multidistance_solve(stack, distances, pixel_sizes, common_pixel,
     return _cp.asnumpy(phi) if use_gpu else np.asarray(phi)
 
 
-def _refine_distance_scale(stack, z_eff, common_pixel, wavelength, delta_beta,
-                           alpha, bounds=(0.7, 1.3)):
+def _refine_distance_scale(
+    stack, z_eff, common_pixel, wavelength, delta_beta, alpha, bounds=(0.7, 1.3)
+):
     r"""
     Auto-focus: find the multiplicative correction to the effective propagation
     distances that **minimises the multi-distance CTF data inconsistency**.
@@ -563,8 +597,10 @@ def _refine_distance_scale(stack, z_eff, common_pixel, wavelength, delta_beta,
             num += w * Hd[d]
             den += w * w
         phi_h = -num / (2.0 * (den + alpha))
-        return sum(float(np.sum(np.abs(Hd[d] + 2.0 * ws[d] * phi_h)**2))
-                   for d in range(len(z_eff)))
+        return sum(
+            float(np.sum(np.abs(Hd[d] + 2.0 * ws[d] * phi_h) ** 2))
+            for d in range(len(z_eff))
+        )
 
     res = minimize_scalar(residual, bounds=bounds, method="bounded")
     return float(res.x)
@@ -693,13 +729,13 @@ def holo_ctf_reconstruct(
     if samples.ndim != 3:
         raise ValueError("samples must be a 3-D stack (D, M, N).")
 
-    geom = holo_geometry(sample_focus_distances, focus_detector_distance,
-                         detector_pixel_size)
+    geom = holo_geometry(
+        sample_focus_distances, focus_detector_distance, detector_pixel_size
+    )
 
     # 1. flat-field
     if flat_method == "eigen":
-        flat = eigenflat_correct(samples, references, dark,
-                                 n_components=n_eigen)
+        flat = eigenflat_correct(samples, references, dark, n_components=n_eigen)
     elif flat_method == "simple":
         flat = flat_field_correct(samples, references, dark)
     else:
@@ -707,7 +743,8 @@ def holo_ctf_reconstruct(
 
     # 2. rescale to the finest effective pixel (closest-to-focus position)
     common, px_common = rescale_to_common_pixel(
-        flat, geom.effective_pixel_size, order=interp_order)
+        flat, geom.effective_pixel_size, order=interp_order
+    )
 
     # reference = highest-magnification image (smallest effective pixel)
     ref_idx = int(np.argmin(geom.effective_pixel_size))
@@ -715,19 +752,35 @@ def holo_ctf_reconstruct(
     # 3. sub-pixel align
     if align:
         aligned, shifts = align_holograms(
-            common, reference_index=ref_idx, upsample=upsample,
-            blur=align_blur, return_shifts=True)
+            common,
+            reference_index=ref_idx,
+            upsample=upsample,
+            blur=align_blur,
+            return_shifts=True,
+        )
         # Refine: register *rough single-distance retrievals* (alike across
         # distances) rather than the raw fringe patterns, then re-shift.
         if refine_align:
-            rough = np.array([
-                ctf_retrieve(aligned[d], float(geom.effective_distance[d]),
-                             wavelength, px_common, alpha=1e-2,
-                             delta_beta=delta_beta)
-                for d in range(aligned.shape[0])])
-            _, extra = align_holograms(rough, reference_index=ref_idx,
-                                       upsample=upsample, blur=0.0,
-                                       return_shifts=True)
+            rough = np.array(
+                [
+                    ctf_retrieve(
+                        aligned[d],
+                        float(geom.effective_distance[d]),
+                        wavelength,
+                        px_common,
+                        alpha=1e-2,
+                        delta_beta=delta_beta,
+                    )
+                    for d in range(aligned.shape[0])
+                ]
+            )
+            _, extra = align_holograms(
+                rough,
+                reference_index=ref_idx,
+                upsample=upsample,
+                blur=0.0,
+                return_shifts=True,
+            )
             for d in range(aligned.shape[0]):
                 if d != ref_idx and np.any(extra[d]):
                     aligned[d] = _subpixel_shift(aligned[d], extra[d])
@@ -742,14 +795,26 @@ def holo_ctf_reconstruct(
     dist_scale = 1.0
     if refine_distances:
         dist_scale = _refine_distance_scale(
-            aligned, z_eff, px_common, wavelength, delta_beta, alpha,
-            bounds=refine_bounds)
+            aligned,
+            z_eff,
+            px_common,
+            wavelength,
+            delta_beta,
+            alpha,
+            bounds=refine_bounds,
+        )
         z_eff = z_eff * dist_scale
 
     # 4. multi-distance CTF on the common grid
     phase = ctf_retrieve(
-        aligned, list(z_eff), wavelength, px_common,
-        alpha=alpha, delta_beta=delta_beta, cuda=cuda)
+        aligned,
+        list(z_eff),
+        wavelength,
+        px_common,
+        alpha=alpha,
+        delta_beta=delta_beta,
+        cuda=cuda,
+    )
 
     # 4b. optional non-linear refinement.  The native-resolution joint solver
     # fits each distance at its own effective pixel (band-limited), which is
@@ -757,10 +822,19 @@ def holo_ctf_reconstruct(
     # coarse data — recovering quantitative interior grey levels.
     if method == "nonlinear":
         phase = _native_multidistance_solve(
-            aligned, list(z_eff),
-            np.asarray(geom.effective_pixel_size), px_common, wavelength,
-            delta_beta, init=phase, n_iter=nl_n_iter, reg_tv=nl_reg_tv,
-            support=support, support_weight=support_weight, cuda=cuda)
+            aligned,
+            list(z_eff),
+            np.asarray(geom.effective_pixel_size),
+            px_common,
+            wavelength,
+            delta_beta,
+            init=phase,
+            n_iter=nl_n_iter,
+            reg_tv=nl_reg_tv,
+            support=support,
+            support_weight=support_weight,
+            cuda=cuda,
+        )
     elif method != "ctf":
         raise ValueError("method must be 'ctf' or 'nonlinear'.")
 

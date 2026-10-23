@@ -89,6 +89,7 @@ __all__ = [
 # validated ``rotate_volume_torch`` from ``multislice_torch.py`` so the
 # rotation convention is identical to the two-pass reconstruction.
 
+
 def _load_torch_helpers():
     """
     Lazily import torch and the rotation helper from ``multislice_torch.py``.
@@ -112,8 +113,7 @@ def _load_torch_helpers():
 
     _here = os.path.dirname(os.path.abspath(__file__))
     _mst_path = os.path.join(_here, "multislice_torch.py")
-    spec = importlib.util.spec_from_file_location(
-        "toupy.tomo._mst_for_fbap", _mst_path)
+    spec = importlib.util.spec_from_file_location("toupy.tomo._mst_for_fbap", _mst_path)
     mst = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mst)
     return torch, mst
@@ -147,9 +147,9 @@ def _resolve_fbap_device(device):
 
     if isinstance(device, str) and device.lower() == "auto":
         if torch.cuda.is_available() or torch.backends.mps.is_available():
-            dev = mst.select_device()              # CUDA > MPS
+            dev = mst.select_device()  # CUDA > MPS
         else:
-            return False, None, None, None         # CPU → NumPy path
+            return False, None, None, None  # CPU → NumPy path
     else:
         dev = mst.select_device(device) if isinstance(device, str) else device
         if dev.type == "cpu":
@@ -161,19 +161,25 @@ def _resolve_fbap_device(device):
 
 def _sharpness_metric_torch(field, metric, torch):
     """Torch mirror of :func:`sharpness_metric` (higher = sharper)."""
-    if metric == 'tv_intensity':
+    if metric == "tv_intensity":
         I = field.abs() ** 2
-        return float(torch.mean(torch.abs(torch.diff(I, dim=0))) +
-                     torch.mean(torch.abs(torch.diff(I, dim=1))))
-    elif metric == 'tv_phase':
+        return float(
+            torch.mean(torch.abs(torch.diff(I, dim=0)))
+            + torch.mean(torch.abs(torch.diff(I, dim=1)))
+        )
+    elif metric == "tv_phase":
         phi = torch.angle(field)
-        return float(torch.mean(torch.abs(torch.diff(phi, dim=0))) +
-                     torch.mean(torch.abs(torch.diff(phi, dim=1))))
-    elif metric == 'std_intensity':
+        return float(
+            torch.mean(torch.abs(torch.diff(phi, dim=0)))
+            + torch.mean(torch.abs(torch.diff(phi, dim=1)))
+        )
+    elif metric == "std_intensity":
         return float((field.abs() ** 2).std())
     else:
-        raise ValueError(f"Unknown sharpness metric: {metric!r}. "
-                         "Choose 'tv_intensity', 'tv_phase', or 'std_intensity'.")
+        raise ValueError(
+            f"Unknown sharpness metric: {metric!r}. "
+            "Choose 'tv_intensity', 'tv_phase', or 'std_intensity'."
+        )
 
 
 def _find_focus_torch(u_ft, f2, wavelength, z_range, n_search, metric, torch):
@@ -192,9 +198,22 @@ def _find_focus_torch(u_ft, f2, wavelength, z_range, n_search, metric, torch):
 
 
 def _filtered_back_propagation_torch(
-        u_exit_stack, theta, wavelength, pixel_size, sample_thickness,
-        Nz, auto_focus, focus_z_range, focus_n_search, focus_metric,
-        filter_name, verbose, torch, mst, dev):
+    u_exit_stack,
+    theta,
+    wavelength,
+    pixel_size,
+    sample_thickness,
+    Nz,
+    auto_focus,
+    focus_z_range,
+    focus_n_search,
+    focus_metric,
+    filter_name,
+    verbose,
+    torch,
+    mst,
+    dev,
+):
     """
     GPU implementation of :func:`filtered_back_propagation`.
 
@@ -209,8 +228,7 @@ def _filtered_back_propagation_torch(
     N_angles, Ny, Nx = u_exit_stack.shape
     k0 = 2.0 * np.pi / wavelength
 
-    z_slices = np.linspace(-sample_thickness / 2.0,
-                            sample_thickness / 2.0, Nz)
+    z_slices = np.linspace(-sample_thickness / 2.0, sample_thickness / 2.0, Nz)
 
     if focus_z_range is None:
         focus_z_range = (-sample_thickness * 1.5, 0.0)
@@ -218,18 +236,18 @@ def _filtered_back_propagation_torch(
     # Squared-frequency grid on device  (indexing='xy' → first index = x)
     fy = torch.fft.fftfreq(Ny, d=pixel_size, device=dev)
     fx = torch.fft.fftfreq(Nx, d=pixel_size, device=dev)
-    FX, FY = torch.meshgrid(fx, fy, indexing='xy')           # (Ny, Nx)
-    f2 = (FX ** 2 + FY ** 2).to(torch.float32)
+    FX, FY = torch.meshgrid(fx, fy, indexing="xy")  # (Ny, Nx)
+    f2 = (FX**2 + FY**2).to(torch.float32)
 
     # Batched depth kernels: at slice j the total kernel relative to the
     # focused sample centre is exp(−iπλ z_j f²).  Equivalent to the NumPy
     # H_init · H_step^(Nz-1-j) incremental product (verified algebraically).
     z_t = torch.as_tensor(z_slices, dtype=torch.float32, device=dev)
-    phase_kern = (-np.pi * wavelength) * z_t[:, None, None] * f2[None]   # (Nz,Ny,Nx)
+    phase_kern = (-np.pi * wavelength) * z_t[:, None, None] * f2[None]  # (Nz,Ny,Nx)
     depth_kernels = torch.exp(1j * phase_kern).to(torch.complex64)
 
     # Ram-Lak ramp filter
-    if filter_name == 'ram-lak':
+    if filter_name == "ram-lak":
         n_pad = max(64, int(2 ** np.ceil(np.log2(2 * Nx))))
         ramp = (2.0 * torch.fft.rfftfreq(n_pad, device=dev)).to(torch.float32)
     else:
@@ -249,8 +267,9 @@ def _filtered_back_propagation_torch(
 
         # Step 1: digital refocus to sample centre
         if auto_focus:
-            d_focus = _find_focus_torch(u_ft, f2, wavelength, focus_z_range,
-                                        focus_n_search, focus_metric, torch)
+            d_focus = _find_focus_torch(
+                u_ft, f2, wavelength, focus_z_range, focus_n_search, focus_metric, torch
+            )
         else:
             d_focus = -sample_thickness / 2.0
         focus_distances[ai] = d_focus
@@ -258,9 +277,10 @@ def _filtered_back_propagation_torch(
         u_focused_ft = u_ft * torch.exp(1j * ((-np.pi * wavelength * d_focus) * f2))
 
         # Steps 2 & 3: propagate to all depths at once, extract phase
-        fields = torch.fft.ifft2(u_focused_ft[None] * depth_kernels,
-                                 dim=(-2, -1))               # (Nz,Ny,Nx)
-        phase_stack = torch.angle(fields)                    # float32
+        fields = torch.fft.ifft2(
+            u_focused_ft[None] * depth_kernels, dim=(-2, -1)
+        )  # (Nz,Ny,Nx)
+        phase_stack = torch.angle(fields)  # float32
 
         # Step 4: Ram-Lak filter along x (batched over depth & y)
         if ramp is not None:
@@ -276,11 +296,13 @@ def _filtered_back_propagation_torch(
             elapsed_total = time.time() - t_total
             done = ai + 1
             eta_s = elapsed_total / done * (N_angles - done)
-            print(f"  FBaP {done:4d}/{N_angles}  θ={theta[ai]:7.2f}°  "
-                  f"t={elapsed:.2f}s  "
-                  f"elapsed={elapsed_total/60:.1f}min  "
-                  f"ETA={eta_s/60:.1f}min",
-                  flush=True)
+            print(
+                f"  FBaP {done:4d}/{N_angles}  θ={theta[ai]:7.2f}°  "
+                f"t={elapsed:.2f}s  "
+                f"elapsed={elapsed_total/60:.1f}min  "
+                f"ETA={eta_s/60:.1f}min",
+                flush=True,
+            )
 
     # Accumulated phase sinogram → δ  (FBP norm × phase-to-δ; see NumPy path)
     delta_vol *= -np.pi / (2.0 * N_angles * k0 * pixel_size)
@@ -289,8 +311,10 @@ def _filtered_back_propagation_torch(
     delta_np = delta_vol.cpu().numpy().astype(np.float64)
 
     if verbose:
-        print(f"FBaP done in {time.time()-t_total:.1f} s total.  "
-              f"δ ∈ [{delta_np.min():.3e}, {delta_np.max():.3e}]")
+        print(
+            f"FBaP done in {time.time()-t_total:.1f} s total.  "
+            f"δ ∈ [{delta_np.min():.3e}, {delta_np.max():.3e}]"
+        )
 
     return delta_np, focus_distances
 
@@ -298,6 +322,7 @@ def _filtered_back_propagation_torch(
 # ---------------------------------------------------------------------------
 # Fresnel propagator
 # ---------------------------------------------------------------------------
+
 
 def fresnel_propagate(field, distance, wavelength, pixel_size):
     """
@@ -325,7 +350,7 @@ def fresnel_propagate(field, distance, wavelength, pixel_size):
     Ny, Nx = field.shape
     fy = fftfreq(Ny, d=pixel_size)
     fx = fftfreq(Nx, d=pixel_size)
-    FX, FY = np.meshgrid(fx, fy, indexing='xy')
+    FX, FY = np.meshgrid(fx, fy, indexing="xy")
     H = np.exp(-1j * np.pi * wavelength * distance * (FX**2 + FY**2))
     return ifft2(fft2(field) * H)
 
@@ -334,7 +359,8 @@ def fresnel_propagate(field, distance, wavelength, pixel_size):
 # Sharpness metrics for autofocus
 # ---------------------------------------------------------------------------
 
-def sharpness_metric(field, metric='tv_intensity'):
+
+def sharpness_metric(field, metric="tv_intensity"):
     """
     Compute a scalar sharpness score for the propagated wavefield.
 
@@ -353,28 +379,40 @@ def sharpness_metric(field, metric='tv_intensity'):
     -------
     float   (higher = sharper)
     """
-    if metric == 'tv_intensity':
+    if metric == "tv_intensity":
         I = np.abs(field) ** 2
-        return float(np.mean(np.abs(np.diff(I, axis=0))) +
-                     np.mean(np.abs(np.diff(I, axis=1))))
-    elif metric == 'tv_phase':
+        return float(
+            np.mean(np.abs(np.diff(I, axis=0))) + np.mean(np.abs(np.diff(I, axis=1)))
+        )
+    elif metric == "tv_phase":
         phi = np.angle(field)
-        return float(np.mean(np.abs(np.diff(phi, axis=0))) +
-                     np.mean(np.abs(np.diff(phi, axis=1))))
-    elif metric == 'std_intensity':
+        return float(
+            np.mean(np.abs(np.diff(phi, axis=0)))
+            + np.mean(np.abs(np.diff(phi, axis=1)))
+        )
+    elif metric == "std_intensity":
         return float(np.std(np.abs(field) ** 2))
     else:
-        raise ValueError(f"Unknown sharpness metric: {metric!r}. "
-                         "Choose 'tv_intensity', 'tv_phase', or 'std_intensity'.")
+        raise ValueError(
+            f"Unknown sharpness metric: {metric!r}. "
+            "Choose 'tv_intensity', 'tv_phase', or 'std_intensity'."
+        )
 
 
 # ---------------------------------------------------------------------------
 # Autofocus
 # ---------------------------------------------------------------------------
 
-def find_focus(u_exit, wavelength, pixel_size,
-               z_range=None, n_search=50, metric='tv_intensity',
-               sample_thickness=None):
+
+def find_focus(
+    u_exit,
+    wavelength,
+    pixel_size,
+    z_range=None,
+    n_search=50,
+    metric="tv_intensity",
+    sample_thickness=None,
+):
     """
     Find the propagation distance that maximises image sharpness.
 
@@ -415,8 +453,8 @@ def find_focus(u_exit, wavelength, pixel_size,
     Ny, Nx = u_exit.shape
     fy = fftfreq(Ny, d=pixel_size)
     fx = fftfreq(Nx, d=pixel_size)
-    FX, FY = np.meshgrid(fx, fy, indexing='xy')
-    f2 = (FX ** 2 + FY ** 2).astype(np.float64)
+    FX, FY = np.meshgrid(fx, fy, indexing="xy")
+    f2 = (FX**2 + FY**2).astype(np.float64)
 
     u_ft = fft2(u_exit)
     d_vals = np.linspace(z_range[0], z_range[1], n_search)
@@ -435,6 +473,7 @@ def find_focus(u_exit, wavelength, pixel_size,
 # Main FBaP reconstruction
 # ---------------------------------------------------------------------------
 
+
 def filtered_back_propagation(
     u_exit_stack,
     theta,
@@ -445,10 +484,10 @@ def filtered_back_propagation(
     auto_focus=False,
     focus_z_range=None,
     focus_n_search=50,
-    focus_metric='tv_intensity',
-    filter_name='ram-lak',
+    focus_metric="tv_intensity",
+    filter_name="ram-lak",
     verbose=True,
-    device='auto',
+    device="auto",
 ):
     """
     Filtered Back-Propagation (FBaP) 3-D tomographic reconstruction.
@@ -530,17 +569,29 @@ def filtered_back_propagation(
         if verbose:
             print(f"  FBaP backend: {_mst.device_info(_dev)}", flush=True)
         return _filtered_back_propagation_torch(
-            u_exit_stack, theta, wavelength, pixel_size, sample_thickness,
-            Nz, auto_focus, focus_z_range, focus_n_search, focus_metric,
-            filter_name, verbose, _torch, _mst, _dev)
+            u_exit_stack,
+            theta,
+            wavelength,
+            pixel_size,
+            sample_thickness,
+            Nz,
+            auto_focus,
+            focus_z_range,
+            focus_n_search,
+            focus_metric,
+            filter_name,
+            verbose,
+            _torch,
+            _mst,
+            _dev,
+        )
     if verbose:
         print("  FBaP backend: NumPy CPU", flush=True)
 
     # Depth positions relative to sample centre (z=0 at centre)
     # z = -t/2 → entrance face,  z = +t/2 → exit face
-    z_slices = np.linspace(-sample_thickness / 2.0,
-                            sample_thickness / 2.0, Nz)
-    dz = float(z_slices[1] - z_slices[0])   # positive [m]
+    z_slices = np.linspace(-sample_thickness / 2.0, sample_thickness / 2.0, Nz)
+    dz = float(z_slices[1] - z_slices[0])  # positive [m]
 
     if focus_z_range is None:
         focus_z_range = (-sample_thickness * 1.5, 0.0)
@@ -548,8 +599,8 @@ def filtered_back_propagation(
     # Pre-compute squared-frequency grid (reused for all propagations)
     fy = fftfreq(Ny, d=pixel_size)
     fx = fftfreq(Nx, d=pixel_size)
-    FX, FY = np.meshgrid(fx, fy, indexing='xy')
-    f2 = (FX ** 2 + FY ** 2).astype(np.float64)
+    FX, FY = np.meshgrid(fx, fy, indexing="xy")
+    f2 = (FX**2 + FY**2).astype(np.float64)
 
     # Pre-compute incremental step kernel for depth propagation:
     # Moving one step Δz further from the exit face (deeper into the sample)
@@ -558,9 +609,9 @@ def filtered_back_propagation(
     H_step = np.exp(1j * np.pi * wavelength * dz * f2)
 
     # Ram-Lak ramp filter
-    if filter_name == 'ram-lak':
+    if filter_name == "ram-lak":
         n_pad = max(64, int(2 ** np.ceil(np.log2(2 * Nx))))
-        ramp = 2.0 * np.fft.rfftfreq(n_pad)    # |ω| on one-sided spectrum
+        ramp = 2.0 * np.fft.rfftfreq(n_pad)  # |ω| on one-sided spectrum
     else:
         n_pad = None
         ramp = None
@@ -574,14 +625,16 @@ def filtered_back_propagation(
         t_iter = time.time()
 
         u = u_exit_stack[ai].astype(complex)
-        u_ft = fft2(u)       # compute Fourier transform once
+        u_ft = fft2(u)  # compute Fourier transform once
 
         # ------------------------------------------------------------------
         # Step 1: Digital refocus to sample centre
         # ------------------------------------------------------------------
         if auto_focus:
             d_focus, _, _ = find_focus(
-                u, wavelength, pixel_size,
+                u,
+                wavelength,
+                pixel_size,
                 z_range=focus_z_range,
                 n_search=focus_n_search,
                 metric=focus_metric,
@@ -595,7 +648,7 @@ def filtered_back_propagation(
 
         # Apply focus propagation in Fourier domain
         H_focus = np.exp(-1j * np.pi * wavelength * d_focus * f2)
-        u_focused_ft = u_ft * H_focus   # focused at sample centre (z=0)
+        u_focused_ft = u_ft * H_focus  # focused at sample centre (z=0)
 
         # ------------------------------------------------------------------
         # Steps 2 & 3: Propagate to all depth slices, extract phase
@@ -663,23 +716,29 @@ def filtered_back_propagation(
         # making this a proper 3-D back-projection.
         # ------------------------------------------------------------------
         delta_rot = ndimage_rotate(
-            phase_stack, -theta[ai],
-            axes=(2, 0), reshape=False, order=1,
-            mode='constant', cval=0.0,
+            phase_stack,
+            -theta[ai],
+            axes=(2, 0),
+            reshape=False,
+            order=1,
+            mode="constant",
+            cval=0.0,
         )
         delta_vol += delta_rot
 
         if verbose:
-            elapsed  = time.time() - t_iter
+            elapsed = time.time() - t_iter
             elapsed_total = time.time() - t_total
-            done     = ai + 1
-            eta_s    = elapsed_total / done * (N_angles - done)
-            eta_min  = eta_s / 60.0
-            print(f"  FBaP {done:4d}/{N_angles}  θ={theta[ai]:7.2f}°  "
-                  f"t={elapsed:.1f}s  "
-                  f"elapsed={elapsed_total/60:.1f}min  "
-                  f"ETA={eta_min:.1f}min",
-                  flush=True)
+            done = ai + 1
+            eta_s = elapsed_total / done * (N_angles - done)
+            eta_min = eta_s / 60.0
+            print(
+                f"  FBaP {done:4d}/{N_angles}  θ={theta[ai]:7.2f}°  "
+                f"t={elapsed:.1f}s  "
+                f"elapsed={elapsed_total/60:.1f}min  "
+                f"ETA={eta_min:.1f}min",
+                flush=True,
+            )
 
     # Convert accumulated phase sinogram → δ volume.
     #
@@ -695,7 +754,9 @@ def filtered_back_propagation(
     np.clip(delta_vol, 0.0, None, out=delta_vol)
 
     if verbose:
-        print(f"FBaP done in {time.time()-t_total:.1f} s total.  "
-              f"δ ∈ [{delta_vol.min():.3e}, {delta_vol.max():.3e}]")
+        print(
+            f"FBaP done in {time.time()-t_total:.1f} s total.  "
+            f"δ ∈ [{delta_vol.min():.3e}, {delta_vol.max():.3e}]"
+        )
 
     return delta_vol, focus_distances

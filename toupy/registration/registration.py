@@ -26,7 +26,13 @@ from ..utils.plot_utils import plt
 import numpy as np
 from ..utils import tqdm
 from scipy.fft import fft, ifft, fft2, ifft2, fftfreq, fftshift, ifftshift
-from scipy.ndimage import center_of_mass, interpolation, gaussian_filter, gaussian_filter1d, fourier_shift
+from scipy.ndimage import (
+    center_of_mass,
+    interpolation,
+    gaussian_filter,
+    gaussian_filter1d,
+    fourier_shift,
+)
 from skimage.registration import phase_cross_correlation
 
 # local packages
@@ -63,18 +69,19 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # Gradient descent hyperparameters (module-level — easy to tune)
 # ---------------------------------------------------------------------------
-_GD_MAX_ITER  = 50   # maximum GD iterations per projection
-_FD_H_VERT    = 0.1  # FD step for vertical gradient (pixels)
-_FD_H_HORIZ   = 0.5  # FD step for horizontal gradient (pixels); wide enough
-                      # for an accurate Newton step even far from the minimum
-_H_MAX_STEP   = 50.0 # max horizontal Newton step (pixels); generous so the
-                      # Newton step can cross a large initial offset in one
-                      # iteration — the halving fallback handles overshoots
+_GD_MAX_ITER = 50  # maximum GD iterations per projection
+_FD_H_VERT = 0.1  # FD step for vertical gradient (pixels)
+_FD_H_HORIZ = 0.5  # FD step for horizontal gradient (pixels); wide enough
+# for an accurate Newton step even far from the minimum
+_H_MAX_STEP = 50.0  # max horizontal Newton step (pixels); generous so the
+# Newton step can cross a large initial offset in one
+# iteration — the halving fallback handles overshoots
 
 
 # ============================================================================
 # Unchanged public helpers
 # ============================================================================
+
 
 def register_2Darrays(image1, image2, subpixel=False):
     """
@@ -142,7 +149,9 @@ def compute_aligned_stack(input_stack, shiftstack, shift_method="linear"):
     """
     S = ShiftFunc(shiftmeth=shift_method)
     nstack = input_stack.shape[0]
-    print("Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__))
+    print(
+        "Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__)
+    )
     output_stack = np.empty_like(input_stack)
     for ii in tqdm(range(nstack), desc="Aligning images"):
         deltashift = (shiftstack[0, ii], shiftstack[1, ii])
@@ -154,14 +163,18 @@ def compute_aligned_stack_special(input_stack, shiftstack, shift_method="linear"
     """In-place variant of compute_aligned_stack."""
     S = ShiftFunc(shiftmeth=shift_method)
     nstack = input_stack.shape[0]
-    print("Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__))
+    print(
+        "Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__)
+    )
     for ii in tqdm(range(nstack), desc="Aligning images"):
         deltashift = (shiftstack[0, ii], shiftstack[1, ii])
         input_stack[ii] = S(input_stack[ii], deltashift)
     return input_stack
 
 
-def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="linear", **kwargs):
+def compute_aligned_horizontal_special(
+    input_stack, shiftstack, shift_method="linear", **kwargs
+):
     """Horizontal-only in-place alignment.
 
     ``**kwargs`` absorbs any extra keys when called as
@@ -172,7 +185,9 @@ def compute_aligned_horizontal_special(input_stack, shiftstack, shift_method="li
     shift_method = kwargs.get("shiftmeth", shift_method)
     deltashift = np.zeros_like(shiftstack)
     deltashift[1] = shiftstack[1].copy()
-    return compute_aligned_stack_special(input_stack, shiftstack, shift_method=shift_method)
+    return compute_aligned_stack_special(
+        input_stack, shiftstack, shift_method=shift_method
+    )
 
 
 def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
@@ -195,14 +210,18 @@ def compute_aligned_sino(input_sino, shiftslice, shift_method="linear"):
     """
     S = ShiftFunc(shiftmeth=shift_method)
     nprojs = input_sino.shape[1]
-    print("Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__))
+    print(
+        "Using {} shift method (function {})".format(shift_method, S.shiftmeth.__name__)
+    )
     output_sino = np.empty_like(input_sino)
     for ii in tqdm(range(nprojs), desc="Aligning sinogram"):
         output_sino[:, ii] = S(input_sino[:, ii], shiftslice[0, ii])
     return output_sino
 
 
-def compute_aligned_horizontal(input_stack, shiftstack, shift_method="linear", **kwargs):
+def compute_aligned_horizontal(
+    input_stack, shiftstack, shift_method="linear", **kwargs
+):
     """Horizontal-only alignment (copy variant).
 
     ``**kwargs`` absorbs any extra keys when called as
@@ -243,7 +262,7 @@ def center_of_mass_stack(input_stack, lims, shiftstack, shift_method="fourier"):
     limrow, limcol = lims
     print("Calculating center-of-mass with pixel precision")
     S = ShiftFunc(shiftmeth=shift_method)
-    stack_roi = input_stack[0, limrow[0]:limrow[-1], limcol[0]:limcol[-1]].copy()
+    stack_roi = input_stack[0, limrow[0] : limrow[-1], limcol[0] : limcol[-1]].copy()
     ind_roi = np.indices(stack_roi.shape)
     ind_roi[1] -= (
         np.floor(ind_roi[1].mean(axis=1)).reshape((ind_roi.shape[1], 1)).astype("int")
@@ -258,7 +277,7 @@ def center_of_mass_stack(input_stack, lims, shiftstack, shift_method="fourier"):
     centery = np.empty(input_stack.shape[0])
     for ii in range(input_stack.shape[0]):
         stack_aux = S(input_stack[ii], (shiftstack[0, ii], shiftstack[1, ii]))
-        roi = stack_aux[limrow[0]:limrow[-1], limcol[0]:limcol[-1]]
+        roi = stack_aux[limrow[0] : limrow[-1], limcol[0] : limcol[-1]]
         mass_sum[ii] = np.sum(roi)
         centerx[ii] = np.sum(Xp * roi)
         centery[ii] = np.sum(Yp * roi)
@@ -271,7 +290,9 @@ def center_of_mass_stack(input_stack, lims, shiftstack, shift_method="fourier"):
     return np.asarray([centerx, centery])
 
 
-def vertical_fluctuations(input_stack, lims, shiftstack, shift_method="fourier", polyorder=2):
+def vertical_fluctuations(
+    input_stack, lims, shiftstack, shift_method="fourier", polyorder=2
+):
     """
     Compute the vertical mass-fluctuation signal for each projection.
 
@@ -305,7 +326,9 @@ def vertical_fluctuations(input_stack, lims, shiftstack, shift_method="fourier",
         max_vshift = 1
     vert_fluct = np.empty((nproj, rows[-1] - rows[0]))
     for ii in tqdm(range(nproj), desc="Computing vertical fluctuations"):
-        proj = input_stack[ii, rows[0] - max_vshift:rows[-1] + max_vshift, cols[0]:cols[-1]]
+        proj = input_stack[
+            ii, rows[0] - max_vshift : rows[-1] + max_vshift, cols[0] : cols[-1]
+        ]
         stack_shift = S(proj, (shiftstack[0, ii], 0.0))
         shift_calc = stack_shift[max_vshift:-max_vshift].sum(axis=1)
         shift_calc = projectpoly1d(shift_calc, polyorder, 1)
@@ -313,7 +336,9 @@ def vertical_fluctuations(input_stack, lims, shiftstack, shift_method="fourier",
     return vert_fluct
 
 
-def vertical_shift(input_array, lims, vstep, maxshift, shift_method="linear", polyorder=2):
+def vertical_shift(
+    input_array, lims, vstep, maxshift, shift_method="linear", polyorder=2
+):
     """
     Compute the vertical mass-fluctuation signal for a single projection
     shifted by a given amount.
@@ -346,7 +371,7 @@ def vertical_shift(input_array, lims, vstep, maxshift, shift_method="linear", po
     if np.any((rows - max_vshift) < 0) or np.any((rows + max_vshift) > nr):
         max_vshift = 1
     stack_shift = S(
-        input_array[rows[0] - max_vshift:rows[-1] + max_vshift, cols[0]:cols[-1]],
+        input_array[rows[0] - max_vshift : rows[-1] + max_vshift, cols[0] : cols[-1]],
         (vstep, 0.0),
     )
     shift_calc = stack_shift[max_vshift:-max_vshift].sum(axis=1)
@@ -357,6 +382,7 @@ def vertical_shift(input_array, lims, vstep, maxshift, shift_method="linear", po
 # ============================================================================
 # Private helpers (ROI, clipping, error metrics, convergence)
 # ============================================================================
+
 
 def _selectROI(stack_shape, **params):
     """
@@ -440,7 +466,9 @@ def _sino_error_metric(sinogramexp, sinogramcomp, params):
     return errorxreg
 
 
-def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False, rtol=0.0):
+def _checkconditions(
+    metric_error, changes, pixtol, count, maxit, subpixel=False, rtol=0.0
+):
     """
     Evaluate stopping conditions for the alignment loop.
 
@@ -459,9 +487,11 @@ def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False
     # A single increase is often a transient fluctuation; stopping on it
     # forces the user to restart manually even though the algorithm would
     # recover by itself in the next iteration.
-    if (len(metric_error) >= 3
-            and metric_error[-1] > metric_error[-2]
-            and metric_error[-2] > metric_error[-3]):
+    if (
+        len(metric_error) >= 3
+        and metric_error[-1] > metric_error[-2]
+        and metric_error[-2] > metric_error[-3]
+    ):
         print("Error increased for 2 consecutive iterations.")
         print(
             "{:.04e} -> {:.04e} -> {:.04e}".format(
@@ -473,10 +503,15 @@ def _checkconditions(metric_error, changes, pixtol, count, maxit, subpixel=False
     # Relative improvement below threshold — useful for warm-started refinement
     # where the solution is already close to optimal.
     if rtol > 0 and len(metric_error) >= 2:
-        rel_improv = (metric_error[-2] - metric_error[-1]) / (abs(metric_error[-2]) + eps)
+        rel_improv = (metric_error[-2] - metric_error[-1]) / (
+            abs(metric_error[-2]) + eps
+        )
         if metric_error[-1] <= metric_error[-2] and rel_improv < rtol:
-            print("Relative improvement {:.2e} < rtol {:.2e}. Converged.".format(
-                rel_improv, rtol))
+            print(
+                "Relative improvement {:.2e} < rtol {:.2e}. Converged.".format(
+                    rel_improv, rtol
+                )
+            )
             return 4
     if np.max(changes) < step:
         if step >= 1:
@@ -517,6 +552,7 @@ def _filter_sino(sinogram, **params):
 # ============================================================================
 # Gradient descent core — vertical shifts  (replaces _search_vshift_direction)
 # ============================================================================
+
 
 def _search_vshift_direction(
     input_array,
@@ -589,12 +625,12 @@ def _search_vshift_direction(
     current_cost, current_sig = cost_and_sig(current_shift)
 
     for _ in range(_GD_MAX_ITER):
-        c_plus,  _ = cost_and_sig(current_shift + h)
+        c_plus, _ = cost_and_sig(current_shift + h)
         c_minus, _ = cost_and_sig(current_shift - h)
 
         # 1st derivative (gradient) and 2nd derivative (curvature)
-        grad      = (c_plus - c_minus) / (2.0 * h)
-        curvature = (c_plus - 2.0 * current_cost + c_minus) / (h ** 2)
+        grad = (c_plus - c_minus) / (2.0 * h)
+        curvature = (c_plus - 2.0 * current_cost + c_minus) / (h**2)
 
         if grad == 0.0:
             break
@@ -611,7 +647,7 @@ def _search_vshift_direction(
 
         # Halving fallback: ensure the step actually decreases the cost
         for _ in range(8):
-            candidate       = current_shift + step
+            candidate = current_shift + step
             candidate_cost, candidate_sig = cost_and_sig(candidate)
             if candidate_cost < current_cost:
                 break
@@ -621,8 +657,8 @@ def _search_vshift_direction(
             break
 
         current_shift = candidate
-        current_cost  = candidate_cost
-        current_sig   = candidate_sig
+        current_cost = candidate_cost
+        current_sig = candidate_sig
 
         if abs(step) < pixtol / 10.0:
             break
@@ -633,6 +669,7 @@ def _search_vshift_direction(
 # ============================================================================
 # Gradient descent core — horizontal shifts  (replaces _search_hshift_direction)
 # ============================================================================
+
 
 def _search_hshift_direction(
     sinogram_col,
@@ -708,12 +745,15 @@ def _search_hshift_direction(
 
     # E: fast Fourier-shift path — reuse precomputed FFT
     if sino_fft_col is not None and N_fft_col is not None:
+
         def _shift_col(s):
             H = np.exp(1j * 2.0 * np.pi * s * N_fft_col)
             return ifft(sino_fft_col * H).real[:col_len]
+
     else:
         if S is None:
             S = ShiftFunc(shiftmeth=shift_method)
+
         def _shift_col(s):
             return S(sinogram_col, s)
 
@@ -721,14 +761,14 @@ def _search_hshift_direction(
         return np.sum((_shift_col(s) - sinogramcomp_col) ** 2)
 
     current_shift = float(shift_delta)
-    current_cost  = cost(current_shift)
+    current_cost = cost(current_shift)
 
     for _ in range(_GD_MAX_ITER):
-        c_plus  = cost(current_shift + h)
+        c_plus = cost(current_shift + h)
         c_minus = cost(current_shift - h)
 
-        grad      = (c_plus - c_minus) / (2.0 * h)
-        curvature = (c_plus - 2.0 * current_cost + c_minus) / (h ** 2)
+        grad = (c_plus - c_minus) / (2.0 * h)
+        curvature = (c_plus - 2.0 * current_cost + c_minus) / (h**2)
 
         if grad == 0.0:
             break
@@ -741,7 +781,7 @@ def _search_hshift_direction(
 
         # Halving fallback: ensure cost strictly decreases
         for _ in range(6):
-            candidate      = current_shift + step
+            candidate = current_shift + step
             candidate_cost = cost(candidate)
             if candidate_cost < current_cost:
                 break
@@ -751,7 +791,7 @@ def _search_hshift_direction(
             break
 
         current_shift = candidate
-        current_cost  = candidate_cost
+        current_cost = candidate_cost
 
         if abs(step) < pixtol:
             break
@@ -763,6 +803,7 @@ def _search_hshift_direction(
 # ============================================================================
 # Anderson acceleration helper  (optimisation B)
 # ============================================================================
+
 
 class _AndersonAccelerator:
     """
@@ -786,8 +827,8 @@ class _AndersonAccelerator:
 
     def __init__(self, m=3):
         self.m = m
-        self._G = []   # history of g(x_k), flattened
-        self._F = []   # history of f_k = g(x_k) - x_k, flattened
+        self._G = []  # history of g(x_k), flattened
+        self._F = []  # history of f_k = g(x_k) - x_k, flattened
         self._shape = None
 
     def reset(self):
@@ -821,11 +862,11 @@ class _AndersonAccelerator:
             self._F.pop(0)
 
         if len(self._G) < 2:
-            return g_k   # no history yet — plain fixed-point step
+            return g_k  # no history yet — plain fixed-point step
 
         # Stack into (n_x, n_hist) matrices
-        F = np.column_stack(self._F)   # residuals
-        G = np.column_stack(self._G)   # g(x) images
+        F = np.column_stack(self._F)  # residuals
+        G = np.column_stack(self._G)  # g(x) images
 
         # Unconstrained reformulation of the constrained LS:
         #   min_{alpha} || F[:,-1] + dF @ alpha ||^2
@@ -841,6 +882,7 @@ class _AndersonAccelerator:
 # ============================================================================
 # Wrappers (unchanged logic; they call the new _search_*_direction above)
 # ============================================================================
+
 
 def _search_vshift_stack(input_stack, lims, input_delta, avg_vert_fluct, **kwargs):
     """
@@ -869,16 +911,16 @@ def _search_vshift_stack(input_stack, lims, input_delta, avg_vert_fluct, **kwarg
     vert_fluct_stack : ndarray, shape (n, n_rows_roi)
         Vertical fluctuation signals at the optimised shifts.
     """
-    pixtol       = kwargs["pixtol"]
+    pixtol = kwargs["pixtol"]
     shift_method = kwargs["shiftmeth"]
-    polyorder    = kwargs["polyorder"]
-    rows, cols   = lims
+    polyorder = kwargs["polyorder"]
+    rows, cols = lims
     nprojs, nr, nc = input_stack.shape
     max_vshift = int(np.ceil(np.max(np.abs(input_delta[0, :])))) + 1
     if np.any((rows - max_vshift) < 0) or np.any((rows + max_vshift) > nr):
         max_vshift = 1
 
-    vert_fluct_stack  = np.empty((input_stack.shape[0], rows[-1] - rows[0]))
+    vert_fluct_stack = np.empty((input_stack.shape[0], rows[-1] - rows[0]))
     output_shiftstack = np.empty_like(input_delta)
 
     if not isinstance(input_stack, np.ndarray):
@@ -886,8 +928,14 @@ def _search_vshift_stack(input_stack, lims, input_delta, avg_vert_fluct, **kwarg
 
     for ii in tqdm(range(nprojs), desc="Searching vertical shifts"):
         output_shiftstack[0, ii], vert_fluct_stack[ii] = _search_vshift_direction(
-            input_stack[ii], lims, input_delta[0, ii], avg_vert_fluct,
-            pixtol, max_vshift, shift_method, polyorder,
+            input_stack[ii],
+            lims,
+            input_delta[0, ii],
+            avg_vert_fluct,
+            pixtol,
+            max_vshift,
+            shift_method,
+            polyorder,
         )
     return output_shiftstack, vert_fluct_stack
 
@@ -911,43 +959,51 @@ def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice, **kwargs):
     **kwargs
         Must contain 'pixtol' and 'shiftmeth'.
     """
-    pixtol       = kwargs["pixtol"]
+    pixtol = kwargs["pixtol"]
     shift_method = kwargs["shiftmeth"]
-    nr, nc       = sinogram.shape
-    sino_out       = np.empty_like(sinogram)
+    nr, nc = sinogram.shape
+    sino_out = np.empty_like(sinogram)
     shiftslice_out = np.empty_like(shiftslice)
 
     # E: batch-precompute FFT of all sinogram columns (Fourier shift only)
     _sino_fft = None
-    _N_fft    = None
+    _N_fft = None
     if shift_method == "fourier":
-        padw      = int(2 ** np.ceil(np.log2(nr))) - nr   # pad to next power-of-2
-        _padded   = np.pad(sinogram, ((0, padw), (0, 0)), mode="reflect")
-        _N_fft    = fftfreq(nr + padw)                     # frequency coordinates
-        _sino_fft = fft(_padded, axis=0)                   # (nr+padw, nc), batch FFT
+        padw = int(2 ** np.ceil(np.log2(nr))) - nr  # pad to next power-of-2
+        _padded = np.pad(sinogram, ((0, padw), (0, 0)), mode="reflect")
+        _N_fft = fftfreq(nr + padw)  # frequency coordinates
+        _sino_fft = fft(_padded, axis=0)  # (nr+padw, nc), batch FFT
 
     def _process_col(ii):
         # A: each thread gets its own ShiftFunc (ShiftFunc stores state in self)
         S_local = ShiftFunc(shiftmeth=shift_method)
         fft_col = _sino_fft[:, ii] if _sino_fft is not None else None
-        s, col  = _search_hshift_direction(
-            sinogram[:, ii], sinogramcomp[:, ii], shiftslice[0, ii],
-            pixtol, shift_method,
-            S=S_local, sino_fft_col=fft_col, N_fft_col=_N_fft,
+        s, col = _search_hshift_direction(
+            sinogram[:, ii],
+            sinogramcomp[:, ii],
+            shiftslice[0, ii],
+            pixtol,
+            shift_method,
+            S=S_local,
+            sino_fft_col=fft_col,
+            N_fft_col=_N_fft,
         )
         return ii, s, col
 
     # A: parallel execution over columns
     n_workers = min(nc, os.cpu_count() or 1)
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
-        results = list(tqdm(
-            executor.map(_process_col, range(nc)),
-            total=nc, desc="Searching horizontal shifts",
-        ))
+        results = list(
+            tqdm(
+                executor.map(_process_col, range(nc)),
+                total=nc,
+                desc="Searching horizontal shifts",
+            )
+        )
 
     for ii, s, col in results:
         shiftslice_out[0, ii] = s
-        sino_out[:, ii]       = col
+        sino_out[:, ii] = col
 
     return sino_out, shiftslice_out
 
@@ -955,6 +1011,7 @@ def _search_hshift_sinogram(sinogram, sinogramcomp, shiftslice, **kwargs):
 # ============================================================================
 # Vertical alignment (outer loop — unchanged)
 # ============================================================================
+
 
 def _alignprojections_vertical(
     input_stack, lims, shiftstack, metric_error, vert_fluct_init, RP, **params
@@ -1003,7 +1060,7 @@ def _alignprojections_vertical(
         # ExitStack lets us conditionally redirect both stdout and stderr
         # without duplicating the computation block.
         _buf = io.StringIO()
-        _use_dh = hasattr(RP, '_dh_verbose') and RP._dh_verbose is not None
+        _use_dh = hasattr(RP, "_dh_verbose") and RP._dh_verbose is not None
 
         with contextlib.ExitStack() as _stack:
             if _use_dh:
@@ -1020,7 +1077,11 @@ def _alignprojections_vertical(
             else:
                 print("Updating the vertical fluctuations")
                 vert_fluct = vertical_fluctuations(
-                    input_stack, lims, shiftstack, params["shiftmeth"], polyorder=params["polyorder"]
+                    input_stack,
+                    lims,
+                    shiftstack,
+                    params["shiftmeth"],
+                    polyorder=params["polyorder"],
                 )
 
             vert_fluct_mean = vert_fluct.mean(axis=0)
@@ -1035,7 +1096,9 @@ def _alignprojections_vertical(
             vert_fluct_mean_temp = vert_fluct_temp.mean(axis=0)
             print("\nCalculating the error metric")
             for ii in range(vert_fluct_temp.shape[0]):
-                error_reg[ii] = np.sum(np.abs(vert_fluct_temp[ii] - vert_fluct_mean_temp) ** 2)
+                error_reg[ii] = np.sum(
+                    np.abs(vert_fluct_temp[ii] - vert_fluct_mean_temp) ** 2
+                )
             print("Final error metric for y, E = {:.04e}".format(np.sum(error_reg)))
             metric_error.append(np.sum(error_reg))
 
@@ -1046,7 +1109,12 @@ def _alignprojections_vertical(
 
             pixtol = params["pixtol"] if params["subpixel"] else 1
             reason = _checkconditions(
-                metric_error, changey, pixtol, count, params["maxit"], params["subpixel"],
+                metric_error,
+                changey,
+                pixtol,
+                count,
+                params["maxit"],
+                params["subpixel"],
                 rtol=params.get("rtol", 0.0),
             )
             if reason == 1:
@@ -1059,8 +1127,13 @@ def _alignprojections_vertical(
 
         # Update figure (also uses DisplayHandle.update — no clear_output).
         RP.plotsvertical(
-            input_stack[0], lims, vert_fluct_init, vert_fluct_temp,
-            shiftstack, metric_error, count,
+            input_stack[0],
+            lims,
+            vert_fluct_init,
+            vert_fluct_temp,
+            shiftstack,
+            metric_error,
+            count,
             max_correction=float(np.max(changey)),
         )
 
@@ -1136,15 +1209,21 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
         shiftstack[1] -= shiftstack[1].mean().round()
 
     vert_fluct_init = vertical_fluctuations(
-        input_stack, lims, shiftstack, params["shiftmeth"], polyorder=params["polyorder"]
+        input_stack,
+        lims,
+        shiftstack,
+        params["shiftmeth"],
+        polyorder=params["polyorder"],
     )
     avg_init = vert_fluct_init.mean(axis=0)
     shiftstack_init = shiftstack.copy()
 
     metric_error = []
     error_init = np.array(
-        [np.sum(np.abs(vert_fluct_init[ii] - avg_init) ** 2)
-         for ii in range(vert_fluct_init.shape[0])]
+        [
+            np.sum(np.abs(vert_fluct_init[ii] - avg_init) ** 2)
+            for ii in range(vert_fluct_init.shape[0])
+        ]
     )
     print("Initial error metric for y, E = {:.02e}".format(np.sum(error_init)))
     metric_error.append(np.sum(error_init))
@@ -1152,8 +1231,13 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
     plt.ion()
     RP = RegisterPlot(**params)
     RP.plotsvertical(
-        input_stack[0], lims, vert_fluct_init, vert_fluct_init,
-        shiftstack_init, metric_error, count=0,
+        input_stack[0],
+        lims,
+        vert_fluct_init,
+        vert_fluct_init,
+        shiftstack_init,
+        metric_error,
+        count=0,
     )
 
     print("\n================================================")
@@ -1177,6 +1261,7 @@ def alignprojections_vertical(input_stack, shiftstack, **params):
 # ============================================================================
 # Horizontal alignment (outer loop — unchanged)
 # ============================================================================
+
 
 def _alignprojections_horizontal(
     sinogram, sino_orig, theta, circleROI, shiftslice, metric_error, RP, **params
@@ -1240,9 +1325,9 @@ def _alignprojections_horizontal(
         # be shown in-place via DisplayHandle.update() — no clear_output.
         # RP may be None in silent / warm-start mode.
         _buf = io.StringIO()
-        _use_dh = (RP is not None
-                   and hasattr(RP, '_dh_verbose')
-                   and RP._dh_verbose is not None)
+        _use_dh = (
+            RP is not None and hasattr(RP, "_dh_verbose") and RP._dh_verbose is not None
+        )
 
         with contextlib.ExitStack() as _stack:
             if _use_dh:
@@ -1257,14 +1342,18 @@ def _alignprojections_horizontal(
             print("Computing synthetic sinogram...")
             sinogramcomp = projector(recons, theta, **params)
             if params["derivatives"] and not params["calc_derivatives"]:
-                sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params["shiftmeth"])
+                sinogramcomp = derivatives_sino(
+                    sinogramcomp, shift_method=params["shiftmeth"]
+                )
 
             print("Gradient descent search for horizontal shifts...")
             sinotempreg, shiftslice = _search_hshift_sinogram(
                 sino_orig, sinogramcomp, shiftslice, **params
             )
 
-            sinogram = compute_aligned_sino(sino_orig, shiftslice, shift_method=params["shiftmeth"])
+            sinogram = compute_aligned_sino(
+                sino_orig, shiftslice, shift_method=params["shiftmeth"]
+            )
 
             print("Computing tomographic slice...")
             t0 = time.time()
@@ -1282,15 +1371,23 @@ def _alignprojections_horizontal(
             metric_error.append(sumerrorxreg)
 
             changex = np.abs(deltaprev - shiftslice)
-            strprint = "Maximum correction in x = {:0.02f} pixels" if params["subpixel"] \
-                       else "Maximum correction in x = {:0.02g} pixels"
+            strprint = (
+                "Maximum correction in x = {:0.02f} pixels"
+                if params["subpixel"]
+                else "Maximum correction in x = {:0.02g} pixels"
+            )
             print("Estimating the changes in x:")
             print(strprint.format(np.max(changex)))
             print("Elapsed time in the iteration= {:0.02f} s".format(time.time() - it0))
 
             pixtol = params["pixtol"] if params["subpixel"] else 1
             reason = _checkconditions(
-                metric_error, changex, pixtol, count, params["maxit"], params["subpixel"],
+                metric_error,
+                changex,
+                pixtol,
+                count,
+                params["maxit"],
+                params["subpixel"],
                 rtol=params.get("rtol", 0.0),
             )
             if reason == 1:
@@ -1304,7 +1401,13 @@ def _alignprojections_horizontal(
         # Update figure (also uses DisplayHandle.update — no clear_output).
         if RP is not None:
             RP.plotshorizontal(
-                recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count
+                recons,
+                sino_orig,
+                sinogram,
+                sinogramcomp,
+                shiftslice,
+                metric_error,
+                count,
             )
 
         if reason >= 1:
@@ -1407,8 +1510,11 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     else:
         print("Using a frequency cutoff of {}".format(schedule[0]))
     if params["multiresolution"]:
-        print("Spatial multiresolution warm-start at stage 0 (factor={}, {} iterations)".format(
-            params["mr_factor"], params["n_coarse_iter"]))
+        print(
+            "Spatial multiresolution warm-start at stage 0 (factor={}, {} iterations)".format(
+                params["mr_factor"], params["n_coarse_iter"]
+            )
+        )
     if params["rtol"] > 0:
         print("Relative tolerance (rtol) = {}".format(params["rtol"]))
     print("Low limit for tomo values = {}".format(params["cliplow"]))
@@ -1428,7 +1534,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
     # Each stage inherits shiftslice from the previous one.
     # ---------------------------------------------------------------
     for stage_idx, fc in enumerate(schedule):
-        is_last = (stage_idx == n_stages - 1)
+        is_last = stage_idx == n_stages - 1
         params_s = dict(params, freqcutoff=fc, subpixel=True)
 
         # Keep RegisterPlot informed of the current stage so the suptitle
@@ -1438,8 +1544,11 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
         if n_stages > 1:
             print("\n╔══════════════════════════════════════════════════════╗")
-            print("║  Stage {}/{} — freqcutoff = {:<30}║".format(
-                stage_idx + 1, n_stages, str(fc) + "  "))
+            print(
+                "║  Stage {}/{} — freqcutoff = {:<30}║".format(
+                    stage_idx + 1, n_stages, str(fc) + "  "
+                )
+            )
             print("╚══════════════════════════════════════════════════════╝")
 
         padval = int(2 * np.round(1 / fc))
@@ -1467,13 +1576,18 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         if stage_idx == 0 and params["multiresolution"]:
             factor = params["mr_factor"]
             n_coarse_iter = params["n_coarse_iter"]
-            print("\n--- Spatial warm-start (factor={}, {} coarse iterations) ---".format(
-                factor, n_coarse_iter))
+            print(
+                "\n--- Spatial warm-start (factor={}, {} coarse iterations) ---".format(
+                    factor, n_coarse_iter
+                )
+            )
             nr, nc_sino = original_sino.shape
             nr_trim = (nr // factor) * factor
-            sino_pool = original_sino[:nr_trim, :].reshape(
-                nr_trim // factor, factor, nc_sino
-            ).mean(axis=1)
+            sino_pool = (
+                original_sino[:nr_trim, :]
+                .reshape(nr_trim // factor, factor, nc_sino)
+                .mean(axis=1)
+            )
             sino_pool_padded = np.pad(
                 sino_pool, ((padval, padval), (0, 0)), "constant", constant_values=0
             ).copy()
@@ -1503,8 +1617,14 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
             print("Initial coarse error, E= {:0.04e}".format(metric_error_c[0]))
             params_c = dict(params_s, maxit=n_coarse_iter)
             shiftslice_c, _ = _alignprojections_horizontal(
-                sinogram_c, sino_orig_c, theta, circleROI_c,
-                shiftslice_c, metric_error_c, RP, **params_c
+                sinogram_c,
+                sino_orig_c,
+                theta,
+                circleROI_c,
+                shiftslice_c,
+                metric_error_c,
+                RP,
+                **params_c,
             )
             shiftslice = shiftslice_c * factor
             sinogram = compute_aligned_sino(
@@ -1526,7 +1646,9 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
         t0 = time.time()
         sinogramcomp = projector(recons, theta, **params_s)
         if params_s["derivatives"] and not params_s["calc_derivatives"]:
-            sinogramcomp = derivatives_sino(sinogramcomp, shift_method=params_s["shiftmeth"])
+            sinogramcomp = derivatives_sino(
+                sinogramcomp, shift_method=params_s["shiftmeth"]
+            )
         print("Done. Time elapsed: {:.02f} s".format(time.time() - t0))
 
         metric_error = []
@@ -1536,18 +1658,35 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 
         if RP is not None:
             RP.plotshorizontal(
-                recons, sino_orig, sinogram, sinogramcomp, shiftslice, metric_error, count=0
+                recons,
+                sino_orig,
+                sinogram,
+                sinogramcomp,
+                shiftslice,
+                metric_error,
+                count=0,
             )
 
         print("\n===================================================")
         print("Horizontal alignment (Newton GD, pixtol={})".format(params_s["pixtol"]))
         print("===================================================")
         shiftslice, metric_error = _alignprojections_horizontal(
-            sinogram, sino_orig, theta, circleROI, shiftslice, metric_error, RP, **params_s
+            sinogram,
+            sino_orig,
+            theta,
+            circleROI,
+            shiftslice,
+            metric_error,
+            RP,
+            **params_s,
         )
 
         if not is_last:
-            print("Stage {} converged. Handing shifts to next stage.\n".format(stage_idx + 1))
+            print(
+                "Stage {} converged. Handing shifts to next stage.\n".format(
+                    stage_idx + 1
+                )
+            )
 
     shiftstack[1] = shiftslice
 
@@ -1565,6 +1704,7 @@ def alignprojections_horizontal(sinogram, theta, shiftstack, **params):
 # ============================================================================
 # Remaining public functions (unchanged)
 # ============================================================================
+
 
 def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
     """
@@ -1608,7 +1748,9 @@ def refine_horizontalalignment(input_stack, theta, shiftstack, **params):
     print("\n================================================")
     print("Starting the refinement of the alignment")
     print("================================================")
-    shiftstack = alignprojections_horizontal(sinogram, theta, shiftstack, **params_refine)
+    shiftstack = alignprojections_horizontal(
+        sinogram, theta, shiftstack, **params_refine
+    )
     return shiftstack, params
 
 
@@ -1648,7 +1790,9 @@ def _oneslicefordisplay(sinogram, theta, **params):
     circleROI = create_circle(recons) if params["circle"] else 1
     recons = recons * circleROI
     print("Done. Time elapsed: {} s".format(time.time() - p0))
-    display_slice(recons, colormap="bone", vmin=params["cliplow"], vmax=params["cliphigh"])
+    display_slice(
+        recons, colormap="bone", vmin=params["cliplow"], vmax=params["cliphigh"]
+    )
 
 
 def _tc_worker(args):
@@ -1671,9 +1815,11 @@ def _tc_worker(args):
     """
     import contextlib
     import os
+
     # matplotlib must be imported AFTER the process is spawned so we can
     # set the non-interactive backend before any display code runs.
     import matplotlib
+
     matplotlib.use("Agg")
 
     ii, sinogram, theta, shiftstack_copy, params_w = args
@@ -1727,10 +1873,9 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     """
     print("Starting Tomographic consistency on multiple slices")
     slicenumorig = params["slicenum"]
-    n_slices_tc  = params.get("n_slices_tc", 10)
-    half         = n_slices_tc // 2
-    slices       = np.arange(slicenumorig - half,
-                              slicenumorig - half + n_slices_tc)
+    n_slices_tc = params.get("n_slices_tc", 10)
+    half = n_slices_tc // 2
+    slices = np.arange(slicenumorig - half, slicenumorig - half + n_slices_tc)
     shiftslice_prev = np.expand_dims(shiftstack[1], axis=0).copy()
 
     # Single-pass params: strip schedule and spatial MR (warm-start is good).
@@ -1738,9 +1883,9 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     params_tc = dict(params)
     params_tc.pop("freqcutoff_schedule", None)
     params_tc["multiresolution"] = False
-    params_tc["silent"]          = True
+    params_tc["silent"] = True
 
-    n_cpu        = os.cpu_count() or 1
+    n_cpu = os.cpu_count() or 1
     n_workers_tc = params.get("n_workers_tc", max(1, n_cpu // 2))
     n_workers_tc = min(n_workers_tc, len(slices))
 
@@ -1752,7 +1897,7 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
     task_args = []
     for ii in slices:
         sino = np.transpose(input_stack[:, ii, :])
-        p    = dict(params_tc, slicenum=int(ii))
+        p = dict(params_tc, slicenum=int(ii))
         task_args.append((int(ii), sino, theta, shiftstack.copy(), p))
 
     if n_workers_tc == 1:
@@ -1790,8 +1935,9 @@ def tomoconsistency_multiple(input_stack, theta, shiftstack, **params):
         import matplotlib.figure as _mf_tc
         from matplotlib.backends.backend_agg import FigureCanvasAgg as _FCAgg_tc
         from IPython import display as _disp_tc
+
         fig = _mf_tc.Figure(figsize=(14, 8))
-        _FCAgg_tc(fig)                      # attach Agg canvas — no manager needed
+        _FCAgg_tc(fig)  # attach Agg canvas — no manager needed
         ax1, ax2 = fig.subplots(2, 1)
     else:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 8))
@@ -1862,11 +2008,11 @@ class _RotAxisPicker:
     """
 
     def __init__(self, input_array, theta, **params):
-        self._array  = input_array
-        self._theta  = theta
+        self._array = input_array
+        self._theta = theta
         self._params = params
         self.rot_axis_offset = params["rot_axis_offset"]
-        self._done   = False
+        self._done = False
 
         params.setdefault("sinocmap", params.get("colormap", "bone"))
 
@@ -1874,7 +2020,10 @@ class _RotAxisPicker:
         slicenum = params["slicenum"]
         sinogram = np.transpose(input_array[:, slicenum, :])
         sinogram = _offset_sinogram(sinogram, self.rot_axis_offset)
-        print("Computing initial slice (offset={}) …".format(self.rot_axis_offset), flush=True)
+        print(
+            "Computing initial slice (offset={}) …".format(self.rot_axis_offset),
+            flush=True,
+        )
         p0 = time.time()
         tomogram = tomo_recons(sinogram, theta, **params)
         print("Done in {:.1f} s.".format(time.time() - p0), flush=True)
@@ -1887,8 +2036,11 @@ class _RotAxisPicker:
 
         ax1 = fig.add_subplot(121)
         self._im1 = ax1.imshow(
-            tomogram, cmap=params["colormap"], interpolation="none",
-            vmin=params["cliplow"], vmax=params["cliphigh"],
+            tomogram,
+            cmap=params["colormap"],
+            interpolation="none",
+            vmin=params["cliplow"],
+            vmax=params["cliphigh"],
         )
         self._ax1 = ax1
         ax1.set_title("Slice {} — offset {}".format(slicenum, self.rot_axis_offset))
@@ -1896,8 +2048,11 @@ class _RotAxisPicker:
 
         ax2 = fig.add_subplot(122)
         self._im2 = ax2.imshow(
-            sinogram, cmap=params["sinocmap"], interpolation="none",
-            vmin=params["sinolow"], vmax=params["sinohigh"],
+            sinogram,
+            cmap=params["sinocmap"],
+            interpolation="none",
+            vmin=params["sinolow"],
+            vmax=params["sinohigh"],
         )
         ax2.axis("tight")
         ax2.set_title("Sinogram — slice {}".format(slicenum))
@@ -1905,18 +2060,22 @@ class _RotAxisPicker:
 
         # status text
         self._status = fig.text(
-            0.5, 0.97,
+            0.5,
+            0.97,
             "Enter a new offset → Update, or Confirm to accept current value.",
-            ha="center", va="top", fontsize=9, color="steelblue",
+            ha="center",
+            va="top",
+            fontsize=9,
+            color="steelblue",
         )
 
         # TextBox for offset value
-        ax_box    = fig.add_axes([0.25, 0.04, 0.20, 0.07])
+        ax_box = fig.add_axes([0.25, 0.04, 0.20, 0.07])
         ax_update = fig.add_axes([0.50, 0.04, 0.12, 0.07])
-        ax_conf   = fig.add_axes([0.65, 0.04, 0.12, 0.07])
+        ax_conf = fig.add_axes([0.65, 0.04, 0.12, 0.07])
         self._textbox = TextBox(ax_box, "Offset: ", initial=str(self.rot_axis_offset))
-        self._btn_update  = Button(ax_update,  "Update")
-        self._btn_confirm = Button(ax_conf,    "Confirm")
+        self._btn_update = Button(ax_update, "Update")
+        self._btn_confirm = Button(ax_conf, "Confirm")
         self._btn_update.on_clicked(self._on_update)
         self._btn_confirm.on_clicked(self._on_confirm)
         self.fig = fig
@@ -1955,7 +2114,9 @@ class _RotAxisPicker:
         self._ax1.set_title("Slice {} — offset {}".format(slicenum, new_offset))
         self._im2.set_data(sinogram)
         self._status.set_text(
-            "Offset {} — click Confirm to accept or enter another value.".format(new_offset)
+            "Offset {} — click Confirm to accept or enter another value.".format(
+                new_offset
+            )
         )
         self.fig.canvas.draw_idle()
 
@@ -2005,6 +2166,7 @@ def estimate_rot_axis(input_array, theta, **params):
     if isnotebook():
         try:
             import matplotlib as _mpl
+
             _interactive = "inline" not in _mpl.get_backend().lower()
         except Exception:
             _interactive = False
@@ -2019,6 +2181,7 @@ def estimate_rot_axis(input_array, theta, **params):
             )
         else:
             from IPython import display as _ipy_display
+
             _ipy_display.display(picker.fig)
         return picker
     else:
@@ -2051,10 +2214,14 @@ def _offset_sinogram_old(sinogram, offset):
     """
     if np.sign(offset) == +1:
         print("Initial guess of the rotation axis offset : {}".format(offset))
-        sinogram = np.pad(sinogram, ((0, 2 * abs(offset)), (0, 0)), "constant", constant_values=0)
+        sinogram = np.pad(
+            sinogram, ((0, 2 * abs(offset)), (0, 0)), "constant", constant_values=0
+        )
     elif np.sign(offset) == -1:
         print("Initial guess of the rotation axis offset : {}".format(offset))
-        sinogram = np.pad(sinogram, ((2 * abs(offset), 0), (0, 0)), "constant", constant_values=0)
+        sinogram = np.pad(
+            sinogram, ((2 * abs(offset), 0), (0, 0)), "constant", constant_values=0
+        )
     return sinogram
 
 

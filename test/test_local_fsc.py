@@ -26,10 +26,10 @@ from scipy.ndimage import gaussian_filter
 
 from toupy.resolution.localres import LocalFSC
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 def make_halves(seed=0, n=96, ndim=2, noise=0.3, smooth=2.0):
     """Two half-reconstructions sharing a smooth object plus independent noise."""
@@ -37,15 +37,14 @@ def make_halves(seed=0, n=96, ndim=2, noise=0.3, smooth=2.0):
     shape = (n,) * ndim
     obj = gaussian_filter(rng.normal(size=shape), smooth)
     obj /= obj.std()
-    return (obj + noise * rng.normal(size=shape),
-            obj + noise * rng.normal(size=shape))
+    return (obj + noise * rng.normal(size=shape), obj + noise * rng.normal(size=shape))
 
 
 def make_disc_object(seed=3, n=128, radius=40, noise=0.3, smooth=2.0):
     """A disc of material on empty background, with its support."""
     rng = np.random.default_rng(seed)
     yy, xx = np.mgrid[0:n, 0:n]
-    support = ((yy - n / 2) ** 2 + (xx - n / 2) ** 2) < radius ** 2
+    support = ((yy - n / 2) ** 2 + (xx - n / 2) ** 2) < radius**2
     obj = gaussian_filter(rng.normal(size=(n, n)), smooth)
     obj = obj / obj.std() * support
     img1 = obj + noise * rng.normal(size=(n, n))
@@ -56,6 +55,7 @@ def make_disc_object(seed=3, n=128, radius=40, noise=0.3, smooth=2.0):
 # ---------------------------------------------------------------------------
 # sign of the resolution map
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("ndim, n, box", [(2, 96, 32), (3, 48, 16)])
 def test_resolution_map_is_never_negative(ndim, n, box):
@@ -70,8 +70,11 @@ def test_resolution_map_is_never_negative(ndim, n, box):
     finite = lfsc.resolution_map[np.isfinite(lfsc.resolution_map)]
     assert finite.size > 0
     assert np.all(finite > 0.0)
-    for attr in ("resolution_map_phys", "resolution_map_half",
-                 "resolution_map_phys_half"):
+    for attr in (
+        "resolution_map_phys",
+        "resolution_map_half",
+        "resolution_map_phys_half",
+    ):
         arr = getattr(lfsc, attr)
         assert np.all(arr[np.isfinite(arr)] > 0.0)
 
@@ -92,11 +95,13 @@ def test_map_stays_within_the_measured_range():
 # first crossing of the threshold
 # ---------------------------------------------------------------------------
 
+
 def band_limited_volume(L, k_true, rng):
     """A 3-D field containing no spatial frequency above shell *k_true*."""
     k = np.fft.fftfreq(L) * L
-    R = np.rint(np.sqrt(k[:, None, None] ** 2 + k[None, :, None] ** 2
-                        + k[None, None, :] ** 2)).astype(int)
+    R = np.rint(
+        np.sqrt(k[:, None, None] ** 2 + k[None, :, None] ** 2 + k[None, None, :] ** 2)
+    ).astype(int)
     field = np.fft.fftn(rng.standard_normal((L,) * 3))
     field[R > k_true] = 0.0
     out = np.real(np.fft.ifftn(field))
@@ -115,16 +120,17 @@ def test_known_band_limit_is_recovered(L, k_true):
     """
     rng = np.random.default_rng(5)
     pad = np.random.default_rng(0).normal(size=(L + 32,) * 3)
-    lfsc = LocalFSC(pad, pad.copy(), box_size=L, step=L // 2,
-                    threshold="halfbit")
+    lfsc = LocalFSC(pad, pad.copy(), box_size=L, step=L // 2, threshold="halfbit")
     window = lfsc._make_window()
 
     true_px = L / k_true
     for _ in range(10):
         obj = band_limited_volume(L, k_true, rng)
-        res = lfsc._fsc_box(obj + rng.standard_normal((L,) * 3),
-                            obj + rng.standard_normal((L,) * 3),
-                            window)
+        res = lfsc._fsc_box(
+            obj + rng.standard_normal((L,) * 3),
+            obj + rng.standard_normal((L,) * 3),
+            window,
+        )
         assert np.isfinite(res)
         # the Hann window smears the band edge by about one shell
         assert abs(res - true_px) < 0.5, (res, true_px)
@@ -155,6 +161,7 @@ def test_uncorrelated_noise_is_not_reported_as_high_resolution():
 # non-crossing FSC -> NaN
 # ---------------------------------------------------------------------------
 
+
 def test_non_crossing_fsc_gives_nan_not_a_stand_in():
     """An unreachable threshold on uncorrelated halves leaves no estimate."""
     rng = np.random.default_rng(7)
@@ -184,19 +191,19 @@ def test_fsc_box_returns_nan_when_nothing_is_above_threshold():
 # statistics and counts
 # ---------------------------------------------------------------------------
 
+
 def test_statistics_ignore_nan_and_n_valid_counts_estimates():
     v1, v2, support = make_disc_object()
     lfsc = LocalFSC(v1, v2, box_size=32, step=16, mask=support)
 
     rmap = lfsc.resolution_map
-    assert np.any(np.isnan(rmap))          # background is NaN
+    assert np.any(np.isnan(rmap))  # background is NaN
     assert np.any(np.isfinite(rmap))
     finite = rmap[np.isfinite(rmap)]
     assert lfsc.resolution_median == pytest.approx(np.median(finite))
     assert lfsc.resolution_mean == pytest.approx(np.mean(finite))
     assert lfsc.resolution_std == pytest.approx(np.std(finite))
-    assert lfsc.resolution_median_half == pytest.approx(
-        lfsc.resolution_median / 2.0)
+    assert lfsc.resolution_median_half == pytest.approx(lfsc.resolution_median / 2.0)
 
     assert lfsc.n_boxes == lfsc.coarse_map.size
     assert lfsc.n_valid == int(np.count_nonzero(np.isfinite(lfsc.coarse_map)))
@@ -206,6 +213,7 @@ def test_statistics_ignore_nan_and_n_valid_counts_estimates():
 # ---------------------------------------------------------------------------
 # support mask
 # ---------------------------------------------------------------------------
+
 
 def test_mask_is_eroded_and_map_is_nan_outside_it():
     v1, v2, support = make_disc_object()
@@ -255,15 +263,14 @@ def test_default_erosion_is_the_cube_the_box_occupies():
     ey, ex = np.nonzero(lfsc.mask_eroded)
     h = 16
     for y, x in zip(ey[::37], ex[::37]):
-        assert support[y - h:y + h, x - h:x + h].all()
+        assert support[y - h : y + h, x - h : x + h].all()
 
 
 def test_ball_erosion_is_round_and_still_guarantees_containment():
     support, c = disc_support()
     v1, v2 = make_halves(n=256)
     cube = LocalFSC(v1, v2, box_size=32, step=16, mask=support)
-    ball = LocalFSC(v1, v2, box_size=32, step=16, mask=support,
-                    mask_eroded="ball")
+    ball = LocalFSC(v1, v2, box_size=32, step=16, mask=support, mask_eroded="ball")
 
     assert ball.erosion == "ball"
     assert ball.erosion_radius == pytest.approx(32 * np.sqrt(2) / 2)
@@ -273,8 +280,7 @@ def test_ball_erosion_is_round_and_still_guarantees_containment():
     r = np.hypot(ey - c, ex - c)
     ang = np.arctan2(ey - c, ex - c)
     bins = np.digitize(ang, np.linspace(-np.pi, np.pi, 37))
-    edge = np.array([r[bins == k].max() for k in range(1, 37)
-                     if np.any(bins == k)])
+    edge = np.array([r[bins == k].max() for k in range(1, 37) if np.any(bins == k)])
     assert edge.max() - edge.min() < 1.5
 
     # the circumradius ball contains the cube, so it erodes at least as
@@ -286,8 +292,9 @@ def test_numeric_erosion_radius_is_a_ball_of_that_radius():
     support, _ = disc_support()
     v1, v2 = make_halves(n=256)
     # in-plane circumradius for a cylindrical specimen, z unconstrained
-    lfsc = LocalFSC(v1, v2, box_size=32, step=16, mask=support,
-                    mask_eroded=32 / np.sqrt(2))
+    lfsc = LocalFSC(
+        v1, v2, box_size=32, step=16, mask=support, mask_eroded=32 / np.sqrt(2)
+    )
 
     assert lfsc.erosion == "ball"
     assert lfsc.erosion_radius == pytest.approx(32 / np.sqrt(2))
@@ -302,8 +309,7 @@ def test_permissive_ball_radius_admits_boxes_leaving_the_support():
     support, _ = disc_support()
     v1, v2 = make_halves(n=256)
     cube = LocalFSC(v1, v2, box_size=32, step=16, mask=support)
-    loose = LocalFSC(v1, v2, box_size=32, step=16, mask=support,
-                     mask_eroded=16.0)
+    loose = LocalFSC(v1, v2, box_size=32, step=16, mask=support, mask_eroded=16.0)
 
     assert loose.mask_eroded.sum() > cube.mask_eroded.sum()
 
@@ -311,8 +317,7 @@ def test_permissive_ball_radius_admits_boxes_leaving_the_support():
 def test_mask_eroded_none_uses_the_mask_verbatim():
     v1, v2, support = make_disc_object()
     auto = LocalFSC(v1, v2, box_size=32, step=16, mask=support)
-    asis = LocalFSC(v1, v2, box_size=32, step=16, mask=support,
-                    mask_eroded=None)
+    asis = LocalFSC(v1, v2, box_size=32, step=16, mask=support, mask_eroded=None)
 
     assert np.array_equal(asis.mask_eroded, support)
     assert np.array_equal(asis.mask, support)
@@ -349,10 +354,13 @@ def test_mask_eroded_none_without_a_mask_warns():
     assert lfsc.mask_eroded is None
 
 
-@pytest.mark.parametrize("bad, match", [
-    (np.ones((10, 10), dtype=bool), "does not match"),
-    (np.zeros((128, 128), dtype=bool), "no True entries"),
-])
+@pytest.mark.parametrize(
+    "bad, match",
+    [
+        (np.ones((10, 10), dtype=bool), "does not match"),
+        (np.zeros((128, 128), dtype=bool), "no True entries"),
+    ],
+)
 def test_invalid_mask_raises(bad, match):
     v1, v2, _ = make_disc_object()
     with pytest.raises(ValueError, match=match):

@@ -18,7 +18,9 @@ params = dict()
 # =========================
 params["account"] = "ma5295"
 params["samplename"] = "ACM_101_Zr_reg"
-params["pathfilename"] = "/data/visitor/ma5295/id16a/ACM_101_Zr_reg/analysis/recons/ACM_101_Zr_reg_NFP_035nm_subtomo001_0000/ACM_101_Zr_reg_NFP_035nm_subtomo001_0000_ML_pycuda.ptyr"
+params["pathfilename"] = (
+    "/data/visitor/ma5295/id16a/ACM_101_Zr_reg/analysis/recons/ACM_101_Zr_reg_NFP_035nm_subtomo001_0000/ACM_101_Zr_reg_NFP_035nm_subtomo001_0000_ML_pycuda.ptyr"
+)
 params["scanprefix"] = "ACM_101_Zr_reg_NFP_035nm"
 params["regime"] = "nearfield"  # 'nearfield' or 'farfield'
 params["showrecons"] = False
@@ -29,10 +31,10 @@ params["border_crop_y"] = None
 params["checkextraprojs"] = True
 params["missingprojs"] = False
 params["missingnum"] = []
-params["legacy"]=False
-params["pycudaprojs"]=True
-params["thetameta"]=False
-params["detector"]="PCIe"
+params["legacy"] = False
+params["pycudaprojs"] = True
+params["thetameta"] = False
+params["detector"] = "PCIe"
 # =========================
 
 # =============================================================================#

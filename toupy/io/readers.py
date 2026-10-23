@@ -85,8 +85,7 @@ class FrameReader(Protocol):
 
     def __call__(
         self, pathfilename: str, correct_orientation: bool = True
-    ) -> ReconFrame:
-        ...
+    ) -> ReconFrame: ...
 
 
 _REGISTRY: Dict[str, "FrameReader"] = {}

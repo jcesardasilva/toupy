@@ -15,6 +15,7 @@ The public API is unchanged:
 
 # standard packages
 import warnings
+
 warnings.filterwarnings("ignore")
 
 # third party packages
@@ -33,6 +34,7 @@ from ..utils.plot_utils import isnotebook
 try:
     import cupy as cp
     from cupy import RawKernel
+
     CUDA_AVAILABLE = True
 except ImportError:
     CUDA_AVAILABLE = False
@@ -185,8 +187,9 @@ def _filter_sinogram_gpu(sinogram_gpu, filter_type, derivatives, freqcutoff):
     """
     nbins = sinogram_gpu.shape[0]
     # compute filter on CPU, transfer once
-    h = compute_filter(nbins, filter_type=filter_type,
-                       derivatives=derivatives, freqcutoff=freqcutoff)
+    h = compute_filter(
+        nbins, filter_type=filter_type, derivatives=derivatives, freqcutoff=freqcutoff
+    )
     pad = h.shape[0]
 
     # pad sinogram
@@ -194,7 +197,7 @@ def _filter_sinogram_gpu(sinogram_gpu, filter_type, derivatives, freqcutoff):
     sino_pad[:nbins] = sinogram_gpu.astype(cp.complex64)
 
     # transfer filter to GPU and broadcast over angles
-    h_gpu = cp.asarray(h.astype(np.complex64))          # (pad, 1)
+    h_gpu = cp.asarray(h.astype(np.complex64))  # (pad, 1)
     filtered = cp.fft.ifft(cp.fft.fft(sino_pad, axis=0) * h_gpu, axis=0)
     return cp.real(filtered[:nbins]).astype(cp.float32)
 
@@ -202,6 +205,7 @@ def _filter_sinogram_gpu(sinogram_gpu, filter_type, derivatives, freqcutoff):
 # ---------------------------------------------------------------------------
 # Public functions
 # ---------------------------------------------------------------------------
+
 
 def compute_angle_weights(theta):
     """
@@ -219,10 +223,10 @@ def compute_angle_weights(theta):
         neighbours.  Forked from odtbrain.util.compute_angle_weights_1d.
     """
     theta = theta.flatten() - theta.min()
-    sortargs  = np.argsort(theta)
+    sortargs = np.argsort(theta)
     sorttheta = theta[sortargs]
-    diff_theta   = (np.roll(sorttheta, -1) - np.roll(sorttheta, 1)) % 180
-    weights      = diff_theta / np.sum(diff_theta) * diff_theta.size
+    diff_theta = (np.roll(sorttheta, -1) - np.roll(sorttheta, 1)) % 180
+    weights = diff_theta / np.sum(diff_theta) * diff_theta.size
     unsortweights = np.zeros_like(weights)
     unsortweights[sortargs] = weights
     return unsortweights
@@ -249,10 +253,11 @@ def compute_filter(nbins, filter_type="ram-lak", derivatives=False, freqcutoff=1
     fourier_filter : ndarray  shape (projection_size_padded, 1)  complex64
     """
     projection_size_padded = max(64, int(2 ** np.ceil(np.log2(2 * nbins))))
-    f     = fftfreq(projection_size_padded).reshape(-1, 1)
+    f = fftfreq(projection_size_padded).reshape(-1, 1)
     omega = 2 * np.pi * f
     fourier_filter = (
-        np.ones_like(f, dtype=np.complex64) if derivatives
+        np.ones_like(f, dtype=np.complex64)
+        if derivatives
         else 2 * np.abs(f).astype(np.complex64)
     )
     if filter_type == "ram-lak":
@@ -327,36 +332,48 @@ def mod_iradon(
     if interpolation not in ("linear", "nearest", "cubic"):
         raise ValueError("Unknown interpolation: {}".format(interpolation))
     if not output_size:
-        output_size = (radon_image.shape[0] if circle
-                       else int(np.floor(np.sqrt(radon_image.shape[0] ** 2 / 2.0))))
+        output_size = (
+            radon_image.shape[0]
+            if circle
+            else int(np.floor(np.sqrt(radon_image.shape[0] ** 2 / 2.0)))
+        )
 
     th = np.deg2rad(theta)
-    fourier_filter = compute_filter(radon_image.shape[0], filter_type=filter_type,
-                                    derivatives=derivatives, freqcutoff=freqcutoff)
+    fourier_filter = compute_filter(
+        radon_image.shape[0],
+        filter_type=filter_type,
+        derivatives=derivatives,
+        freqcutoff=freqcutoff,
+    )
     pad_width = ((0, fourier_filter.shape[0] - radon_image.shape[0]), (0, 0))
     img = np.pad(radon_image, pad_width, mode="constant", constant_values=0)
-    projection    = fft(img, axis=0) * fourier_filter
-    radon_filtered = np.real(ifft(projection, axis=0))[:radon_image.shape[0], :]
+    projection = fft(img, axis=0) * fourier_filter
+    radon_filtered = np.real(ifft(projection, axis=0))[: radon_image.shape[0], :]
 
     reconstructed = np.zeros((output_size, output_size))
     mid_index = radon_image.shape[0] // 2
     [X, Y] = np.mgrid[0:output_size, 0:output_size]
     xpr = X - output_size // 2
     ypr = Y - output_size // 2
-    x   = np.arange(radon_filtered.shape[0]) - mid_index
+    x = np.arange(radon_filtered.shape[0]) - mid_index
 
     for i in range(len(theta)):
         t = ypr * np.cos(th[i]) - xpr * np.sin(th[i])
         if interpolation == "linear":
             backprojected = np.interp(t, x, radon_filtered[:, i], left=0, right=0)
         else:
-            backprojected = interp1d(x, radon_filtered[:, i], kind=interpolation,
-                                     bounds_error=False, fill_value=0)(t)
+            backprojected = interp1d(
+                x,
+                radon_filtered[:, i],
+                kind=interpolation,
+                bounds_error=False,
+                fill_value=0,
+            )(t)
         reconstructed += backprojected
 
     if circle:
         radius = output_size // 2
-        mask = (xpr ** 2 + ypr ** 2) <= radius ** 2
+        mask = (xpr**2 + ypr**2) <= radius**2
         reconstructed[~mask] = 0.0
 
     return reconstructed * np.pi / (2 * len(th))
@@ -399,9 +416,15 @@ def mod_iradon_cuda(
     """
     if not CUDA_AVAILABLE:
         warnings.warn("CuPy unavailable — falling back to CPU reconstruction.")
-        return mod_iradon(radon_image, theta=theta, output_size=output_size,
-                          filter_type=filter_type, derivatives=derivatives,
-                          circle=circle, freqcutoff=freqcutoff)
+        return mod_iradon(
+            radon_image,
+            theta=theta,
+            output_size=output_size,
+            filter_type=filter_type,
+            derivatives=derivatives,
+            circle=circle,
+            freqcutoff=freqcutoff,
+        )
 
     if radon_image.ndim != 2:
         raise ValueError("The input image must be 2-D")
@@ -413,39 +436,50 @@ def mod_iradon_cuda(
     if len(theta) != radon_image.shape[1]:
         raise ValueError("theta length does not match the number of projections.")
     if not output_size:
-        output_size = (radon_image.shape[0] if circle
-                       else int(np.floor(np.sqrt(radon_image.shape[0] ** 2 / 2.0))))
+        output_size = (
+            radon_image.shape[0]
+            if circle
+            else int(np.floor(np.sqrt(radon_image.shape[0] ** 2 / 2.0)))
+        )
 
-    th       = np.deg2rad(theta).astype(np.float32)
-    cos_th   = np.cos(th).astype(np.float32)
-    sin_th   = np.sin(th).astype(np.float32)
-    nbins    = radon_image.shape[0]
-    nangles  = radon_image.shape[1]
+    th = np.deg2rad(theta).astype(np.float32)
+    cos_th = np.cos(th).astype(np.float32)
+    sin_th = np.sin(th).astype(np.float32)
+    nbins = radon_image.shape[0]
+    nangles = radon_image.shape[1]
     mid_index = nbins // 2
 
     # --- Upload sinogram and apply filter on GPU ---
-    sino_gpu = cp.asarray(radon_image.astype(np.float32))       # (nbins, nangles)
+    sino_gpu = cp.asarray(radon_image.astype(np.float32))  # (nbins, nangles)
     sino_filt = _filter_sinogram_gpu(sino_gpu, filter_type, derivatives, freqcutoff)
     # Make column-major layout so the kernel can stride over angles efficiently
-    sino_filt = cp.ascontiguousarray(sino_filt.T).ravel()        # (nangles * nbins,)
+    sino_filt = cp.ascontiguousarray(sino_filt.T).ravel()  # (nangles * nbins,)
 
     # --- Allocate output ---
-    img_gpu   = cp.zeros(output_size * output_size, dtype=cp.float32)
+    img_gpu = cp.zeros(output_size * output_size, dtype=cp.float32)
     cos_th_gpu = cp.asarray(cos_th)
     sin_th_gpu = cp.asarray(sin_th)
 
     # --- Launch kernel ---
     block = (16, 16, 1)
-    grid  = (
+    grid = (
         int(np.ceil(output_size / block[0])),
         int(np.ceil(output_size / block[1])),
         1,
     )
     _fbp_kernel(
-        grid, block,
-        (sino_filt, cos_th_gpu, sin_th_gpu, img_gpu,
-         np.int32(output_size), np.int32(nbins),
-         np.int32(nangles),     np.int32(mid_index)),
+        grid,
+        block,
+        (
+            sino_filt,
+            cos_th_gpu,
+            sin_th_gpu,
+            img_gpu,
+            np.int32(output_size),
+            np.int32(nbins),
+            np.int32(nangles),
+            np.int32(mid_index),
+        ),
     )
     cp.cuda.stream.get_current_stream().synchronize()
 
@@ -455,8 +489,8 @@ def mod_iradon_cuda(
 
     if circle:
         half = output_size // 2
-        Y, X = np.ogrid[-half:output_size - half, -half:output_size - half]
-        mask = X ** 2 + Y ** 2 <= half ** 2
+        Y, X = np.ogrid[-half : output_size - half, -half : output_size - half]
+        mask = X**2 + Y**2 <= half**2
         reconstructed[~mask] = 0.0
 
     return reconstructed
@@ -485,16 +519,16 @@ def backprojector(sinogram, theta, **params):
     use_cuda = params.get("cuda", params.get("opencl", False))
 
     if params["weight_angles"]:
-        weights  = compute_angle_weights(theta).reshape(1, -1)
+        weights = compute_angle_weights(theta).reshape(1, -1)
         sinogram = sinogram * weights
 
     shared = dict(
-        theta              = theta,
-        output_size        = sinogram.shape[0],
-        filter_type        = params["filtertype"],
-        derivatives        = params["derivatives"],
-        circle             = params["circle"],
-        freqcutoff         = params["freqcutoff"],
+        theta=theta,
+        output_size=sinogram.shape[0],
+        filter_type=params["filtertype"],
+        derivatives=params["derivatives"],
+        circle=params["circle"],
+        freqcutoff=params["freqcutoff"],
     )
 
     if use_cuda:
@@ -524,12 +558,12 @@ def reconsSART(
     -------
     recons_sart : ndarray
     """
-    theta    = np.float64(theta)
+    theta = np.float64(theta)
     sinogram = np.float64(sinogram)
-    circle   = params["circle"]
+    circle = params["circle"]
 
     if params.get("weight_angles", False):
-        weights  = compute_angle_weights(theta).reshape(1, -1)
+        weights = compute_angle_weights(theta).reshape(1, -1)
         sinogram = sinogram * weights
 
     if FBPinitial_guess:
@@ -537,19 +571,21 @@ def reconsSART(
         reconsFBP = backprojector(sinogram, theta, **params)
         reconsFBP = np.float64(reconsFBP)
         print("Done. Starting SART")
-        recons_sart = iradon_sart(sinogram, theta=theta,
-                                  image=reconsFBP, relaxation=relaxation_params)
+        recons_sart = iradon_sart(
+            sinogram, theta=theta, image=reconsFBP, relaxation=relaxation_params
+        )
     else:
         recons_sart = iradon_sart(sinogram, theta=theta, relaxation=relaxation_params)
 
     print("Starting iterative reconstruction:")
     for ii in range(num_iter):
         print("Iteration {}".format(ii + 1))
-        recons_sart = iradon_sart(sinogram, theta=theta,
-                                  image=recons_sart, relaxation=relaxation_params)
+        recons_sart = iradon_sart(
+            sinogram, theta=theta, image=recons_sart, relaxation=relaxation_params
+        )
 
     if circle:
         recons_circle = create_circle(recons_sart)
-        recons_sart   = recons_sart * recons_circle
+        recons_sart = recons_sart * recons_circle
 
     return recons_sart

@@ -19,18 +19,25 @@ from ..io.dataio import LoadData, SaveData
 from .ramptools import rmphaseramp, rmair
 from ..utils import isnotebook
 
-__all__ = ["gui_plotamp", "gui_plotphase", "AmpTracker", "PhaseTracker",
-           "make_air_mask"]
+__all__ = [
+    "gui_plotamp",
+    "gui_plotphase",
+    "AmpTracker",
+    "PhaseTracker",
+    "make_air_mask",
+]
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _is_ipympl():
     """Return True if the active matplotlib backend is ipympl (widget)."""
     try:
         import matplotlib
+
         backend = matplotlib.get_backend().lower()
         return "ipympl" in backend or "widget" in backend
     except Exception:
@@ -50,6 +57,7 @@ def _is_interactive_notebook():
         return False
     try:
         import matplotlib
+
         return "inline" not in matplotlib.get_backend().lower()
     except Exception:
         return False
@@ -80,9 +88,7 @@ def _removing_phaseramp(imgin, mask):
     ndarray, float
         Phase image with linear ramp removed and air phase zeroed.
     """
-    return np.angle(
-        rmphaseramp(np.exp(1j * imgin), weight=mask, zero_air_phase=True)
-    )
+    return np.angle(rmphaseramp(np.exp(1j * imgin), weight=mask, zero_air_phase=True))
 
 
 def _crop_stack(stack_images, cropreg):
@@ -101,7 +107,7 @@ def _crop_stack(stack_images, cropreg):
     ndarray
         Cropped stack.
     """
-    return stack_images[:, cropreg[0]:-cropreg[0], cropreg[1]:-cropreg[1]]
+    return stack_images[:, cropreg[0] : -cropreg[0], cropreg[1] : -cropreg[1]]
 
 
 def _setup_and_run(fig, tracker, notebook_hint):
@@ -141,6 +147,7 @@ def _setup_and_run(fig, tracker, notebook_hint):
             # preview and warn the user about the missing backend.
             fig.canvas.draw()
             from IPython import display as ipy_display
+
             ipy_display.display(fig)
             warnings.warn(
                 "The interactive GUI requires the ipympl backend.\n"
@@ -162,6 +169,7 @@ def _setup_and_run(fig, tracker, notebook_hint):
 # ---------------------------------------------------------------------------
 # Public GUI entry points
 # ---------------------------------------------------------------------------
+
 
 def gui_plotamp(stack_objs, **params):
     """
@@ -210,9 +218,7 @@ def gui_plotamp(stack_objs, **params):
 
     plt.close("all")
     fig = plt.figure(4)
-    gs = gridspec.GridSpec(
-        3, 3, width_ratios=[8, 3, 2], height_ratios=[8, 4.5, 0.5]
-    )
+    gs = gridspec.GridSpec(3, 3, width_ratios=[8, 3, 2], height_ratios=[8, 4.5, 0.5])
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[3])
     tracker = AmpTracker(fig, ax1, ax2, stack_objs, **params)
@@ -224,35 +230,48 @@ def gui_plotamp(stack_objs, **params):
     # elsewhere is immediately garbage-collected and its click/submit
     # handlers silently stop working.  We store all widgets on the
     # tracker so they live as long as the tracker does.
-    axdraw     = plt.axes([0.58, 0.82, 0.19, 0.06])
-    axclose    = plt.axes([0.78, 0.82, 0.19, 0.06])
-    axadd      = plt.axes([0.58, 0.72, 0.19, 0.06])
-    axapply    = plt.axes([0.78, 0.72, 0.19, 0.06])
-    axmaskall  = plt.axes([0.58, 0.62, 0.19, 0.06])
+    axdraw = plt.axes([0.58, 0.82, 0.19, 0.06])
+    axclose = plt.axes([0.78, 0.82, 0.19, 0.06])
+    axadd = plt.axes([0.58, 0.72, 0.19, 0.06])
+    axapply = plt.axes([0.78, 0.72, 0.19, 0.06])
+    axmaskall = plt.axes([0.58, 0.62, 0.19, 0.06])
     axapplyall = plt.axes([0.78, 0.62, 0.19, 0.06])
-    axremove   = plt.axes([0.58, 0.52, 0.19, 0.06])
-    axremoveall= plt.axes([0.58, 0.42, 0.19, 0.06])
-    axsave     = plt.axes([0.58, 0.32, 0.19, 0.06])
-    axload     = plt.axes([0.58, 0.22, 0.19, 0.06])
+    axremove = plt.axes([0.58, 0.52, 0.19, 0.06])
+    axremoveall = plt.axes([0.58, 0.42, 0.19, 0.06])
+    axsave = plt.axes([0.58, 0.32, 0.19, 0.06])
+    axload = plt.axes([0.58, 0.22, 0.19, 0.06])
 
-    bdraw      = Button(axdraw,      "draw mask"       ); bdraw.on_clicked(tracker.draw_mask)
-    bclose     = Button(axclose,     "close figure"    ); bclose.on_clicked(tracker.onclose)
-    badd       = Button(axadd,       "add mask"        ); badd.on_clicked(tracker.add_mask)
-    bapply     = Button(axapply,     "apply mask"      ); bapply.on_clicked(tracker.apply_mask)
-    bmaskall   = Button(axmaskall,   "mask all"        ); bmaskall.on_clicked(tracker.mask_all)
-    bapplyall  = Button(axapplyall,  "apply all masks" ); bapplyall.on_clicked(tracker.apply_all_masks)
-    bremove    = Button(axremove,    "remove mask"     ); bremove.on_clicked(tracker.remove_mask)
-    bremoveall = Button(axremoveall, "remove all mask" ); bremoveall.on_clicked(tracker.remove_all_mask)
-    bsave      = Button(axsave,      "save masks"      ); bsave.on_clicked(tracker.save_masks)
-    bload      = Button(axload,      "load masks"      ); bload.on_clicked(tracker.load_masks)
+    bdraw = Button(axdraw, "draw mask")
+    bdraw.on_clicked(tracker.draw_mask)
+    bclose = Button(axclose, "close figure")
+    bclose.on_clicked(tracker.onclose)
+    badd = Button(axadd, "add mask")
+    badd.on_clicked(tracker.add_mask)
+    bapply = Button(axapply, "apply mask")
+    bapply.on_clicked(tracker.apply_mask)
+    bmaskall = Button(axmaskall, "mask all")
+    bmaskall.on_clicked(tracker.mask_all)
+    bapplyall = Button(axapplyall, "apply all masks")
+    bapplyall.on_clicked(tracker.apply_all_masks)
+    bremove = Button(axremove, "remove mask")
+    bremove.on_clicked(tracker.remove_mask)
+    bremoveall = Button(axremoveall, "remove all mask")
+    bremoveall.on_clicked(tracker.remove_all_mask)
+    bsave = Button(axsave, "save masks")
+    bsave.on_clicked(tracker.save_masks)
+    bload = Button(axload, "load masks")
+    bload.on_clicked(tracker.load_masks)
 
     # --- Text boxes ---
-    axboxprojn = plt.axes([0.125, 0.05, 0.1,  0.06])
-    axboxvmin  = plt.axes([0.67,  0.05, 0.1,  0.06])
-    axboxvmax  = plt.axes([0.87,  0.05, 0.1,  0.06])
-    tbprojn = TextBox(axboxprojn, "Goto #", initial="1"   ); tbprojn.on_submit(tracker.submit)
-    tbvmin  = TextBox(axboxvmin,  "vmin",   initial="None"); tbvmin.on_submit(tracker.cmvmin)
-    tbvmax  = TextBox(axboxvmax,  "vmax",   initial="None"); tbvmax.on_submit(tracker.cmvmax)
+    axboxprojn = plt.axes([0.125, 0.05, 0.1, 0.06])
+    axboxvmin = plt.axes([0.67, 0.05, 0.1, 0.06])
+    axboxvmax = plt.axes([0.87, 0.05, 0.1, 0.06])
+    tbprojn = TextBox(axboxprojn, "Goto #", initial="1")
+    tbprojn.on_submit(tracker.submit)
+    tbvmin = TextBox(axboxvmin, "vmin", initial="None")
+    tbvmin.on_submit(tracker.cmvmin)
+    tbvmax = TextBox(axboxvmax, "vmax", initial="None")
+    tbvmax.on_submit(tracker.cmvmax)
 
     cmap_title = plt.axes([0.72, 0.14, 0.1, 0.06])
     cmap_title.set_axis_off()
@@ -263,19 +282,37 @@ def gui_plotamp(stack_objs, **params):
     axnext = plt.axes([0.35, 0.05, 0.05, 0.06])
     axplay = plt.axes([0.42, 0.05, 0.08, 0.06])
     axstop = plt.axes([0.51, 0.05, 0.08, 0.06])
-    bprev = Button(axprev, "<"   ); bprev.on_clicked(tracker.down)
-    bnext = Button(axnext, ">"   ); bnext.on_clicked(tracker.up)
-    bplay = Button(axplay, "play"); bplay.on_clicked(tracker.play)
-    bstop = Button(axstop, "stop"); bstop.on_clicked(tracker.stop_play)
+    bprev = Button(axprev, "<")
+    bprev.on_clicked(tracker.down)
+    bnext = Button(axnext, ">")
+    bnext.on_clicked(tracker.up)
+    bplay = Button(axplay, "play")
+    bplay.on_clicked(tracker.play)
+    bstop = Button(axstop, "stop")
+    bstop.on_clicked(tracker.stop_play)
 
     # Store all widget references on the tracker to prevent GC
     tracker._widgets = [
-        bdraw, bclose, badd, bapply, bmaskall, bapplyall,
-        bremove, bremoveall, bsave, bload,
-        tbprojn, tbvmin, tbvmax, bprev, bnext, bplay, bstop,
+        bdraw,
+        bclose,
+        badd,
+        bapply,
+        bmaskall,
+        bapplyall,
+        bremove,
+        bremoveall,
+        bsave,
+        bload,
+        tbprojn,
+        tbvmin,
+        tbvmax,
+        bprev,
+        bnext,
+        bplay,
+        bstop,
     ]
 
-    fig.canvas.mpl_connect("scroll_event",    tracker.onscroll)
+    fig.canvas.mpl_connect("scroll_event", tracker.onscroll)
     fig.canvas.mpl_connect("key_press_event", tracker.key_event)
     tracker._multicursor = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
 
@@ -327,9 +364,7 @@ def gui_plotphase(stack_objs, **params):
 
     plt.close("all")
     fig = plt.figure(1)
-    gs = gridspec.GridSpec(
-        3, 3, width_ratios=[8, 3, 2], height_ratios=[8, 4.5, 0.5]
-    )
+    gs = gridspec.GridSpec(3, 3, width_ratios=[8, 3, 2], height_ratios=[8, 4.5, 0.5])
     ax1 = plt.subplot(gs[0])
     ax2 = plt.subplot(gs[3])
     tracker = PhaseTracker(fig, ax1, ax2, stack_objs, **params)
@@ -341,43 +376,60 @@ def gui_plotphase(stack_objs, **params):
     # elsewhere is immediately garbage-collected and its click/submit
     # handlers silently stop working.  We store all widgets on the
     # tracker so they live as long as the tracker does.
-    axdraw      = plt.axes([0.58, 0.82, 0.19, 0.06])
-    axclose     = plt.axes([0.78, 0.82, 0.19, 0.06])
-    axadd       = plt.axes([0.58, 0.72, 0.19, 0.06])
-    axapply     = plt.axes([0.78, 0.72, 0.19, 0.06])
-    axmaskall   = plt.axes([0.58, 0.62, 0.19, 0.06])
-    axapplyall  = plt.axes([0.78, 0.62, 0.19, 0.06])
-    axremove    = plt.axes([0.58, 0.52, 0.19, 0.06])
-    axrmramp    = plt.axes([0.78, 0.52, 0.19, 0.06])
+    axdraw = plt.axes([0.58, 0.82, 0.19, 0.06])
+    axclose = plt.axes([0.78, 0.82, 0.19, 0.06])
+    axadd = plt.axes([0.58, 0.72, 0.19, 0.06])
+    axapply = plt.axes([0.78, 0.72, 0.19, 0.06])
+    axmaskall = plt.axes([0.58, 0.62, 0.19, 0.06])
+    axapplyall = plt.axes([0.78, 0.62, 0.19, 0.06])
+    axremove = plt.axes([0.58, 0.52, 0.19, 0.06])
+    axrmramp = plt.axes([0.78, 0.52, 0.19, 0.06])
     axremoveall = plt.axes([0.58, 0.42, 0.19, 0.06])
     axrmrampall = plt.axes([0.78, 0.42, 0.19, 0.06])
-    axsave      = plt.axes([0.58, 0.32, 0.19, 0.06])
-    axunwrap    = plt.axes([0.78, 0.32, 0.19, 0.06])
-    axload      = plt.axes([0.58, 0.22, 0.19, 0.06])
+    axsave = plt.axes([0.58, 0.32, 0.19, 0.06])
+    axunwrap = plt.axes([0.78, 0.32, 0.19, 0.06])
+    axload = plt.axes([0.58, 0.22, 0.19, 0.06])
     axunwrapall = plt.axes([0.78, 0.22, 0.19, 0.06])
 
-    bdraw      = Button(axdraw,      "draw mask"      ); bdraw.on_clicked(tracker.draw_mask)
-    bclose     = Button(axclose,     "close figure"   ); bclose.on_clicked(tracker.onclose)
-    badd       = Button(axadd,       "add mask"       ); badd.on_clicked(tracker.add_mask)
-    bapply     = Button(axapply,     "apply mask"     ); bapply.on_clicked(tracker.apply_mask)
-    bmaskall   = Button(axmaskall,   "mask all"       ); bmaskall.on_clicked(tracker.mask_all)
-    bapplyall  = Button(axapplyall,  "apply all masks"); bapplyall.on_clicked(tracker.apply_all_masks)
-    bremove    = Button(axremove,    "remove mask"    ); bremove.on_clicked(tracker.remove_mask)
-    brmramp    = Button(axrmramp,    "remove ramp"    ); brmramp.on_clicked(tracker.remove_ramp)
-    bremoveall = Button(axremoveall, "remove all mask"); bremoveall.on_clicked(tracker.remove_all_mask)
-    brmrampall = Button(axrmrampall, "remove all ramp"); brmrampall.on_clicked(tracker.remove_rampall)
-    bsave      = Button(axsave,      "save masks"     ); bsave.on_clicked(tracker.save_masks)
-    bunwrap    = Button(axunwrap,    "unwrap"         ); bunwrap.on_clicked(tracker.unwrapping_phase)
-    bload      = Button(axload,      "load masks"     ); bload.on_clicked(tracker.load_masks)
-    bunwrapall = Button(axunwrapall, "unwrap all"     ); bunwrapall.on_clicked(tracker.unwrapping_all)
+    bdraw = Button(axdraw, "draw mask")
+    bdraw.on_clicked(tracker.draw_mask)
+    bclose = Button(axclose, "close figure")
+    bclose.on_clicked(tracker.onclose)
+    badd = Button(axadd, "add mask")
+    badd.on_clicked(tracker.add_mask)
+    bapply = Button(axapply, "apply mask")
+    bapply.on_clicked(tracker.apply_mask)
+    bmaskall = Button(axmaskall, "mask all")
+    bmaskall.on_clicked(tracker.mask_all)
+    bapplyall = Button(axapplyall, "apply all masks")
+    bapplyall.on_clicked(tracker.apply_all_masks)
+    bremove = Button(axremove, "remove mask")
+    bremove.on_clicked(tracker.remove_mask)
+    brmramp = Button(axrmramp, "remove ramp")
+    brmramp.on_clicked(tracker.remove_ramp)
+    bremoveall = Button(axremoveall, "remove all mask")
+    bremoveall.on_clicked(tracker.remove_all_mask)
+    brmrampall = Button(axrmrampall, "remove all ramp")
+    brmrampall.on_clicked(tracker.remove_rampall)
+    bsave = Button(axsave, "save masks")
+    bsave.on_clicked(tracker.save_masks)
+    bunwrap = Button(axunwrap, "unwrap")
+    bunwrap.on_clicked(tracker.unwrapping_phase)
+    bload = Button(axload, "load masks")
+    bload.on_clicked(tracker.load_masks)
+    bunwrapall = Button(axunwrapall, "unwrap all")
+    bunwrapall.on_clicked(tracker.unwrapping_all)
 
     # --- Text boxes ---
-    axboxprojn = plt.axes([0.125, 0.05, 0.1,  0.06])
-    axboxvmin  = plt.axes([0.67,  0.05, 0.1,  0.06])
-    axboxvmax  = plt.axes([0.87,  0.05, 0.1,  0.06])
-    tbprojn = TextBox(axboxprojn, "Goto #", initial="1"   ); tbprojn.on_submit(tracker.submit)
-    tbvmin  = TextBox(axboxvmin,  "vmin",   initial="None"); tbvmin.on_submit(tracker.cmvmin)
-    tbvmax  = TextBox(axboxvmax,  "vmax",   initial="None"); tbvmax.on_submit(tracker.cmvmax)
+    axboxprojn = plt.axes([0.125, 0.05, 0.1, 0.06])
+    axboxvmin = plt.axes([0.67, 0.05, 0.1, 0.06])
+    axboxvmax = plt.axes([0.87, 0.05, 0.1, 0.06])
+    tbprojn = TextBox(axboxprojn, "Goto #", initial="1")
+    tbprojn.on_submit(tracker.submit)
+    tbvmin = TextBox(axboxvmin, "vmin", initial="None")
+    tbvmin.on_submit(tracker.cmvmin)
+    tbvmax = TextBox(axboxvmax, "vmax", initial="None")
+    tbvmax.on_submit(tracker.cmvmax)
 
     cmap_title = plt.axes([0.72, 0.14, 0.1, 0.06])
     cmap_title.set_axis_off()
@@ -388,20 +440,41 @@ def gui_plotphase(stack_objs, **params):
     axnext = plt.axes([0.35, 0.05, 0.05, 0.06])
     axplay = plt.axes([0.42, 0.05, 0.08, 0.06])
     axstop = plt.axes([0.51, 0.05, 0.08, 0.06])
-    bprev = Button(axprev, "<"   ); bprev.on_clicked(tracker.down)
-    bnext = Button(axnext, ">"   ); bnext.on_clicked(tracker.up)
-    bplay = Button(axplay, "play"); bplay.on_clicked(tracker.play)
-    bstop = Button(axstop, "stop"); bstop.on_clicked(tracker.stop_play)
+    bprev = Button(axprev, "<")
+    bprev.on_clicked(tracker.down)
+    bnext = Button(axnext, ">")
+    bnext.on_clicked(tracker.up)
+    bplay = Button(axplay, "play")
+    bplay.on_clicked(tracker.play)
+    bstop = Button(axstop, "stop")
+    bstop.on_clicked(tracker.stop_play)
 
     # Store all widget references on the tracker to prevent GC
     tracker._widgets = [
-        bdraw, bclose, badd, bapply, bmaskall, bapplyall,
-        bremove, brmramp, bremoveall, brmrampall,
-        bsave, bunwrap, bload, bunwrapall,
-        tbprojn, tbvmin, tbvmax, bprev, bnext, bplay, bstop,
+        bdraw,
+        bclose,
+        badd,
+        bapply,
+        bmaskall,
+        bapplyall,
+        bremove,
+        brmramp,
+        bremoveall,
+        brmrampall,
+        bsave,
+        bunwrap,
+        bload,
+        bunwrapall,
+        tbprojn,
+        tbvmin,
+        tbvmax,
+        bprev,
+        bnext,
+        bplay,
+        bstop,
     ]
 
-    fig.canvas.mpl_connect("scroll_event",    tracker.onscroll)
+    fig.canvas.mpl_connect("scroll_event", tracker.onscroll)
     fig.canvas.mpl_connect("key_press_event", tracker.key_event)
     tracker._multicursor = MultiCursor(fig.canvas, (ax1, ax2), color="r", lw=1)
 
@@ -411,6 +484,7 @@ def gui_plotphase(stack_objs, **params):
 # ---------------------------------------------------------------------------
 # Tracker classes
 # ---------------------------------------------------------------------------
+
 
 class PhaseTracker(object):
     """
@@ -429,10 +503,14 @@ class PhaseTracker(object):
         # width), making the text appear left-shifted.  fig.text() with
         # x=0.5 centres it over the full figure canvas.
         fig.text(
-            0.5, 0.975,
+            0.5,
+            0.975,
             "Scroll wheel or ← / → arrows to navigate   |   "
             "< / > buttons or 'Goto #' to jump",
-            ha="center", va="top", fontsize=9, color="0.45",
+            ha="center",
+            va="top",
+            fontsize=9,
+            color="0.45",
         )
 
         self.X1 = X1.copy()
@@ -549,8 +627,10 @@ class PhaseTracker(object):
         mid-loop.
         """
         self._stop_play = False
-        print("Playing from projection {} …  (click 'stop' to halt)".format(self.ind + 1),
-              flush=True)
+        print(
+            "Playing from projection {} …  (click 'stop' to halt)".format(self.ind + 1),
+            flush=True,
+        )
         canvas = self.ax1.figure.canvas
         for ii in range(self.ind, self.projs):
             if self._stop_play:
@@ -558,8 +638,8 @@ class PhaseTracker(object):
                 return
             self.ind = ii
             self.update()
-            canvas.draw()           # synchronous render
-            canvas.flush_events()   # process GUI events so the frame shows
+            canvas.draw()  # synchronous render
+            canvas.flush_events()  # process GUI events so the frame shows
         print("Play finished at projection {}.".format(self.ind + 1), flush=True)
 
     def stop_play(self, event):
@@ -578,9 +658,11 @@ class PhaseTracker(object):
         The selector is drawn directly on ``ax1`` — no separate figure is
         opened.  Any previously unfinished selector is discarded first.
         """
-        print("\nDrawing polygon mask directly on the image — "
-              "left-click to add vertices, click first vertex (or Enter) to finish.\n"
-              "When done, click 'add mask' to apply.")
+        print(
+            "\nDrawing polygon mask directly on the image — "
+            "left-click to add vertices, click first vertex (or Enter) to finish.\n"
+            "When done, click 'add mask' to apply."
+        )
         # Discard any unfinished selector from a previous call
         if self._poly_selector is not None:
             try:
@@ -593,7 +675,7 @@ class PhaseTracker(object):
             self._poly_selector = PolygonSelector(
                 self.ax1, self._on_poly_select, props=_props
             )
-        except TypeError:               # matplotlib < 3.5
+        except TypeError:  # matplotlib < 3.5
             self._poly_selector = PolygonSelector(
                 self.ax1, self._on_poly_select, lineprops=_props
             )
@@ -605,8 +687,10 @@ class PhaseTracker(object):
         self._poly_selector.disconnect_events()
         self._poly_selector = None
         self.ax1.figure.canvas.draw_idle()
-        print(f"Polygon with {len(self._poly_verts)} vertices recorded — "
-              "click 'add mask' (or another mask button) to apply.")
+        print(
+            f"Polygon with {len(self._poly_verts)} vertices recorded — "
+            "click 'add mask' (or another mask button) to apply."
+        )
 
     def _get_roi_mask(self):
         """
@@ -666,18 +750,20 @@ class PhaseTracker(object):
     # ------------------------------------------------------------------ correction
     def apply_mask(self, event):
         """Remove phase ramp from the current projection using its mask."""
-        print("Applying phase ramp correction to projection {} …".format(self.ind + 1),
-              flush=True)
-        self.X1[self.ind] = _removing_phaseramp(
-            self.X1[self.ind], self.mask[self.ind]
+        print(
+            "Applying phase ramp correction to projection {} …".format(self.ind + 1),
+            flush=True,
         )
+        self.X1[self.ind] = _removing_phaseramp(self.X1[self.ind], self.mask[self.ind])
         self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
         print("→ done.", flush=True)
 
     def apply_all_masks(self, event):
         """Remove phase ramp from all projections using their masks."""
-        print("Applying phase ramp correction to all {} projections:".format(self.projs))
+        print(
+            "Applying phase ramp correction to all {} projections:".format(self.projs)
+        )
         for ii in tqdm(range(self.projs), desc="  phase ramp removal", unit="proj"):
             self.X1[ii] = _removing_phaseramp(self.X1[ii], self.mask[ii])
             self.X2[ii] = self.X1[ii, self.hcen, :].copy()
@@ -701,9 +787,7 @@ class PhaseTracker(object):
         """Remove linear phase ramp from all projections (no mask)."""
         print("Removing ramp from all {} projections:".format(self.projs))
         for ii in tqdm(range(self.projs), desc="  ramp removal", unit="proj"):
-            self.X1[ii] = np.angle(
-                rmphaseramp(np.exp(1j * self.X1[ii]), weight=None)
-            )
+            self.X1[ii] = np.angle(rmphaseramp(np.exp(1j * self.X1[ii]), weight=None))
             self.X2[ii] = self.X1[ii, int(self.X1.shape[1] // 2), :].copy()
         self.ind = self.projs - 1
         self.update()
@@ -712,9 +796,7 @@ class PhaseTracker(object):
     def unwrapping_phase(self, event):
         """Unwrap phase of the current projection."""
         print("Unwrapping projection {} …".format(self.ind + 1), flush=True)
-        self.X1[self.ind] = _unwrapping_phase(
-            self.X1[self.ind], self.mask[self.ind]
-        )
+        self.X1[self.ind] = _unwrapping_phase(self.X1[self.ind], self.mask[self.ind])
         self.X2[self.ind] = self.X1[self.ind, self.hcen, :].copy()
         self.update()
         print("→ done.", flush=True)
@@ -779,35 +861,44 @@ class AmpTracker(PhaseTracker):
     def apply_mask(self, event):
         """Normalise air, apply log; guards against double-correction."""
         if self.ind in self.done:
-            print("Projection {} already corrected — skipping.".format(self.ind + 1), flush=True)
+            print(
+                "Projection {} already corrected — skipping.".format(self.ind + 1),
+                flush=True,
+            )
         else:
-            print("Applying air correction + log to projection {} …".format(self.ind + 1),
-                  flush=True)
+            print(
+                "Applying air correction + log to projection {} …".format(self.ind + 1),
+                flush=True,
+            )
             imgin = self.X1[self.ind].copy()
-            mask  = self.mask[self.ind].copy()
+            mask = self.mask[self.ind].copy()
             self.X1[self.ind] = np.log(rmair(imgin, mask))
             self.X2[self.ind] = self.X1[self.ind, int(self.X1.shape[1] // 2), :].copy()
             self.done.append(self.ind)
             self.vmin = -0.5
-            self.vmax =  0.1
+            self.vmax = 0.1
             print("→ done.", flush=True)
         self.update()
 
     def apply_all_masks(self, event):
         """Normalise air + log for all uncorrected projections."""
         already = [i for i in range(self.projs) if i in self.done]
-        todo    = [i for i in range(self.projs) if i not in self.done]
+        todo = [i for i in range(self.projs) if i not in self.done]
         if already:
-            print("  ({} projection(s) already corrected — skipping them)".format(len(already)))
+            print(
+                "  ({} projection(s) already corrected — skipping them)".format(
+                    len(already)
+                )
+            )
         print("Applying air correction + log to {} projection(s):".format(len(todo)))
         for ii in tqdm(todo, desc="  air correction", unit="proj"):
             imgin = self.X1[ii].copy()
-            mask  = self.mask[ii].copy()
+            mask = self.mask[ii].copy()
             self.X1[ii] = np.log(rmair(imgin, mask))
             self.X2[ii] = self.X1[ii, int(self.X1.shape[1] // 2), :].copy()
             self.done.append(ii)
         self.vmin = -0.5
-        self.vmax =  0.1
+        self.vmax = 0.1
         self.ind = self.projs - 1
         self.update()
         print("All projections corrected.")
@@ -816,6 +907,7 @@ class AmpTracker(PhaseTracker):
 # ---------------------------------------------------------------------------
 # Lightweight notebook-friendly mask helper
 # ---------------------------------------------------------------------------
+
 
 class _MaskPainter:
     """
@@ -839,8 +931,7 @@ class _MaskPainter:
         Number of polygon regions added so far.
     """
 
-    def __init__(self, image, cmap="gray", vmin=None, vmax=None,
-                 figsize=(8, 7)):
+    def __init__(self, image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
         self.image = np.asarray(image, dtype=float)
         ny, nx = self.image.shape[:2]
         self._ny, self._nx = ny, nx
@@ -850,30 +941,33 @@ class _MaskPainter:
         # Vertices for the polygon currently being drawn
         self._xs = []
         self._ys = []
-        self._live_line = None   # Line2D for the in-progress polygon
+        self._live_line = None  # Line2D for the in-progress polygon
 
         fig, ax = plt.subplots(figsize=figsize)
         self.fig = fig
-        self.ax  = ax
+        self.ax = ax
 
         ax.imshow(self.image, cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
         ax.axis("tight")
         fig.text(
-            0.5, 0.99,
+            0.5,
+            0.99,
             "Left-click on image to add vertices  |  "
             "'Add region' to store polygon  |  'Finish' when done",
-            ha="center", va="top", fontsize=9, color="0.4",
+            ha="center",
+            va="top",
+            fontsize=9,
+            color="0.4",
         )
 
         # Raw canvas event — works identically in terminal and Jupyter/ipympl.
         # Store the connection id so we can disconnect cleanly in _on_finish.
-        self._cid = fig.canvas.mpl_connect(
-            "button_press_event", self._on_click)
+        self._cid = fig.canvas.mpl_connect("button_press_event", self._on_click)
 
         # Two buttons — stored on self to prevent GC
-        ax_add    = fig.add_axes([0.25, 0.01, 0.25, 0.055])
-        ax_finish = fig.add_axes([0.55, 0.01, 0.2,  0.055])
-        self._btn_add    = Button(ax_add,    "Add region")
+        ax_add = fig.add_axes([0.25, 0.01, 0.25, 0.055])
+        ax_finish = fig.add_axes([0.55, 0.01, 0.2, 0.055])
+        self._btn_add = Button(ax_add, "Add region")
         self._btn_finish = Button(ax_finish, "Finish")
         self._btn_add.on_clicked(self._on_add)
         self._btn_finish.on_clicked(self._on_finish)
@@ -896,8 +990,12 @@ class _MaskPainter:
         self._xs.append(event.xdata)
         self._ys.append(event.ydata)
         self._redraw_live()
-        print("  vertex {}: ({:.1f}, {:.1f})".format(
-            len(self._xs), event.xdata, event.ydata), flush=True)
+        print(
+            "  vertex {}: ({:.1f}, {:.1f})".format(
+                len(self._xs), event.xdata, event.ydata
+            ),
+            flush=True,
+        )
 
     # ------------------------------------------------------------------
     def _redraw_live(self):
@@ -913,22 +1011,23 @@ class _MaskPainter:
             self.ax.figure.canvas.draw_idle()
             return
         if n == 1:
-            self._live_line, = self.ax.plot(
-                self._xs, self._ys, "ro", markersize=6, zorder=5)
+            (self._live_line,) = self.ax.plot(
+                self._xs, self._ys, "ro", markersize=6, zorder=5
+            )
         else:
             # Close the polygon visually once ≥ 3 points exist
             xs = self._xs + [self._xs[0]] if n >= 3 else list(self._xs)
             ys = self._ys + [self._ys[0]] if n >= 3 else list(self._ys)
-            self._live_line, = self.ax.plot(
-                xs, ys, "r-o", linewidth=1.5, markersize=4,
-                alpha=0.8, zorder=5)
+            (self._live_line,) = self.ax.plot(
+                xs, ys, "r-o", linewidth=1.5, markersize=4, alpha=0.8, zorder=5
+            )
         self.ax.figure.canvas.draw_idle()
 
     # ------------------------------------------------------------------
     def _rasterise(self, verts):
         """Rasterise *verts* onto the image grid; return a bool mask."""
         x, y = np.meshgrid(np.arange(self._nx), np.arange(self._ny))
-        pts  = np.vstack((x.ravel(), y.ravel())).T
+        pts = np.vstack((x.ravel(), y.ravel())).T
         path = mplPath.Path(verts)
         return path.contains_points(pts).reshape(self._ny, self._nx)
 
@@ -943,8 +1042,7 @@ class _MaskPainter:
         """
         verts = list(zip(self._xs, self._ys))
         if len(verts) < 3:
-            print("Need ≥ 3 vertices — keep clicking on the image.",
-                  flush=True)
+            print("Need ≥ 3 vertices — keep clicking on the image.", flush=True)
             return
         region = self._rasterise(verts)
         self.mask |= region
@@ -958,13 +1056,15 @@ class _MaskPainter:
             self._live_line = None
         xs_closed = self._xs + [self._xs[0]]
         ys_closed = self._ys + [self._ys[0]]
-        self.ax.add_line(plt.Line2D(
-            xs_closed, ys_closed, color="r", linewidth=1.5, linestyle="--"))
+        self.ax.add_line(
+            plt.Line2D(xs_closed, ys_closed, color="r", linewidth=1.5, linestyle="--")
+        )
         self.ax.figure.canvas.draw_idle()
         print(
             "Region {} added: {} px.  Total mask: {} px.  "
             "Draw next region or click 'Finish'.".format(
-                self.n_regions, int(region.sum()), int(self.mask.sum())),
+                self.n_regions, int(region.sum()), int(self.mask.sum())
+            ),
             flush=True,
         )
         # Reset for the next polygon
@@ -984,8 +1084,12 @@ class _MaskPainter:
             region = self._rasterise(verts)
             self.mask |= region
             self.n_regions += 1
-            print("Auto-added pending region {}: {} px.".format(
-                self.n_regions, int(region.sum())), flush=True)
+            print(
+                "Auto-added pending region {}: {} px.".format(
+                    self.n_regions, int(region.sum())
+                ),
+                flush=True,
+            )
         # Disconnect the click listener before closing
         try:
             self.fig.canvas.mpl_disconnect(self._cid)
@@ -993,8 +1097,7 @@ class _MaskPainter:
             pass
         print(
             "Mask finalised: {} region(s), {} pixels total.  "
-            "Access via  painter.mask".format(
-                self.n_regions, int(self.mask.sum())),
+            "Access via  painter.mask".format(self.n_regions, int(self.mask.sum())),
             flush=True,
         )
         plt.close(self.fig)
@@ -1092,8 +1195,7 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
         # ── Cell 2 ── run after clicking Finish in the figure above
         air_mask = painter.mask.copy()
     """
-    painter = _MaskPainter(image, cmap=cmap, vmin=vmin, vmax=vmax,
-                           figsize=figsize)
+    painter = _MaskPainter(image, cmap=cmap, vmin=vmin, vmax=vmax, figsize=figsize)
 
     if isnotebook():
         if _is_interactive_notebook():
@@ -1113,6 +1215,7 @@ def make_air_mask(image, cmap="gray", vmin=None, vmax=None, figsize=(8, 7)):
             )
         else:
             from IPython import display as ipy_display
+
             ipy_display.display(painter.fig)
             warnings.warn(
                 "Interactive mask drawing requires a non-inline backend.\n"
