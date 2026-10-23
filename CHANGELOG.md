@@ -18,6 +18,42 @@ All notable changes to **toupy** are documented in this file.
 - Example `tutorial/example_cone_phase_fdk.py` and self-checking test
   `test/cone_phase_test.py`.
 
+### Added — magnified inline-holography CTF (`toupy.restoration`)
+
+- **`holo_ctf_reconstruct`** — ESRF ID16A-style multi-distance CTF pipeline for
+  focused-beam (cone-beam) inline holography: flat-field correction
+  `(S−dark)/(ref−dark)` → rescale the magnified holograms onto a common
+  effective pixel (Fresnel scaling theorem, centre-preserving affine resample)
+  → sub-pixel alignment → multi-distance CTF inversion (`ctf_retrieve`).
+- Helpers **`flat_field_correct`**, **`eigenflat_correct`** (dynamic eigen
+  flat-field correction, robust to beam drift), **`holo_geometry`**
+  (magnification, effective distance/pixel per defocus position),
+  **`rescale_to_common_pixel`**, **`align_holograms`** (cross-correlation with
+  low-pass + `normalization=None`, robust to the differing Fresnel fringes
+  between distances).
+- `holo_ctf_reconstruct` exposes `flat_method='simple'|'eigen'`; the default
+  CTF `alpha` is `1e-4` (must be ≲ `(2β/δ)²` so the absorption term carries the
+  low frequencies — a larger alpha bows the interior grey levels / cupping).
+- `method='ctf'|'nonlinear'` — the non-linear option jointly inverts the exact
+  Fresnel model across distances, **fitting each distance at its native
+  effective resolution** (band-limiting the model to each detector's pixel
+  rather than fitting the full-band model to up-sampled coarse data). This
+  recovers the low frequencies / DC for **quantitative** interior grey levels
+  (removes cupping) and suppresses artifacts. Adjoint gradient FD-verified.
+  `refine_align=True` refines the registration on rough single-distance
+  retrievals (robust to the differing fringes). On a wide z_eff-coverage
+  geometry: corr 0.77 (CTF) → **0.99** (native non-linear + refine-align),
+  interior cupping 0.014 → 0.007.
+- `refine_distances=True` — optional auto-focus that refines a global
+  correction to the effective propagation distances by minimising the
+  multi-distance CTF data inconsistency (use when the focus/distance
+  calibration is approximate). Default off (distances taken from the geometry).
+- GPU: the native-resolution non-linear solver (the CG/FFT bottleneck) runs
+  entirely on CuPy when `cuda=True` (whole loop on-device, result returned on
+  CPU; graceful CPU fallback). Flat-field/rescale/align stay on CPU.
+- Example `tutorial/example_holo_ctf_id16a.py` (with a CTF frequency-coverage
+  diagnostic) and test `test/holo_ctf_test.py` (7 tests).
+
 ### Added — resource-aware memory check (`toupy.utils`)
 
 - **`check_memory_requirement`** — portable, hostname-free safeguard that
