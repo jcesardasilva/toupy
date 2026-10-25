@@ -5,7 +5,7 @@
 Template for the phase ramp removal from the phase projections
 
 This module will call a GUI with button for each task. Don't forget to
-close the GUI once finished and proceed to the saving. 
+close the GUI once finished and proceed to the saving.
 """
 
 # local packages
@@ -24,7 +24,7 @@ params["hcen"] = 738
 params["vmin"] = -1.6
 params["vmax"] = 1.6
 params["phaseonly"] = True  # ensuring that we are loading only phase
-params["colormap"]="bone"
+params["colormap"] = "bone"
 # =========================
 
 # =============================================================================#

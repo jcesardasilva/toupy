@@ -10,7 +10,8 @@ https://scikit-image.org/docs/dev/auto_examples/filters/plot_phase_unwrap.html?h
 from toupy.io import LoadData, SaveData
 from toupy.restoration import phaseresidues, chooseregiontounwrap, unwrapping_phase
 from toupy.utils import iterative_show, replace_bad
-#from toupy.restoration.unwraptools import _unwrapping_phase_parallel
+
+# from toupy.restoration.unwraptools import _unwrapping_phase_parallel
 
 # initializing dictionaries
 params = dict()
@@ -22,7 +23,7 @@ params["phaseonly"] = True
 params["threshold"] = 2000
 params["vmin"] = -8
 params["vmax"] = None
-params["colormap"]="bone"
+params["colormap"] = "bone"
 params["parallel"] = True
 params["n_cpus"] = -1
 params["autosave"] = True
@@ -58,19 +59,13 @@ if __name__ == "__main__":
     #              cell output, then run the next cell to access results:
     #              rx, ry, airpix = picker.rx, picker.ry, picker.airpix
     rx, ry, airpix = chooseregiontounwrap(
-                        stack_phasecorr,
-                        threshold = params["threshold"],
-                        parallel = params["parallel"],
-                        ncores = params["n_cpus"],
-                    )
+        stack_phasecorr,
+        threshold=params["threshold"],
+        parallel=params["parallel"],
+        ncores=params["n_cpus"],
+    )
 
-    stack_unwrap = unwrapping_phase(
-                        stack_phasecorr,
-                        rx,
-                        ry,
-                        airpix,
-                        **params
-                )
+    stack_unwrap = unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params)
 
     del stack_phasecorr
 

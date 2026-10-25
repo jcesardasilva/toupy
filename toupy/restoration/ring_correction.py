@@ -46,17 +46,18 @@ from scipy.ndimage import gaussian_filter1d, median_filter
 # ---------------------------------------------------------------------------
 try:
     import cupy as cp
+
     CUDA_AVAILABLE = True
 except ImportError:
     CUDA_AVAILABLE = False
 
-__all__ = ["remove_rings_wavelet_fft", "remove_rings_titarenko",
-           "remove_rings_stack"]
+__all__ = ["remove_rings_wavelet_fft", "remove_rings_titarenko", "remove_rings_stack"]
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_xp(cuda):
     if cuda:
@@ -113,7 +114,7 @@ def _correct_band(band, win_pix, xp):
     xp : numpy or cupy module
     """
     # Per-pixel angular mean: real smooth profile + sharp ring spikes
-    dc = band.mean(axis=1)                          # (n_pix_band,)
+    dc = band.mean(axis=1)  # (n_pix_band,)
     dc_cpu = cp.asnumpy(dc) if xp is not np else np.asarray(dc)
 
     # Robust smooth baseline (median ignores the narrow ring spikes)
@@ -122,7 +123,7 @@ def _correct_band(band, win_pix, xp):
         win += 1
     base = median_filter(dc_cpu, size=win)
 
-    stripe = dc_cpu - base                          # the ring component
+    stripe = dc_cpu - base  # the ring component
     stripe = xp.asarray(stripe) if xp is not np else stripe
     return band - stripe[:, None]
 
@@ -130,6 +131,7 @@ def _correct_band(band, win_pix, xp):
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def remove_rings_wavelet_fft(
     sinogram,
@@ -218,7 +220,7 @@ def remove_rings_wavelet_fft(
     # down for each (decimated) wavelet band so the physical separation
     # of ring spikes from object features is consistent across scales.
     # ------------------------------------------------------------------
-    win_full = max(int(target / 10), int(sigma) * 10)   # original-pixel units
+    win_full = max(int(target / 10), int(sigma) * 10)  # original-pixel units
 
     # Correct the final approximation band (size = target / 2**level)
     win_approx = max(3, int(win_full * cH.shape[0] / target))
@@ -281,7 +283,7 @@ def remove_rings_titarenko(sinogram, size=31, cuda=False):
     arr = xp.asarray(sino_cpu) if use_gpu else sino_cpu.copy()
 
     # Per-pixel angular mean
-    dc = arr.mean(axis=1)                     # (nrow,)
+    dc = arr.mean(axis=1)  # (nrow,)
 
     # Median-filter to estimate smooth background
     smooth = median_filter(np.asarray(dc), size=max(3, int(size)))

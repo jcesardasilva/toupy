@@ -22,8 +22,13 @@ from numpy.fft import fft2, ifft2, fftfreq
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from toupy.simulation import phantom3d
-from toupy.tomo import (ConeBeamGeometry, cone_project, fdk_reconstruct,
-                        cone_phase_retrieval_fdk, effective_fresnel_distance)
+from toupy.tomo import (
+    ConeBeamGeometry,
+    cone_project,
+    fdk_reconstruct,
+    cone_phase_retrieval_fdk,
+    effective_fresnel_distance,
+)
 
 # ---------------------------------------------------------------------------
 # Shared small fixture (built once)
@@ -40,18 +45,22 @@ def _build():
     vc = phantom3d(N=core, n_v=core_z, phantom_type="Modified Shepp-Logan")
     vol = np.zeros((_NV, _N, _N))
     zo, o = (_NV - core_z) // 2, (_N - core) // 2
-    vol[zo:zo + core_z, o:o + core, o:o + core] = vc
+    vol[zo : zo + core_z, o : o + core, o : o + core] = vc
 
     geom = ConeBeamGeometry(
-        SOD=0.15, SDD=0.30, det_pixel_size=2e-6, n_u=_N, n_v=_NV,
+        SOD=0.15,
+        SDD=0.30,
+        det_pixel_size=2e-6,
+        n_u=_N,
+        n_v=_NV,
         angles=np.linspace(0, 360, _NANG, endpoint=False),
     )
     proj = cone_project(vol, geom)
-    proj *= 1.0 / proj.max()                       # peak projected phase ~1 rad
+    proj *= 1.0 / proj.max()  # peak projected phase ~1 rad
 
     z_eff = effective_fresnel_distance(geom)
     px_eff = geom.effective_pixel_size
-    c = (-1.0 / DELTA_BETA + 1j)
+    c = -1.0 / DELTA_BETA + 1j
 
     def fresnel(phi, pad=2):
         nv, nu = phi.shape
@@ -61,8 +70,8 @@ def _build():
         FY, FX = np.meshgrid(fy, fx, indexing="ij")
         H = np.exp(1j * np.pi * WAVELENGTH * z_eff * (FY**2 + FX**2))
         field = np.ones((my, mx), dtype=complex)
-        field[oy:oy + nv, ox:ox + nu] = np.exp(c * phi)
-        return (np.abs(ifft2(fft2(field) * H))**2)[oy:oy + nv, ox:ox + nu]
+        field[oy : oy + nv, ox : ox + nu] = np.exp(c * phi)
+        return (np.abs(ifft2(fft2(field) * H)) ** 2)[oy : oy + nv, ox : ox + nu]
 
     rng = np.random.default_rng(0)
     I = np.array([fresnel(proj[k]) for k in range(_NANG)])
@@ -75,15 +84,16 @@ def _nrm(x):
 
 
 def _rmse(a, b):
-    return float(np.sqrt(np.mean((_nrm(a) - _nrm(b))**2)))
+    return float(np.sqrt(np.mean((_nrm(a) - _nrm(b)) ** 2)))
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 def test_effective_fresnel_distance():
-    geom = ConeBeamGeometry(SOD=0.15, SDD=0.30, det_pixel_size=2e-6,
-                            n_u=8, n_v=8, angles=np.array([0.0]))
+    geom = ConeBeamGeometry(
+        SOD=0.15, SDD=0.30, det_pixel_size=2e-6, n_u=8, n_v=8, angles=np.array([0.0])
+    )
     R1, R2 = 0.15, 0.15
     assert np.isclose(effective_fresnel_distance(geom), R1 * R2 / (R1 + R2))
     assert np.isclose(geom.magnification, 2.0)
@@ -94,8 +104,8 @@ def test_pipeline_shapes_and_recovery():
     geom, vol, proj, I = _build()
 
     volume, phase = cone_phase_retrieval_fdk(
-        I, geom, WAVELENGTH, DELTA_BETA, n_iter=60, reg_tv=2e-3,
-        return_phase=True)
+        I, geom, WAVELENGTH, DELTA_BETA, n_iter=60, reg_tv=2e-3, return_phase=True
+    )
 
     # shapes
     assert volume.shape == (_NV, _N, _N)
@@ -108,16 +118,23 @@ def test_pipeline_shapes_and_recovery():
     # the retrieval must not degrade the reconstruction beyond the FDK floor
     rmse_clean = _rmse(fdk_reconstruct(proj, geom), vol)
     rmse_iter = _rmse(volume, vol)
-    assert rmse_iter < rmse_clean + 0.05, \
-        "iterative RMSE {:.3f} far above clean-phase floor {:.3f}".format(
-            rmse_iter, rmse_clean)
+    assert (
+        rmse_iter < rmse_clean + 0.05
+    ), "iterative RMSE {:.3f} far above clean-phase floor {:.3f}".format(
+        rmse_iter, rmse_clean
+    )
 
 
 def test_shape_mismatch_raises():
-    geom = ConeBeamGeometry(SOD=0.15, SDD=0.30, det_pixel_size=2e-6,
-                            n_u=16, n_v=8, angles=np.linspace(0, 360, 4,
-                                                              endpoint=False))
-    bad = np.ones((4, 8, 99))            # wrong n_u
+    geom = ConeBeamGeometry(
+        SOD=0.15,
+        SDD=0.30,
+        det_pixel_size=2e-6,
+        n_u=16,
+        n_v=8,
+        angles=np.linspace(0, 360, 4, endpoint=False),
+    )
+    bad = np.ones((4, 8, 99))  # wrong n_u
     try:
         cone_phase_retrieval_fdk(bad, geom, WAVELENGTH, DELTA_BETA, n_iter=2)
     except ValueError:
@@ -133,9 +150,12 @@ if __name__ == "__main__":
             try:
                 fn()
                 print("PASS  {}".format(name))
-            except Exception as exc:                      # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
                 failures += 1
                 print("FAIL  {}: {}".format(name, exc))
-    print("\n{} passed, {} failed".format(
-        sum(1 for n in globals() if n.startswith("test_")) - failures, failures))
+    print(
+        "\n{} passed, {} failed".format(
+            sum(1 for n in globals() if n.startswith("test_")) - failures, failures
+        )
+    )
     raise SystemExit(1 if failures else 0)

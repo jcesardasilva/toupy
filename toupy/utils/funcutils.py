@@ -11,7 +11,14 @@ import urllib
 import urllib.request
 import warnings
 
-__all__ = ["switch", "deprecated", "progress_bar", "tqdm", "downloadURL", "downloadURLfile"]
+__all__ = [
+    "switch",
+    "deprecated",
+    "progress_bar",
+    "tqdm",
+    "downloadURL",
+    "downloadURLfile",
+]
 
 
 from tqdm import tqdm
@@ -149,6 +156,7 @@ def progbar(curr, total, textstr=""):
     textperc = "[{:>7.2%}]".format(frac)
     print("\r", textbar, textperc, textstr, end="")
 
+
 def progress_bar(count, block_size, total_size):
     """
     Display a download progress bar in the terminal.
@@ -168,25 +176,26 @@ def progress_bar(count, block_size, total_size):
     """
     if total_size <= 0:
         return
-        
+
     # Calcul du pourcentage
     percent = int(count * block_size * 100 / total_size)
     # On s'assure de ne pas dépasser 100% à cause du dernier bloc
     percent = min(100, percent)
-    
+
     # Création visuelle de la barre [##########          ]
     bar_length = 40
     filled_length = int(bar_length * percent / 100)
-    bar = '█' * filled_length + '-' * (bar_length - filled_length)
-    
+    bar = "█" * filled_length + "-" * (bar_length - filled_length)
+
     # \r permet de revenir au début de la ligne sans sauter à la suivante
-    sys.stdout.write(f'\rIndicateur : |{bar}| {percent}% complet')
+    sys.stdout.write(f"\rIndicateur : |{bar}| {percent}% complet")
     sys.stdout.flush()
-  
-def downloadURL(url,fname):
+
+
+def downloadURL(url, fname):
     """
     Download file from a URL.
-    
+
     Parameters
     ----------
     url : str
@@ -202,11 +211,12 @@ def downloadURL(url,fname):
     except Exception as e:
         print(f"\nErreur: {e}")
 
+
 @deprecated
 def downloadURLfile(url, filename):
     """
     Download and save file from a URL.
-    
+
     Parameters
     ----------
     url : str
@@ -216,9 +226,9 @@ def downloadURLfile(url, filename):
     """
     u = urllib.request.urlopen(url)
 
-    with open(filename, 'wb') as f:
+    with open(filename, "wb") as f:
         meta = u.info()
-        meta_func = meta.getheaders if hasattr(meta, 'getheaders') else meta.get_all
+        meta_func = meta.getheaders if hasattr(meta, "getheaders") else meta.get_all
         meta_length = meta_func("Content-Length")
         file_size = None
         if meta_length:
@@ -243,4 +253,3 @@ def downloadURLfile(url, filename):
         print()
 
     return filename
-    

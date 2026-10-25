@@ -21,6 +21,7 @@ from ..utils import tqdm
 # optional: SNAPHU (pip install snaphu)
 try:
     import snaphu as _snaphu
+
     _SNAPHU_AVAILABLE = True
 except ImportError:
     _SNAPHU_AVAILABLE = False
@@ -39,7 +40,7 @@ __all__ = [
     "phaseresiduesStack_parallel",
     "chooseregiontounwrap",
     "unwrap_phase_2d",
-    "unwrapping_phase"
+    "unwrapping_phase",
 ]
 
 
@@ -227,12 +228,14 @@ def phaseresidues(phimage):
     # Stack all four loop increments into a single (4, nr-2, nc-2) array so
     # that wraptopi is called once instead of four times, reducing Python
     # overhead and allowing NumPy to process the full batch in one pass.
-    diffs = np.stack([
-        phimage[2:,   1:-1] - phimage[1:-1, 1:-1],
-        phimage[2:,   2:]   - phimage[2:,   1:-1],
-        phimage[1:-1, 2:]   - phimage[2:,   2:],
-        phimage[1:-1, 1:-1] - phimage[1:-1, 2:],
-    ])                                              # (4, nr-2, nc-2)
+    diffs = np.stack(
+        [
+            phimage[2:, 1:-1] - phimage[1:-1, 1:-1],
+            phimage[2:, 2:] - phimage[2:, 1:-1],
+            phimage[1:-1, 2:] - phimage[2:, 2:],
+            phimage[1:-1, 1:-1] - phimage[1:-1, 2:],
+        ]
+    )  # (4, nr-2, nc-2)
     residues = np.sum(wraptopi(diffs), axis=0) / (2.0 * np.pi)
 
     respos, resneg, nres = _get_charge(residues)
@@ -365,27 +368,27 @@ class _RegionPicker:
     ]
 
     def __init__(self, stack_array, resmap, xres, yres):
-        self._stack   = stack_array
-        self._resmap  = resmap
-        self._xres    = xres
-        self._yres    = yres
+        self._stack = stack_array
+        self._resmap = resmap
+        self._xres = xres
+        self._yres = yres
 
         # public results
-        self.rx     = None
-        self.ry     = None
+        self.rx = None
+        self.ry = None
         self.airpix = None
-        self._done  = False
+        self._done = False
 
         # internal state
-        self._step       = 0   # 0=TL, 1=BR, 2=air, 3=ready
-        self._corners    = []  # (x, y) world-coord tuples
+        self._step = 0  # 0=TL, 1=BR, 2=air, 3=ready
+        self._corners = []  # (x, y) world-coord tuples
         self._rect_lines = []  # rectangle artist handles
-        self._air_dot    = None
+        self._air_dot = None
 
         # ---- figure ----
         fig, ax = plt.subplots(figsize=(9, 7))
         self.fig = fig
-        self.ax  = ax
+        self.ax = ax
 
         ax.imshow(stack_array[0], cmap="bone", aspect="auto")
         ax.plot(xres, yres, "or", markersize=3, alpha=0.6, label="residues")
@@ -400,22 +403,32 @@ class _RegionPicker:
 
         # step-instruction banner (centred over full figure)
         self._status_txt = fig.text(
-            0.5, 0.975, self._STEPS[0],
-            ha="center", va="top", fontsize=10,
-            color="steelblue", fontweight="bold",
+            0.5,
+            0.975,
+            self._STEPS[0],
+            ha="center",
+            va="top",
+            fontsize=10,
+            color="steelblue",
+            fontweight="bold",
         )
         # secondary info line (residue count, coordinates, warnings)
         self._info_txt = fig.text(
-            0.5, 0.935, "",
-            ha="center", va="top", fontsize=9, color="0.35",
+            0.5,
+            0.935,
+            "",
+            ha="center",
+            va="top",
+            fontsize=9,
+            color="0.35",
         )
 
         # buttons
-        ax_reset   = fig.add_axes([0.25, 0.01, 0.2,  0.055])
-        ax_confirm = fig.add_axes([0.55, 0.01, 0.2,  0.055])
-        self._btn_reset   = Button(ax_reset,   "Reset")
+        ax_reset = fig.add_axes([0.25, 0.01, 0.2, 0.055])
+        ax_confirm = fig.add_axes([0.55, 0.01, 0.2, 0.055])
+        self._btn_reset = Button(ax_reset, "Reset")
         self._btn_confirm = Button(ax_confirm, "Confirm")
-        self._btn_confirm.ax.set_facecolor("0.85")   # greyed out until ready
+        self._btn_confirm.ax.set_facecolor("0.85")  # greyed out until ready
         self._btn_reset.on_clicked(self._on_reset)
         self._btn_confirm.on_clicked(self._on_confirm)
 
@@ -448,7 +461,7 @@ class _RegionPicker:
             ([x0, x0], [y0, y1]),
             ([x1, x1], [y0, y1]),
         ]:
-            ln, = self.ax.plot(xs, ys, **kw)
+            (ln,) = self.ax.plot(xs, ys, **kw)
             self._rect_lines.append(ln)
 
     def _set_info(self, msg):
@@ -474,7 +487,7 @@ class _RegionPicker:
             # ---- step 1: top-left corner ----
             self._corners = [(x, y)]
             self._clear_overlays()
-            dot, = self.ax.plot(x, y, "bs", markersize=7)
+            (dot,) = self.ax.plot(x, y, "bs", markersize=7)
             self._rect_lines.append(dot)
             self._step = 1
             self._set_status(self._STEPS[1])
@@ -491,14 +504,12 @@ class _RegionPicker:
             self._draw_rect(x0, y0, x1, y1)
             rx = range(int(round(x0)), int(round(x1)) + 1)
             ry = range(int(round(y0)), int(round(y1)) + 1)
-            nres = int(np.round(
-                self._resmap[ry[0]:ry[-1], rx[0]:rx[-1]].sum()
-            ))
+            nres = int(np.round(self._resmap[ry[0] : ry[-1], rx[0] : rx[-1]].sum()))
             self._step = 2
             self._set_status(self._STEPS[2])
-            info = (
-                "Region: x=[{}, {}]  y=[{}, {}]   {} residues inside"
-            ).format(rx[0], rx[-1], ry[0], ry[-1], nres)
+            info = ("Region: x=[{}, {}]  y=[{}, {}]   {} residues inside").format(
+                rx[0], rx[-1], ry[0], ry[-1], nres
+            )
             self._set_info(info)
             print("  " + info, flush=True)
             print(self._STEPS[2], flush=True)
@@ -513,11 +524,11 @@ class _RegionPicker:
                 self._set_info(msg)
                 print("  WARNING: " + msg, flush=True)
                 return
-            self._air_dot, = self.ax.plot(x, y, "ob", markersize=8)
-            self.rx     = rx
-            self.ry     = ry
+            (self._air_dot,) = self.ax.plot(x, y, "ob", markersize=8)
+            self.rx = rx
+            self.ry = ry
             self.airpix = (int(round(x)), int(round(y)))
-            self._step  = 3   # waiting for Confirm
+            self._step = 3  # waiting for Confirm
             self._set_status(
                 "All set — click  Confirm  to accept  |  Reset  to start over"
             )
@@ -532,10 +543,10 @@ class _RegionPicker:
     def _on_reset(self, event):
         self._clear_overlays()
         self._corners = []
-        self._step    = 0
-        self.rx       = None
-        self.ry       = None
-        self.airpix   = None
+        self._step = 0
+        self.rx = None
+        self.ry = None
+        self.airpix = None
         self._btn_confirm.ax.set_facecolor("0.85")
         self._set_status(self._STEPS[0])
         self._set_info("")
@@ -543,9 +554,7 @@ class _RegionPicker:
 
     def _on_confirm(self, event):
         if self._step < 3:
-            print(
-                "Not ready yet — complete all 3 clicks first.", flush=True
-            )
+            print("Not ready yet — complete all 3 clicks first.", flush=True)
             return
         self._done = True
         try:
@@ -554,8 +563,10 @@ class _RegionPicker:
             pass
         print(
             "Confirmed — rx=[{}, {}]  ry=[{}, {}]  airpix={}".format(
-                self.rx[0], self.rx[-1],
-                self.ry[0], self.ry[-1],
+                self.rx[0],
+                self.rx[-1],
+                self.ry[0],
+                self.ry[-1],
                 self.airpix,
             ),
             flush=True,
@@ -625,6 +636,7 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
     if isnotebook():
         try:
             import matplotlib as _mpl
+
             _interactive = "inline" not in _mpl.get_backend().lower()
         except Exception:
             _interactive = False
@@ -642,6 +654,7 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
         else:
             import warnings
             from IPython import display as _ipy_display
+
             _ipy_display.display(picker.fig)
             warnings.warn(
                 "Interactive region picking requires a non-inline backend.\n"
@@ -652,13 +665,14 @@ def chooseregiontounwrap(stack_array, threshold=5000, parallel=False, ncores=1):
             )
         return picker
     else:
-        plt.show(block=True)   # blocks until Confirm closes the figure
+        plt.show(block=True)  # blocks until Confirm closes the figure
         return picker.rx, picker.ry, picker.airpix
 
 
 # ---------------------------------------------------------------------------
 # Internal reliability-map helper
 # ---------------------------------------------------------------------------
+
 
 def _reliability_map(phase):
     """
@@ -686,23 +700,25 @@ def _reliability_map(phase):
     # Stack all 8 first-order differences into a single (8, nr-2, nc-2)
     # array so wraptopi is called once instead of eight times.
     inner = phase[1:-1, 1:-1]
-    all_diffs = np.stack([
-        phase[1:-1, 2:]  - inner,   # H forward
-        inner - phase[1:-1, :-2],   # H backward
-        phase[2:,  1:-1] - inner,   # V forward
-        inner - phase[:-2,  1:-1],  # V backward
-        phase[2:,  2:]   - inner,   # D1 forward
-        inner - phase[:-2,  :-2],   # D1 backward
-        phase[2:,  :-2]  - inner,   # D2 forward
-        inner - phase[:-2,  2:],    # D2 backward
-    ])                              # (8, nr-2, nc-2)
-    w = wraptopi(all_diffs)         # single call
-    H  = w[0] - w[1]
-    V  = w[2] - w[3]
+    all_diffs = np.stack(
+        [
+            phase[1:-1, 2:] - inner,  # H forward
+            inner - phase[1:-1, :-2],  # H backward
+            phase[2:, 1:-1] - inner,  # V forward
+            inner - phase[:-2, 1:-1],  # V backward
+            phase[2:, 2:] - inner,  # D1 forward
+            inner - phase[:-2, :-2],  # D1 backward
+            phase[2:, :-2] - inner,  # D2 forward
+            inner - phase[:-2, 2:],  # D2 backward
+        ]
+    )  # (8, nr-2, nc-2)
+    w = wraptopi(all_diffs)  # single call
+    H = w[0] - w[1]
+    V = w[2] - w[3]
     D1 = w[4] - w[5]
     D2 = w[6] - w[7]
 
-    D = np.sqrt(H ** 2 + V ** 2 + D1 ** 2 + D2 ** 2)
+    D = np.sqrt(H**2 + V**2 + D1**2 + D2**2)
     # Avoid division by zero; zero D gives maximum reliability (flat region)
     with np.errstate(divide="ignore", invalid="ignore"):
         rel[1:-1, 1:-1] = np.where(D == 0.0, np.finfo(np.float64).max, 1.0 / D)
@@ -713,6 +729,7 @@ def _reliability_map(phase):
 # ---------------------------------------------------------------------------
 # Algorithm 1: Herraez reliability-guided BFS
 # ---------------------------------------------------------------------------
+
 
 def _unwrap_herraez(phase):
     """
@@ -757,8 +774,8 @@ def _unwrap_herraez(phase):
 
     # Cache hot-path references to avoid per-call attribute lookup
     _push = heapq.heappush
-    _pop  = heapq.heappop
-    heap  = []
+    _pop = heapq.heappop
+    heap = []
 
     # Seed neighbours
     for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
@@ -789,6 +806,7 @@ def _unwrap_herraez(phase):
 # ---------------------------------------------------------------------------
 # Algorithm 2: Goldstein branch-cut + BFS flood fill
 # ---------------------------------------------------------------------------
+
 
 def _unwrap_goldstein(phase):
     """
@@ -844,15 +862,15 @@ def _unwrap_goldstein(phase):
             r2, c2 = neg_rows[best_ni], neg_cols[best_ni]
             # L-shaped branch cut: horizontal segment then vertical segment
             c_lo, c_hi = min(c1, c2), max(c1, c2)
-            branch_cuts[r1, c_lo:c_hi + 1] = True
+            branch_cuts[r1, c_lo : c_hi + 1] = True
             r_lo, r_hi = min(r1, r2), max(r1, r2)
-            branch_cuts[r_lo:r_hi + 1, c2] = True
+            branch_cuts[r_lo : r_hi + 1, c2] = True
 
     # Unmatched positives: vertical cut to top border
     for pi in range(len(pos_rows)):
         if not pos_used[pi]:
             r, c = pos_rows[pi], pos_cols[pi]
-            branch_cuts[:r + 1, c] = True
+            branch_cuts[: r + 1, c] = True
 
     # Unmatched negatives: vertical cut to bottom border
     for ni in range(len(neg_rows)):
@@ -870,10 +888,12 @@ def _unwrap_goldstein(phase):
         found = False
         for dr in range(nr):
             for dc in range(nc):
-                for sr, sc in [(start_r + dr, start_c + dc),
-                               (start_r - dr, start_c - dc),
-                               (start_r + dr, start_c - dc),
-                               (start_r - dr, start_c + dc)]:
+                for sr, sc in [
+                    (start_r + dr, start_c + dc),
+                    (start_r - dr, start_c - dc),
+                    (start_r + dr, start_c - dc),
+                    (start_r - dr, start_c + dc),
+                ]:
                     if 0 <= sr < nr and 0 <= sc < nc and not branch_cuts[sr, sc]:
                         start_r, start_c = sr, sc
                         found = True
@@ -892,7 +912,12 @@ def _unwrap_goldstein(phase):
         r, c = queue.popleft()
         for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             r2, c2 = r + dr, c + dc
-            if 0 <= r2 < nr and 0 <= c2 < nc and not visited[r2, c2] and not branch_cuts[r2, c2]:
+            if (
+                0 <= r2 < nr
+                and 0 <= c2 < nc
+                and not visited[r2, c2]
+                and not branch_cuts[r2, c2]
+            ):
                 visited[r2, c2] = True
                 d = wraptopi(phase[r2, c2] - unwrapped[r, c])
                 unwrapped[r2, c2] = unwrapped[r, c] + d
@@ -948,6 +973,7 @@ def _unwrap_flynn(phase):
 # Algorithm 4: DCT-based Weighted Least Squares (Ghiglia & Romero, 1994)
 # ---------------------------------------------------------------------------
 
+
 def _unwrap_wls(phase):
     """
     DCT-based unweighted least-squares phase unwrapping (Ghiglia & Romero, 1994).
@@ -979,18 +1005,18 @@ def _unwrap_wls(phase):
     nr, nc = phase.shape
 
     # Wrapped forward differences (phase gradients)
-    dy = wraptopi(np.diff(phase, axis=0))   # shape (nr-1, nc)
-    dx = wraptopi(np.diff(phase, axis=1))   # shape (nr, nc-1)
+    dy = wraptopi(np.diff(phase, axis=0))  # shape (nr-1, nc)
+    dx = wraptopi(np.diff(phase, axis=1))  # shape (nr, nc-1)
 
     # Discrete divergence with Neumann (zero-flux) boundary conditions.
     # Interior: rho[i,j] = dx[i,j] - dx[i,j-1] + dy[i,j] - dy[i-1,j]
     rho = np.zeros((nr, nc), dtype=np.float64)
-    rho[:, 1:-1] += dx[:, 1:] - dx[:, :-1]   # interior x
-    rho[:, 0]    += dx[:, 0]                   # left boundary
-    rho[:, -1]   -= dx[:, -1]                  # right boundary
-    rho[1:-1, :] += dy[1:, :] - dy[:-1, :]    # interior y
-    rho[0, :]    += dy[0, :]                   # top boundary
-    rho[-1, :]   -= dy[-1, :]                  # bottom boundary
+    rho[:, 1:-1] += dx[:, 1:] - dx[:, :-1]  # interior x
+    rho[:, 0] += dx[:, 0]  # left boundary
+    rho[:, -1] -= dx[:, -1]  # right boundary
+    rho[1:-1, :] += dy[1:, :] - dy[:-1, :]  # interior y
+    rho[0, :] += dy[0, :]  # top boundary
+    rho[-1, :] -= dy[-1, :]  # bottom boundary
 
     # Residue correction: phase residues make the gradient field non-
     # conservative; the Poisson solver would otherwise spread that
@@ -998,12 +1024,13 @@ def _unwrap_wls(phase):
     # We detect residue locations (2×2 loops where the wrapped path integral
     # ≠ 0) and zero-out their divergence contribution before solving, which
     # localises the residue error rather than distributing it globally.
-    res_map, _, _ = phaseresidues(phase)   # values ±1 at residue corners
+    res_map, _, _ = phaseresidues(phase)  # values ±1 at residue corners
     # phaseresidues uses a (nr-2)×(nc-2) interior grid with +1 offset
     res_mask = np.zeros((nr, nc), dtype=bool)
     res_mask[1:-1, 1:-1] = np.abs(np.round(res_map)) >= 1
     # Dilate one pixel so the correction covers the full 2×2 residue cell
     from scipy.ndimage import binary_dilation
+
     res_mask = binary_dilation(res_mask)
     rho[res_mask] = 0.0
 
@@ -1015,12 +1042,12 @@ def _unwrap_wls(phase):
         2.0 * (np.cos(np.pi * k / nr) - 1.0)[:, None]
         + 2.0 * (np.cos(np.pi * l / nc) - 1.0)[None, :]
     )
-    mu[0, 0] = 1.0   # avoid division by zero; DC set to 0 below
+    mu[0, 0] = 1.0  # avoid division by zero; DC set to 0 below
 
     # Solve in DCT domain
     rho_hat = dctn(rho, type=2, norm="ortho")
     phi_hat = rho_hat / mu
-    phi_hat[0, 0] = 0.0   # DC is a free gauge (arbitrary global offset)
+    phi_hat[0, 0] = 0.0  # DC is a free gauge (arbitrary global offset)
     phi = idctn(phi_hat, type=2, norm="ortho")
 
     return phi
@@ -1029,6 +1056,7 @@ def _unwrap_wls(phase):
 # ---------------------------------------------------------------------------
 # Algorithm 5: SNAPHU (Chen & Zebker, 2001) — optional dependency
 # ---------------------------------------------------------------------------
+
 
 @contextlib.contextmanager
 def _suppress_fd1():
@@ -1041,14 +1069,14 @@ def _suppress_fd1():
     /dev/null at the OS level via ``os.dup2``.
     """
     sys.stdout.flush()
-    saved_fd = os.dup(1)                          # save real fd 1
-    devnull_fd = os.open(os.devnull, os.O_WRONLY) # open /dev/null
+    saved_fd = os.dup(1)  # save real fd 1
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)  # open /dev/null
     try:
-        os.dup2(devnull_fd, 1)                    # redirect fd 1 → /dev/null
+        os.dup2(devnull_fd, 1)  # redirect fd 1 → /dev/null
         yield
     finally:
         sys.stdout.flush()
-        os.dup2(saved_fd, 1)                      # restore real fd 1
+        os.dup2(saved_fd, 1)  # restore real fd 1
         os.close(saved_fd)
         os.close(devnull_fd)
 
@@ -1113,7 +1141,7 @@ def _unwrap_snaphu(phase, verbose=False):
     # Run SNAPHU, optionally suppressing its C-level output
     print("Running SNAPHU ...", end=" ", flush=True)
     if verbose:
-        print()   # newline before SNAPHU's own output
+        print()  # newline before SNAPHU's own output
         unw, _ = _snaphu.unwrap(igram, corr, nlooks=1)
     else:
         with _suppress_fd1():
@@ -1126,6 +1154,7 @@ def _unwrap_snaphu(phase, verbose=False):
 # ---------------------------------------------------------------------------
 # Public dispatcher
 # ---------------------------------------------------------------------------
+
 
 def unwrap_phase_2d(phase, method="herraez", verbose=False):
     """
@@ -1230,7 +1259,10 @@ def unwrap_phase_2d(phase, method="herraez", verbose=False):
 # Internal single-image unwrapping helper
 # ---------------------------------------------------------------------------
 
-def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez", verbose=False):
+
+def _unwrapping_phase(
+    img2unwrap, rx=[], ry=[], airpix=[], method="herraez", verbose=False
+):
     """
     Unwrap the phases of a projection
 
@@ -1285,7 +1317,10 @@ def _unwrapping_phase(img2unwrap, rx=[], ry=[], airpix=[], method="herraez", ver
 # Internal parallel unwrapping helper
 # ---------------------------------------------------------------------------
 
-def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, method="herraez", verbose=False):
+
+def _unwrapping_phase_parallel(
+    stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, method="herraez", verbose=False
+):
     """
     Unwrap the phases of a stack of projections in parallel.
 
@@ -1337,7 +1372,7 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, 
         )
 
     # Air-pixel indices within the ROI sub-array
-    air_row = airpix[1] - ry[0]   # airpix is (col, row)
+    air_row = airpix[1] - ry[0]  # airpix is (col, row)
     air_col = airpix[0] - rx[0]
 
     # Build the output from a copy of the original (preserves pixels outside
@@ -1358,6 +1393,7 @@ def _unwrapping_phase_parallel(stack2unwrap, rx=[], ry=[], airpix=[], ncores=1, 
 # ---------------------------------------------------------------------------
 # Public stack unwrapping function
 # ---------------------------------------------------------------------------
+
 
 def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     """
@@ -1433,8 +1469,12 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     # ---- test unwrap on the first projection and show the result ----
     print("Testing unwrapping on the first projection …", flush=True)
     img0_unwrap = _unwrapping_phase(
-        stack_phasecorr[0], rx, ry, airpix,
-        method=params["unwrap_method"], verbose=verbose,
+        stack_phasecorr[0],
+        rx,
+        ry,
+        airpix,
+        method=params["unwrap_method"],
+        verbose=verbose,
     )
     print("→ done.", flush=True)
 
@@ -1444,9 +1484,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     # params["vmax"] values — no blocking input() prompt.
     plt.close("all")
     fig, ax1 = plt.subplots(figsize=(8, 6))
-    im1 = ax1.imshow(
-        img0_unwrap, cmap="bone", vmin=params["vmin"], vmax=params["vmax"]
-    )
+    im1 = ax1.imshow(img0_unwrap, cmap="bone", vmin=params["vmin"], vmax=params["vmax"])
     ax1 = _plotdelimiters(ax1, ry, rx, airpix)
     ax1.axis("tight")
     ax1.set_title(
@@ -1468,6 +1506,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
     if isnotebook():
         try:
             import matplotlib as _mpl
+
             _interactive = "inline" not in _mpl.get_backend().lower()
         except Exception:
             _interactive = False
@@ -1476,6 +1515,7 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
             fig.canvas.draw()
         else:
             from IPython import display as _ipy_display
+
             _ipy_display.display(fig)
             plt.close(fig)
     else:
@@ -1487,13 +1527,22 @@ def unwrapping_phase(stack_phasecorr, rx, ry, airpix, **params):
         nprojs = stack_phasecorr.shape[0]
         for ii in tqdm(range(nprojs), desc="Unwrapping projections"):
             stack_unwrap[ii] = _unwrapping_phase(
-                stack_phasecorr[ii], rx, ry, airpix,
-                method=params["unwrap_method"], verbose=verbose,
+                stack_phasecorr[ii],
+                rx,
+                ry,
+                airpix,
+                method=params["unwrap_method"],
+                verbose=verbose,
             )
     else:
         stack_unwrap = _unwrapping_phase_parallel(
-            stack_phasecorr, rx, ry, airpix,
-            ncores=ncores, method=params["unwrap_method"], verbose=verbose,
+            stack_phasecorr,
+            rx,
+            ry,
+            airpix,
+            ncores=ncores,
+            method=params["unwrap_method"],
+            verbose=verbose,
         )
 
     return stack_unwrap

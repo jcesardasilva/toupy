@@ -16,9 +16,11 @@ import numpy as np
 
 class _LazyPlt:
     """Proxy for matplotlib.pyplot — defers the heavy pyplot import until first plot call."""
+
     def __getattr__(self, name):
         global plt
         import matplotlib.pyplot as _real_plt
+
         plt = _real_plt  # replace proxy with the real module for all future lookups
         return getattr(_real_plt, name)
 
@@ -28,8 +30,10 @@ plt = _LazyPlt()
 
 class _LazyIPythonDisplay:
     """Proxy for IPython.display — defers the actual import until first attribute access."""
+
     def __getattr__(self, name):
         from IPython import display as _d
+
         return getattr(_d, name)
 
 
@@ -52,6 +56,7 @@ __all__ = [
     "animated_image",
     "display_slice",
 ]
+
 
 def show_figure(fig=None, close=True):
     """Display a figure in the current environment and optionally close it.
@@ -78,7 +83,8 @@ def show_figure(fig=None, close=True):
         fig = plt.gcf()
     if isnotebook():
         from matplotlib.backends.backend_agg import FigureCanvasAgg as _FCAgg
-        _FCAgg(fig)       # swap to Agg canvas — savefig no longer needs manager
+
+        _FCAgg(fig)  # swap to Agg canvas — savefig no longer needs manager
         buf = _io.BytesIO()
         fig.savefig(buf, format="png", bbox_inches="tight", dpi=100)
         buf.seek(0)
@@ -108,8 +114,9 @@ def show_fsc_images(img1_apod, img2_apod):
         # never called).  The Agg canvas path has no manager dependency at all.
         import matplotlib.figure as _mf
         from matplotlib.backends.backend_agg import FigureCanvasAgg as _FCAgg
+
         fig = _mf.Figure(figsize=(10, 5))
-        _FCAgg(fig)           # attach Agg canvas — no pyplot/manager involved
+        _FCAgg(fig)  # attach Agg canvas — no pyplot/manager involved
         ax1 = fig.add_subplot(121)
         ax2 = fig.add_subplot(122)
         ax1.imshow(img1_apod, cmap="bone", interpolation="none")
@@ -186,8 +193,13 @@ def show_fsc_curve(fn, FSC, T, snrt, ndim):
     if np.any(above):
         last_above = int(np.where(above)[0][-1])
         fn_res = float(fn[last_above])
-        ax.axvline(fn_res, color="k", linestyle="--", alpha=0.7,
-                   label=f"Resolution ≈ {fn_res:.3f} × Nyquist")
+        ax.axvline(
+            fn_res,
+            color="k",
+            linestyle="--",
+            alpha=0.7,
+            label=f"Resolution ≈ {fn_res:.3f} × Nyquist",
+        )
 
     ax.legend()
     ax.set_xlim(0, 1)
@@ -252,13 +264,23 @@ def show_ssnr_curve(fn, FSC, SSNR, SSNR_T, snrt, ndim):
     plt.clf()
     ax = fig.add_subplot(111)
 
-    ax.semilogy(fn, SSNR,   "-b", label="SSNR")
+    ax.semilogy(fn, SSNR, "-b", label="SSNR")
     ax.semilogy(fn, SSNR_T, "-r", label=f"SSNR threshold ({thr_name})")
-    ax.axhline(SSNR_asymp, color="r", linestyle=":", alpha=0.6,
-               label=f"Asymptote = {SSNR_asymp:.3f}")
+    ax.axhline(
+        SSNR_asymp,
+        color="r",
+        linestyle=":",
+        alpha=0.6,
+        label=f"Asymptote = {SSNR_asymp:.3f}",
+    )
     if fn_res is not None:
-        ax.axvline(fn_res, color="k", linestyle="--", alpha=0.7,
-                   label=f"Resolution ~ {fn_res:.3f} x Nyquist")
+        ax.axvline(
+            fn_res,
+            color="k",
+            linestyle="--",
+            alpha=0.7,
+            label=f"Resolution ~ {fn_res:.3f} x Nyquist",
+        )
 
     ax.legend()
     ax.set_xlim(0, 1)
@@ -272,9 +294,8 @@ def show_ssnr_curve(fn, FSC, SSNR, SSNR_T, snrt, ndim):
     # raises a ParseException at tight_layout time.  Replace the formatter
     # with a plain-text scientific-notation formatter to sidestep this.
     import matplotlib.ticker as _ticker
-    ax.yaxis.set_major_formatter(
-        _ticker.FuncFormatter(lambda val, _: f"{val:.2g}")
-    )
+
+    ax.yaxis.set_major_formatter(_ticker.FuncFormatter(lambda val, _: f"{val:.2g}"))
 
     fig.tight_layout()
     fig.savefig(f"SSNR_{suffix}.png", bbox_inches="tight")
@@ -319,10 +340,10 @@ def show_random_fsc_curve(fn, fsc_obs, fsc_rand, fsc_corr, T, cutoff_fn, ndim):
     """
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
-    ax1.plot(fn, fsc_obs,  "-b",  label="FSC_obs")
-    ax1.plot(fn, fsc_rand, "-r",  label="FSC_rand")
-    ax1.plot(fn, fsc_corr, "-g",  label="FSC_corr")
-    ax1.plot(fn, T,        "--k", label="Threshold T")
+    ax1.plot(fn, fsc_obs, "-b", label="FSC_obs")
+    ax1.plot(fn, fsc_rand, "-r", label="FSC_rand")
+    ax1.plot(fn, fsc_corr, "-g", label="FSC_corr")
+    ax1.plot(fn, T, "--k", label="Threshold T")
     ax1.axvline(
         cutoff_fn,
         color="purple",
@@ -355,9 +376,17 @@ def show_random_fsc_curve(fn, fsc_obs, fsc_rand, fsc_corr, T, cutoff_fn, ndim):
     show_figure(fig)
 
 
-def show_resolution_map(rmap, ndim, title, filename,
-                        slice_idx=None, axis=0,
-                        cmap="viridis_r", vmin=None, vmax=None):
+def show_resolution_map(
+    rmap,
+    ndim,
+    title,
+    filename,
+    slice_idx=None,
+    axis=0,
+    cmap="viridis_r",
+    vmin=None,
+    vmax=None,
+):
     """Display a 2-D or 3-D local resolution map and save it to disk.
 
     For a 3-D map a single slice is extracted along *axis* and shown as a
@@ -419,19 +448,20 @@ def isnotebook():
     Check if code is executed in the IPython notebook.
     This is important because jupyter notebook does not support iterative plots
     """
-    ipy = sys.modules.get('IPython')
+    ipy = sys.modules.get("IPython")
     if ipy is None:
         return False
     try:
         shell = ipy.get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
+        if shell == "ZMQInteractiveShell":
+            return True  # Jupyter notebook or qtconsole
+        elif shell == "TerminalInteractiveShell":
             return False  # Terminal running IPython
         else:
             return False  # Other type (?)
     except (AttributeError, NameError):
         return False
+
 
 def interativesession(func):
     """
@@ -462,8 +492,10 @@ def interativesession(func):
 class _NullContext:
     """A no-op context manager used as a drop-in for ``ipywidgets.Output``
     in terminal (non-notebook) environments."""
+
     def __enter__(self):
         return self
+
     def __exit__(self, *args):
         pass
 
@@ -573,16 +605,14 @@ def _createcanvashorizontal(
     cmin = params["sinolow"]
 
     fig_main = plt.figure(figsize=(12, 12))
-    gs = fig_main.add_gridspec(
-        3, 2, height_ratios=[3, 2, 2], hspace=0.45, wspace=0.3
-    )
+    gs = fig_main.add_gridspec(3, 2, height_ratios=[3, 2, 2], hspace=0.45, wspace=0.3)
 
-    ax_recon     = fig_main.add_subplot(gs[0, 0])
-    ax_initsino  = fig_main.add_subplot(gs[0, 1])
-    ax_shifts    = fig_main.add_subplot(gs[1, 0])
+    ax_recon = fig_main.add_subplot(gs[0, 0])
+    ax_initsino = fig_main.add_subplot(gs[0, 1])
+    ax_shifts = fig_main.add_subplot(gs[1, 0])
     ax_synthsino = fig_main.add_subplot(gs[1, 1])
-    ax_error     = fig_main.add_subplot(gs[2, 0])
-    ax_currsino  = fig_main.add_subplot(gs[2, 1])
+    ax_error = fig_main.add_subplot(gs[2, 0])
+    ax_currsino = fig_main.add_subplot(gs[2, 1])
 
     # Reconstructed slice (updated each iteration)
     im_recon = ax_recon.imshow(recons, cmap="jet", aspect="auto")
@@ -633,20 +663,20 @@ def _createcanvashorizontal(
     )
 
     arts = {
-        "im_recon":        im_recon,
-        "im_initsino":     im_initsino,
+        "im_recon": im_recon,
+        "im_initsino": im_initsino,
         "im_shifts_lines": im_shifts_lines,
-        "im_synthsino":    im_synthsino,
-        "im_error":        im_error,
-        "im_currsino":     im_currsino,
+        "im_synthsino": im_synthsino,
+        "im_error": im_error,
+        "im_currsino": im_currsino,
     }
     axd = {
-        "recon":     ax_recon,
-        "initsino":  ax_initsino,
-        "shifts":    ax_shifts,
+        "recon": ax_recon,
+        "initsino": ax_initsino,
+        "shifts": ax_shifts,
         "synthsino": ax_synthsino,
-        "error":     ax_error,
-        "currsino":  ax_currsino,
+        "error": ax_error,
+        "currsino": ax_currsino,
     }
 
     return fig_main, arts, axd
@@ -714,10 +744,10 @@ def _createcanvasvertical(
     # fig_main: unified 6-panel diagnostic figure
     # ------------------------------------------------------------------ #
     mosaic = [
-        ["init2d", "init2d"],   # full width: initial 2-D integral (fixed)
-        ["curr2d", "curr2d"],   # full width: current 2-D integral (updated)
-        ["init1d", "curr1d"],   # initial 1-D profiles | current 1-D profiles
-        ["shifts", "error"],    # shifts (updated) | error metric (updated)
+        ["init2d", "init2d"],  # full width: initial 2-D integral (fixed)
+        ["curr2d", "curr2d"],  # full width: current 2-D integral (updated)
+        ["init1d", "curr1d"],  # initial 1-D profiles | current 1-D profiles
+        ["shifts", "error"],  # shifts (updated) | error metric (updated)
     ]
     fig_main, axd = plt.subplot_mosaic(
         mosaic,
@@ -744,7 +774,7 @@ def _createcanvasvertical(
     # init1d: initial 1-D profiles per projection (fixed after iter 0)
     im_init1d_lines = axd["init1d"].plot(vertfluctinit)
     avg_init = vertfluctinit.mean(axis=1)
-    (im_init1d_avg,)  = axd["init1d"].plot(avg_init, "r",   linewidth=2.5)
+    (im_init1d_avg,) = axd["init1d"].plot(avg_init, "r", linewidth=2.5)
     (im_init1d_avg2,) = axd["init1d"].plot(avg_init, "--w", linewidth=1.5)
     axd["init1d"].axis("tight")
     axd["init1d"].set_title("Initial Integral in x (1D)")
@@ -754,7 +784,7 @@ def _createcanvasvertical(
     # curr1d: current 1-D profiles per projection (updated each iteration)
     im_curr1d_lines = axd["curr1d"].plot(vertfluctcurr)
     avg_curr = vertfluctcurr.mean(axis=1)
-    (im_curr1d_avg,)  = axd["curr1d"].plot(avg_curr, "r",   linewidth=2.5)
+    (im_curr1d_avg,) = axd["curr1d"].plot(avg_curr, "r", linewidth=2.5)
     (im_curr1d_avg2,) = axd["curr1d"].plot(avg_curr, "--w", linewidth=1.5)
     axd["curr1d"].axis("tight")
     axd["curr1d"].set_title("Current Integral in x (1D)")
@@ -779,17 +809,17 @@ def _createcanvasvertical(
     fig_main.tight_layout()
 
     arts = {
-        "im_proj":         im_proj,
-        "im_init2d":       im_init2d,
-        "im_curr2d":       im_curr2d,
+        "im_proj": im_proj,
+        "im_init2d": im_init2d,
+        "im_curr2d": im_curr2d,
         "im_init1d_lines": im_init1d_lines,
-        "im_init1d_avg":   im_init1d_avg,
-        "im_init1d_avg2":  im_init1d_avg2,
+        "im_init1d_avg": im_init1d_avg,
+        "im_init1d_avg2": im_init1d_avg2,
         "im_curr1d_lines": im_curr1d_lines,
-        "im_curr1d_avg":   im_curr1d_avg,
-        "im_curr1d_avg2":  im_curr1d_avg2,
+        "im_curr1d_avg": im_curr1d_avg,
+        "im_curr1d_avg2": im_curr1d_avg2,
         "im_shifts_lines": im_shifts_lines,
-        "im_error":        im_error,
+        "im_error": im_error,
     }
 
     return fig_proj, fig_main, arts, axd
@@ -844,9 +874,9 @@ class RegisterPlot:
     def __init__(self, **params):
         self.params = params
         self.count = 0
-        self.max_correction = None   # updated by plotsvertical each iteration
-        self.stage_info = None       # (stage_num, n_stages, freqcutoff) — set by caller
-        self._dh_verbose = None      # DisplayHandle for verbose text (notebook only)
+        self.max_correction = None  # updated by plotsvertical each iteration
+        self.stage_info = None  # (stage_num, n_stages, freqcutoff) — set by caller
+        self._dh_verbose = None  # DisplayHandle for verbose text (notebook only)
         plt.close("all")
 
     # ------------------------------------------------------------------ #
@@ -922,29 +952,27 @@ class RegisterPlot:
             return
 
         # 1. Strip ANSI escape sequences (colours, cursor positioning, etc.)
-        text = re.sub(r'\x1b\[[0-9;]*[mKGABCDEFHJSTfhilnprsu]', '', text)
+        text = re.sub(r"\x1b\[[0-9;]*[mKGABCDEFHJSTfhilnprsu]", "", text)
 
         # 2. Resolve carriage-return overwriting: tqdm re-draws the same line
         #    by emitting \r; keep only the last segment after each \r so we
         #    see the final bar state instead of all intermediate rewrites.
         lines = []
-        for line in text.split('\n'):
-            parts = line.split('\r')
-            lines.append(parts[-1])   # last overwrite wins
-        text = '\n'.join(lines)
+        for line in text.split("\n"):
+            parts = line.split("\r")
+            lines.append(parts[-1])  # last overwrite wins
+        text = "\n".join(lines)
 
         # 3. Drop lines that are blank after the above processing
-        text = '\n'.join(ln for ln in text.split('\n') if ln.strip())
+        text = "\n".join(ln for ln in text.split("\n") if ln.strip())
 
-        escaped = (
-            text.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
+        escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        dh.update(
+            display.HTML(
+                "<pre style='margin:0;white-space:pre-wrap;line-height:1.4'>"
+                "{}</pre>".format(escaped)
+            )
         )
-        dh.update(display.HTML(
-            "<pre style='margin:0;white-space:pre-wrap;line-height:1.4'>"
-            "{}</pre>".format(escaped)
-        ))
 
     @staticmethod
     def _term_show(figs):
@@ -959,7 +987,14 @@ class RegisterPlot:
 
     @interativesession
     def plotsvertical(
-        self, proj, lims, vertfluctinit, vertfluctcurr, deltastack, metric_error, count,
+        self,
+        proj,
+        lims,
+        vertfluctinit,
+        vertfluctcurr,
+        deltastack,
+        metric_error,
+        count,
         max_correction=None,
     ):
         """Display or update the vertical-alignment diagnostic figures.
@@ -991,16 +1026,16 @@ class RegisterPlot:
             Displayed in the figure suptitle when provided.
         """
         # Store data (transposed to match display convention)
-        self.max_correction    = max_correction
-        self.proj              = proj
-        self.lims              = lims
-        self.vertfluctinit     = vertfluctinit.T
+        self.max_correction = max_correction
+        self.proj = proj
+        self.lims = lims
+        self.vertfluctinit = vertfluctinit.T
         self.vertfluctinit_avg = self.vertfluctinit.mean(axis=1)
-        self.vertfluctcurr     = vertfluctcurr.T
+        self.vertfluctcurr = vertfluctcurr.T
         self.vertfluctcurr_avg = self.vertfluctcurr.mean(axis=1)
-        self.deltastack        = deltastack.T
-        self.metric_error      = metric_error
-        self.count             = count
+        self.deltastack = deltastack.T
+        self.metric_error = metric_error
+        self.count = count
 
         if not hasattr(self, "fig_proj"):
             # First call: create figures.
@@ -1010,6 +1045,7 @@ class RegisterPlot:
             if isnotebook():
                 try:
                     from ipywidgets import Output as _Out
+
                     _cap = _Out()
                 except ImportError:
                     _cap = _NullContext()
@@ -1017,12 +1053,16 @@ class RegisterPlot:
                 _cap = _NullContext()
 
             with _cap:
-                (self.fig_proj, self.fig_main,
-                 self._v_arts, self._v_axd) = _createcanvasvertical(
-                    self.proj, self.lims,
-                    self.vertfluctinit, self.vertfluctcurr,
-                    self.deltastack, self.metric_error,
-                    **self.params
+                self.fig_proj, self.fig_main, self._v_arts, self._v_axd = (
+                    _createcanvasvertical(
+                        self.proj,
+                        self.lims,
+                        self.vertfluctinit,
+                        self.vertfluctcurr,
+                        self.deltastack,
+                        self.metric_error,
+                        **self.params,
+                    )
                 )
 
             if isnotebook():
@@ -1033,9 +1073,7 @@ class RegisterPlot:
                 self._dh_init(self.fig_main, "_dh_main")
                 # Reserve a spot for the verbose text that the alignment
                 # loop will update in-place via _verbose_update.
-                self._dh_verbose = display.display(
-                    display.HTML(""), display_id=True
-                )
+                self._dh_verbose = display.display(display.HTML(""), display_id=True)
             else:
                 self._term_show([self.fig_proj, self.fig_main])
                 self._dh_verbose = None
@@ -1058,7 +1096,7 @@ class RegisterPlot:
         * ``fig_main.suptitle`` — iteration counter and latest error value.
         """
         arts = self._v_arts
-        axd  = self._v_axd
+        axd = self._v_axd
 
         # curr2d: update 2-D image
         arts["im_curr2d"].set_data(self.vertfluctcurr)
@@ -1097,7 +1135,8 @@ class RegisterPlot:
         err_val = self.metric_error[-1] if self.metric_error else float("nan")
         corr_str = (
             " | Max Δy = {:.2f} px".format(self.max_correction)
-            if self.max_correction is not None else ""
+            if self.max_correction is not None
+            else ""
         )
         self.fig_main.suptitle(
             "Vertical alignment — Iter {} | E = {:.3e}{}".format(
@@ -1144,19 +1183,20 @@ class RegisterPlot:
             Current iteration number.
         """
         # Store data (transposed to match display convention)
-        self.recons       = recons
-        self.sinoorig     = sinoorig
-        self.sinocurr     = sinocurr
-        self.sinocomp     = sinocomp
-        self.deltaslice   = deltaslice.T
+        self.recons = recons
+        self.sinoorig = sinoorig
+        self.sinocurr = sinocurr
+        self.sinocomp = sinocomp
+        self.deltaslice = deltaslice.T
         self.metric_error = metric_error
-        self.count        = count
+        self.count = count
 
         if not hasattr(self, "fig_main"):
             # First call: create the unified figure.
             if isnotebook():
                 try:
                     from ipywidgets import Output as _Out
+
                     _cap = _Out()
                 except ImportError:
                     _cap = _NullContext()
@@ -1164,20 +1204,21 @@ class RegisterPlot:
                 _cap = _NullContext()
 
             with _cap:
-                (self.fig_main,
-                 self._h_arts, self._h_axd) = _createcanvashorizontal(
-                    self.recons, self.sinoorig, self.sinocurr, self.sinocomp,
-                    self.deltaslice, self.metric_error,
-                    **self.params
+                self.fig_main, self._h_arts, self._h_axd = _createcanvashorizontal(
+                    self.recons,
+                    self.sinoorig,
+                    self.sinocurr,
+                    self.sinocomp,
+                    self.deltaslice,
+                    self.metric_error,
+                    **self.params,
                 )
 
             if isnotebook():
                 # Display main figure (updated via _dh_update — no clear_output).
                 self._dh_init(self.fig_main, "_dh_main")
                 # Reserve a spot for verbose text.
-                self._dh_verbose = display.display(
-                    display.HTML(""), display_id=True
-                )
+                self._dh_verbose = display.display(display.HTML(""), display_id=True)
             else:
                 self._term_show([self.fig_main])
                 self._dh_verbose = None
@@ -1200,7 +1241,7 @@ class RegisterPlot:
         * ``fig_main.suptitle`` — iteration counter and latest error value.
         """
         arts = self._h_arts
-        axd  = self._h_axd
+        axd = self._h_axd
 
         # recon: update reconstructed slice
         arts["im_recon"].set_data(self.recons)
@@ -1554,14 +1595,14 @@ class ShowProjections:
         self.im1.set_data(self.objamp)
         self.im1.set_cmap("gray")
         self.im1.set_clim((self.cmin, self.cmax))
-        self.im1.set_interpolation(u"none")
+        self.im1.set_interpolation("none")
         self.ax1.set_title("Object magnitude - projection {}".format(self.idxp + 1))
         self.im2.set_data(self.objph)
         self.im1.set_cmap("bone")
-        self.im2.set_interpolation(u"none")
+        self.im2.set_interpolation("none")
         self.ax2.set_title("Object Phase - projection {}".format(self.idxp + 1))
         self.im3.set_data(self.probergb)
-        self.im3.set_interpolation(u"none")
+        self.im3.set_interpolation("none")
         self.ax3.set_title("Probe (1st mode) - projection {}".format(self.idxp + 1))
         self.fig.canvas.draw_idle()
         plt.pause(0.001)
@@ -1606,7 +1647,7 @@ class ShowProjections:
         else:
             self.imreal.set_data(self.projreal)
             self.imreal.set_clim((cmin, cmax))
-            self.imreal.set_interpolation(u"none")
+            self.imreal.set_interpolation("none")
             self.axreal.set_title("Projection {}".format(self.idxp + 1))
             self.figreal.canvas.draw_idle()
             plt.pause(0.001)
@@ -1702,8 +1743,10 @@ def display_slice(recons, colormap="bone", vmin=None, vmax=None):
         vmax = None
 
     # plt.close("all")
-    if isnotebook(): fig = plt.figure(figsize=(12,5))
-    else: fig = plt.figure()
+    if isnotebook():
+        fig = plt.figure(figsize=(12, 5))
+    else:
+        fig = plt.figure()
     plt.clf()
     ax1 = fig.add_subplot(111)
     ax1.imshow(recons, cmap=colormap, vmin=vmin, vmax=vmax)

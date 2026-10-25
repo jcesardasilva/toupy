@@ -124,7 +124,7 @@ if __name__ == "__main__":
         tomogram2,
         theta,
         voxelsize,
-        **params
+        **params,
     )
 
     # =========================
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             # dividing the data into two datasets and computing tomograms
             print("Calculating first slice...")
             tomogram1[idx], tomogram2[idx] = compute_2tomograms_splitted(
-                sinogram1[idx], sinogram2[idx], theta1, theta2 ** params
+                sinogram1[idx], sinogram2[idx], theta1, theta2**params
             )
 
         # cropping
@@ -205,5 +205,5 @@ if __name__ == "__main__":
             tomogram2,
             theta,
             voxelsize,
-            **params
+            **params,
         )

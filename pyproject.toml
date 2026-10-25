@@ -4,3 +4,9 @@ requires = [
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+# Oldest supported Python (python_requires >= 3.8): Black only emits syntax
+# that works on it.
+target-version = ["py38"]

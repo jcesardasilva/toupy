@@ -8,7 +8,6 @@ import time
 from ..utils.plot_utils import plt
 import numpy as np
 
-
 # local packages
 from ..restoration.ramptools import rmphaseramp
 from ..restoration.unwraptools import phaseresidues
@@ -36,7 +35,7 @@ def cart2pol(x, y):
     rho, phi : array_like
         Values in polar coordinates
     """
-    rho = np.sqrt(x ** 2 + y ** 2)
+    rho = np.sqrt(x**2 + y**2)
     phi = np.arctan2(y, x)
     return (rho, phi)
 

@@ -14,6 +14,7 @@ __all__ = ["rmphaseramp", "rmlinearphase", "rmair", "normalize_projections_phase
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _otsu_threshold(arr):
     """
     Pure-NumPy Otsu threshold for a real-valued array.
@@ -37,8 +38,8 @@ def _otsu_threshold(arr):
 
     # Class probabilities (normalise by total pixel count, not bin width)
     total = float(hist.sum())
-    w0 = np.cumsum(hist, dtype=np.float64) / total   # fraction of pixels in class 0
-    w1 = 1.0 - w0                                     # fraction in class 1
+    w0 = np.cumsum(hist, dtype=np.float64) / total  # fraction of pixels in class 0
+    w1 = 1.0 - w0  # fraction in class 1
 
     # Class means
     cum_mean = np.cumsum(hist * centers, dtype=np.float64) / total
@@ -101,7 +102,7 @@ def _estimate_ramp(ph, weight):
 
 def _build_phasor(shape, agx, agy):
     """Return the conjugate ramp phasor exp(-i*(agx*row + agy*col))."""
-    xx, yy = np.ogrid[:shape[0], :shape[1]]
+    xx, yy = np.ogrid[: shape[0], : shape[1]]
     return np.exp(-1j * (agx * xx + agy * yy))
 
 
@@ -109,8 +110,10 @@ def _build_phasor(shape, agx, agy):
 # Public functions
 # ---------------------------------------------------------------------------
 
-def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
-                zero_air_phase=False, border=0):
+
+def rmphaseramp(
+    a, weight=None, return_phaseramp=False, n_iter=1, zero_air_phase=False, border=0
+):
     """
     Remove the linear phase ramp from a complex ptychographic image.
 
@@ -259,12 +262,12 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
     air_mask_for_offset = None
     _w_is_str = isinstance(weight, str)
 
-    if weight is None or (_w_is_str and weight == 'median'):
+    if weight is None or (_w_is_str and weight == "median"):
         # Restrict global median to interior pixels when border > 0
         w = interior.astype(np.float64) if border > 0 else None
-    elif _w_is_str and weight == 'abs':
+    elif _w_is_str and weight == "abs":
         w = np.abs(a) * interior
-    elif _w_is_str and weight == 'auto':
+    elif _w_is_str and weight == "auto":
         amp = np.abs(a)
         # Compute Otsu threshold on interior pixels only
         thresh = _otsu_threshold(amp[interior])
@@ -277,17 +280,19 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
         n_total = interior.sum()
         if n_air < 0.01 * n_total:
             import warnings
+
             warnings.warn(
                 "rmphaseramp 'auto': Otsu found < 1 % air pixels "
                 f"({int(n_air)}/{int(n_total)}). "
                 "Consider passing an explicit mask or using weight='median'.",
-                UserWarning, stacklevel=2,
+                UserWarning,
+                stacklevel=2,
             )
     else:
         # User-supplied array — treat as a reliable mask when it is binary.
         w = np.asarray(weight, dtype=np.float64)
         if border > 0:
-            w = w * interior          # zero out border in custom mask too
+            w = w * interior  # zero out border in custom mask too
         if np.array_equal(w, w.astype(bool)):
             # Binary mask: circular mean is precise when the user has
             # explicitly drawn the air region.
@@ -349,15 +354,14 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
             phase_int = np.angle(a_work)[interior]
             n_bins = 512
             bin_width = 2.0 * np.pi / n_bins
-            hist, edges = np.histogram(phase_int, bins=n_bins,
-                                       range=(-np.pi, np.pi))
+            hist, edges = np.histogram(phase_int, bins=n_bins, range=(-np.pi, np.pi))
             centers = (edges[:-1] + edges[1:]) * 0.5
             # Step 1: smooth with a circular (wrap-around) boxcar to
             # suppress isolated noise spikes and locate the approximate
             # peak region.
             sw = 9
-            padded = np.concatenate([hist[-sw // 2:], hist, hist[:sw // 2]])
-            smoothed = np.convolve(padded, np.ones(sw) / sw, mode='valid')
+            padded = np.concatenate([hist[-sw // 2 :], hist, hist[: sw // 2]])
+            smoothed = np.convolve(padded, np.ones(sw) / sw, mode="valid")
             pk_approx = int(np.argmax(smoothed))
             # Step 2: refine — find the bin with the highest RAW count
             # within ±sw of the smoothed peak.  Parabolic interpolation
@@ -384,7 +388,7 @@ def rmphaseramp(a, weight=None, return_phaseramp=False, n_iter=1,
     return a_work
 
 
-def rmlinearphase(image, mask=None, weight='auto'):
+def rmlinearphase(image, mask=None, weight="auto"):
     """
     .. deprecated::
         Use :func:`rmphaseramp` instead — it covers all cases and has
@@ -420,6 +424,7 @@ def rmlinearphase(image, mask=None, weight='auto'):
         Linear-ramp-corrected image.
     """
     import warnings
+
     warnings.warn(
         "rmlinearphase() is deprecated and will be removed in a future "
         "version.  Use rmphaseramp() instead:\n"
@@ -547,16 +552,16 @@ def normalize_projections_phase(stack, border=0):
     is_complex = np.iscomplexobj(stack)
     interior = stack[:, rslice, cslice]
     if is_complex:
-        phase_int = np.angle(interior)             # (nprojs, nr_int, nc_int)
+        phase_int = np.angle(interior)  # (nprojs, nr_int, nc_int)
     else:
         phase_int = interior.real.astype(np.float64)
 
     # Detect air rows: those with small phase variance across projections.
     # Object rows vary strongly with angle; air rows stay approximately
     # constant (any residual is the per-projection offset we want to find).
-    row_std = phase_int.std(axis=(0, 2))           # shape (nr_int,)
+    row_std = phase_int.std(axis=(0, 2))  # shape (nr_int,)
     thresh = _otsu_threshold(row_std)
-    air_row_mask = row_std < thresh                # True = consistently air
+    air_row_mask = row_std < thresh  # True = consistently air
 
     if air_row_mask.sum() < 3:
         # Fallback: use top and bottom 10 % of interior rows
@@ -571,13 +576,13 @@ def normalize_projections_phase(stack, border=0):
     # Circular mean operates on unit phasors and is always wrap-safe.
     # shape: (nprojs, n_air_rows * nc_int)
     air_phases = phase_int[:, air_row_mask, :].reshape(nprojs, -1)
-    mean_phasors = np.exp(1j * air_phases).mean(axis=1)    # complex, (nprojs,)
-    offsets = np.angle(mean_phasors)                        # wrap-safe, (nprojs,)
+    mean_phasors = np.exp(1j * air_phases).mean(axis=1)  # complex, (nprojs,)
+    offsets = np.angle(mean_phasors)  # wrap-safe, (nprojs,)
 
     # Make offsets relative to the stack circular mean so the absolute
     # phase level is preserved (only projection-to-projection variation
     # removed).  Use circular subtraction to stay wrap-safe.
-    ref_phasor = np.exp(1j * offsets).mean()                # scalar complex
+    ref_phasor = np.exp(1j * offsets).mean()  # scalar complex
     offsets = np.angle(np.exp(1j * offsets) * ref_phasor.conj())
 
     # Apply correction in the same domain as the input

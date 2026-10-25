@@ -26,6 +26,7 @@ CPU path  : NumPy reference using trilinear interpolation.
 
 # standard library
 import warnings
+
 warnings.filterwarnings("ignore")
 
 # third-party
@@ -132,7 +133,8 @@ def cone_project(
         if not CUDA_AVAILABLE:
             warnings.warn(
                 "CuPy unavailable — falling back to CPU cone_project.",
-                UserWarning, stacklevel=2,
+                UserWarning,
+                stacklevel=2,
             )
         # else: CUDA not yet implemented, fall through to CPU
 
@@ -143,14 +145,16 @@ def cone_project(
 
     # Centred object-space coordinate grids (N x N)
     coords = (np.arange(N) - (N - 1) / 2.0) * p
-    x, y = np.meshgrid(coords, coords, indexing='xy')  # x varies along cols, y along rows
+    x, y = np.meshgrid(
+        coords, coords, indexing="xy"
+    )  # x varies along cols, y along rows
 
     # Object-space z-coordinates (axial)
     z_coords = (np.arange(n_v_vol) - (n_v_vol - 1) / 2.0) * p  # shape (n_v_vol,)
 
     # Detector coordinate arrays
-    u_det = geometry.u_coords()   # shape (n_u,)
-    v_det = geometry.v_coords()   # shape (n_v,)
+    u_det = geometry.u_coords()  # shape (n_u,)
+    v_det = geometry.v_coords()  # shape (n_v,)
 
     n_angles = len(geometry.angles)
     angles_rad = np.deg2rad(geometry.angles)
@@ -160,7 +164,7 @@ def cone_project(
     vol_interp = RegularGridInterpolator(
         (z_coords, coords, coords),
         volume,
-        method='linear',
+        method="linear",
         bounds_error=False,
         fill_value=0.0,
     )
@@ -178,18 +182,17 @@ def cone_project(
     # 20 % margin.  n_steps is chosen so that the physical step inside the
     # object is ≈ effective_pixel_size (one sample per voxel).
     # -----------------------------------------------------------------------
-    half_xy   = (N      - 1) / 2.0 * p            # object half-extent in x, y  [mm]
-    half_z    = (n_v_vol - 1) / 2.0 * p           # object half-extent in z      [mm]
+    half_xy = (N - 1) / 2.0 * p  # object half-extent in x, y  [mm]
+    half_z = (n_v_vol - 1) / 2.0 * p  # object half-extent in z      [mm]
     half_diag = np.sqrt(2.0 * half_xy**2 + half_z**2)  # half of 3-D diagonal [mm]
 
-    t_center = SOD / SDD                           # isocenter crossing in t
-    t_span   = 1.2 * half_diag / SDD              # t-half-span with 20 % margin
-    t_lo     = max(0.0, t_center - t_span)
-    t_hi     = min(1.0, t_center + t_span)
+    t_center = SOD / SDD  # isocenter crossing in t
+    t_span = 1.2 * half_diag / SDD  # t-half-span with 20 % margin
+    t_lo = max(0.0, t_center - t_span)
+    t_hi = min(1.0, t_center + t_span)
 
     # Step size ≈ p along the central ray (length ≈ SDD)
-    n_steps = max(int(np.ceil(2.0 * t_span * SDD / p)) + 1,
-                  max(N, n_v_vol) * 2)
+    n_steps = max(int(np.ceil(2.0 * t_span * SDD / p)) + 1, max(N, n_v_vol) * 2)
 
     projections = np.zeros((n_angles, geometry.n_v, geometry.n_u), dtype=np.float64)
 
@@ -200,38 +203,38 @@ def cone_project(
         # Source position: S = (-SOD*sin_th, SOD*cos_th, 0)
         # Verify: U(S) = SOD + (-SOD*sin_th)*sin_th - (SOD*cos_th)*cos_th = 0.  ✓
         x_src = -SOD * sin_th
-        y_src =  SOD * cos_th
+        y_src = SOD * cos_th
 
         # Build detector pixel grid in 3-D lab frame.
         # Beam axis direction (source → isocenter): d = (sin_th, -cos_th, 0)
         # Detector centre: isocenter + (SDD-SOD)*d
         # Detector u-axis: e_u = (cos_th, sin_th, 0)   [perpendicular to d in xy]
         # Detector v-axis: e_v = (0, 0, 1)
-        uu, vv = np.meshgrid(u_det, v_det, indexing='xy')  # (n_v_det, n_u)
-        x_det = (SDD - SOD) * sin_th + uu * cos_th    # (n_v_det, n_u)
-        y_det = -(SDD - SOD) * cos_th + uu * sin_th   # (n_v_det, n_u)
-        z_det = vv                                      # (n_v_det, n_u)
+        uu, vv = np.meshgrid(u_det, v_det, indexing="xy")  # (n_v_det, n_u)
+        x_det = (SDD - SOD) * sin_th + uu * cos_th  # (n_v_det, n_u)
+        y_det = -(SDD - SOD) * cos_th + uu * sin_th  # (n_v_det, n_u)
+        z_det = vv  # (n_v_det, n_u)
 
         # Ray direction vector (source → detector pixel)
-        dx = x_det - x_src   # (n_v_det, n_u)
-        dy = y_det - y_src   # (n_v_det, n_u)
-        dz = z_det            # (n_v_det, n_u),  z_src = 0
+        dx = x_det - x_src  # (n_v_det, n_u)
+        dy = y_det - y_src  # (n_v_det, n_u)
+        dz = z_det  # (n_v_det, n_u),  z_src = 0
 
         # Sample only within the volume's bounding-box region [t_lo, t_hi]
         t_vals = np.linspace(t_lo, t_hi, n_steps)  # (n_steps,)
 
         x_ray = x_src + t_vals[:, np.newaxis, np.newaxis] * dx[np.newaxis, :, :]
         y_ray = y_src + t_vals[:, np.newaxis, np.newaxis] * dy[np.newaxis, :, :]
-        z_ray =         t_vals[:, np.newaxis, np.newaxis] * dz[np.newaxis, :, :]
+        z_ray = t_vals[:, np.newaxis, np.newaxis] * dz[np.newaxis, :, :]
 
         # Query volume interpolator: points = (z, y, x)
-        pts  = np.stack([z_ray.ravel(), y_ray.ravel(), x_ray.ravel()], axis=-1)
+        pts = np.stack([z_ray.ravel(), y_ray.ravel(), x_ray.ravel()], axis=-1)
         vals = vol_interp(pts).reshape(n_steps, geometry.n_v, geometry.n_u)
 
         # Trapezoidal integration: physical step = |ray_dir| * Δt
-        ray_length = np.sqrt(dx**2 + dy**2 + dz**2)       # (n_v_det, n_u) [mm]
-        dt         = (t_hi - t_lo) / (n_steps - 1)
-        step_size  = ray_length * dt                        # (n_v_det, n_u) [mm]
+        ray_length = np.sqrt(dx**2 + dy**2 + dz**2)  # (n_v_det, n_u) [mm]
+        dt = (t_hi - t_lo) / (n_steps - 1)
+        step_size = ray_length * dt  # (n_v_det, n_u) [mm]
         projections[i_angle] = np.trapezoid(vals, axis=0) * step_size
 
     return projections

@@ -594,7 +594,9 @@ class LoadProjections(PathName, Variables):
 
         # plot the angles for verification
         plot_checkangles(angles)
-        print("Angles plotted — continuing.  Inspect the plot and re-run if something looks wrong.")
+        print(
+            "Angles plotted — continuing.  Inspect the plot and re-run if something looks wrong."
+        )
         return angles, thetas
 
     def check_angles_new(self):
@@ -626,7 +628,9 @@ class LoadProjections(PathName, Variables):
                 rawscanprefix = re.sub(r"_subtomo\w+", "", scanname)
                 rawfile = os.path.join(rawscanprefix, scanname + suffixfile)
             rawfilepath = os.path.join(Path(proj).parents[3], rawfile)
-            thetas[keys] = read_theta_raw(rawfilepath,detector=self.detector)  # reading theta
+            thetas[keys] = read_theta_raw(
+                rawfilepath, detector=self.detector
+            )  # reading theta
 
         # checking the angles
         print("Checking the angles")
@@ -645,7 +649,9 @@ class LoadProjections(PathName, Variables):
 
         # plot the angles for verification
         plot_checkangles(angles)
-        print("Angles plotted — continuing.  Inspect the plot and re-run if something looks wrong.")
+        print(
+            "Angles plotted — continuing.  Inspect the plot and re-run if something looks wrong."
+        )
         return angles, thetas
 
     def _remove_extraprojs(self, thetas, proj_files):
@@ -734,7 +740,9 @@ class LoadProjections(PathName, Variables):
             "Interrupt the kernel to abort.".format(num_projections),
             flush=True,
         )
-        import matplotlib.pyplot as plt; plt.close("all")
+        import matplotlib.pyplot as plt
+
+        plt.close("all")
 
         # Read the first projection to check size and reconstruction parameters
         frame0 = self.read_reconfile(self.pathfilename)
@@ -846,7 +854,9 @@ class LoadProjections(PathName, Variables):
             "Interrupt the kernel to abort.".format(num_projections),
             flush=True,
         )
-        import matplotlib.pyplot as plt; plt.close("all")
+        import matplotlib.pyplot as plt
+
+        plt.close("all")
 
         # Read the first projection to check size and reconstruction parameters
         frame0 = self.read_reconfile(self.pathfilename)
@@ -1772,9 +1782,7 @@ class SaveTomogram(SaveData):
             print("Folder {} does not exists and will be created.".format(folderpath))
             os.makedirs(folderpath)
         else:
-            print(
-                "Folder exists: {} — TIFFs will be overwritten.".format(folderpath)
-            )
+            print("Folder exists: {} — TIFFs will be overwritten.".format(folderpath))
 
         return folderpath
 

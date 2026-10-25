@@ -4,9 +4,9 @@
 """
 Template to calculate the derivatives of the projections prior to the
 tomographic reconstruction, which will facilitate the horizontal
-alignment. 
+alignment.
 This saves us time relative to calculating the derivatives at each time
-we reconstruct a slice. 
+we reconstruct a slice.
 """
 
 # standard libraries imports
@@ -30,7 +30,7 @@ params["samplename"] = "v97_v_nfptomo2_15nm"
 params["phaseonly"] = True
 params["deltax"] = 2  # From edge of region to edge of image in x
 params["limsy"] = (1, 2329)  # (top, bottom)
-params["n_cpus"] = -1 # negative number means all cpus available
+params["n_cpus"] = -1  # negative number means all cpus available
 params["autosave"] = True
 # =========================
 
@@ -47,9 +47,7 @@ if __name__ == "__main__":
     roix, roiy = chooseregiontoderivatives(aligned, **params)
 
     # calculating the projection derivatives
-    aligned_diff = calculate_derivatives(
-        aligned, roiy, roix, n_cpus=params["n_cpus"]
-    )
+    aligned_diff = calculate_derivatives(aligned, roiy, roix, n_cpus=params["n_cpus"])
 
     # display the projections after the unwrapping
     showmovie = input(

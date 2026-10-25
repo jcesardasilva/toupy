@@ -47,6 +47,7 @@ import sys
 
 import numpy as np
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -88,8 +89,12 @@ def fsc3d(vol1, vol2, n_shells=None, apod_width=20):
         wz = _tukey_1d(Nz, apod_width)[:, None, None]
         wy = _tukey_1d(Ny, apod_width)[None, :, None]
         wx = _tukey_1d(Nx, apod_width)[None, None, :]
-        v1 *= wz; v1 *= wy; v1 *= wx
-        v2 *= wz; v2 *= wy; v2 *= wx
+        v1 *= wz
+        v1 *= wy
+        v1 *= wx
+        v2 *= wz
+        v2 *= wy
+        v2 *= wx
 
     F1 = np.fft.rfftn(v1)
     F2 = np.fft.rfftn(v2)
@@ -98,7 +103,7 @@ def fsc3d(vol1, vol2, n_shells=None, apod_width=20):
     kz = np.fft.fftfreq(Nz).astype(np.float32)[:, None, None]
     ky = np.fft.fftfreq(Ny).astype(np.float32)[None, :, None]
     kx = np.fft.rfftfreq(Nx).astype(np.float32)[None, None, :]
-    R = np.sqrt(kz ** 2 + ky ** 2 + kx ** 2)
+    R = np.sqrt(kz**2 + ky**2 + kx**2)
 
     r_edges = np.linspace(0.0, 0.5, n_shells + 1)
     r_mid = 0.5 * (r_edges[:-1] + r_edges[1:])
@@ -109,7 +114,8 @@ def fsc3d(vol1, vol2, n_shells=None, apod_width=20):
         n = int(mask.sum())
         if n == 0:
             continue
-        f1 = F1[mask]; f2 = F2[mask]
+        f1 = F1[mask]
+        f2 = F2[mask]
         num = float(np.real(np.sum(f1 * f2.conj())))
         den = float(np.sqrt(np.sum(np.abs(f1) ** 2) * np.sum(np.abs(f2) ** 2)))
         fsc[i] = num / den if den > 0 else 0.0
@@ -130,19 +136,27 @@ def first_crossing(freq_nyq, fsc, level):
 def _load(path):
     d = np.load(path, allow_pickle=True)
     if "delta_tp" not in d:
-        sys.exit(f"ERROR: {path} has no 'delta_tp' key "
-                 f"(keys: {list(d.keys())}) — is it a twopass_reconstruction.npz?")
+        sys.exit(
+            f"ERROR: {path} has no 'delta_tp' key "
+            f"(keys: {list(d.keys())}) — is it a twopass_reconstruction.npz?"
+        )
     return d
 
 
 # ---------------------------------------------------------------------------
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("fresnel_npz", help="twopass_reconstruction.npz from the fresnel run")
-    ap.add_argument("asm_npz",     help="twopass_reconstruction.npz from the asm run")
-    ap.add_argument("--out", default="compare_propagators.png",
-                    help="output figure path (default: compare_propagators.png)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "fresnel_npz", help="twopass_reconstruction.npz from the fresnel run"
+    )
+    ap.add_argument("asm_npz", help="twopass_reconstruction.npz from the asm run")
+    ap.add_argument(
+        "--out",
+        default="compare_propagators.png",
+        help="output figure path (default: compare_propagators.png)",
+    )
     ap.add_argument("--apod", type=int, default=20, help="FSC apodization width [px]")
     ap.add_argument("--nshells", type=int, default=None, help="number of FSC shells")
     args = ap.parse_args()
@@ -153,11 +167,13 @@ def main():
     va = da["delta_tp"].astype(np.float32)
 
     if vf.shape != va.shape:
-        sys.exit(f"ERROR: shape mismatch {vf.shape} vs {va.shape} — the two runs "
-                 f"must use identical settings and differ only in PROPAGATOR.")
+        sys.exit(
+            f"ERROR: shape mismatch {vf.shape} vs {va.shape} — the two runs "
+            f"must use identical settings and differ only in PROPAGATOR."
+        )
 
     psize_m = float(df["psize"]) if "psize" in df else np.nan
-    wl_m    = float(df["wavelength"]) if "wavelength" in df else np.nan
+    wl_m = float(df["wavelength"]) if "wavelength" in df else np.nan
     pixel_nm = psize_m * 1e9
 
     print("=" * 70)
@@ -165,15 +181,19 @@ def main():
     print("=" * 70)
     print(f"  fresnel : {args.fresnel_npz}")
     print(f"  asm     : {args.asm_npz}")
-    print(f"  volume  : {vf.shape}   pixel = {pixel_nm:.3f} nm   "
-          f"lambda = {wl_m*1e9:.4f} nm")
+    print(
+        f"  volume  : {vf.shape}   pixel = {pixel_nm:.3f} nm   "
+        f"lambda = {wl_m*1e9:.4f} nm"
+    )
 
     # --- paraxial figure of merit -----------------------------------------
     if np.isfinite(wl_m) and np.isfinite(psize_m):
-        na = wl_m / (2.0 * psize_m)          # max half-angle at Nyquist
-        s_max = na ** 2                       # (lambda f)^2 at Nyquist
-        print(f"  Nyquist NA = lambda/(2*pixel) = {na*1e3:.3f} mrad   "
-              f"=> (lambda*f)^2_max = {s_max:.2e}")
+        na = wl_m / (2.0 * psize_m)  # max half-angle at Nyquist
+        s_max = na**2  # (lambda f)^2 at Nyquist
+        print(
+            f"  Nyquist NA = lambda/(2*pixel) = {na*1e3:.3f} mrad   "
+            f"=> (lambda*f)^2_max = {s_max:.2e}"
+        )
     else:
         s_max = np.nan
 
@@ -186,8 +206,10 @@ def main():
     corr_fa = float(np.corrcoef(vf.ravel(), va.ravel())[0, 1])
     print("\n  Global difference (asm - fresnel):")
     print(f"    relative L2  ||asm-fres||/||fres||      = {rel_l2:.3e}")
-    print(f"    max |Δδ|                                = {max_abs:.3e}"
-          f"   ({100*max_abs/dyn:.3f}% of dynamic range)")
+    print(
+        f"    max |Δδ|                                = {max_abs:.3e}"
+        f"   ({100*max_abs/dyn:.3f}% of dynamic range)"
+    )
     print(f"    Pearson corr(fresnel, asm)              = {corr_fa:.8f}")
 
     # --- context: each two-pass vs its FBP init ---------------------------
@@ -195,28 +217,37 @@ def main():
         fbp = df["delta_fbp"].astype(np.float32).ravel()
         cf = float(np.corrcoef(vf.ravel(), fbp)[0, 1])
         ca = float(np.corrcoef(va.ravel(), fbp)[0, 1])
-        print(f"    corr(two-pass, FBP): fresnel={cf:.6f}  asm={ca:.6f}  "
-              f"(should match — sharpening vs FBP is propagator-independent)")
+        print(
+            f"    corr(two-pass, FBP): fresnel={cf:.6f}  asm={ca:.6f}  "
+            f"(should match — sharpening vs FBP is propagator-independent)"
+        )
 
     # --- cross-FSC(fresnel, asm) ------------------------------------------
     print("\n  Computing cross-FSC(fresnel, asm) ...")
     freq, fsc, nvox = fsc3d(vf, va, n_shells=args.nshells, apod_width=args.apod)
-    f05  = first_crossing(freq, fsc, 0.5)
+    f05 = first_crossing(freq, fsc, 0.5)
     f143 = first_crossing(freq, fsc, 0.143)
     fsc_min = float(np.nanmin(fsc[nvox > 0]))
 
     def _res(fc):
         return np.nan if not np.isfinite(fc) or fc <= 0 else pixel_nm / fc
+
     print(f"    min cross-FSC over all shells           = {fsc_min:.4f}")
     if np.isfinite(f05):
-        print(f"    cross-FSC drops below 0.5 at f={f05:.3f} Nyq  "
-              f"(d = {_res(f05):.1f} nm)")
+        print(
+            f"    cross-FSC drops below 0.5 at f={f05:.3f} Nyq  "
+            f"(d = {_res(f05):.1f} nm)"
+        )
     else:
-        print(f"    cross-FSC stays >= 0.5 all the way to Nyquist "
-              f"(the two volumes are identical at every resolvable frequency)")
+        print(
+            f"    cross-FSC stays >= 0.5 all the way to Nyquist "
+            f"(the two volumes are identical at every resolvable frequency)"
+        )
     if np.isfinite(f143):
-        print(f"    cross-FSC drops below 0.143 at f={f143:.3f} Nyq "
-              f"(d = {_res(f143):.1f} nm)")
+        print(
+            f"    cross-FSC drops below 0.143 at f={f143:.3f} Nyq "
+            f"(d = {_res(f143):.1f} nm)"
+        )
 
     # --- automatic verdict -------------------------------------------------
     #
@@ -228,9 +259,9 @@ def main():
     # propagator.  rel-L2 is kept only to catch amplitude/scale mismatches that
     # the (scale-invariant) FSC would miss.
     print("\n  " + "-" * 66)
-    paraxial      = np.isfinite(s_max) and s_max < 1e-3
-    fsc_flat      = not np.isfinite(f05)      # cross-FSC >= 0.5 up to Nyquist
-    amplitude_ok  = rel_l2 < 1e-2
+    paraxial = np.isfinite(s_max) and s_max < 1e-3
+    fsc_flat = not np.isfinite(f05)  # cross-FSC >= 0.5 up to Nyquist
+    amplitude_ok = rel_l2 < 1e-2
 
     if fsc_flat and amplitude_ok:
         print("  VERDICT: fresnel and asm are INDISTINGUISHABLE.")
@@ -250,13 +281,17 @@ def main():
         print("           this is not a resolution/propagator effect.")
     else:
         # cross-FSC actually drops -> frequency-structured difference
-        print(f"  VERDICT: cross-FSC drops below 0.5 at f={f05:.3f} Nyq "
-              f"(d = {_res(f05):.1f} nm):")
+        print(
+            f"  VERDICT: cross-FSC drops below 0.5 at f={f05:.3f} Nyq "
+            f"(d = {_res(f05):.1f} nm):"
+        )
         print("           the difference IS frequency-structured.")
         if paraxial:
             print(f"           But this regime is paraxial ((λf)²_max = {s_max:.1e}),")
             print("           where the propagators must agree — so a real spectral")
-            print("           split is unexpected: INVESTIGATE (settings mismatch/bug).")
+            print(
+                "           split is unexpected: INVESTIGATE (settings mismatch/bug)."
+            )
         else:
             print(f"           At this NA ((λf)²_max = {s_max:.1e}) a high-frequency")
             print("           propagator difference can be physical — this is the")
@@ -266,8 +301,9 @@ def main():
     # --- figure ------------------------------------------------------------
     fig, ax = plt.subplots(figsize=(8, 5))
     ok = nvox > 0
-    ax.plot(freq[ok], fsc[ok], "-o", ms=3, color="C0",
-            label="cross-FSC (fresnel vs asm)")
+    ax.plot(
+        freq[ok], fsc[ok], "-o", ms=3, color="C0", label="cross-FSC (fresnel vs asm)"
+    )
     ax.axhline(1.0, color="0.7", lw=0.8, ls=":")
     ax.axhline(0.5, color="C3", lw=1.0, ls="--", label="0.5")
     ax.axhline(0.143, color="C2", lw=1.0, ls="--", label="0.143")
@@ -275,8 +311,7 @@ def main():
     ax.set_ylabel("cross-FSC(fresnel, asm)")
     ax.set_ylim(0, 1.02)
     ax.set_xlim(0, 0.5)
-    ttl = (f"Propagator equivalence — rel.L2 = {rel_l2:.2e}, "
-           f"corr = {corr_fa:.6f}")
+    ttl = f"Propagator equivalence — rel.L2 = {rel_l2:.2e}, " f"corr = {corr_fa:.6f}"
     if np.isfinite(s_max):
         ttl += f"\n(λf)²_max = {s_max:.1e},  pixel = {pixel_nm:.2f} nm"
     ax.set_title(ttl, fontsize=10)

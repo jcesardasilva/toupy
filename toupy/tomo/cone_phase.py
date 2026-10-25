@@ -169,7 +169,8 @@ def cone_phase_retrieval_fdk(
     if intensity.ndim != 3 or intensity.shape[1:] != (geometry.n_v, geometry.n_u):
         raise ValueError(
             "intensity must have shape (n_angles, n_v={}, n_u={}), got {}.".format(
-                geometry.n_v, geometry.n_u, intensity.shape)
+                geometry.n_v, geometry.n_u, intensity.shape
+            )
         )
 
     z_eff = effective_fresnel_distance(geometry)
@@ -177,8 +178,9 @@ def cone_phase_retrieval_fdk(
     if not (0.05 <= px_eff**2 / (wavelength * z_eff) <= 5.0):
         warnings.warn(
             "Effective Fresnel number {:.3g} is outside the usual "
-            "[0.05, 5] phase-contrast range; check SOD/SDD/pixel/wavelength."
-            .format(px_eff**2 / (wavelength * z_eff)),
+            "[0.05, 5] phase-contrast range; check SOD/SDD/pixel/wavelength.".format(
+                px_eff**2 / (wavelength * z_eff)
+            ),
             stacklevel=2,
         )
 
@@ -189,20 +191,33 @@ def cone_phase_retrieval_fdk(
     if verbose:
         try:
             from tqdm import tqdm
+
             iterator = tqdm(iterator, desc="phase retrieval")
         except ImportError:
             pass
 
     for k in iterator:
         phase[k] = iterative_phase_retrieval(
-            intensity[k], z_eff, wavelength, px_eff,
-            delta_beta=delta_beta, init=init, n_iter=n_iter,
-            reg_smooth=reg_smooth, reg_tv=reg_tv, tv_eps=tv_eps,
-            pad=pad, cuda=cuda,
+            intensity[k],
+            z_eff,
+            wavelength,
+            px_eff,
+            delta_beta=delta_beta,
+            init=init,
+            n_iter=n_iter,
+            reg_smooth=reg_smooth,
+            reg_tv=reg_tv,
+            tv_eps=tv_eps,
+            pad=pad,
+            cuda=cuda,
         )
 
     volume = fdk_reconstruct(
-        phase, geometry, filter_type=filter_type, freqcutoff=freqcutoff,
-        output_size=output_size, cuda=cuda,
+        phase,
+        geometry,
+        filter_type=filter_type,
+        freqcutoff=freqcutoff,
+        output_size=output_size,
+        cuda=cuda,
     )
     return (volume, phase) if return_phase else volume

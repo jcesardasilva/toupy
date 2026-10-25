@@ -48,33 +48,41 @@ def radon_cuda(recons, theta):
     if not CUDA_AVAILABLE:
         return np.squeeze(radon(recons, theta, circle=True))
 
-    N       = recons.shape[0]
+    N = recons.shape[0]
     nangles = len(theta)
-    nbins   = N                          # detector bins == image side length
-    nsteps  = int(np.ceil(N * np.sqrt(2)))  # enough steps to cross the diagonal
+    nbins = N  # detector bins == image side length
+    nsteps = int(np.ceil(N * np.sqrt(2)))  # enough steps to cross the diagonal
 
-    th       = np.deg2rad(np.asarray(theta, dtype=np.float32))
-    cos_th   = np.cos(th).astype(np.float32)
-    sin_th   = np.sin(th).astype(np.float32)
+    th = np.deg2rad(np.asarray(theta, dtype=np.float32))
+    cos_th = np.cos(th).astype(np.float32)
+    sin_th = np.sin(th).astype(np.float32)
 
     # Upload image and trig tables
-    img_gpu     = cp.asarray(recons.astype(np.float32))
-    cos_th_gpu  = cp.asarray(cos_th)
-    sin_th_gpu  = cp.asarray(sin_th)
-    sino_gpu    = cp.zeros(nbins * nangles, dtype=cp.float32)
+    img_gpu = cp.asarray(recons.astype(np.float32))
+    cos_th_gpu = cp.asarray(cos_th)
+    sin_th_gpu = cp.asarray(sin_th)
+    sino_gpu = cp.zeros(nbins * nangles, dtype=cp.float32)
 
     # Launch kernel — each thread = one (bin, angle) sinogram entry
     block = (16, 16, 1)
-    grid  = (
-        int(np.ceil(nbins   / block[0])),
+    grid = (
+        int(np.ceil(nbins / block[0])),
         int(np.ceil(nangles / block[1])),
         1,
     )
     _radon_kernel(
-        grid, block,
-        (img_gpu.ravel(), sino_gpu,
-         cos_th_gpu, sin_th_gpu,
-         np.int32(N), np.int32(nbins), np.int32(nangles), np.int32(nsteps)),
+        grid,
+        block,
+        (
+            img_gpu.ravel(),
+            sino_gpu,
+            cos_th_gpu,
+            sin_th_gpu,
+            np.int32(N),
+            np.int32(nbins),
+            np.int32(nangles),
+            np.int32(nsteps),
+        ),
     )
     cp.cuda.stream.get_current_stream().synchronize()
 

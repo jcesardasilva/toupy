@@ -53,7 +53,7 @@ def create_circle(inputimg):
     Y, X = np.indices((nr, nc))
     Y -= np.round(nr / 2).astype(int)
     X -= np.round(nc / 2).astype(int)
-    R = np.sqrt(X ** 2 + Y ** 2)
+    R = np.sqrt(X**2 + Y**2)
     Rmax = np.round(np.max(R.shape) / 2.0)
     maskout = R < Rmax
     t = maskout * (1 - np.cos(np.pi * (R - Rmax - 2 * bordercrop) / bordercrop)) / 2.0
@@ -96,7 +96,8 @@ def smooth_image(input_image, filter_size=3):
     """
     return filters.median_filter(input_image, filter_size)
 
-def smooth1d(x,window_len=11,window='hanning'):
+
+def smooth1d(x, window_len=11, window="hanning"):
     """
     Smooth the data using a window with requested size.
 
@@ -143,27 +144,29 @@ def smooth1d(x,window_len=11,window='hanning'):
     if x.size < window_len:
         raise ValueError("Input vector needs to be bigger than window size.")
 
-    if window_len<3:
+    if window_len < 3:
         return x
 
-    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError( "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
-
+    if not window in ["flat", "hanning", "hamming", "bartlett", "blackman"]:
+        raise ValueError(
+            "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
+        )
 
     _window_funcs = {
-        'hanning': np.hanning,
-        'hamming': np.hamming,
-        'bartlett': np.bartlett,
-        'blackman': np.blackman,
+        "hanning": np.hanning,
+        "hamming": np.hamming,
+        "bartlett": np.bartlett,
+        "blackman": np.blackman,
     }
-    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
-    if window == 'flat':  # moving average
-        w=np.ones(window_len,'d')
+    s = np.r_[x[window_len - 1 : 0 : -1], x, x[-2 : -window_len - 1 : -1]]
+    if window == "flat":  # moving average
+        w = np.ones(window_len, "d")
     else:
-        w=_window_funcs[window](window_len)
+        w = _window_funcs[window](window_len)
 
-    y=np.convolve(w/w.sum(),s,mode='valid')
+    y = np.convolve(w / w.sum(), s, mode="valid")
     return y
+
 
 def gauss_kern(size, sizey=None):
     """
@@ -193,9 +196,10 @@ def gauss_kern(size, sizey=None):
         sizey = size
     else:
         sizey = int(sizey)
-    x, y = np.mgrid[-size:size+1, -sizey:sizey+1]
-    g = np.exp(-(x**2/float(size)+y**2/float(sizey)))
+    x, y = np.mgrid[-size : size + 1, -sizey : sizey + 1]
+    g = np.exp(-(x**2 / float(size) + y**2 / float(sizey)))
     return g / g.sum()
+
 
 def smooth2d(im, n, ny=None):
     """
@@ -221,8 +225,9 @@ def smooth2d(im, n, ny=None):
     Adapted from http://scipy.org/Cookbook/SignalSmooth
     """
     g = gauss_kern(n, sizey=ny)
-    improc = signal.convolve(im,g, mode='valid')
+    improc = signal.convolve(im, g, mode="valid")
     return improc
+
 
 def sharpening_image(input_image, filter_size=3, alpha=30):
     """
@@ -290,14 +295,20 @@ def replace_bad(input_stack, list_bad=[], temporary=False):
     if list_bad == []:
         raise ValueError("List of bad projections is empty")
     else:
-        list_bad = [int(ii) for ii in list_bad] # to garantee each element is int
+        list_bad = [int(ii) for ii in list_bad]  # to garantee each element is int
         for ii in list_bad:
-            print("Temporary replacement of bad projection: {} (starts at 0)".format(int(ii)))
+            print(
+                "Temporary replacement of bad projection: {} (starts at 0)".format(
+                    int(ii)
+                )
+            )
             if temporary:
                 input_stack[int(ii)] = input_stack[int(ii) - 1]
             else:
-                input_stack[int(ii)] = (input_stack[int(ii) - 1] + input_stack[int(ii) + 1]) / 2
-        #print("\r")
+                input_stack[int(ii)] = (
+                    input_stack[int(ii) - 1] + input_stack[int(ii) + 1]
+                ) / 2
+        # print("\r")
     return input_stack
 
 
@@ -482,7 +493,7 @@ def radtap(X, Y, tappix, zerorad):
     """
     tau = 2 * tappix  # period of cosine function (only half a period is used)
 
-    R = np.sqrt(X ** 2 + Y ** 2)
+    R = np.sqrt(X**2 + Y**2)
     taperfunc = 0.5 * (1 + np.cos(2 * np.pi * (R - zerorad - tau / 2.0) / tau))
     taperfunc = (R > zerorad + tau / 2.0) * 1.0 + taperfunc * (R <= zerorad + tau / 2)
     taperfunc = taperfunc * (R >= zerorad)
@@ -682,7 +693,7 @@ def mask_borders(imgarray, mask_array, threshold=4e-7):
     """
     # mask borders
     gr, gc = np.gradient(imgarray)
-    mask_border = np.sqrt(gr ** 2 + gc ** 2) > threshold
+    mask_border = np.sqrt(gr**2 + gc**2) > threshold
     mask_array *= ~mask_border
     return mask_array
 

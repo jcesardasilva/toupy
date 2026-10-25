@@ -102,7 +102,9 @@ class FourierShellCorr:
         elif self.img1.ndim == 3:
             self.ns, self.nr, self.nc = self.n
         else:
-            raise SystemExit("Number of dimensions is different from 2 or 3. Exiting...")
+            raise SystemExit(
+                "Number of dimensions is different from 2 or 3. Exiting..."
+            )
         self.Y, self.X = np.indices((self.nr, self.nc))
         self.Y -= np.round(self.nr / 2).astype(int)
         self.X -= np.round(self.nc / 2).astype(int)
@@ -182,9 +184,7 @@ class FourierShellCorr:
         elif self.ndim == 3:
             z = _axis(self.ns)
             sumsquares = (
-                z[:, None, None] ** 2
-                + y[None, :, None] ** 2
-                + x[None, None, :] ** 2
+                z[:, None, None] ** 2 + y[None, :, None] ** 2 + x[None, None, :] ** 2
             )
 
         index = np.round(np.sqrt(sumsquares)).astype(np.int32)
@@ -207,9 +207,9 @@ class FourierShellCorr:
         if self.ndim == 2:
             window = np.outer(np.hanning(self.nr), np.hanning(self.nc))
         elif self.ndim == 3:
-            w1 = np.hanning(self.ns)   # (ns,)
-            w2 = np.hanning(self.nr)   # (nr,)
-            w3 = np.hanning(self.nc)   # (nc,)
+            w1 = np.hanning(self.ns)  # (ns,)
+            w2 = np.hanning(self.nr)  # (nr,)
+            w3 = np.hanning(self.nc)  # (nc,)
             # einsum outer product: result shape (ns, nr, nc)
             window = np.einsum("i,j,k->ijk", w1, w2, w3)
         else:
@@ -229,7 +229,7 @@ class FourierShellCorr:
             to ``0`` over ``apod_width`` pixels at the edges.
         """
         self.axial_apod = self.apod_width
-        R = np.sqrt(self.X ** 2 + self.Y ** 2)
+        R = np.sqrt(self.X**2 + self.Y**2)
         Rmax = np.round(np.max(R.shape) / 2.0)
         maskout = R < Rmax
         t = (
@@ -347,18 +347,19 @@ class FourierShellCorr:
                 # transverse_apodization now returns [outer(w_row,w_col),
                 #                                     outer(w_sli,w_col)]
                 window3D = self.transverse_apodization()
-                w_axial  = window3D[0]   # (nr, nc)  — axial plane taper
-                w_sagit  = window3D[1]   # (ns, nc)  — sagittal plane taper
+                w_axial = window3D[0]  # (nr, nc)  — axial plane taper
+                w_sagit = window3D[1]  # (ns, nc)  — sagittal plane taper
 
                 # circle3D: (ns, nr, nc) — broadcast circular mask along slices
-                circle3D = circular_region[None, :, :]   # (1, nr, nc) → broadcast
+                circle3D = circular_region[None, :, :]  # (1, nr, nc) → broadcast
 
                 # Combine: circle × axial-taper (both shape (nr,nc)) then
                 # multiply sagittal taper broadcast over the row axis.
                 # All operations are fully vectorized / in-place where possible.
                 self.window = (
-                    circle3D * w_axial[None, :, :]        # (ns, nr, nc)
-                    * w_sagit[:, None, :]                  # (ns,  1, nc) broadcast
+                    circle3D
+                    * w_axial[None, :, :]  # (ns, nr, nc)
+                    * w_sagit[:, None, :]  # (ns,  1, nc) broadcast
                 )
                 print("Done. Time elapsed: {:.02f}s".format(time.time() - p0))
 
@@ -378,31 +379,31 @@ class FourierShellCorr:
         print("Calling method fouriercorr from the class FourierShellCorr")
         p1 = time.time()
 
-        F1 = fastfftn(self.img1 * self.window)   # FFT of image 1
-        F2 = fastfftn(self.img2 * self.window)   # FFT of image 2
+        F1 = fastfftn(self.img1 * self.window)  # FFT of image 1
+        F2 = fastfftn(self.img2 * self.window)  # FFT of image 2
 
-        index    = self.ringthickness()           # per-voxel shell index
+        index = self.ringthickness()  # per-voxel shell index
         f, fnyquist = self.nyquist()
 
         # Flatten index and FFT arrays once — avoids repeated ravel inside loop
         index_flat = index.ravel()
-        F1_flat    = F1.ravel()
-        F2_flat    = F2.ravel()
+        F1_flat = F1.ravel()
+        F2_flat = F2.ravel()
 
         # Pre-sort by shell index so we can use np.searchsorted for fast slicing
         sort_order = np.argsort(index_flat, kind="stable")
         index_sorted = index_flat[sort_order]
-        F1_sorted    = F1_flat[sort_order]
-        F2_sorted    = F2_flat[sort_order]
+        F1_sorted = F1_flat[sort_order]
+        F2_sorted = F2_flat[sort_order]
 
         # Initialise output arrays
-        C   = np.empty(len(f), dtype=np.float32)
-        C1  = np.empty(len(f), dtype=np.float32)
-        C2  = np.empty(len(f), dtype=np.float32)
+        C = np.empty(len(f), dtype=np.float32)
+        C1 = np.empty(len(f), dtype=np.float32)
+        C2 = np.empty(len(f), dtype=np.float32)
         npts = np.zeros(len(f), dtype=np.float32)
 
         half_thick = self.ring_thick / 2.0
-        use_thick  = self.ring_thick > 1
+        use_thick = self.ring_thick > 1
 
         print("Calculating the correlation...")
         for ii in tqdm(f, desc="Computing FSC shells"):
@@ -411,7 +412,7 @@ class FourierShellCorr:
                 lo = np.searchsorted(index_sorted, ii - half_thick, side="left")
                 hi = np.searchsorted(index_sorted, ii + half_thick, side="right")
             else:
-                lo = np.searchsorted(index_sorted, ii,     side="left")
+                lo = np.searchsorted(index_sorted, ii, side="left")
                 hi = np.searchsorted(index_sorted, ii + 1, side="left")
 
             f1 = F1_sorted[lo:hi]
@@ -419,9 +420,9 @@ class FourierShellCorr:
 
             # Cross-correlation and auto-correlations
             # np.vdot operates on flattened arrays and conjugates the first arg
-            C[ii]  = abs(np.vdot(f2, f1))          # Σ f1 · conj(f2)
-            C1[ii] = abs(np.vdot(f1, f1))           # Σ |f1|²
-            C2[ii] = abs(np.vdot(f2, f2))           # Σ |f2|²
+            C[ii] = abs(np.vdot(f2, f1))  # Σ f1 · conj(f2)
+            C1[ii] = abs(np.vdot(f1, f1))  # Σ |f1|²
+            C2[ii] = abs(np.vdot(f2, f2))  # Σ |f2|²
             npts[ii] = hi - lo
 
         # ------------------------------------------------------------------
@@ -438,7 +439,6 @@ class FourierShellCorr:
         print("Done. Time elapsed: {:.02f}s".format(time.time() - p1))
 
         return FSC, T
-
 
     def ssnr(self):
         """
@@ -540,8 +540,15 @@ class FSCPlot(FourierShellCorr):
         A 1-dimensional array containing the threshold curve
     """
 
-    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20,
-                 pixel_size=1.0):
+    def __init__(
+        self,
+        img1,
+        img2,
+        threshold="halfbit",
+        ring_thick=1,
+        apod_width=20,
+        pixel_size=1.0,
+    ):
         print("calling the class FSCplot")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
         self.pixel_size = float(pixel_size)
@@ -556,13 +563,13 @@ class FSCPlot(FourierShellCorr):
         above = self.FSC.real > self.T
         if np.any(above):
             idx = int(np.where(above)[0][-1])
-            self.fn_res          = float(self.f[idx] / self.fnyquist)
-            self.fn_res_cpx      = self.fn_res * 0.5          # cycles/pixel
+            self.fn_res = float(self.f[idx] / self.fnyquist)
+            self.fn_res_cpx = self.fn_res * 0.5  # cycles/pixel
             self.resolution_full = self.pixel_size / self.fn_res_cpx
             self.resolution_half = self.resolution_full / 2.0
         else:
-            self.fn_res          = None
-            self.fn_res_cpx      = None
+            self.fn_res = None
+            self.fn_res_cpx = None
             self.resolution_full = None
             self.resolution_half = None
 
@@ -589,15 +596,19 @@ class FSCPlot(FourierShellCorr):
             ``None`` if FSC never exceeds the threshold.
         """
         print("calling method plot from the class FSCplot")
-        fn  = self.f / self.fnyquist
+        fn = self.f / self.fnyquist
         FSC = self.FSC.real
-        T   = self.T
+        T = self.T
         show_fsc_curve(fn, FSC, T, self.snrt, self.img1.ndim)
         if self.fn_res_cpx is not None:
-            print(f"  Resolution (full period) : {self.resolution_full:.6g} "
-                  f"[in units of pixel_size]")
-            print(f"  Resolution (half period) : {self.resolution_half:.6g} "
-                  f"[in units of pixel_size]")
+            print(
+                f"  Resolution (full period) : {self.resolution_full:.6g} "
+                f"[in units of pixel_size]"
+            )
+            print(
+                f"  Resolution (half period) : {self.resolution_half:.6g} "
+                f"[in units of pixel_size]"
+            )
         return fn, T, FSC, self.fn_res_cpx
 
 
@@ -647,8 +658,15 @@ class FRCPlot(FSCPlot):
        criteria", Journal of Structural Biology 151, 250-262 (2005).
     """
 
-    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20,
-                 pixel_size=1.0):
+    def __init__(
+        self,
+        img1,
+        img2,
+        threshold="halfbit",
+        ring_thick=1,
+        apod_width=20,
+        pixel_size=1.0,
+    ):
         if np.asarray(img1).ndim != 2 or np.asarray(img2).ndim != 2:
             raise ValueError("FRCPlot requires 2-D images (use FSCPlot for 3-D).")
         print("Calling the class FRCPlot")
@@ -673,16 +691,20 @@ class FRCPlot(FSCPlot):
             ``None`` if FRC never exceeds the threshold.
         """
         print("Calling method plot from the class FRCPlot")
-        fn  = self.f / self.fnyquist
+        fn = self.f / self.fnyquist
         FRC = self.FSC.real
-        T   = self.T
+        T = self.T
         # Reuse show_fsc_curve but relabel via the ndim=2 path
         show_fsc_curve(fn, FRC, T, self.snrt, ndim=2)
         if self.fn_res_cpx is not None:
-            print(f"  Resolution (full period) : {self.resolution_full:.6g} "
-                  f"[in units of pixel_size]")
-            print(f"  Resolution (half period) : {self.resolution_half:.6g} "
-                  f"[in units of pixel_size]")
+            print(
+                f"  Resolution (full period) : {self.resolution_full:.6g} "
+                f"[in units of pixel_size]"
+            )
+            print(
+                f"  Resolution (half period) : {self.resolution_half:.6g} "
+                f"[in units of pixel_size]"
+            )
         return fn, T, FRC, self.fn_res_cpx
 
 
@@ -770,21 +792,28 @@ class SSNRPlot(FourierShellCorr):
        criteria", Journal of Structural Biology 151, 250-262 (2005).
     """
 
-    def __init__(self, img1, img2, threshold="halfbit", ring_thick=1, apod_width=20,
-                 pixel_size=1.0):
+    def __init__(
+        self,
+        img1,
+        img2,
+        threshold="halfbit",
+        ring_thick=1,
+        apod_width=20,
+        pixel_size=1.0,
+    ):
         print("Calling the class SSNRPlot")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
         self.pixel_size = float(pixel_size)
 
         # Compute FSC and the FSC threshold curve in a single call
-        self.FSC, self.T    = FourierShellCorr.fouriercorr(self)
+        self.FSC, self.T = FourierShellCorr.fouriercorr(self)
         self.f, self.fnyquist = FourierShellCorr.nyquist(self)
 
         eps = np.spacing(1)
         fsc = self.FSC.real
 
         # SSNR from the FSC curve
-        self.SSNR   = 2.0 * fsc    / np.maximum(1.0 - fsc,    eps)
+        self.SSNR = 2.0 * fsc / np.maximum(1.0 - fsc, eps)
 
         # Frequency-dependent SSNR threshold derived from T(r)
         self.SSNR_T = 2.0 * self.T / np.maximum(1.0 - self.T, eps)
@@ -794,17 +823,17 @@ class SSNRPlot(FourierShellCorr):
         # fn_res_cpx    — in cycles/pixel  (= fn_res * 0.5)
         # resolution_full — full grating period in physical units (van Heel convention)
         # resolution_half — half-period / feature size in physical units (Rayleigh convention)
-        fn    = self.f / self.fnyquist
+        fn = self.f / self.fnyquist
         above = self.SSNR > self.SSNR_T
         if np.any(above):
             idx = int(np.where(above)[0][-1])
-            self.fn_res          = float(fn[idx])
-            self.fn_res_cpx      = self.fn_res * 0.5          # cycles/pixel
+            self.fn_res = float(fn[idx])
+            self.fn_res_cpx = self.fn_res * 0.5  # cycles/pixel
             self.resolution_full = self.pixel_size / self.fn_res_cpx
             self.resolution_half = self.resolution_full / 2.0
         else:
-            self.fn_res          = None
-            self.fn_res_cpx      = None
+            self.fn_res = None
+            self.fn_res_cpx = None
             self.resolution_full = None
             self.resolution_half = None
 
@@ -841,21 +870,27 @@ class SSNRPlot(FourierShellCorr):
             in physical units.  ``None`` if SSNR never exceeds the threshold.
         """
         print("Calling method plot from the class SSNRPlot")
-        fn     = self.f / self.fnyquist
-        FSC    = self.FSC.real
-        SSNR   = self.SSNR
+        fn = self.f / self.fnyquist
+        FSC = self.FSC.real
+        SSNR = self.SSNR
         SSNR_T = self.SSNR_T
         show_ssnr_curve(fn, FSC, SSNR, SSNR_T, self.snrt, self.ndim)
         if self.fn_res_cpx is not None:
-            print(f"  Resolution (full period) : {self.resolution_full:.6g} "
-                  f"[in units of pixel_size]")
-            print(f"  Resolution (half period) : {self.resolution_half:.6g} "
-                  f"[in units of pixel_size]")
+            print(
+                f"  Resolution (full period) : {self.resolution_full:.6g} "
+                f"[in units of pixel_size]"
+            )
+            print(
+                f"  Resolution (half period) : {self.resolution_half:.6g} "
+                f"[in units of pixel_size]"
+            )
         return fn, FSC, SSNR, SSNR_T, self.fn_res_cpx
+
 
 # ---------------------------------------------------------------------------
 # RandomFSC
 # ---------------------------------------------------------------------------
+
 
 class RandomFSC(FourierShellCorr):
     """
@@ -975,9 +1010,9 @@ class RandomFSC(FourierShellCorr):
     ):
         print("Calling the class RandomFSC")
         super().__init__(img1, img2, threshold, ring_thick, apod_width)
-        self.fsc_cutoff  = float(fsc_cutoff)
+        self.fsc_cutoff = float(fsc_cutoff)
         self.random_seed = random_seed
-        self.pixel_size  = float(pixel_size)
+        self.pixel_size = float(pixel_size)
         self.max_transition_shells = max_transition_shells
 
         # Compute observed FSC and threshold
@@ -992,12 +1027,12 @@ class RandomFSC(FourierShellCorr):
         # Shells masked across the randomization transition are np.nan and are
         # excluded explicitly; negative FSC_corr can never exceed T (T > 0).
         fsc_corr = np.asarray(self.FSC_corr).real
-        valid    = np.isfinite(fsc_corr)
-        above    = valid & (np.where(valid, fsc_corr, -np.inf) > np.asarray(self.T))
+        valid = np.isfinite(fsc_corr)
+        above = valid & (np.where(valid, fsc_corr, -np.inf) > np.asarray(self.T))
         if np.any(above):
             idx = int(np.where(above)[0][-1])
-            self.fn_res          = float(self.f[idx] / self.fnyquist)
-            self.fn_res_cpx      = self.fn_res * 0.5
+            self.fn_res = float(self.f[idx] / self.fnyquist)
+            self.fn_res_cpx = self.fn_res * 0.5
             self.resolution_full = self.pixel_size / self.fn_res_cpx
             self.resolution_half = self.resolution_full / 2.0
             if idx <= self.cutoff_shell:
@@ -1012,28 +1047,36 @@ class RandomFSC(FourierShellCorr):
                     stacklevel=2,
                 )
         else:
-            self.fn_res          = None
-            self.fn_res_cpx      = None
+            self.fn_res = None
+            self.fn_res_cpx = None
             self.resolution_full = None
             self.resolution_half = None
 
         print(f"  Phase-randomization cutoff shell : {self.cutoff_shell}")
         # both units, since plot() marks the cutoff on a "/ Nyquist" axis while
         # this printed cycles/pixel: Nyquist is 0.5 cycles/pixel, so they differ by 2
-        print(f"  f_cutoff (cycles/pixel)          : "
-              f"{self.cutoff_shell / self.fnyquist * 0.5:.4f}"
-              f"  ({self.cutoff_shell / self.fnyquist:.4f} x Nyquist)")
+        print(
+            f"  f_cutoff (cycles/pixel)          : "
+            f"{self.cutoff_shell / self.fnyquist * 0.5:.4f}"
+            f"  ({self.cutoff_shell / self.fnyquist:.4f} x Nyquist)"
+        )
         if self.transition_shells > 0:
-            print(f"  Transition shells masked (NaN)   : {self.transition_shells} "
-                  f"(shells {self.cutoff_shell + 1}"
-                  f"-{self.cutoff_shell + self.transition_shells})")
+            print(
+                f"  Transition shells masked (NaN)   : {self.transition_shells} "
+                f"(shells {self.cutoff_shell + 1}"
+                f"-{self.cutoff_shell + self.transition_shells})"
+            )
         else:
             print("  Transition shells masked (NaN)   : 0")
         if self.fn_res_cpx is not None:
-            print(f"  Resolution FSC_corr (full period): {self.resolution_full:.6g} "
-                  f"[in units of pixel_size]")
-            print(f"  Resolution FSC_corr (half period): {self.resolution_half:.6g} "
-                  f"[in units of pixel_size]")
+            print(
+                f"  Resolution FSC_corr (full period): {self.resolution_full:.6g} "
+                f"[in units of pixel_size]"
+            )
+            print(
+                f"  Resolution FSC_corr (half period): {self.resolution_half:.6g} "
+                f"[in units of pixel_size]"
+            )
 
     def _find_cutoff_shell(self):
         """
@@ -1078,8 +1121,8 @@ class RandomFSC(FourierShellCorr):
             in cycles/pixel (FFT layout).
         """
         freqs = [_fftfreq(n) for n in shape]
-        grids = np.meshgrid(*freqs, indexing='ij')
-        return np.sqrt(sum(g ** 2 for g in grids))
+        grids = np.meshgrid(*freqs, indexing="ij")
+        return np.sqrt(sum(g**2 for g in grids))
 
     @staticmethod
     def _negate_frequency(a):
@@ -1190,7 +1233,7 @@ class RandomFSC(FourierShellCorr):
         F1_sorted = F1_flat[sort_order]
         F2_sorted = F2_flat[sort_order]
 
-        C  = np.empty(len(f), dtype=np.float32)
+        C = np.empty(len(f), dtype=np.float32)
         C1 = np.empty(len(f), dtype=np.float32)
         C2 = np.empty(len(f), dtype=np.float32)
 
@@ -1202,13 +1245,13 @@ class RandomFSC(FourierShellCorr):
                 lo = np.searchsorted(index_sorted, ii - half_thick, side="left")
                 hi = np.searchsorted(index_sorted, ii + half_thick, side="right")
             else:
-                lo = np.searchsorted(index_sorted, ii,     side="left")
+                lo = np.searchsorted(index_sorted, ii, side="left")
                 hi = np.searchsorted(index_sorted, ii + 1, side="left")
 
             f1 = F1_sorted[lo:hi]
             f2 = F2_sorted[lo:hi]
 
-            C[ii]  = abs(np.vdot(f2, f1))
+            C[ii] = abs(np.vdot(f2, f1))
             C1[ii] = abs(np.vdot(f1, f1))
             C2[ii] = abs(np.vdot(f2, f2))
 
@@ -1244,10 +1287,10 @@ class RandomFSC(FourierShellCorr):
             the randomized correlation never decays — severe overfitting or a
             badly placed cutoff.
         """
-        nshells  = len(self.f)
-        start    = self.cutoff_shell + 1
+        nshells = len(self.f)
+        start = self.cutoff_shell + 1
         fsc_rand = np.asarray(self.FSC_rand, dtype=np.float64).real
-        T        = np.asarray(self.T, dtype=np.float64)
+        T = np.asarray(self.T, dtype=np.float64)
 
         cap = self.max_transition_shells
         if cap is None:
@@ -1311,7 +1354,7 @@ class RandomFSC(FourierShellCorr):
         # randomization transition and the ratio is not yet meaningful
         self.transition_shells = self._find_transition_shells()
         if self.transition_shells > 0:
-            fsc_corr[stop:stop + self.transition_shells] = np.nan
+            fsc_corr[stop : stop + self.transition_shells] = np.nan
 
         self.FSC_corr = fsc_corr
 
@@ -1338,11 +1381,11 @@ class RandomFSC(FourierShellCorr):
             Threshold curve.
         """
         print("Calling method plot from the class RandomFSC")
-        fn       = self.f / self.fnyquist
-        fsc_obs  = np.asarray(self.FSC_obs).real
+        fn = self.f / self.fnyquist
+        fsc_obs = np.asarray(self.FSC_obs).real
         fsc_rand = np.asarray(self.FSC_rand).real
         fsc_corr = np.asarray(self.FSC_corr).real
-        T        = np.asarray(self.T)
+        T = np.asarray(self.T)
         cutoff_fn = self.cutoff_shell / self.fnyquist
         show_random_fsc_curve(fn, fsc_obs, fsc_rand, fsc_corr, T, cutoff_fn, self.ndim)
         return fn, fsc_obs, fsc_rand, fsc_corr, T

@@ -39,6 +39,7 @@ fdk_weight, fdk_filter, fdk_backproject, fdk_reconstruct
 
 # standard library
 import warnings
+
 warnings.filterwarnings("ignore")
 
 # third-party
@@ -64,6 +65,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # Step 1 — Cosine weighting
 # ---------------------------------------------------------------------------
+
 
 def fdk_weight(projections: ndarray, geometry: ConeBeamGeometry) -> ndarray:
     """
@@ -119,14 +121,15 @@ def fdk_weight(projections: ndarray, geometry: ConeBeamGeometry) -> ndarray:
     v = geometry.v_coords()  # shape (n_v,)
     SOD = geometry.SOD
     # weight map shape (n_v, n_u)
-    uu, vv = np.meshgrid(u, v, indexing='xy')
-    w = SOD / np.sqrt(SOD ** 2 + uu ** 2 + vv ** 2)
+    uu, vv = np.meshgrid(u, v, indexing="xy")
+    w = SOD / np.sqrt(SOD**2 + uu**2 + vv**2)
     return projections * w[np.newaxis, :, :]
 
 
 # ---------------------------------------------------------------------------
 # Step 2 — Ramp filtering
 # ---------------------------------------------------------------------------
+
 
 def fdk_filter(
     projections_weighted: ndarray,
@@ -175,10 +178,12 @@ def fdk_filter(
     geometry of the subsequent back-projection differs.
     """
     from scipy.fft import fft, ifft
+
     n_angles, n_v, n_u = projections_weighted.shape
     # compute_filter returns shape (projection_size_padded, 1)
-    fourier_filter = compute_filter(n_u, filter_type=filter_type,
-                                   derivatives=False, freqcutoff=freqcutoff)
+    fourier_filter = compute_filter(
+        n_u, filter_type=filter_type, derivatives=False, freqcutoff=freqcutoff
+    )
     pad_size = fourier_filter.shape[0]  # next power of 2 >= 2*n_u
 
     # Reshape all rows into a 2D array: (n_angles*n_v, n_u)
@@ -186,12 +191,12 @@ def fdk_filter(
 
     # Zero-pad each row to pad_size
     pad_width = pad_size - n_u
-    rows_padded = np.pad(rows, ((0, 0), (0, pad_width)), mode='constant')
+    rows_padded = np.pad(rows, ((0, 0), (0, pad_width)), mode="constant")
 
     # Apply filter in frequency domain
-    rows_fft = fft(rows_padded, axis=1)                    # (n_angles*n_v, pad_size)
-    rows_fft *= fourier_filter.ravel()[np.newaxis, :]      # broadcast (1, pad_size)
-    rows_filtered = np.real(ifft(rows_fft, axis=1))        # (n_angles*n_v, pad_size)
+    rows_fft = fft(rows_padded, axis=1)  # (n_angles*n_v, pad_size)
+    rows_fft *= fourier_filter.ravel()[np.newaxis, :]  # broadcast (1, pad_size)
+    rows_filtered = np.real(ifft(rows_fft, axis=1))  # (n_angles*n_v, pad_size)
 
     # Trim back to n_u and reshape
     result = rows_filtered[:, :n_u].reshape(n_angles, n_v, n_u)
@@ -201,6 +206,7 @@ def fdk_filter(
 # ---------------------------------------------------------------------------
 # Step 3 — 3-D divergent-ray back-projection
 # ---------------------------------------------------------------------------
+
 
 def fdk_backproject(
     projections_filtered: ndarray,
@@ -284,14 +290,16 @@ def fdk_backproject(
 
     # Centred object-space coordinate grids (N x N transaxial, n_v axial)
     coords = (np.arange(N) - (N - 1) / 2.0) * p
-    x, y = np.meshgrid(coords, coords, indexing='xy')  # x varies along cols, y along rows
+    x, y = np.meshgrid(
+        coords, coords, indexing="xy"
+    )  # x varies along cols, y along rows
 
     # Object-space axial (z) coordinates — pitch is effective_pixel_size, not det_pixel_size
     z_coords = (np.arange(n_v) - (n_v - 1) / 2.0) * p  # shape (n_v,)
 
     # Detector coordinate arrays (used only as the interpolation grid)
-    u_det = geometry.u_coords()   # shape (n_u,)
-    v_det = geometry.v_coords()   # shape (n_v,)
+    u_det = geometry.u_coords()  # shape (n_u,)
+    v_det = geometry.v_coords()  # shape (n_v,)
 
     angles_rad = np.deg2rad(geometry.angles)
 
@@ -312,15 +320,17 @@ def fdk_backproject(
         # z_coords uses effective_pixel_size (object space), NOT det_pixel_size.
         # Using v_det here would inflate v_d by the magnification factor.
         inv_U = SDD / U  # (N, N)
-        v_d = z_coords[:, np.newaxis, np.newaxis] * inv_U[np.newaxis, :, :]  # (n_v, N, N)
-        u_d = u_d_2d[np.newaxis, :, :] * np.ones((n_v, 1, 1))                # (n_v, N, N)
+        v_d = (
+            z_coords[:, np.newaxis, np.newaxis] * inv_U[np.newaxis, :, :]
+        )  # (n_v, N, N)
+        u_d = u_d_2d[np.newaxis, :, :] * np.ones((n_v, 1, 1))  # (n_v, N, N)
 
         # Build interpolator for this projection
         # RegularGridInterpolator expects points as (rows, cols) = (v_det, u_det)
         interp = RegularGridInterpolator(
             (v_det, u_det),
-            projections_filtered[i_angle],   # shape (n_v, n_u)
-            method='linear',
+            projections_filtered[i_angle],  # shape (n_v, n_u)
+            method="linear",
             bounds_error=False,
             fill_value=0.0,
         )
@@ -340,6 +350,7 @@ def fdk_backproject(
 # ---------------------------------------------------------------------------
 # High-level pipeline
 # ---------------------------------------------------------------------------
+
 
 def fdk_reconstruct(
     projections: ndarray,
@@ -428,7 +439,8 @@ def fdk_reconstruct(
         if not CUDA_AVAILABLE:
             warnings.warn(
                 "CuPy unavailable — falling back to CPU FDK.",
-                UserWarning, stacklevel=2,
+                UserWarning,
+                stacklevel=2,
             )
         # else: CUDA FDK not yet implemented, fall through to CPU
 

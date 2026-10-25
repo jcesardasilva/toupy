@@ -26,23 +26,25 @@ from toupy.tomo.geometry import ConeBeamGeometry
 from toupy.tomo.cone_projector import cone_project
 from toupy.tomo.fdk import fdk_weight, fdk_filter, fdk_backproject, fdk_reconstruct
 from toupy.tomo.tomorecons import fdk_tomo_recons
-from toupy.registration.cone_registration import ConeBeamRegistration, rebin_fan_to_parallel
-
+from toupy.registration.cone_registration import (
+    ConeBeamRegistration,
+    rebin_fan_to_parallel,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 2.  Acquisition geometry
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Small grid for fast execution in this demo (~2 min on a laptop CPU)
-N_PHANTOM = 64    # transaxial voxels
-N_V       = 48    # axial (height) voxels / detector rows
-N_U       = 64    # detector columns
-N_ANGLES  = 180   # projection angles over 360°
+N_PHANTOM = 64  # transaxial voxels
+N_V = 48  # axial (height) voxels / detector rows
+N_U = 64  # detector columns
+N_ANGLES = 180  # projection angles over 360°
 
 # Physical units: millimetres
-SOD = 500.0          # source-to-object distance
-SDD = 1000.0         # source-to-detector distance
-DET_PIXEL = 0.5      # detector pixel pitch [mm]
+SOD = 500.0  # source-to-object distance
+SDD = 1000.0  # source-to-detector distance
+DET_PIXEL = 0.5  # detector pixel pitch [mm]
 
 angles = np.linspace(0, 360, N_ANGLES, endpoint=False)
 
@@ -71,12 +73,12 @@ print()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 print("Building 3-D Shepp-Logan phantom …")
-phantom = phantom3d(N=N_PHANTOM, n_v=N_V)       # shape (n_v, N, N)
+phantom = phantom3d(N=N_PHANTOM, n_v=N_V)  # shape (n_v, N, N)
 print("  phantom shape:", phantom.shape)
 
 # cone_project expects volume shape (n_v, N, N)
 print("Forward projecting (this may take ~1-2 min on CPU) …")
-projections = cone_project(phantom, geom)        # shape (n_angles, n_v, n_u)
+projections = cone_project(phantom, geom)  # shape (n_angles, n_v, n_u)
 print("  projections shape:", projections.shape)
 print()
 
@@ -89,7 +91,7 @@ reg = ConeBeamRegistration(geom)
 
 # Horizontal CoR estimation from the central detector row
 # (sinogram shape must be (n_u, n_angles))
-central_sinogram = projections[:, N_V // 2, :].T    # (n_u, n_angles)
+central_sinogram = projections[:, N_V // 2, :].T  # (n_u, n_angles)
 cor_shift = reg.estimate_cor(central_sinogram)
 print("Centre-of-rotation estimate")
 print("  CoR shift (object voxels): {:.4f}".format(cor_shift))
@@ -133,13 +135,13 @@ print()
 print("Fan-to-parallel rebinning of the central detector row …")
 
 # Central row: shape (n_angles, n_u)
-central_row = projections[:, N_V // 2, :]   # (n_angles, n_u)
+central_row = projections[:, N_V // 2, :]  # (n_angles, n_u)
 
 # Rebin — returns parallel sinogram and coordinate arrays
 sino_par, s_coords, phi_deg = rebin_fan_to_parallel(
     central_row,
     geom,
-    average_redundant=True,   # average the two views of each line in 360° scan
+    average_redundant=True,  # average the two views of each line in 360° scan
 )
 # sino_par : (n_u, n_phi),  each column is one parallel projection angle
 # s_coords : (n_u,)  offset axis [mm]
@@ -193,7 +195,7 @@ print("One-call fdk_reconstruct …")
 volume = fdk_reconstruct(
     projections,
     geom,
-    filter_type="shepp-logan",   # try 'ram-lak', 'hann', 'hamming', 'cosine'
+    filter_type="shepp-logan",  # try 'ram-lak', 'hann', 'hamming', 'cosine'
     freqcutoff=1.0,
     output_size=N_PHANTOM,
     cuda=False,
@@ -215,8 +217,8 @@ volume_hl = fdk_tomo_recons(
     filtertype="ram-lak",
     freqcutoff=1.0,
     output_size=N_PHANTOM,
-    circle=False,        # set True to apply a cylindrical mask
-    showrecons=False,    # set True to pop up the central-slice figure
+    circle=False,  # set True to apply a cylindrical mask
+    showrecons=False,  # set True to pop up the central-slice figure
     colormap="bone",
     vmin_plot=None,
     vmax_plot=None,
@@ -230,28 +232,31 @@ print()
 # 8.  Visual comparison
 # ═══════════════════════════════════════════════════════════════════════════════
 
-mid_z  = N_V // 2          # central axial slice
-mid_xy = N_PHANTOM // 2    # central coronal slice
+mid_z = N_V // 2  # central axial slice
+mid_xy = N_PHANTOM // 2  # central coronal slice
 
 fig, axes = plt.subplots(2, 4, figsize=(16, 8))
 
 # Row 0 — phantom
 axes[0, 0].imshow(phantom[mid_z], cmap="bone", origin="lower")
 axes[0, 0].set_title("Phantom — axial slice")
-axes[0, 0].set_xlabel("x [voxels]"); axes[0, 0].set_ylabel("y [voxels]")
+axes[0, 0].set_xlabel("x [voxels]")
+axes[0, 0].set_ylabel("y [voxels]")
 
 axes[0, 1].imshow(phantom[:, mid_xy, :], cmap="bone", origin="lower")
 axes[0, 1].set_title("Phantom — coronal slice")
-axes[0, 1].set_xlabel("x [voxels]"); axes[0, 1].set_ylabel("z [voxels]")
+axes[0, 1].set_xlabel("x [voxels]")
+axes[0, 1].set_ylabel("z [voxels]")
 
 axes[0, 2].imshow(projections[0], cmap="bone", origin="lower")
 axes[0, 2].set_title("Projection — angle 0°")
-axes[0, 2].set_xlabel("u [pixels]"); axes[0, 2].set_ylabel("v [pixels]")
+axes[0, 2].set_xlabel("u [pixels]")
+axes[0, 2].set_ylabel("v [pixels]")
 
-axes[0, 3].imshow(projections[:, mid_z, :], cmap="bone", origin="lower",
-                  aspect="auto")
+axes[0, 3].imshow(projections[:, mid_z, :], cmap="bone", origin="lower", aspect="auto")
 axes[0, 3].set_title("Fan sinogram — central row")
-axes[0, 3].set_xlabel("u [pixels]"); axes[0, 3].set_ylabel("angle index")
+axes[0, 3].set_xlabel("u [pixels]")
+axes[0, 3].set_ylabel("angle index")
 
 # Row 1 — reconstruction
 recon_clim = dict(
@@ -261,29 +266,35 @@ recon_clim = dict(
 
 axes[1, 0].imshow(volume[mid_z], cmap="bone", origin="lower", **recon_clim)
 axes[1, 0].set_title("FDK recon — axial slice")
-axes[1, 0].set_xlabel("x [voxels]"); axes[1, 0].set_ylabel("y [voxels]")
+axes[1, 0].set_xlabel("x [voxels]")
+axes[1, 0].set_ylabel("y [voxels]")
 
 axes[1, 1].imshow(volume[:, mid_xy, :], cmap="bone", origin="lower", **recon_clim)
 axes[1, 1].set_title("FDK recon — coronal slice")
-axes[1, 1].set_xlabel("x [voxels]"); axes[1, 1].set_ylabel("z [voxels]")
+axes[1, 1].set_xlabel("x [voxels]")
+axes[1, 1].set_ylabel("z [voxels]")
+
 
 # Difference (phantom and recon may differ slightly in scale — normalise each)
 def norm01(arr):
     lo, hi = arr.min(), arr.max()
     return (arr - lo) / (hi - lo + 1e-12)
 
-diff_axial   = norm01(phantom[mid_z]) - norm01(volume[mid_z])
+
+diff_axial = norm01(phantom[mid_z]) - norm01(volume[mid_z])
 diff_coronal = norm01(phantom[:, mid_xy, :]) - norm01(volume[:, mid_xy, :])
 clim_diff = dict(vmin=-0.1, vmax=0.1, cmap="seismic")
 
-im3 = axes[1, 2].imshow(diff_axial,   origin="lower", **clim_diff)
+im3 = axes[1, 2].imshow(diff_axial, origin="lower", **clim_diff)
 axes[1, 2].set_title("Difference — axial")
-axes[1, 2].set_xlabel("x [voxels]"); axes[1, 2].set_ylabel("y [voxels]")
+axes[1, 2].set_xlabel("x [voxels]")
+axes[1, 2].set_ylabel("y [voxels]")
 plt.colorbar(im3, ax=axes[1, 2])
 
 im4 = axes[1, 3].imshow(diff_coronal, origin="lower", **clim_diff)
 axes[1, 3].set_title("Difference — coronal")
-axes[1, 3].set_xlabel("x [voxels]"); axes[1, 3].set_ylabel("z [voxels]")
+axes[1, 3].set_xlabel("x [voxels]")
+axes[1, 3].set_ylabel("z [voxels]")
 plt.colorbar(im4, ax=axes[1, 3])
 
 plt.tight_layout()
@@ -304,8 +315,7 @@ axes2[0].set_xlabel("u [detector pixels]")
 axes2[0].set_ylabel("source angle index  (0 … 360°)")
 
 extent_par = [phi_deg.min(), phi_deg.max(), s_coords.min(), s_coords.max()]
-axes2[1].imshow(sino_par, cmap="bone", origin="lower", aspect="auto",
-                extent=extent_par)
+axes2[1].imshow(sino_par, cmap="bone", origin="lower", aspect="auto", extent=extent_par)
 axes2[1].set_title("Parallel-beam sinogram — after rebinning")
 axes2[1].set_xlabel("φ [degrees]  (0 … 180°)")
 axes2[1].set_ylabel("s [mm]  (parallel offset)")

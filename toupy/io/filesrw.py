@@ -259,7 +259,7 @@ def _reorient_ptyrimg(input_array):
     elif input_array.ndim == 2:
         output_array = np.fliplr(np.transpose(input_array))
     else:
-        raise ValueError(u"Wrong dimensions for the array")
+        raise ValueError("Wrong dimensions for the array")
     return output_array
 
 
@@ -849,7 +849,7 @@ def convertimageto16bits(input_image, low_cutoff, high_cutoff):
     # Tiff normalization - 16 bits
     imgtiff = input_image - low_cutoff
     imgtiff /= high_cutoff - low_cutoff
-    imgtiff *= 2 ** 16 - 1  # 16 bits
+    imgtiff *= 2**16 - 1  # 16 bits
     return np.uint16(imgtiff)
 
 
@@ -874,7 +874,7 @@ def convertimageto8bits(input_image, low_cutoff, high_cutoff):
     # Tiff normalization - 8 bits
     imgtiff = input_image - low_cutoff
     imgtiff /= high_cutoff - low_cutoff
-    imgtiff *= 2 ** 8 - 1  # 8 bits
+    imgtiff *= 2**8 - 1  # 8 bits
     return np.uint8(imgtiff)
 
 
@@ -898,7 +898,7 @@ def convert16bitstiff(tiffimage, low_cutoff, high_cutoff):
     """
     tiffimage = tiffimage.astype(np.float)
     # Convert to 16 bits
-    tiffimage /= 2 ** 16 - 1
+    tiffimage /= 2**16 - 1
     tiffimage *= high_cutoff - low_cutoff
     tiffimage += low_cutoff
 
@@ -925,7 +925,7 @@ def convert8bitstiff(tiffimage, low_cutoff, high_cutoff):
     """
     tiffimage = tiffimage.astype(np.float)
     # Convert to 8 bits
-    tiffimage /= 2 ** 8 - 1
+    tiffimage /= 2**8 - 1
     tiffimage *= high_cutoff - low_cutoff
     tiffimage += low_cutoff
 
